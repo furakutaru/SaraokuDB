@@ -33,7 +33,9 @@ ENV/
 *.swo
 
 # Database
-data/
+# data/
+data/*
+!data/.gitkeep
 *.db
 *.sqlite3
 
