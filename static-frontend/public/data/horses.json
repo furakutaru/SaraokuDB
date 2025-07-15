@@ -1,7 +1,7 @@
 {
   "metadata": {
     "last_updated": "2025-07-15T09:54:39.846990",
-    "total_horses": 9,
+    "total_horses": 10,
     "average_price": 835555.5555555555
   },
   "horses": [
@@ -211,6 +211,29 @@
       "auction_date": "2025-07-15",
       "created_at": "2025-07-15T09:54:39.847023",
       "updated_at": "2025-07-15T09:54:39.847024"
+    },
+    {
+      "id": 99999,
+      "name": "テスト主取り馬（削除可）",
+      "sex": ["牡", "せん"],
+      "age": [4, 5],
+      "sire": "テストサイアー",
+      "dam": "テストダム",
+      "dam_sire": "テストダムサイアー",
+      "race_record": ["10戦0勝", "12戦0勝"],
+      "weight": [500, 502],
+      "total_prize_start": 0,
+      "total_prize_latest": 1000000,
+      "sold_price": [0, 0, 0],
+      "auction_date": ["2024-07-15", "2025-01-10", "2025-07-15"],
+      "seller": ["オーナー1", "オーナー2"],
+      "disease_tags": "なし",
+      "comment": ["コメント1: 初回出品時の主取り", "コメント2: 2回目主取り", "コメント3: 3回目主取り"],
+      "netkeiba_url": "",
+      "primary_image": "",
+      "created_at": "2024-07-15T00:00:00.000000",
+      "updated_at": "2025-07-15T00:00:00.000000",
+      "unsold_count": 3
     }
   ]
 }

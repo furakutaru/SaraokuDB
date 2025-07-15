@@ -28,6 +28,7 @@ interface Horse {
   netkeiba_url: string;
   created_at: string;
   updated_at: string;
+  unsold_count: number; // 追加: 主取り回数
 }
 
 interface HorseData {
@@ -41,6 +42,10 @@ interface HorseData {
 interface PageProps {
   params: Promise<{ id: string }>;
 }
+
+// --- 追加ユーティリティ ---
+const toArray = (val: any) => Array.isArray(val) ? val : [val];
+const formatManYen = (val: number) => isNaN(val) ? '-' : `${(val/10000).toFixed(1)}万円`;
 
 export default async function HorseDetailPage({ params }: PageProps) {
   const { id } = await params;
@@ -164,10 +169,14 @@ export default async function HorseDetailPage({ params }: PageProps) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <h2 className="text-3xl font-bold text-gray-900">{horse.name}</h2>
-                    <Badge className={getSexColor(horse.sex)}>
-                      {horse.sex} {horse.age}歳
-                    </Badge>
+                    {/* 性別・年齢履歴 */}
+                    {toArray(horse.sex).map((sx, i) => (
+                      <Badge key={i} className={getSexColor(sx)}>
+                        {sx} {toArray(horse.age)[i] ?? ''}歳
+                      </Badge>
+                    ))}
                   </div>
+                  {/* JBISリンクはそのまま */}
                   {horse.netkeiba_url && (
                     <a
                       href={horse.netkeiba_url}
@@ -185,7 +194,7 @@ export default async function HorseDetailPage({ params }: PageProps) {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* 画像 */}
+                  {/* 画像はそのまま */}
                   <div className="flex justify-center">
                     {horse.primary_image ? (
                       <HorseImage 
@@ -210,26 +219,30 @@ export default async function HorseDetailPage({ params }: PageProps) {
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-3">基本情報</h3>
                       <div className="space-y-2 text-sm">
+                        {/* 体重履歴 */}
                         <div className="flex justify-between">
                           <span className="text-gray-600">体重:</span>
-                          <span className="font-medium">{horse.weight}kg</span>
+                          <span className="font-medium">{toArray(horse.weight).join('kg / ')}kg</span>
                         </div>
+                        {/* 販売者履歴 */}
                         <div className="flex justify-between">
                           <span className="text-gray-600">販売者:</span>
-                          <span className="font-medium">{horse.seller || '不明'}</span>
+                          <span className="font-medium">{toArray(horse.seller).join(' / ')}</span>
                         </div>
+                        {/* オークション日履歴 */}
                         <div className="flex justify-between">
                           <span className="text-gray-600">オークション日:</span>
-                          <span className="font-medium">{horse.auction_date}</span>
+                          <span className="font-medium">{toArray(horse.auction_date).join(' / ')}</span>
                         </div>
+                        {/* レース成績履歴 */}
                         <div className="flex justify-between">
                           <span className="text-gray-600">レース成績:</span>
-                          <span className="font-medium">{horse.race_record || '不明'}</span>
+                          <span className="font-medium">{toArray(horse.race_record).join(' / ')}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* 血統情報 */}
+                    {/* 血統・病歴はそのまま */}
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-3">血統</h3>
                       <div className="space-y-2 text-sm">
@@ -272,14 +285,19 @@ export default async function HorseDetailPage({ params }: PageProps) {
               </CardContent>
             </Card>
 
-            {/* コメント */}
-            {horse.comment && horse.comment.trim() !== '' ? (
+            {/* コメント履歴 */}
+            {horse.comment && (Array.isArray(horse.comment) ? horse.comment.length > 0 : String(horse.comment).trim() !== '') ? (
               <Card className="mb-6">
                 <CardHeader>
                   <CardTitle className="text-lg">コメント</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-700 whitespace-pre-line leading-relaxed">{horse.comment}</p>
+                  {Array.isArray(horse.comment)
+                    ? horse.comment.map((c, i) => (
+                        <p key={i} className="text-gray-700 whitespace-pre-line leading-relaxed mb-2">{c}</p>
+                      ))
+                    : <p className="text-gray-700 whitespace-pre-line leading-relaxed">{horse.comment}</p>
+                  }
                 </CardContent>
               </Card>
             ) : (
@@ -298,14 +316,22 @@ export default async function HorseDetailPage({ params }: PageProps) {
           <div className="lg:col-span-1">
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle className="text-lg">価格情報</CardTitle>
+                <CardTitle className="text-lg">落札価格</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* 主取り回数表示 */}
+                {horse.unsold_count > 0 && (
+                  <div className="text-center text-blue-600 font-bold mb-2">主取り{horse.unsold_count}回</div>
+                )}
+                {/* 落札価格履歴 */}
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-red-600 mb-1">
-                    ¥{formatPrice(horse.sold_price || 0)}
-                  </div>
-                  <div className="text-sm text-gray-600">落札価格</div>
+                  {toArray(horse.sold_price).map((sp, i) => (
+                    <div key={i} className="text-2xl font-bold mb-1">
+                      {sp === 0 && horse.unsold_count > 0 ? '¥-' : `¥${formatManYen(sp)}`}
+                      <span className="text-xs text-gray-500 ml-2">{toArray(horse.auction_date)[i] ?? ''}</span>
+                    </div>
+                  ))}
+                  <div className="text-sm text-gray-600">落札価格履歴</div>
                 </div>
               </CardContent>
             </Card>
@@ -318,13 +344,13 @@ export default async function HorseDetailPage({ params }: PageProps) {
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {formatPrize(horse.total_prize_start)}
+                      {formatManYen(horse.total_prize_start)}
                     </div>
                     <div className="text-xs text-gray-600">落札時</div>
                   </div>
                   <div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {formatPrize(horse.total_prize_latest)}
+                      {formatManYen(horse.total_prize_latest)}
                     </div>
                     <div className="text-xs text-gray-600">現在</div>
                   </div>
@@ -336,19 +362,17 @@ export default async function HorseDetailPage({ params }: PageProps) {
                         const start = horse.total_prize_start ?? 0;
                         const latest = horse.total_prize_latest ?? 0;
                         const diff = latest - start;
-                        const date = horse.updated_at ? new Date(horse.updated_at) : null;
-                        const dateStr = date ? `${date.getFullYear()}.${(date.getMonth()+1).toString().padStart(2,'0')}.${date.getDate().toString().padStart(2,'0')}` : '';
                         if (diff === 0) {
-                          return '0円';
+                          return '0万円';
                         } else if (diff > 0) {
-                          return `+${diff.toLocaleString()}円（${dateStr}現在）`;
+                          return `+${formatManYen(diff)}`;
                         } else {
-                          return `-${Math.abs(diff).toLocaleString()}円（${dateStr}現在）`;
+                          return `-${formatManYen(Math.abs(diff))}`;
                         }
                       })()}
                     </div>
                     <div className={`text-sm font-medium ${horse.total_prize_latest - horse.total_prize_start > 0 ? 'text-green-600' : horse.total_prize_latest - horse.total_prize_start < 0 ? 'text-red-600' : 'text-gray-600'}`}> 
-                      {calculateGrowthRate(horse.total_prize_start, horse.total_prize_latest)}%
+                      {horse.total_prize_start === 0 ? '-' : ((horse.total_prize_latest - horse.total_prize_start) / horse.total_prize_start * 100).toFixed(1) + '%'}
                     </div>
                   </div>
                 </div>

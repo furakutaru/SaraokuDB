@@ -215,6 +215,52 @@
       "created_at": "2025-07-13T13:49:36.616164",
       "updated_at": "2025-07-13T13:49:36.616165",
       "unsold_count": null
+    },
+    {
+      "id": 99999,
+      "name": "テスト主取り馬（削除可）",
+      "sex": "せん",
+      "age": 5,
+      "auction_history": [
+        {
+          "date": "2023-07-15",
+          "price": 0,
+          "seller": "オーナーA"
+        },
+        {
+          "date": "2024-07-15",
+          "price": 0,
+          "seller": "オーナーB"
+        },
+        {
+          "date": "2025-07-15",
+          "price": 0,
+          "seller": "オーナーC"
+        }
+      ],
+      "prize_history": [
+        { "date": "2023-07-15", "prize": 0 },
+        { "date": "2025-07-15", "prize": 1000000 }
+      ],
+      "sire": "テスト父",
+      "dam": "テスト母",
+      "dam_sire": "テスト母父",
+      "comment_history": [
+        { "date": "2023-07-15", "comment": "3歳時オークション初出品" },
+        { "date": "2024-07-15", "comment": "2回目主取り" },
+        { "date": "2025-07-15", "comment": "3回目主取り・去勢済み" }
+      ],
+      "weight_history": [
+        { "date": "2023-07-15", "weight": 470 },
+        { "date": "2025-07-15", "weight": 480 }
+      ],
+      "race_record": "2-1-0-10",
+      "images": [],
+      "disease_history": [],
+      "netkeiba_url": "",
+      "created_at": "2023-07-15T00:00:00",
+      "updated_at": "2025-07-15T00:00:00",
+      "unsold_count": 3
     }
   ]
 }
