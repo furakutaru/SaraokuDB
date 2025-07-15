@@ -35,7 +35,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/horses.json
+          git add static-frontend/public/data/horses.json
           git commit -m "Update horse data (auto scrape) - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
           git push
 
@@ -43,4 +43,4 @@ jobs:
         if: always()
         run: |
           echo "Scraping completed at $(date)"
-          echo "Check data/horses.json for updated data" 
+          echo "Check static-frontend/public/data/horses.json for updated data" 

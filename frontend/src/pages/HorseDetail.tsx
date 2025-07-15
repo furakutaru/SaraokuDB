@@ -15,20 +15,20 @@ import axios from 'axios';
 interface Horse {
   id: number;
   name: string;
-  sex: string;
-  age: number;
+  sex: string[];
+  age: (number | string)[];
   sire: string;
   dam: string;
   dam_sire: string;
   race_record: string;
   weight: number;
-  total_prize_start: number;
-  total_prize_latest: number;
-  sold_price: number;
-  auction_date: string;
-  seller: string;
+  total_prize_start: number | number[];
+  total_prize_latest: number | number[];
+  sold_price: number | number[];
+  auction_date: string | string[];
+  seller: string | string[];
   disease_tags: string;
-  comment: string;
+  comment: string | string[];
   netkeiba_url: string;
   primary_image: string;
   created_at: string;
@@ -61,16 +61,24 @@ const HorseDetail: React.FC = () => {
     }
   };
 
-  const formatPrice = (price: number) => {
-    if (price >= 10000) {
-      return `¥${(price / 10000).toLocaleString()}万円`;
-    }
+  // 落札価格・履歴用（円単位カンマ区切り＋¥）
+  const formatYenWithMark = (price: number | undefined) => {
+    if (typeof price !== 'number' || isNaN(price)) return '-';
     return `¥${price.toLocaleString()}`;
   };
-
-  const calculateGrowthRate = (start: number, latest: number) => {
-    if (start === 0) return 0;
-    return ((latest - start) / start * 100).toFixed(1);
+  // 賞金情報用（xx.x万円）
+  const formatPrizeMan = (prize: number | undefined) => {
+    if (typeof prize !== 'number' || isNaN(prize) || prize === 0) return '-';
+    return `${prize.toFixed(1)}万円`;
+  };
+  // 配列・単体どちらも対応して最新値を取得
+  const getLastNumber = (val: number | number[] | undefined): number | undefined => {
+    if (Array.isArray(val)) {
+      if (val.length === 0) return undefined;
+      return val[val.length - 1];
+    }
+    if (typeof val === 'number') return val;
+    return undefined;
   };
 
   if (loading) {
@@ -136,7 +144,7 @@ const HorseDetail: React.FC = () => {
                     性別
                   </Typography>
                   <Typography variant="body1">
-                    {horse.sex}
+                    {horse.sex && horse.sex.length > 0 ? horse.sex[horse.sex.length-1] : '-'}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
@@ -144,7 +152,7 @@ const HorseDetail: React.FC = () => {
                     年齢
                   </Typography>
                   <Typography variant="body1">
-                    {horse.age}歳
+                    {horse.age && horse.age.length > 0 ? horse.age[horse.age.length-1] : '-'}歳
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
@@ -180,15 +188,15 @@ const HorseDetail: React.FC = () => {
                     落札価格
                   </Typography>
                   <Typography variant="body1">
-                    {horse.unsold_count !== undefined && horse.unsold_count > 0 && horse.sold_price === 0 ? '¥-' : formatPrice(horse.sold_price)}
+                    {horse.unsold_count !== undefined && horse.unsold_count > 0 && horse.sold_price && getLastNumber(horse.sold_price) === 0 ? '¥-' : formatYenWithMark(getLastNumber(horse.sold_price))}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">
-                    開催日
+                    落札日
                   </Typography>
                   <Typography variant="body1">
-                    {horse.auction_date}
+                    {horse.auction_date && Array.isArray(horse.auction_date) ? horse.auction_date[horse.auction_date.length - 1] : horse.auction_date || '-'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
@@ -196,10 +204,23 @@ const HorseDetail: React.FC = () => {
                     販売申込者
                   </Typography>
                   <Typography variant="body1">
-                    {horse.seller}
+                    {Array.isArray(horse.seller) ? (horse.seller.length > 0 ? horse.seller[horse.seller.length-1] : '-') : (horse.seller || '-')}
                   </Typography>
                 </Grid>
               </Grid>
+              {/* 落札価格履歴・落札日履歴（複数回のみ） */}
+              {Array.isArray(horse.sold_price) && horse.sold_price.length > 1 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="textSecondary">落札価格履歴</Typography>
+                  <Typography variant="body1">
+                    {horse.sold_price.map((price) => formatYenWithMark(typeof price === 'number' ? price : undefined)).join(', ')}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>落札日履歴</Typography>
+                  <Typography variant="body1">
+                    {Array.isArray(horse.auction_date) ? horse.auction_date.join(', ') : '-'}
+                  </Typography>
+                </Box>
+              )}
               {horse.unsold_count !== undefined && horse.unsold_count > 0 && (
                 <Grid item xs={12}>
                   <Typography variant="body2" color="textSecondary" sx={{ color: '#b71c1c', fontWeight: 'bold' }}>
@@ -211,7 +232,7 @@ const HorseDetail: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -256,34 +277,18 @@ const HorseDetail: React.FC = () => {
               <Grid container spacing={2}>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">
-                    出品時賞金
+                    出品時
                   </Typography>
                   <Typography variant="body1">
-                    {formatPrice(horse.total_prize_start)}
-                    <span style={{ fontSize: '0.8em', color: '#888', marginLeft: 8 }}>
-                      {(() => {
-                        const start = horse.total_prize_start ?? 0;
-                        const latest = horse.total_prize_latest ?? 0;
-                        const diff = latest - start;
-                        const date = horse.updated_at ? new Date(horse.updated_at) : null;
-                        const dateStr = date ? `${date.getFullYear()}.${(date.getMonth()+1).toString().padStart(2,'0')}.${date.getDate().toString().padStart(2,'0')}` : '';
-                        if (diff === 0) {
-                          return '0円';
-                        } else if (diff > 0) {
-                          return `+${diff.toLocaleString()}円（${dateStr}現在）`;
-                        } else {
-                          return `-${Math.abs(diff).toLocaleString()}円（${dateStr}現在）`;
-                        }
-                      })()}
-                    </span>
+                    {formatPrizeMan(getLastNumber(horse.total_prize_start))}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="textSecondary">
-                    最新賞金
+                    現在
                   </Typography>
                   <Typography variant="body1">
-                    {formatPrice(horse.total_prize_latest)}
+                    {formatPrizeMan(getLastNumber(horse.total_prize_latest))}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
@@ -292,9 +297,18 @@ const HorseDetail: React.FC = () => {
                   </Typography>
                   <Typography 
                     variant="body1"
-                    color={horse.total_prize_latest > horse.total_prize_start ? 'green' : 'red'}
+                    color={(() => {
+                      const start = getLastNumber(horse.total_prize_start);
+                      const latest = getLastNumber(horse.total_prize_latest);
+                      return (typeof latest === 'number' && typeof start === 'number' && latest > start) ? 'green' : 'red';
+                    })()}
                   >
-                    {calculateGrowthRate(horse.total_prize_start, horse.total_prize_latest)}%
+                    {(() => {
+                      const start = getLastNumber(horse.total_prize_start);
+                      const latest = getLastNumber(horse.total_prize_latest);
+                      if (typeof start !== 'number' || typeof latest !== 'number' || start === 0) return '-';
+                      return `${((latest - start) / start * 100).toFixed(1)}%`;
+                    })()}
                   </Typography>
                 </Grid>
               </Grid>
@@ -323,7 +337,7 @@ const HorseDetail: React.FC = () => {
           </Card>
         </Grid>
 
-        {horse.comment && (
+        {Array.isArray(horse.comment) && horse.comment.length > 0 && (
           <Grid item xs={12}>
             <Card>
               <CardContent>
@@ -331,7 +345,7 @@ const HorseDetail: React.FC = () => {
                   コメント
                 </Typography>
                 <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                  {horse.comment}
+                  {Array.isArray(horse.comment) ? (horse.comment.length > 0 ? horse.comment[horse.comment.length-1] : '') : (horse.comment || '')}
                 </Typography>
               </CardContent>
             </Card>
