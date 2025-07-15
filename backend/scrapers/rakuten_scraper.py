@@ -502,6 +502,31 @@ class RakutenAuctionScraper:
         print(f"=== スクレイピング完了: {len(horses)}頭の馬データを取得 ===")
         return horses
 
+    def get_jbis_basic_info_url_from_detail(self, detail_url: str) -> str:
+        """
+        楽天オークション詳細ページからJBIS基本情報ページのURLを取得する（recordを除去して返す）
+        """
+        try:
+            print(f"楽天詳細ページからJBIS基本情報URL取得: {detail_url}")
+            response = self.session.get(detail_url, timeout=30)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'html.parser')
+            links = soup.find_all('a', href=True)
+            for link in links:
+                href = link.get('href', '')
+                if 'jbis.or.jp' in href and 'horse' in href and '/record/' in href:
+                    # /record/を除去し、末尾にスラッシュを付与
+                    basic_info_url = href.replace('/record/', '')
+                    if not basic_info_url.endswith('/'):
+                        basic_info_url += '/'
+                    print(f"DEBUG: JBIS基本情報URL: {basic_info_url}")
+                    return basic_info_url
+            print("JBISリンクが見つかりませんでした")
+            return ''
+        except Exception as e:
+            print(f"JBIS基本情報URLの取得に失敗: {e}")
+            return ''
+
 # === テスト関数 ===
 def test_extract_pedigree():
     class DummySoup:
