@@ -1,0 +1,29 @@
+name: Scrape Auction Horses
+
+on:
+  schedule:
+    - cron: '30 18 * * 2,6'  # 毎週火曜・土曜 18:30
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run auction scraper
+        run: python backend/scripts/scrape.py
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static-frontend/public/data/horses.json
+          git commit -m "Update horse data (auto scrape) - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+          git push 
