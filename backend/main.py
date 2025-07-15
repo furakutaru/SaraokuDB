@@ -1,13 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime
 
 from backend.database.models import get_db, Horse
 from backend.services.horse_service import HorseService
 from backend.scheduler.auction_scheduler import scheduler
 from pydantic import BaseModel
+from fastapi.encoders import jsonable_encoder
+import json
 
 app = FastAPI(title="サラブレッドオークション データベース", version="1.0.0")
 
@@ -24,8 +26,8 @@ app.add_middleware(
 class HorseResponse(BaseModel):
     id: int
     name: str
-    sex: Optional[str] = None
-    age: Optional[int] = None
+    sex: Optional[List[str]] = None
+    age: Optional[List[Union[int, str]]] = None
     sire: Optional[str] = None
     dam: Optional[str] = None
     dam_sire: Optional[str] = None
@@ -33,11 +35,11 @@ class HorseResponse(BaseModel):
     weight: Optional[int] = None
     total_prize_start: Optional[float] = None
     total_prize_latest: Optional[float] = None
-    sold_price: Optional[int] = None
-    auction_date: Optional[str] = None
-    seller: Optional[str] = None
+    sold_price: Optional[List[Union[int, str]]] = None
+    auction_date: Optional[List[str]] = None
+    seller: Optional[List[str]] = None
     disease_tags: Optional[str] = None
-    comment: Optional[str] = None
+    comment: Optional[List[str]] = None
     netkeiba_url: Optional[str] = None
     image_url: Optional[str] = None
     created_at: datetime
@@ -85,20 +87,54 @@ async def get_horses(
     auction_date: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """馬データを取得"""
+    """馬データを取得（履歴カラムは配列で返す）"""
     if auction_date:
         horses = horse_service.get_horses_by_auction_date(db, auction_date)
     else:
         horses = horse_service.get_horses(db, skip=skip, limit=limit)
-    return horses
+    def parse_json_field(val):
+        try:
+            if val is None:
+                return []
+            return json.loads(val)
+        except Exception:
+            return [val] if val else []
+    result = []
+    for horse in horses:
+        result.append({
+            **jsonable_encoder(horse),
+            "sex": parse_json_field(horse.sex),
+            "age": parse_json_field(horse.age),
+            "sold_price": parse_json_field(horse.sold_price),
+            "auction_date": parse_json_field(horse.auction_date),
+            "seller": parse_json_field(horse.seller),
+            "comment": parse_json_field(horse.comment),
+        })
+    return result
 
 @app.get("/horses/{horse_id}", response_model=HorseResponse)
 async def get_horse(horse_id: int, db: Session = Depends(get_db)):
-    """特定の馬データを取得"""
+    """特定の馬データを取得（履歴カラムは配列で返す）"""
     horse = horse_service.get_horse_by_id(db, horse_id)
     if not horse:
         raise HTTPException(status_code=404, detail="馬が見つかりません")
-    return horse
+    # 履歴カラムを配列で返す
+    def parse_json_field(val):
+        try:
+            if val is None:
+                return []
+            return json.loads(val)
+        except Exception:
+            return [val] if val else []
+    return {
+        **jsonable_encoder(horse),
+        "sex": parse_json_field(horse.sex),
+        "age": parse_json_field(horse.age),
+        "sold_price": parse_json_field(horse.sold_price),
+        "auction_date": parse_json_field(horse.auction_date),
+        "seller": parse_json_field(horse.seller),
+        "comment": parse_json_field(horse.comment),
+    }
 
 @app.post("/horses/", response_model=HorseResponse)
 async def create_horse(horse_data: HorseCreate, db: Session = Depends(get_db)):

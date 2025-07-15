@@ -1,7 +1,7 @@
 import re
 import requests
 from bs4 import BeautifulSoup
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 import time
 
 class NetkeibaScraper:
@@ -41,76 +41,62 @@ class NetkeibaScraper:
             print(f"馬検索に失敗: {e}")
             return None
     
-    def get_latest_prize_money(self, horse_url: str) -> Optional[float]:
-        """netkeibaページから最新の地方獲得賞金を取得"""
+    def get_latest_prize_money(self, horse_url: str) -> Union[float, str, None]:
+        """netkeibaページから最新の地方獲得賞金を取得（万円単位・小数点1桁まで）"""
         try:
             response = self.session.get(horse_url)
             response.raise_for_status()
-            
             soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # 地方獲得賞金を探す
             prize_rows = soup.find_all('tr')
-            
             for row in prize_rows:
                 th_element = row.find('th')
                 if th_element and '獲得賞金 (地方)' in th_element.get_text():
                     td_element = row.find('td')
                     if td_element:
                         prize_text = td_element.get_text(strip=True)
-                        # "1,372万円" → 1372.0
                         match = re.search(r'([\d,]+)', prize_text)
                         if match:
                             prize_str = match.group(1).replace(',', '')
-                            return float(prize_str)
-            
-            return None
-            
+                            prize_man = round(float(prize_str) / 10000, 1)  # 万円単位・小数点1桁
+                            return prize_man
+            return '-'
         except Exception as e:
             print(f"賞金取得に失敗: {e}")
-            return None
+            return '-'
     
     def update_horse_prize_money(self, horse_name: str) -> Optional[Dict]:
-        """馬の最新賞金情報を取得・更新"""
+        """馬の最新賞金情報を取得・更新（万円単位・小数点1桁まで）"""
         try:
-            # 馬を検索
             horse_url = self.search_horse(horse_name)
             if not horse_url:
                 print(f"馬が見つかりません: {horse_name}")
-                return None
-            
-            # 最新賞金を取得
+                return {'netkeiba_url': None, 'total_prize_latest': '-'}
             latest_prize = self.get_latest_prize_money(horse_url)
-            
+            if not isinstance(latest_prize, float):
+                latest_prize = '-'
             return {
                 'netkeiba_url': horse_url,
                 'total_prize_latest': latest_prize
             }
-            
         except Exception as e:
             print(f"賞金更新に失敗: {e}")
-            return None
+            return {'netkeiba_url': None, 'total_prize_latest': '-'}
     
     def batch_update_prize_money(self, horses: list) -> list:
-        """複数の馬の賞金情報を一括更新"""
+        """複数の馬の賞金情報を一括更新（万円単位・小数点1桁まで、差分も同様）"""
         updated_horses = []
-        
         for i, horse in enumerate(horses):
             print(f"賞金情報を更新中... ({i+1}/{len(horses)}) {horse['name']}")
-            
             update_data = self.update_horse_prize_money(horse['name'])
             if update_data:
                 horse.update(update_data)
-                
-                # 成長率を計算
-                if horse.get('total_prize_start') and horse.get('total_prize_latest'):
-                    start_prize = horse['total_prize_start']
-                    latest_prize = horse['total_prize_latest']
-                    if start_prize > 0:
-                        growth_rate = (latest_prize - start_prize) / start_prize * 100
-                        horse['growth_rate'] = round(growth_rate, 2)
-            
+                start_prize = horse.get('total_prize_start')
+                latest_prize = horse.get('total_prize_latest')
+                if (isinstance(start_prize, (int, float)) and isinstance(latest_prize, float)):
+                    diff = round(latest_prize - (start_prize / 10000 if isinstance(start_prize, int) else start_prize), 1)
+                    sign = '+' if diff >= 0 else ''
+                    horse['prize_diff'] = f"{sign}{diff}万円"
+                else:
+                    horse['prize_diff'] = '-'
             updated_horses.append(horse)
-            time.sleep(1)  # サーバーに負荷をかけないよう待機
-        
         return updated_horses 

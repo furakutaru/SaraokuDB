@@ -252,6 +252,22 @@ const HorseDetail: React.FC = () => {
                   </Typography>
                   <Typography variant="body1">
                     {horse.total_prize_start}万円
+                    <span style={{ fontSize: '0.8em', color: '#888', marginLeft: 8 }}>
+                      {(() => {
+                        const start = horse.total_prize_start ?? 0;
+                        const latest = horse.total_prize_latest ?? 0;
+                        const diff = latest - start;
+                        const date = horse.updated_at ? new Date(horse.updated_at) : null;
+                        const dateStr = date ? `${date.getFullYear()}.${(date.getMonth()+1).toString().padStart(2,'0')}.${date.getDate().toString().padStart(2,'0')}` : '';
+                        if (diff === 0) {
+                          return '0円';
+                        } else if (diff > 0) {
+                          return `+${diff.toLocaleString()}円（${dateStr}現在）`;
+                        } else {
+                          return `-${Math.abs(diff).toLocaleString()}円（${dateStr}現在）`;
+                        }
+                      })()}
+                    </span>
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>

@@ -1,0 +1,127 @@
+{
+  "timestamp": "2025-07-14T09:37:24.464044",
+  "url": "https://auction.keiba.rakuten.co.jp/",
+  "status_code": 200,
+  "title": "サラブレッドオークション",
+  "found_selectors": [
+    [
+      ".auctionTables",
+      1
+    ],
+    [
+      ".scrollArea__itemCard",
+      9
+    ],
+    [
+      "[class*=\"auction\"]",
+      155
+    ],
+    [
+      "[class*=\"horse\"]",
+      45
+    ],
+    [
+      "[class*=\"item\"]",
+      9
+    ]
+  ],
+  "top_classes": {
+    "k_row__content": 9,
+    "scrollArea__itemCard": 9,
+    "auctionTableCard": 9,
+    "bottomDelimiter": 9,
+    "horseLabelWrapper": 9,
+    "horseLabelWrapper__horseAge": 9,
+    "horseLabelWrapper__horseSex": 9,
+    "auctionTableCard__horseInfo": 9,
+    "auctionTableCard__name": 9,
+    "auctionTableCard__seller": 9,
+    "auctionTableCard__price": 9,
+    "label": 9,
+    "value": 9,
+    "auctionTableCard__linksBlock": 9,
+    "k_image": 8,
+    "k_image__content": 8,
+    "k_display__block": 7,
+    "k_display--sm__inlineBlock": 7,
+    "k_mb__3": 7,
+    "k_mb--sm__0": 7
+  },
+  "potential_names": [
+    "オークション",
+    "競走馬",
+    "取引",
+    "主催",
+    "目的",
+    "機会",
+    "活躍",
+    "インターネット",
+    "事務局",
+    "現役競走馬",
+    "サラブレッドオークション"
+  ],
+  "detail_links": [
+    [
+      "ゴールデンマーチ",
+      "/item/14455"
+    ],
+    [
+      "基本情報",
+      "http://www.jbis.or.jp/horse/0001354488/"
+    ],
+    [
+      "競走成績",
+      "http://www.jbis.or.jp/horse/0001354488/record/"
+    ],
+    [
+      "詳細血統表",
+      "https://keiba.r10s.jp/auction/data/item/1/250713_horse_01/250713_horse_01_bt.pdf"
+    ],
+    [
+      "ジンガブリッツ",
+      "/item/14456"
+    ],
+    [
+      "基本情報",
+      "http://www.jbis.or.jp/horse/0001352994/"
+    ],
+    [
+      "競走成績",
+      "http://www.jbis.or.jp/horse/0001352994/record/"
+    ],
+    [
+      "詳細血統表",
+      "https://keiba.r10s.jp/auction/data/item/1/250713_horse_02/250713_horse_02_bt.pdf"
+    ],
+    [
+      "シュヴァルツボー...",
+      "/item/14457"
+    ],
+    [
+      "基本情報",
+      "http://www.jbis.or.jp/horse/0001361303/"
+    ]
+  ],
+  "horse_images": [
+    [
+      "楽天競馬",
+      "https://keiba.r10s.jp/auction/_nuxt/rakuten_keiba_logo.09f0b05b.png"
+    ],
+    [
+      "",
+      "https://keiba.r10s.jp/auction/_nuxt/carousel1.78f1ddc8.png"
+    ],
+    [
+      "",
+      "https://keiba.r10s.jp/auction/_nuxt/carousel2.17f9c156.png"
+    ],
+    [
+      "",
+      "https://keiba.r10s.jp/auction/_nuxt/carousel3.bedf4f6e.png"
+    ],
+    [
+      "",
+      "https://keiba.r10s.jp/auction/_nuxt/decorationSmallForItemList.878caf76.svg"
+    ]
+  ]
+}

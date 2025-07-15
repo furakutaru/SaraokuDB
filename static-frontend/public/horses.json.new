@@ -1,0 +1,436 @@
+{
+  "metadata": {
+    "last_updated": "2025-07-13T13:49:40.649475",
+    "total_horses": 8,
+    "average_price": 11160000,
+    "average_growth_rate": 17.03,
+    "horses_with_growth_data": 4,
+    "next_auction_date": "2025-07-13"
+  },
+  "horses": [
+    {
+      "id": 1,
+      "name": "ジンガブリッツ",
+      "sex": "牝",
+      "age": 3,
+      "auction_history": [
+        {
+          "date": "2025-07-13",
+          "price": 320000,
+          "seller": "ディアレストクラブ（株）"
+        }
+      ],
+      "prize_history": [
+        {
+          "date": "2025-07-13",
+          "total_prize": 320000
+        },
+        {
+          "date": "2025-07-13T13:49:36.616152",
+          "total_prize": 296122
+        }
+      ],
+      "sire": "オルフェーヴル",
+      "dam": "ファーレサルティ",
+      "dam_sire": "ダンスインザダーク",
+      "comment_history": [
+        {
+          "date": "2025-07-13T13:49:36.616152",
+          "comment": "父オルフェーヴルは2011年にクラシック三冠、有馬記念を制してJRA年度代表馬に輝きました...（省略）"
+        }
+      ],
+      "weight_history": [
+        {
+          "date": "2025-07-13T13:49:36.616152",
+          "weight": 440
+        }
+      ],
+      "race_record": "",
+      "images": [
+        "https://keiba.r10s.jp/auction/data/item/1/250622_horse_02/250622_horse_02_bt.jpg"
+      ],
+      "disease_history": [
+        {
+          "date": "2025-07-13T13:49:36.616152",
+          "tags": [
+            "なし"
+          ]
+        }
+      ],
+      "netkeiba_url": "",
+      "created_at": "2025-07-13T13:49:36.616149",
+      "updated_at": "2025-07-13T13:49:36.616152"
+    },
+    {
+      "id": 2,
+      "name": "サクラエイコウ",
+      "sex": "牝",
+      "age": 4,
+      "auction_history": [
+        {
+          "date": "2025-07-13",
+          "price": 8500000,
+          "seller": "田中 牧場"
+        }
+      ],
+      "prize_history": [
+        {
+          "date": "2025-07-13",
+          "total_prize": 500000
+        },
+        {
+          "date": "2025-07-13T13:49:36.616154",
+          "total_prize": 391807
+        }
+      ],
+      "sire": "ディープインパクト",
+      "dam": "サクラフラワー",
+      "dam_sire": "サクラバクシンオー",
+      "comment_history": [
+        {
+          "date": "2025-07-13T13:49:36.616154",
+          "comment": "母系に名牝を多数輩出する名門血統。父ディープインパクトの血を引く期待馬。"
+        }
+      ],
+      "weight_history": [
+        {
+          "date": "2025-07-13T13:49:36.616154",
+          "weight": 450
+        }
+      ],
+      "race_record": "2-1-0-5",
+      "images": [
+        "https://example.com/horse2.jpg"
+      ],
+      "disease_history": [
+        {
+          "date": "2025-07-13T13:49:36.616154",
+          "tags": [
+            "なし"
+          ]
+        }
+      ],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616153",
+      "updated_at": "2025-07-13T13:49:36.616154"
+    },
+    {
+      "id": 3,
+      "name": "ダイワスカーレット",
+      "sex": "牝",
+      "age": 3,
+      "auction_history": [
+        {
+          "date": "2025-07-13",
+          "price": 12500000,
+          "seller": "大和 牧場"
+        }
+      ],
+      "prize_history": [
+        {
+          "date": "2025-07-13",
+          "total_prize": 0.0
+        },
+        {
+          "date": "2025-07-13T13:49:36.616156",
+          "total_prize": 243701
+        }
+      ],
+      "sire": "ロードカナロア",
+      "dam": "ダイワスカーレット",
+      "dam_sire": "アグネスタキオン",
+      "comment_history": [
+        {
+          "date": "2025-07-13T13:49:36.616156",
+          "comment": "父ロードカナロアの血を引く短距離向きの馬。母系も短距離適性に優れる。"
+        }
+      ],
+      "weight_history": [
+        {
+          "date": "2025-07-13T13:49:36.616156",
+          "weight": 440
+        }
+      ],
+      "race_record": "0-0-0-0",
+      "images": [
+        "https://example.com/horse3.jpg"
+      ],
+      "disease_history": [
+        {
+          "date": "2025-07-13T13:49:36.616156",
+          "tags": [
+            "なし"
+          ]
+        }
+      ],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616155",
+      "updated_at": "2025-07-13T13:49:36.616156"
+    },
+    {
+      "id": 4,
+      "name": "キタサンブラック",
+      "sex": "牡",
+      "age": 4,
+      "auction_history": [
+        {
+          "date": "2025-07-13",
+          "price": 9800000,
+          "seller": "北三 牧場"
+        }
+      ],
+      "prize_history": [
+        {
+          "date": "2025-07-13",
+          "total_prize": 800000
+        },
+        {
+          "date": "2025-07-13T13:49:36.616158",
+          "total_prize": 748913
+        }
+      ],
+      "sire": "ブラックタイド",
+      "dam": "キタサンブラック",
+      "dam_sire": "マヤノトップガン",
+      "comment_history": [
+        {
+          "date": "2025-07-13T13:49:36.616158",
+          "comment": "父ブラックタイドの血を引く中距離向きの馬。母系も安定した成績を残す血統。"
+        }
+      ],
+      "weight_history": [
+        {
+          "date": "2025-07-13T13:49:36.616158",
+          "weight": 470
+        }
+      ],
+      "race_record": "1-2-1-3",
+      "images": [
+        "https://example.com/horse4.jpg"
+      ],
+      "disease_history": [
+        {
+          "date": "2025-07-13T13:49:36.616158",
+          "tags": [
+            "なし"
+          ]
+        }
+      ],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616157",
+      "updated_at": "2025-07-13T13:49:36.616158"
+    },
+    {
+      "id": 5,
+      "name": "サトノダイヤモンド",
+      "sex": "牡",
+      "age": 3,
+      "auction_history": [
+        {
+          "date": "2025-07-13",
+          "price": 14500000,
+          "seller": "里見 牧場"
+        }
+      ],
+      "prize_history": [
+        {
+          "date": "2025-07-13",
+          "total_prize": 0.0
+        },
+        {
+          "date": "2025-07-13T13:49:36.616160",
+          "total_prize": 399682
+        }
+      ],
+      "sire": "ディープインパクト",
+      "dam": "サトノダイヤモンド",
+      "dam_sire": "サクラバクシンオー",
+      "comment_history": [
+        {
+          "date": "2025-07-13T13:49:36.616160",
+          "comment": "父ディープインパクトの血を引く期待馬。母系も名門血統で将来性豊か。"
+        }
+      ],
+      "weight_history": [
+        {
+          "date": "2025-07-13T13:49:36.616160",
+          "weight": 455
+        }
+      ],
+      "race_record": "0-1-0-1",
+      "images": [
+        "https://example.com/horse5.jpg"
+      ],
+      "disease_history": [
+        {
+          "date": "2025-07-13T13:49:36.616160",
+          "tags": [
+            "なし"
+          ]
+        }
+      ],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616159",
+      "updated_at": "2025-07-13T13:49:36.616160"
+    },
+    {
+      "id": 6,
+      "name": "モズアスコット",
+      "sex": "牝",
+      "age": 4,
+      "auction_history": [
+        {
+          "date": "2025-07-13",
+          "price": 7200000,
+          "seller": "モズ 牧場"
+        }
+      ],
+      "prize_history": [
+        {
+          "date": "2025-07-13",
+          "total_prize": 300000
+        },
+        {
+          "date": "2025-07-13T13:49:36.616161",
+          "total_prize": 339930
+        }
+      ],
+      "sire": "アスコット",
+      "dam": "モズアスコット",
+      "dam_sire": "サクラバクシンオー",
+      "comment_history": [
+        {
+          "date": "2025-07-13T13:49:36.616161",
+          "comment": "父アスコットの血を引く短距離向きの馬。母系も短距離適性に優れる。"
+        }
+      ],
+      "weight_history": [
+        {
+          "date": "2025-07-13T13:49:36.616161",
+          "weight": 435
+        }
+      ],
+      "race_record": "1-0-1-2",
+      "images": [
+        "https://example.com/horse6.jpg"
+      ],
+      "disease_history": [
+        {
+          "date": "2025-07-13T13:49:36.616161",
+          "tags": [
+            "なし"
+          ]
+        }
+      ],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616161",
+      "updated_at": "2025-07-13T13:49:36.616161"
+    },
+    {
+      "id": 7,
+      "name": "エイシンフラッシュ",
+      "sex": "牡",
+      "age": 3,
+      "auction_history": [
+        {
+          "date": "2025-07-13",
+          "price": 11200000,
+          "seller": "栄進 牧場"
+        }
+      ],
+      "prize_history": [
+        {
+          "date": "2025-07-13",
+          "total_prize": 0.0
+        },
+        {
+          "date": "2025-07-13T13:49:36.616163",
+          "total_prize": 403695
+        }
+      ],
+      "sire": "フラッシュ",
+      "dam": "エイシンフラッシュ",
+      "dam_sire": "サクラバクシンオー",
+      "comment_history": [
+        {
+          "date": "2025-07-13T13:49:36.616163",
+          "comment": "父フラッシュの血を引く短距離向きの馬。母系も短距離適性に優れる血統。"
+        }
+      ],
+      "weight_history": [
+        {
+          "date": "2025-07-13T13:49:36.616163",
+          "weight": 445
+        }
+      ],
+      "race_record": "0-0-0-0",
+      "images": [
+        "https://example.com/horse7.jpg"
+      ],
+      "disease_history": [
+        {
+          "date": "2025-07-13T13:49:36.616163",
+          "tags": [
+            "なし"
+          ]
+        }
+      ],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616163",
+      "updated_at": "2025-07-13T13:49:36.616163"
+    },
+    {
+      "id": 8,
+      "name": "オグリキャップ",
+      "sex": "牡",
+      "age": 4,
+      "auction_history": [
+        {
+          "date": "2025-07-13",
+          "price": 8900000,
+          "seller": "小栗 牧場"
+        }
+      ],
+      "prize_history": [
+        {
+          "date": "2025-07-13",
+          "total_prize": 600000
+        },
+        {
+          "date": "2025-07-13T13:49:36.616165",
+          "total_prize": 1097092
+        }
+      ],
+      "sire": "キャップ",
+      "dam": "オグリキャップ",
+      "dam_sire": "サクラバクシンオー",
+      "comment_history": [
+        {
+          "date": "2025-07-13T13:49:36.616165",
+          "comment": "父キャップの血を引く中距離向きの馬。母系も安定した成績を残す血統。"
+        }
+      ],
+      "weight_history": [
+        {
+          "date": "2025-07-13T13:49:36.616165",
+          "weight": 465
+        }
+      ],
+      "race_record": "1-1-2-2",
+      "images": [
+        "https://example.com/horse8.jpg"
+      ],
+      "disease_history": [
+        {
+          "date": "2025-07-13T13:49:36.616165",
+          "tags": [
+            "なし"
+          ]
+        }
+      ],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616164",
+      "updated_at": "2025-07-13T13:49:36.616165"
+    }
+  ]
+}

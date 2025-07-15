@@ -6,33 +6,37 @@ import os
 
 Base = declarative_base()
 
+# sex, seller, sold_price, commentを履歴（配列/JSON文字列）で保存
 class Horse(Base):
     __tablename__ = 'horses'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)  # 馬名（カタカナのみ）
-    sex = Column(String(10))  # 性別（牡、牝、セ）
-    age = Column(Integer)  # 年齢（例: 3）
+    sex = Column(Text)  # 性別履歴（JSON配列文字列: ["牡", "牝", ...]）
+    age = Column(Text)  # 年齢履歴（JSON配列文字列: [3, 4, ...]）
     sire = Column(String(100))  # 父
     dam = Column(String(100))  # 母
     dam_sire = Column(String(100))  # 母父
-    race_record = Column(String(200))  # 通算成績（例: 2戦0勝［0-0-0-2］）
+    race_record = Column(String(200))  # 通算成績
     weight = Column(Integer)  # 最終出走馬体重
-    total_prize_start = Column(Float)  # 出品時の地方賞金（万円）
-    total_prize_latest = Column(Float)  # 最新の地方賞金（万円、netkeibaより取得）
-    sold_price = Column(Integer)  # 落札価格（円）
-    auction_date = Column(String(20))  # 開催日（YYYY-MM-DD）
-    seller = Column(String(200))  # 販売申込者
-    disease_tags = Column(Text)  # 疾病カテゴリ（カンマ区切り）
-    comment = Column(Text)  # 本馬についてのコメント全文
+    total_prize_start = Column(Float)  # 出品時の地方賞金
+    total_prize_latest = Column(Float)  # 最新の地方賞金
+    sold_price = Column(Text)  # 落札価格履歴（JSON配列文字列: [10000000, ...]）
+    auction_date = Column(Text)  # 開催日履歴（JSON配列文字列: ["YYYY-MM-DD", ...]）
+    seller = Column(Text)  # 販売申込者履歴（JSON配列文字列: ["社台", ...]）
+    disease_tags = Column(Text)  # 疾病カテゴリ
+    comment = Column(Text)  # コメント履歴（JSON配列文字列: ["1回目コメント", ...]）
     netkeiba_url = Column(String(500))  # netkeibaの個体URL
-    image_url = Column(String(500))  # 馬画像URL（将来的に取得）
+    image_url = Column(String(500))  # 馬画像URL
     primary_image = Column(String(500))  # 馬体写真1枚目のURL
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 # データベース設定
-DATABASE_URL = "sqlite:///./data/horses.db"
+# プロジェクトルートの絶対パスを取得
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DB_PATH = os.path.join(BASE_DIR, 'data', 'horses.db')
+DATABASE_URL = f"sqlite:///{DB_PATH}"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
