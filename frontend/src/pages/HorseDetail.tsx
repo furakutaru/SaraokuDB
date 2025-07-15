@@ -33,6 +33,7 @@ interface Horse {
   primary_image: string;
   created_at: string;
   updated_at: string;
+  unsold_count?: number;
 }
 
 const HorseDetail: React.FC = () => {
@@ -179,7 +180,7 @@ const HorseDetail: React.FC = () => {
                     落札価格
                   </Typography>
                   <Typography variant="body1">
-                    {formatPrice(horse.sold_price)}
+                    {horse.unsold_count !== undefined && horse.unsold_count > 0 && horse.sold_price === 0 ? '¥-' : formatPrice(horse.sold_price)}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
@@ -199,6 +200,13 @@ const HorseDetail: React.FC = () => {
                   </Typography>
                 </Grid>
               </Grid>
+              {horse.unsold_count !== undefined && horse.unsold_count > 0 && (
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="textSecondary" sx={{ color: '#b71c1c', fontWeight: 'bold' }}>
+                    主取り{horse.unsold_count}回
+                  </Typography>
+                </Grid>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -251,7 +259,7 @@ const HorseDetail: React.FC = () => {
                     出品時賞金
                   </Typography>
                   <Typography variant="body1">
-                    {horse.total_prize_start}万円
+                    {formatPrice(horse.total_prize_start)}
                     <span style={{ fontSize: '0.8em', color: '#888', marginLeft: 8 }}>
                       {(() => {
                         const start = horse.total_prize_start ?? 0;
@@ -275,7 +283,7 @@ const HorseDetail: React.FC = () => {
                     最新賞金
                   </Typography>
                   <Typography variant="body1">
-                    {horse.total_prize_latest}万円
+                    {formatPrice(horse.total_prize_latest)}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>

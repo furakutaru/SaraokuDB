@@ -29,6 +29,7 @@ class Horse(Base):
     netkeiba_url = Column(String(500))  # netkeibaの個体URL
     image_url = Column(String(500))  # 馬画像URL
     primary_image = Column(String(500))  # 馬体写真1枚目のURL
+    unsold_count = Column(Integer, default=0)  # 主取り回数
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

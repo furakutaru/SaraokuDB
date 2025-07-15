@@ -68,9 +68,21 @@ class HorseService:
             # データベースに保存
             saved_horses = []
             for horse_data in horses_data:
+                # 主取り回数の管理
+                unsold_count = 0
+                if 'unsold' in horse_data and horse_data['unsold']:
+                    unsold_count = 1
                 existing_horse = db.query(Horse).filter(
                     Horse.name == horse_data['name']
                 ).first()
+                if existing_horse:
+                    # 既存馬のunsold_countを累積
+                    prev_unsold_count = getattr(existing_horse, 'unsold_count', 0) or 0
+                    if 'unsold' in horse_data and horse_data['unsold']:
+                        unsold_count = prev_unsold_count + 1
+                    else:
+                        unsold_count = prev_unsold_count
+                horse_data['unsold_count'] = unsold_count
                 # 各履歴カラムの新値
                 new_date = horse_data.get('auction_date', '') or ''
                 new_age = horse_data.get('age', '') or ''

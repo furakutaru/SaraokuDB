@@ -32,6 +32,7 @@ interface Horse {
   total_prize_start: number;
   total_prize_latest: number;
   primary_image: string;
+  unsold_count?: number;
 }
 
 const HorseList: React.FC = () => {
@@ -198,11 +199,16 @@ const HorseList: React.FC = () => {
                 </TableCell>
                 <TableCell>{horse.sex}</TableCell>
                 <TableCell>{horse.age}</TableCell>
-                <TableCell>{formatPrice(horse.sold_price)}</TableCell>
+                <TableCell>
+                  {horse.unsold_count !== undefined && horse.unsold_count > 0 && horse.sold_price === 0 ? '¥-' : formatPrice(horse.sold_price)}
+                </TableCell>
+                {horse.unsold_count !== undefined && horse.unsold_count > 0 && (
+                  <TableCell style={{ color: '#b71c1c', fontWeight: 'bold' }}>主取り{horse.unsold_count}回</TableCell>
+                )}
                 <TableCell>{horse.auction_date}</TableCell>
                 <TableCell>{horse.seller}</TableCell>
-                <TableCell>{horse.total_prize_start}万円</TableCell>
-                <TableCell>{horse.total_prize_latest}万円</TableCell>
+                <TableCell>{formatPrice(horse.total_prize_start)}</TableCell>
+                <TableCell>{formatPrice(horse.total_prize_latest)}</TableCell>
                 <TableCell>
                   {horse.total_prize_start && horse.total_prize_latest ? (
                     <span style={{ 

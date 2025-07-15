@@ -170,6 +170,25 @@ class RakutenAuctionScraper:
                 print(f"[異常] 馬名が抽出できません: {detail_url}")
             detail_data['name'] = horse_name
 
+            # --- JBISリンク抽出を追加 ---
+            jbis_url = ''
+            links = soup.find_all('a', href=True)
+            for link in links:
+                href = link.get('href', '')
+                if 'jbis.or.jp' in href and 'horse' in href:
+                    # /record/が付いている場合は除去して基本情報ページのURLを作成
+                    if '/record/' in href:
+                        basic_info_url = href.replace('/record/', '')
+                        if not basic_info_url.endswith('/'):
+                            basic_info_url += '/'
+                        jbis_url = basic_info_url
+                    else:
+                        jbis_url = href
+                    break
+            detail_data['jbis_url'] = jbis_url
+            print(f"[DEBUG] JBISリンク: {jbis_url}")
+            # --- ここまで追加 ---
+
             # 馬齢（「○歳」や「牡/牝○歳」パターン）
             page_text = soup.get_text() or ''
             age = ''
@@ -234,15 +253,40 @@ class RakutenAuctionScraper:
             detail_data['total_prize_start'] = None
             detail_data['total_prize_latest'] = None
 
-            # 落札価格（現在価格・落札価格・カンマ・¥記号除去）
-            sold_price = ''
-            sold_price_match = re.search(r'(?:現在価格|落札価格)[：: ]*([\d,]+)円', page_text)
-            if sold_price_match:
-                sold_price = sold_price_match.group(1).replace(',', '').replace('¥', '')
-                detail_data['sold_price'] = float(sold_price)  # 円単位で保存
-            else:
-                print(f"[異常] 落札価格が抽出できません: {detail_url}")
-                detail_data['sold_price'] = ''
+            # --- ここから主取り判定・入札数取得 ---
+            # 開始価格
+            start_price = None
+            start_price_elem = soup.find('div', class_='itemDetail__price')
+            if start_price_elem:
+                price_text = start_price_elem.get_text(strip=True)
+                match = re.search(r'(\d{1,3}(?:,\d{3})*)', price_text)
+                if match:
+                    start_price = int(match.group(1).replace(',', ''))
+            # 落札価格
+            sold_price = None
+            sold_price_elem = soup.find('div', class_='itemDetail__soldPrice')
+            if sold_price_elem:
+                sold_text = sold_price_elem.get_text(strip=True)
+                match = re.search(r'(\d{1,3}(?:,\d{3})*)', sold_text)
+                if match:
+                    sold_price = int(match.group(1).replace(',', ''))
+            # 入札数
+            bid_num = None
+            bid_num_elem = soup.find('b', class_='topBidder__number')
+            if bid_num_elem:
+                try:
+                    bid_num = int(bid_num_elem.get_text(strip=True))
+                except Exception:
+                    bid_num = None
+            # 主取り判定
+            unsold = False
+            if (bid_num == 0) or (start_price is not None and sold_price is not None and start_price == sold_price):
+                unsold = True
+            detail_data['start_price'] = start_price
+            detail_data['sold_price'] = sold_price
+            detail_data['bid_num'] = bid_num
+            detail_data['unsold'] = unsold
+            # --- ここまで主取り判定・入札数取得 ---
 
             # コメント（<b>本馬について</b>直下の<pre>を優先）
             comment = self._extract_comment_from_soup(soup)
@@ -571,4 +615,12 @@ def test_extract_pedigree():
         print(f"--- パターン{i+1} ---\n入力: {text}\n抽出結果: {result}\n")
 # テスト実行
 if __name__ == "__main__":
-    test_extract_pedigree() 
+    # test_extract_pedigree() をコメントアウトし、実スクレイピングを実行
+    # test_extract_pedigree()
+    scraper = RakutenAuctionScraper()
+    horses = scraper.scrape_all_horses()
+    # 取得した馬データの件数とサンプルを表示
+    print(f"取得馬数: {len(horses)}")
+    if horses:
+        print("サンプル馬データ:")
+        print(horses[0]) 

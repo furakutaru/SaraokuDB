@@ -42,6 +42,7 @@ class HorseResponse(BaseModel):
     comment: Optional[List[str]] = None
     netkeiba_url: Optional[str] = None
     image_url: Optional[str] = None
+    unsold_count: Optional[int] = None  # 主取り回数
     created_at: datetime
     updated_at: datetime
 

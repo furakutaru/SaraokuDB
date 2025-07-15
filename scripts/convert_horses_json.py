@@ -1,8 +1,10 @@
 import json
 from datetime import datetime
+import os
 
-INPUT_PATH = "static-frontend/public/horses.json"
-OUTPUT_PATH = "static-frontend/public/horses.json.new"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+INPUT_PATH = os.path.join(BASE_DIR, "static-frontend", "public", "horses.json")
+OUTPUT_PATH = os.path.join(BASE_DIR, "static-frontend", "public", "horses.json.new")
 
 def convert():
     with open(INPUT_PATH, encoding="utf-8") as f:
@@ -72,7 +74,8 @@ def convert():
             "disease_history": disease_history,
             "netkeiba_url": horse.get("netkeiba_url"),
             "created_at": horse.get("created_at"),
-            "updated_at": horse.get("updated_at")
+            "updated_at": horse.get("updated_at"),
+            "unsold_count": horse.get("unsold_count")  # 主取り回数
         })
     # metadataはそのまま
     new_data = {
