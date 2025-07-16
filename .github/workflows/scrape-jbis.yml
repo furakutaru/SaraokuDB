@@ -19,7 +19,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run JBIS growth scraper
-        run: python backend/scripts/netkeiba_prize_scraper.py
+        run: python scripts/netkeiba_prize_scraper.py
       - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
