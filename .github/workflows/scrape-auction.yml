@@ -8,6 +8,9 @@ on:
     - cron: '30 18 * * 2,6'  # 毎週火曜・土曜 18:30
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   scrape:
     runs-on: ubuntu-latest

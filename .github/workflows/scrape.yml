@@ -10,6 +10,9 @@ on:
       - 'scripts/**'
       - 'requirements.txt'
 
+permissions:
+  contents: write
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
