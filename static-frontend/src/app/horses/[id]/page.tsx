@@ -48,24 +48,6 @@ interface PageProps {
 const toArray = (val: any) => Array.isArray(val) ? val : [val];
 const formatManYen = (val: number) => isNaN(val) ? '-' : `${(val/10000).toFixed(1)}万円`;
 
-// --- ここから追加: generateStaticParams ---
-export async function generateStaticParams() {
-  const fs = require('fs');
-  const path = require('path');
-  const filePath = path.join(process.cwd(), 'public', 'data', 'horses.json');
-  let ids: number[] = [];
-  try {
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
-    const data = JSON.parse(fileContent);
-    ids = (data.horses || []).map((h: any) => h.id);
-  } catch (e) {
-    // エラー時は空配列
-    ids = [];
-  }
-  return ids.map((id: number) => ({ id: id.toString() }));
-}
-// --- ここまで追加 ---
-
 // 落札価格表示用関数を追加
 const formatPrice = (price: number | null | undefined) => {
   if (price === null || price === undefined) return '-';
