@@ -76,7 +76,9 @@ export default function HorseDetailPage(props: any) {
         const response = await fetch('/data/horses.json');
         if (!response.ok) throw new Error('データの取得に失敗しました');
         const data: HorseData = await response.json();
+        console.log('取得データ', data);
         const found = data.horses.find(h => h.id === horseId) || null;
+        console.log('該当馬', found);
         setHorse(found);
         if (!found) setError('該当データがありません');
       } catch (e: any) {
