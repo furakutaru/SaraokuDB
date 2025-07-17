@@ -29,6 +29,12 @@ export default function TestPage() {
     }
   };
 
+  // 落札価格表示用関数を追加
+  const formatPrice = (price: number | null | undefined) => {
+    if (price === null || price === undefined) return '-';
+    return '¥' + price.toLocaleString();
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
@@ -44,7 +50,7 @@ export default function TestPage() {
             <h2 className="text-xl font-semibold mb-4">取得したデータ</h2>
             <div className="space-y-2">
               <p><strong>総馬数:</strong> {data.metadata?.total_horses}</p>
-              <p><strong>平均価格:</strong> ¥{data.metadata?.average_price?.toLocaleString()}</p>
+              <p><strong>平均価格:</strong> {formatPrice(data.metadata?.average_price)}</p>
               <p><strong>最終更新:</strong> {data.metadata?.last_updated}</p>
               <p><strong>馬の数:</strong> {data.horses?.length}</p>
             </div>
@@ -56,7 +62,7 @@ export default function TestPage() {
                   <p><strong>名前:</strong> {horse.name}</p>
                   <p><strong>性別:</strong> {horse.sex}</p>
                   <p><strong>年齢:</strong> {horse.age}歳</p>
-                  <p><strong>落札価格:</strong> ¥{horse.sold_price?.toLocaleString() || '0'}</p>
+                  <p><strong>落札価格:</strong> {formatPrice(horse.sold_price)}</p>
                 </div>
               ))}
             </div>

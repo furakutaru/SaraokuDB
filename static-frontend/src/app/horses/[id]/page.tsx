@@ -65,6 +65,51 @@ export async function generateStaticParams() {
 }
 // --- ここまで追加 ---
 
+// 落札価格表示用関数を追加
+const formatPrice = (price: number | null | undefined) => {
+  if (price === null || price === undefined) return '-';
+  return '¥' + price.toLocaleString();
+};
+
+// 以前の仕様に合わせた成長率計算
+const calculateGrowthRate = (start: number, latest: number) => {
+  if (start === 0) return '-';
+  const rate = ((latest - start) / start * 100).toFixed(1);
+  return (latest - start >= 0 ? '+' : '') + rate;
+};
+
+const getPrizeDifference = () => {
+  return horse.total_prize_latest - horse.total_prize_start;
+};
+
+const getSexColor = (sex: string) => {
+  return sex === '牡' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800';
+};
+
+const getGrowthColor = (rate: string) => {
+  if (rate === 'N/A') return 'text-gray-500';
+  const numRate = parseFloat(rate);
+  if (numRate > 0) return 'text-green-600';
+  if (numRate < 0) return 'text-red-600';
+  return 'text-gray-600';
+};
+
+const getPrizeStatus = () => {
+  if (horse.total_prize_start === 0 && horse.total_prize_latest === 0) {
+    return 'オークション後未出走';
+  } else if (horse.total_prize_start === 0 && horse.total_prize_latest > 0) {
+    return 'オークション後出走済み';
+  } else {
+    return '賞金差分';
+  }
+};
+
+// 賞金バリデーション関数を追加
+const formatPrize = (val: number | null | undefined) => {
+  if (val === null || val === undefined) return '-';
+  return `${(val / 10000).toFixed(1)}万円`;
+};
+
 export default async function HorseDetailPage({ params }: PageProps) {
   const { id } = await params;
   const horseId = parseInt(id);
@@ -121,45 +166,48 @@ export default async function HorseDetailPage({ params }: PageProps) {
   }
 
   // 落札価格フォーマット（円単位で保存されているので、そのまま表示）
-  const formatPrice = (price: number) => {
-    return price.toLocaleString();
-  };
+  // const formatPrice = (price: number) => {
+  //   return price.toLocaleString();
+  // };
 
   // 以前の仕様に合わせた成長率計算
-  const calculateGrowthRate = (start: number, latest: number) => {
-    if (start === 0) return '-';
-    const rate = ((latest - start) / start * 100).toFixed(1);
-    return (latest - start >= 0 ? '+' : '') + rate;
-  };
+  // const calculateGrowthRate = (start: number, latest: number) => {
+  //   if (start === 0) return '-';
+  //   const rate = ((latest - start) / start * 100).toFixed(1);
+  //   return (latest - start >= 0 ? '+' : '') + rate;
+  // };
 
-  const getPrizeDifference = () => {
-    return horse.total_prize_latest - horse.total_prize_start;
-  };
+  // const getPrizeDifference = () => {
+  //   return horse.total_prize_latest - horse.total_prize_start;
+  // };
 
-  const getSexColor = (sex: string) => {
-    return sex === '牡' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800';
-  };
+  // const getSexColor = (sex: string) => {
+  //   return sex === '牡' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800';
+  // };
 
-  const getGrowthColor = (rate: string) => {
-    if (rate === 'N/A') return 'text-gray-500';
-    const numRate = parseFloat(rate);
-    if (numRate > 0) return 'text-green-600';
-    if (numRate < 0) return 'text-red-600';
-    return 'text-gray-600';
-  };
+  // const getGrowthColor = (rate: string) => {
+  //   if (rate === 'N/A') return 'text-gray-500';
+  //   const numRate = parseFloat(rate);
+  //   if (numRate > 0) return 'text-green-600';
+  //   if (numRate < 0) return 'text-red-600';
+  //   return 'text-gray-600';
+  // };
 
-  const getPrizeStatus = () => {
-    if (horse.total_prize_start === 0 && horse.total_prize_latest === 0) {
-      return 'オークション後未出走';
-    } else if (horse.total_prize_start === 0 && horse.total_prize_latest > 0) {
-      return 'オークション後出走済み';
-    } else {
-      return '賞金差分';
-    }
-  };
+  // const getPrizeStatus = () => {
+  //   if (horse.total_prize_start === 0 && horse.total_prize_latest === 0) {
+  //     return 'オークション後未出走';
+  //   } else if (horse.total_prize_start === 0 && horse.total_prize_latest > 0) {
+  //     return 'オークション後出走済み';
+  //   } else {
+  //     return '賞金差分';
+  //   }
+  // };
 
   // 賞金バリデーション関数を追加
-  const formatPrize = (val: any) => (typeof val === 'number' && !isNaN(val) ? `${val}万円` : '-');
+  // const formatPrize = (val: number | null | undefined) => {
+  //   if (val === null || val === undefined) return '-';
+  //   return `${(val / 10000).toFixed(1)}万円`;
+  // };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -345,7 +393,7 @@ export default async function HorseDetailPage({ params }: PageProps) {
                 <div className="text-center">
                   {toArray(horse.sold_price).map((sp, i) => (
                     <div key={i} className="text-2xl font-bold mb-1">
-                      {sp === 0 && horse.unsold_count > 0 ? '¥-' : `¥${formatManYen(sp)}`}
+                      {formatPrice(sp)}
                       <span className="text-xs text-gray-500 ml-2">{toArray(horse.auction_date)[i] ?? ''}</span>
                     </div>
                   ))}
@@ -362,13 +410,13 @@ export default async function HorseDetailPage({ params }: PageProps) {
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {formatManYen(Number(horse.total_prize_start))}
+                      {formatPrize(Number(horse.total_prize_start))}
                     </div>
                     <div className="text-xs text-gray-600">落札時</div>
                   </div>
                   <div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {formatManYen(Number(horse.total_prize_latest))}
+                      {formatPrize(Number(horse.total_prize_latest))}
                     </div>
                     <div className="text-xs text-gray-600">現在</div>
                   </div>

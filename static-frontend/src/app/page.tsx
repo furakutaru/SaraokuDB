@@ -66,6 +66,18 @@ function loadHorseData(): HorseData {
   }
 }
 
+// 賞金表示用関数を追加
+const formatPrize = (val: number | null | undefined) => {
+  if (val === null || val === undefined) return '-';
+  return `${(val / 10000).toFixed(1)}万円`;
+};
+
+// 落札価格表示用関数を追加
+const formatPrice = (price: number | null | undefined) => {
+  if (price === null || price === undefined) return '-';
+  return '¥' + price.toLocaleString();
+};
+
 export default function Home() {
   const data = loadHorseData();
   const { metadata, horses } = data;
@@ -121,7 +133,7 @@ export default function Home() {
               <CardTitle className="text-sm font-medium">平均落札価格</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">¥{metadata.average_price.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{formatPrice(metadata.average_price)}</div>
             </CardContent>
           </Card>
 
@@ -192,7 +204,7 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-green-600">¥{horse.sold_price?.toLocaleString() || '0'}</p>
+                      <p className="font-semibold text-green-600">{formatPrice(horse.sold_price)}</p>
                       <p className="text-sm text-gray-500">{horse.seller}</p>
                     </div>
                   </div>

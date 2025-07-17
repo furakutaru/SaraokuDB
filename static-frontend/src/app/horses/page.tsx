@@ -124,9 +124,16 @@ export default function HorsesPage() {
       return sortOrder === 'asc' ? comparison : -comparison;
     });
 
-  const formatPrice = (price: number) => {
-    // 落札価格は円単位で保存されているので、そのまま表示
-    return price.toLocaleString();
+  // 賞金表示用関数を追加
+  const formatPrize = (val: number | null | undefined) => {
+    if (val === null || val === undefined) return '-';
+    return `${(val / 10000).toFixed(1)}万円`;
+  };
+
+  // 落札価格表示用関数を追加
+  const formatPrice = (price: number | null | undefined) => {
+    if (price === null || price === undefined) return '-';
+    return '¥' + price.toLocaleString();
   };
 
   const getGrowthRate = (start: number, latest: number) => {
@@ -239,7 +246,7 @@ export default function HorsesPage() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <span className="text-gray-600">落札価格:</span>
-                          <p className="font-semibold text-red-600">¥{formatPrice(horse.sold_price || 0)}</p>
+                          <p className="font-semibold text-red-600">{formatPrice(horse.sold_price)}</p>
                         </div>
                         <div>
                           <span className="text-gray-600">販売者:</span>
