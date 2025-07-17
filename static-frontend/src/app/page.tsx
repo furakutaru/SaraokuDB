@@ -115,6 +115,9 @@ export default function Home() {
     .sort((a: any, b: any) => b.growth - a.growth)
     .slice(0, 10);
 
+  // 総馬数のカウントを主取り馬を除外した数に修正
+  const validHorses = horses.filter(h => !h.unsold_count || h.unsold_count === 0);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
@@ -147,7 +150,7 @@ export default function Home() {
               <CardTitle className="text-sm font-medium">総馬数</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{metadata.total_horses.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{validHorses.length.toLocaleString()}</div>
             </CardContent>
           </Card>
 
