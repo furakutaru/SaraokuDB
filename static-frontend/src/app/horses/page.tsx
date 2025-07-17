@@ -28,6 +28,7 @@ interface Horse {
   netkeiba_url: string;
   created_at: string;
   updated_at: string;
+  unsold_count: number; // 追加: 未売出数
 }
 
 interface Metadata {
@@ -103,6 +104,7 @@ export default function HorsesPage() {
 
   // 検索とソート
   const filteredHorses = horses
+    .filter(horse => !horse.unsold_count || horse.unsold_count === 0)
     .filter(horse => 
       horse.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (horse.sire || '').toLowerCase().includes(searchTerm.toLowerCase()) ||

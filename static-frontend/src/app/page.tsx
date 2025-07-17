@@ -79,6 +79,28 @@ const formatPrice = (price: number | null | undefined) => {
   return '¥' + price.toLocaleString();
 };
 
+// 直近の火曜または土曜18:30を計算する関数を追加
+function getNextScrapingDate(): string {
+  const now = new Date();
+  const day = now.getDay(); // 0:日, 1:月, 2:火, 3:水, 4:木, 5:金, 6:土
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+  // 火曜18:30
+  let nextTuesday = new Date(now);
+  nextTuesday.setDate(now.getDate() + ((2 - day + 7) % 7));
+  nextTuesday.setHours(18, 30, 0, 0);
+  // 土曜18:30
+  let nextSaturday = new Date(now);
+  nextSaturday.setDate(now.getDate() + ((6 - day + 7) % 7));
+  nextSaturday.setHours(18, 30, 0, 0);
+  // どちらも今より前なら+7日
+  if (nextTuesday < now) nextTuesday.setDate(nextTuesday.getDate() + 7);
+  if (nextSaturday < now) nextSaturday.setDate(nextSaturday.getDate() + 7);
+  // 直近を選ぶ
+  const next = nextTuesday < nextSaturday ? nextTuesday : nextSaturday;
+  return `${next.getFullYear()}-${(next.getMonth()+1).toString().padStart(2,'0')}-${next.getDate().toString().padStart(2,'0')} 18:30`;
+}
+
 export default function Home() {
   const data = loadHorseData();
   const { metadata, horses } = data;
@@ -108,8 +130,8 @@ export default function Home() {
                 馬一覧
               </Link>
               <div className="text-right">
-                <p className="text-sm text-gray-500">次回オークション</p>
-                <p className="text-lg font-semibold text-blue-600">{metadata.next_auction_date ? metadata.next_auction_date : '-'}</p>
+                <p className="text-sm text-gray-500">次回スクレイピング</p>
+                <p className="text-lg font-semibold text-blue-600">{getNextScrapingDate()}</p>
               </div>
             </div>
           </div>
