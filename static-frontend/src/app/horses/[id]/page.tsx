@@ -4,8 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import HorseImage from '@/components/HorseImage';
-import fs from 'fs';
-import path from 'path';
+import { useEffect, useState } from 'react';
 
 interface Horse {
   id: number;
@@ -84,53 +83,48 @@ const formatPrize = (val: number | null | undefined) => {
   return `${(val / 10000).toFixed(1)}万円`;
 };
 
-export default async function HorseDetailPage({ params }: PageProps) {
-  const { id } = await params;
-  const horseId = parseInt(id);
+export default function HorseDetailPage({ params }: { params: { id: string } }) {
+  const horseId = parseInt(params.id);
+  const [horse, setHorse] = useState<Horse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // データを直接読み込み
-  let data: HorseData | null = null;
-  let horse: Horse | null = null;
-  let error: string | null = null;
-
-  try {
-    const filePath = path.join(process.cwd(), 'public', 'data', 'horses.json');
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
-    data = JSON.parse(fileContent);
-    
-    if (data && data.horses) {
-      horse = data.horses.find(h => h.id === horseId) || null;
-      
-      if (!horse) {
-        error = '該当データがありません';
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/data/horses.json');
+        if (!response.ok) throw new Error('データの取得に失敗しました');
+        const data: HorseData = await response.json();
+        const found = data.horses.find(h => h.id === horseId) || null;
+        setHorse(found);
+        if (!found) setError('該当データがありません');
+      } catch (e: any) {
+        setError('データの読み込みに失敗しました');
+      } finally {
+        setLoading(false);
       }
-    } else {
-      error = 'データの形式が正しくありません';
-    }
-  } catch (e) {
-    error = 'データの読み込みに失敗しました';
-  }
+    };
+    fetchData();
+  }, [horseId]);
 
-  if (error) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-600 text-xl mb-4">⚠️</div>
-          <p className="text-gray-600">エラー: {error}</p>
-          <Link href="/horses">
-            <Button className="mt-4">一覧に戻る</Button>
-          </Link>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">データを読み込み中...</p>
         </div>
       </div>
     );
   }
 
-  if (!horse) {
+  if (error || !horse) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-gray-400 text-xl mb-4">🐎</div>
-          <p className="text-gray-600">データがありません</p>
+          <div className="text-red-600 text-xl mb-4">⚠️</div>
+          <p className="text-gray-600">エラー: {error || 'データがありません'}</p>
           <Link href="/horses">
             <Button className="mt-4">一覧に戻る</Button>
           </Link>
