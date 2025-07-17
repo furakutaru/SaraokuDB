@@ -362,13 +362,13 @@ export default async function HorseDetailPage({ params }: PageProps) {
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {formatManYen(horse.total_prize_start)}
+                      {formatManYen(Number(horse.total_prize_start))}
                     </div>
                     <div className="text-xs text-gray-600">落札時</div>
                   </div>
                   <div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {formatManYen(horse.total_prize_latest)}
+                      {formatManYen(Number(horse.total_prize_latest))}
                     </div>
                     <div className="text-xs text-gray-600">現在</div>
                   </div>
@@ -377,8 +377,8 @@ export default async function HorseDetailPage({ params }: PageProps) {
                   <div className="text-center">
                     <div className={`text-xl font-bold ${horse.total_prize_latest - horse.total_prize_start > 0 ? 'text-green-600' : horse.total_prize_latest - horse.total_prize_start < 0 ? 'text-red-600' : 'text-gray-600'}`}> 
                       {(() => {
-                        const start = horse.total_prize_start ?? 0;
-                        const latest = horse.total_prize_latest ?? 0;
+                        const start = Number(horse.total_prize_start ?? 0);
+                        const latest = Number(horse.total_prize_latest ?? 0);
                         const diff = latest - start;
                         if (diff === 0) {
                           return '0万円';
@@ -390,7 +390,7 @@ export default async function HorseDetailPage({ params }: PageProps) {
                       })()}
                     </div>
                     <div className={`text-sm font-medium ${horse.total_prize_latest - horse.total_prize_start > 0 ? 'text-green-600' : horse.total_prize_latest - horse.total_prize_start < 0 ? 'text-red-600' : 'text-gray-600'}`}> 
-                      {horse.total_prize_start === 0 ? '-' : ((horse.total_prize_latest - horse.total_prize_start) / horse.total_prize_start * 100).toFixed(1) + '%'}
+                      {Number(horse.total_prize_start) === 0 ? '-' : ((Number(horse.total_prize_latest) - Number(horse.total_prize_start)) / Number(horse.total_prize_start) * 100).toFixed(1) + '%'}
                     </div>
                   </div>
                 </div>
