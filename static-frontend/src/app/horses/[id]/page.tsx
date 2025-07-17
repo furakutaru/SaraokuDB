@@ -40,10 +40,6 @@ interface HorseData {
   horses: Horse[];
 }
 
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
-
 // --- 追加ユーティリティ ---
 const toArray = (val: any) => Array.isArray(val) ? val : [val];
 const formatManYen = (val: number) => isNaN(val) ? '-' : `${(val/10000).toFixed(1)}万円`;
