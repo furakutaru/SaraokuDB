@@ -27,6 +27,7 @@ interface Horse {
   netkeiba_url: string;
   created_at: string;
   updated_at: string;
+  unsold_count: number; // 追加: 主取り馬の数
 }
 
 interface Metadata {
@@ -108,7 +109,7 @@ export default function Home() {
               </Link>
               <div className="text-right">
                 <p className="text-sm text-gray-500">次回オークション</p>
-                <p className="text-lg font-semibold text-blue-600">{metadata.next_auction_date}</p>
+                <p className="text-lg font-semibold text-blue-600">{metadata.next_auction_date ? metadata.next_auction_date : '-'}</p>
               </div>
             </div>
           </div>
@@ -179,7 +180,7 @@ export default function Home() {
             <div className="flex justify-between items-center">
               <CardTitle>馬一覧</CardTitle>
               <Link href="/horses">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="text-white bg-blue-600 hover:bg-blue-700 border-blue-600">
                   すべて見る
                 </Button>
               </Link>
@@ -187,7 +188,7 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {horses.slice(0, 5).map((horse: Horse) => (
+              {horses.filter(h => !h.unsold_count || h.unsold_count === 0).slice(0, 5).map((horse: Horse) => (
                 <Link key={horse.id} href={`/horses/${horse.id}`}>
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                     <div className="flex items-center space-x-3">
