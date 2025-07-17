@@ -78,32 +78,7 @@ const calculateGrowthRate = (start: number, latest: number) => {
   return (latest - start >= 0 ? '+' : '') + rate;
 };
 
-const getPrizeDifference = () => {
-  return horse.total_prize_latest - horse.total_prize_start;
-};
-
-const getSexColor = (sex: string) => {
-  return sex === '牡' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800';
-};
-
-const getGrowthColor = (rate: string) => {
   if (rate === 'N/A') return 'text-gray-500';
-  const numRate = parseFloat(rate);
-  if (numRate > 0) return 'text-green-600';
-  if (numRate < 0) return 'text-red-600';
-  return 'text-gray-600';
-};
-
-const getPrizeStatus = () => {
-  if (horse.total_prize_start === 0 && horse.total_prize_latest === 0) {
-    return 'オークション後未出走';
-  } else if (horse.total_prize_start === 0 && horse.total_prize_latest > 0) {
-    return 'オークション後出走済み';
-  } else {
-    return '賞金差分';
-  }
-};
-
 // 賞金バリデーション関数を追加
 const formatPrize = (val: number | null | undefined) => {
   if (val === null || val === undefined) return '-';
@@ -208,6 +183,11 @@ export default async function HorseDetailPage({ params }: PageProps) {
   //   if (val === null || val === undefined) return '-';
   //   return `${(val / 10000).toFixed(1)}万円`;
   // };
+
+  // horse変数が定義された後にgetSexColorを再定義
+  const getSexColor = (sex: string) => {
+    return sex === '牡' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800';
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
