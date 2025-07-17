@@ -63,8 +63,8 @@ const formatPrize = (val: number | null | undefined) => {
   return `${(val / 10000).toFixed(1)}万円`;
 };
 
-export default function HorseDetailPage({ params }: { params: { id: string } }) {
-  const horseId = parseInt(params.id);
+export default function HorseDetailPage(props: any) {
+  const horseId = parseInt(props.params.id);
   const [horse, setHorse] = useState<Horse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
