@@ -60,7 +60,7 @@ const calculateGrowthRate = (start: number, latest: number) => {
 // 賞金バリデーション関数を追加
 const formatPrize = (val: number | null | undefined) => {
   if (val === null || val === undefined) return '-';
-  return `${(val / 10000).toFixed(1)}万円`;
+  return `${val.toFixed(1)}万円`;
 };
 
 export default function HorseDetailPage(props: any) {
