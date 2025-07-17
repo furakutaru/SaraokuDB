@@ -78,7 +78,6 @@ const calculateGrowthRate = (start: number, latest: number) => {
   return (latest - start >= 0 ? '+' : '') + rate;
 };
 
-  if (rate === 'N/A') return 'text-gray-500';
 // 賞金バリデーション関数を追加
 const formatPrize = (val: number | null | undefined) => {
   if (val === null || val === undefined) return '-';
