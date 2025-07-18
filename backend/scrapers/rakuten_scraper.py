@@ -28,7 +28,7 @@ class RakutenAuctionScraper:
     
     def scrape_horse_list(self) -> List[Dict]:
         """
-        トップページから馬のリスト（馬名・総賞金・詳細URL）を取得
+        トップページから馬のリスト（馬名・総賞金・詳細URL・性別）を取得
         """
         horses = []
         try:
@@ -66,12 +66,20 @@ class RakutenAuctionScraper:
                             total_prize_float = float(prize.replace('万円', '').replace(',', ''))
                         except Exception:
                             total_prize_float = 0.0
+                # 性別
+                sex = ''
+                sex_age_element = card.find(class_="horseLabelWrapper")
+                if sex_age_element:
+                    sex_element = sex_age_element.find(class_="horseLabelWrapper__horseSex")
+                    if sex_element:
+                        sex = sex_element.get_text(strip=True)
                 horses.append({
                     'name': horse_name,
                     'detail_url': detail_url,
                     'prize': prize,
                     'total_prize_start': total_prize_float,
-                    'total_prize_latest': total_prize_float
+                    'total_prize_latest': total_prize_float,
+                    'sex': sex
                 })
             print(f"{len(horses)}頭の馬を発見しました。")
             if len(horses) == 0:
@@ -317,6 +325,13 @@ class RakutenAuctionScraper:
             detail_data['disease_tags'] = self._extract_disease_tags(detail_data.get('comment', ''))
             detail_data['primary_image'] = self._extract_primary_image(soup)
             detail_data['netkeiba_url'] = self._extract_netkeiba_url(soup)
+            # 性別
+            sex_elem = soup.find(class_="horseLabelWrapper__horseSex")
+            sex = ''
+            if sex_elem is not None and hasattr(sex_elem, 'get_text'):
+                val = sex_elem.get_text(strip=True)
+                sex = val if isinstance(val, str) else ''
+            detail_data['sex'] = sex
             return detail_data
         except Exception as e:
             print(f"詳細情報の取得に失敗: {e}")
