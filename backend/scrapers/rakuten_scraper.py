@@ -327,10 +327,8 @@ class RakutenAuctionScraper:
             detail_data['netkeiba_url'] = self._extract_netkeiba_url(soup)
             # 性別
             sex_elem = soup.find(class_="horseLabelWrapper__horseSex")
-            sex = ''
-            if sex_elem is not None and hasattr(sex_elem, 'get_text'):
-                val = sex_elem.get_text(strip=True)
-                sex = val if isinstance(val, str) else ''
+            assert sex_elem is not None, "性別要素が見つかりません"
+            sex = sex_elem.get_text(strip=True)
             detail_data['sex'] = sex
             return detail_data
         except Exception as e:
