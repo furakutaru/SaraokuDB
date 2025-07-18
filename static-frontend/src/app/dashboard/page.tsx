@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import HorseImage from '@/components/HorseImage';
 import Link from 'next/link';
+import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 
 interface Horse {
   id: number;
@@ -60,6 +61,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showType, setShowType] = useState<'all' | 'roi' | 'value'>('all');
+  const [sortKey, setSortKey] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     fetchData();
@@ -87,7 +90,7 @@ export default function DashboardPage() {
   }
 
   // 主取り馬除外
-  const horses = data.horses.filter(h => !h.unsold_count || h.unsold_count === 0);
+  let horses = data.horses.filter(h => !h.unsold_count || h.unsold_count === 0);
 
   // サマリー
   const avgROI = horses.length > 0 ? (
@@ -106,56 +109,74 @@ export default function DashboardPage() {
   if (showType === 'roi') tableHorses = roiRanking;
   if (showType === 'value') tableHorses = valueHorses;
 
+  // ソート関数
+  const sortFunctions: { [key: string]: (a: Horse, b: Horse) => number } = {
+    name: (a, b) => a.name.localeCompare(b.name, 'ja'),
+    sex: (a, b) => a.sex.localeCompare(b.sex, 'ja'),
+    age: (a, b) => a.age - b.age,
+    sire: (a, b) => a.sire.localeCompare(b.sire, 'ja'),
+    sold_price: (a, b) => a.sold_price - b.sold_price,
+    total_prize_start: (a, b) => a.total_prize_start - b.total_prize_start,
+    total_prize_latest: (a, b) => a.total_prize_latest - b.total_prize_latest,
+    roi: (a, b) => {
+      const ra = a.sold_price > 0 ? a.total_prize_latest / a.sold_price : 0;
+      const rb = b.sold_price > 0 ? b.total_prize_latest / b.sold_price : 0;
+      return ra - rb;
+    },
+  };
+
+  if (sortKey && sortFunctions[sortKey]) {
+    tableHorses = [...tableHorses].sort((a, b) => {
+      const res = sortFunctions[sortKey](a, b);
+      return sortOrder === 'asc' ? res : -res;
+    });
+  }
+
+  // ソートハンドラ
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortOrder(key === 'name' ? 'asc' : 'desc'); // 馬名はデフォルト昇順
+    }
+  };
+
+  // ソートアイコン
+  const renderSortIcon = (key: string) => {
+    if (sortKey !== key) return <FaSort className="inline ml-1 text-gray-400" />;
+    return sortOrder === 'asc' ? <FaSortUp className="inline ml-1 text-blue-600" /> : <FaSortDown className="inline ml-1 text-blue-600" />;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">解析</h1>
-        {/* サマリー */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>総馬数</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{horses.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>平均落札価格</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatPrice(data.metadata.average_price)}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>平均ROI</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{avgROI.toFixed(2)}</div>
-            </CardContent>
-          </Card>
+        {/* サマリー 横並びテキスト */}
+        <div className="mb-6 text-lg font-semibold text-gray-700 flex flex-wrap gap-8">
+          <span>総馬数: {horses.length}</span>
+          <span>平均落札価格: {formatPrice(data.metadata.average_price)}</span>
+          <span>平均ROI: {avgROI.toFixed(2)}</span>
         </div>
-        {/* 指標ボタン */}
+        {/* 指標ボタン（白文字色付き） */}
         <div className="flex gap-4 mb-6">
-          <Button onClick={() => setShowType('all')} variant={showType==='all'?'default':'outline'}>全馬</Button>
-          <Button onClick={() => setShowType('roi')} variant={showType==='roi'?'default':'outline'}>ROIランキング</Button>
-          <Button onClick={() => setShowType('value')} variant={showType==='value'?'default':'outline'}>妙味馬</Button>
+          <Button onClick={() => setShowType('all')} variant="default" className={showType==='all'?"bg-blue-600 text-white":"bg-blue-400 text-white"}>全馬</Button>
+          <Button onClick={() => setShowType('roi')} variant="default" className={showType==='roi'?"bg-green-600 text-white":"bg-green-400 text-white"}>ROIランキング</Button>
+          <Button onClick={() => setShowType('value')} variant="default" className={showType==='value'?"bg-orange-600 text-white":"bg-orange-400 text-white"}>妙味馬</Button>
         </div>
         {/* DataTable風の表 */}
         <div className="overflow-x-auto bg-white rounded-lg shadow">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">馬名</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">性別</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">年齢</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">父</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">落札価格</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">オークション時賞金</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">現在賞金</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">ROI</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_start')}>オークション時賞金{renderSortIcon('total_prize_start')}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_latest')}>現在賞金{renderSortIcon('total_prize_latest')}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('roi')}>ROI{renderSortIcon('roi')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">リンク</th>
               </tr>
