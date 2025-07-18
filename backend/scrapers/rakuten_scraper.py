@@ -208,116 +208,30 @@ class RakutenAuctionScraper:
                 print(f"[異常] 馬齢が抽出できません: {detail_url}")
 
             # 血統（父・母・母父）
-            pedigree_text = ''
-            for tag in soup.find_all(['div', 'td']):
-                if tag is None or getattr(tag, 'text', None) is None:
-                    continue
-                tag_text = str(tag.text)
-                if '父：' in tag_text:
-                    pedigree_text = tag_text.strip()
-                    break
-            if not pedigree_text:
-                pedigree_match = re.search(r'父：([^\s　|]+)[\s　|]+母：([^\s　|]+)[\s　|]+母の父：([^\s　|]+)', page_text)
-                if pedigree_match:
-                    sire = pedigree_match.group(1)
-                    dam = pedigree_match.group(2)
-                    dam_sire = pedigree_match.group(3)
-                else:
-                    sire = dam = dam_sire = ''
-            else:
-                sire = dam = dam_sire = ''
-                if '父：' in pedigree_text:
-                    sire = pedigree_text.split('父：')[1].split('母：')[0].strip()
-                if '母：' in pedigree_text:
-                    dam = pedigree_text.split('母：')[1].split('母の父：')[0].strip()
-                if '母の父：' in pedigree_text:
-                    dam_sire_raw = pedigree_text.split('母の父：')[1].strip()
-                    dam_sire_match = re.match(r'^([^\s　\(\)（）\[\]【】,，、.。:：]+)', dam_sire_raw)
-                    dam_sire = dam_sire_match.group(1) if dam_sire_match else dam_sire_raw.split()[0]
-            detail_data['sire'] = sire
-            detail_data['dam'] = dam
-            detail_data['dam_sire'] = dam_sire
-            if not sire:
-                print(f"[異常] 父が抽出できません: {detail_url}")
-            if not dam:
-                print(f"[異常] 母が抽出できません: {detail_url}")
-            if not dam_sire:
-                print(f"[異常] 母父が抽出できません: {detail_url}")
+            # それぞれ独立した正規表現で抽出
+            sire_match = re.search(r'父：([^\s　|]+)', page_text)
+            dam_match = re.search(r'母：([^\s　|]+)', page_text)
+            dam_sire_match = re.search(r'母の父：([^\s　|]+)', page_text)
+            sire = sire_match.group(1) if sire_match else ''
+            dam = dam_match.group(1) if dam_match else ''
+            dam_sire = dam_sire_match.group(1) if dam_sire_match else ''
+            detail_data['sire'] = str(sire)
+            detail_data['dam'] = str(dam)
+            detail_data['dam_sire'] = str(dam_sire)
 
-            # 販売申込者（「（」以降を除去）
-            seller = ''
-            seller_match = re.search(r'販売申込者：([^\n\r\t]+)', page_text)
-            if seller_match:
-                seller = seller_match.group(1).strip()
-                seller = re.sub(r'（.*$', '', seller).strip()
-            detail_data['seller'] = seller
-            if not seller:
-                print(f"[異常] 販売申込者が抽出できません: {detail_url}")
-
-            # 総賞金（auctionTableRow__priceからlabel=総賞金のvalueを取得）
-            total_prize = self._extract_prize_money_from_soup(soup)
-            # 総賞金は詳細ページでは設定しない（リストで取得した値を使用）
-            # 詳細ページの総賞金は信頼性が低いため、scrape_all_horsesで上書きする
-            detail_data['total_prize_start'] = None
-            detail_data['total_prize_latest'] = None
-
-            # --- ここから主取り判定・入札数取得 ---
-            # 開始価格
-            start_price = None
-            start_price_elem = soup.find('div', class_='itemDetail__price')
-            if start_price_elem:
-                price_text = start_price_elem.get_text(strip=True)
-                match = re.search(r'(\d{1,3}(?:,\d{3})*)', price_text)
-                if match:
-                    start_price = int(match.group(1).replace(',', ''))
-            # 落札価格
-            sold_price = None
-            sold_price_elem = soup.find('div', class_='itemDetail__soldPrice')
-            if sold_price_elem:
-                sold_text = sold_price_elem.get_text(strip=True)
-                match = re.search(r'(\d{1,3}(?:,\d{3})*)', sold_text)
-                if match:
-                    sold_price = int(match.group(1).replace(',', ''))
-            # 入札数
-            bid_num = None
-            bid_num_elem = soup.find('b', class_='topBidder__number')
-            if bid_num_elem:
-                try:
-                    bid_num = int(bid_num_elem.get_text(strip=True))
-                except Exception:
-                    bid_num = None
-            # 主取り判定
-            unsold = False
-            if (bid_num == 0) or (start_price is not None and sold_price is not None and start_price == sold_price):
-                unsold = True
-            detail_data['start_price'] = start_price
-            detail_data['sold_price'] = sold_price
-            detail_data['bid_num'] = bid_num
-            detail_data['unsold'] = unsold
-            # --- ここまで主取り判定・入札数取得 ---
-
-            # コメント（<b>本馬について</b>直下の<pre>を優先）
+            # コメント
             comment = self._extract_comment_from_soup(soup)
             if not comment:
-                # fallback: 既存ロジック
-                desc_div = soup.find('div', class_='itemDetail__description')
-                if desc_div and getattr(desc_div, 'text', None):
-                    comment = str(desc_div.text).strip() if desc_div.text is not None else ''
-                if not comment:
-                    remarks_div = soup.find('div', class_='itemDetail__remarks')
-                    if remarks_div and getattr(remarks_div, 'text', None):
-                        comment = str(remarks_div.text).strip() if remarks_div.text is not None else ''
-                if not comment:
-                    div = soup.find('div', class_='comment')
-                    if div and getattr(div, 'text', None):
-                        comment = str(div.text).strip() if div.text is not None else ''
-                    else:
-                        p = soup.find('p', class_='comment')
-                        if p and getattr(p, 'text', None):
-                            comment = str(p.text).strip() if p.text is not None else ''
-            if not comment:
-                print(f"[異常] コメントが抽出できません: {detail_url}")
-            detail_data['comment'] = comment
+                # ページ全体テキストから「本馬について」や「コメント」などのキーワードで抽出
+                comment_match = re.search(r'(本馬について[\s\S]+?)(?:\n\n|$)', page_text)
+                if comment_match:
+                    comment = comment_match.group(1).strip()
+                else:
+                    # 「コメント：」や「備考：」なども試す
+                    comment_match2 = re.search(r'(コメント[：:].+?)(?:\n\n|$)', page_text)
+                    if comment_match2:
+                        comment = comment_match2.group(1).strip()
+            detail_data['comment'] = str(comment) if comment is not None else ''
 
             # その他（既存ロジック）
             detail_data['weight'] = self._extract_weight(soup)
@@ -326,10 +240,24 @@ class RakutenAuctionScraper:
             detail_data['primary_image'] = self._extract_primary_image(soup)
             detail_data['netkeiba_url'] = self._extract_netkeiba_url(soup)
             # 性別
-            sex_elem = soup.find(class_="horseLabelWrapper__horseSex")
-            assert sex_elem is not None, "性別要素が見つかりません"
-            sex = sex_elem.get_text(strip=True)
+            try:
+                sex_elem = soup.find(class_="horseLabelWrapper__horseSex")
+                sex = sex_elem.get_text(strip=True) if sex_elem else ''
+            except Exception as e:
+                print(f"[警告] 性別要素の取得に失敗: {e}")
+                sex = ''
             detail_data['sex'] = sex
+
+            # 落札価格（sold_price）
+            sold_price = 0
+            sold_price_elem = soup.find('div', class_='itemDetail__soldPrice')
+            if sold_price_elem:
+                sold_text = sold_price_elem.get_text(strip=True)
+                match = re.search(r'(\d{1,3}(?:,\d{3})*)', sold_text)
+                if match:
+                    sold_price = int(match.group(1).replace(',', ''))
+            detail_data['sold_price'] = sold_price
+
             return detail_data
         except Exception as e:
             print(f"詳細情報の取得に失敗: {e}")
@@ -539,13 +467,23 @@ class RakutenAuctionScraper:
                     else:
                         prize_float = 0.0
                         print(f"DEBUG: prize_strが空: {horse.get('name', '')}")
-                    
                     # 詳細データに総賞金を設定
                     detail_data['total_prize_start'] = prize_float
                     detail_data['total_prize_latest'] = prize_float
                     detail_data['prize'] = prize_str  # 文字列も保持
-                    
-                    horse.update(detail_data)
+
+                    # --- sexフィールドの上書きロジック修正 ---
+                    sex_val = detail_data.get('sex', None)
+                    if isinstance(sex_val, str) and sex_val.strip() != '':
+                        horse['sex'] = sex_val
+                    # sold_priceも必ず上書き
+                    if 'sold_price' in detail_data:
+                        horse['sold_price'] = float(detail_data['sold_price']) if detail_data['sold_price'] is not None else 0.0
+                    # 他のフィールドは従来通り上書き。ただしNoneは空文字に変換
+                    for k, v in detail_data.items():
+                        if k in ['sex', 'sold_price']:
+                            continue  # 既に上で処理済み
+                        horse[k] = str(v) if v is not None else ''
             # サーバーに負荷をかけないよう少し待機
             time.sleep(1)
         
