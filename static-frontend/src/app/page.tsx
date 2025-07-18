@@ -129,6 +129,9 @@ export default function Home() {
               <p className="text-gray-600">最終更新: {new Date(metadata.last_updated).toLocaleString('ja-JP')}</p>
             </div>
             <div className="flex items-center space-x-6">
+              <Link href="/dashboard">
+                <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 rounded shadow">解析</Button>
+              </Link>
               <Link href="/horses" className="text-blue-600 hover:text-blue-800 font-medium">
                 馬一覧
               </Link>
