@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from '../../static-frontend/src/components/ui/card';
-import { Button } from '../../static-frontend/src/components/ui/button';
-import HorseImage from '../../static-frontend/src/components/HorseImage';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import HorseImage from '@/components/HorseImage';
 import Link from 'next/link';
 
 interface Horse {
