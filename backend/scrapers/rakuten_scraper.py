@@ -198,6 +198,18 @@ class RakutenAuctionScraper:
             if not age:
                 print(f"[異常] 馬齢が抽出できません: {detail_url}")
 
+            # 性別（「牡」「牝」「せん」パターン）
+            sex = ''
+            if '牡' in page_text:
+                sex = '牡'
+            elif '牝' in page_text:
+                sex = '牝'
+            elif 'せん' in page_text:
+                sex = 'せん'
+            detail_data['sex'] = sex
+            if not sex:
+                print(f"[異常] 性別が抽出できません: {detail_url}")
+
             # 血統（父・母・母父）
             sire = ""
             dam = ""
@@ -234,6 +246,26 @@ class RakutenAuctionScraper:
             detail_data['total_prize_start'] = None
             detail_data['total_prize_latest'] = None
 
+            # 賞金情報を正規表現で抽出
+            central_prize = 0.0
+            local_prize = 0.0
+            
+            # 中央獲得賞金を抽出
+            central_match = re.search(r'中央獲得賞金：([0-9]+(?:\.[0-9]+)?)万円', page_text)
+            if central_match:
+                central_prize = float(central_match.group(1))
+            
+            # 地方獲得賞金を抽出
+            local_match = re.search(r'地方獲得賞金：([0-9]+(?:\.[0-9]+)?)万円', page_text)
+            if local_match:
+                local_prize = float(local_match.group(1))
+            
+            # 総賞金を計算
+            total_prize_float = central_prize + local_prize
+            detail_data['total_prize_start'] = total_prize_float
+            detail_data['total_prize_latest'] = total_prize_float
+            detail_data['prize'] = f"{total_prize_float}万円"
+
             # --- ここから主取り判定・入札数取得 ---
             # 開始価格
             start_price = None
@@ -245,12 +277,18 @@ class RakutenAuctionScraper:
                     start_price = int(match.group(1).replace(',', ''))
             # 落札価格
             sold_price = None
-            sold_price_elem = soup.find('div', class_='itemDetail__soldPrice')
-            if sold_price_elem:
-                sold_text = sold_price_elem.get_text(strip=True)
-                match = re.search(r'(\d{1,3}(?:,\d{3})*)', sold_text)
-                if match:
-                    sold_price = int(match.group(1).replace(',', ''))
+            # 正規表現で落札価格を抽出（「現在価格」の後の数字を取得）
+            sold_price_match = re.search(r'現在価格(\d{1,3}(?:,\d{3})*)円', page_text)
+            if sold_price_match:
+                sold_price = int(sold_price_match.group(1).replace(',', ''))
+            else:
+                # fallback: 既存のDOMベース抽出
+                sold_price_elem = soup.find('div', class_='itemDetail__soldPrice')
+                if sold_price_elem:
+                    sold_text = sold_price_elem.get_text(strip=True)
+                    match = re.search(r'(\d{1,3}(?:,\d{3})*)', sold_text)
+                    if match:
+                        sold_price = int(match.group(1).replace(',', ''))
             # 入札数
             bid_num = None
             bid_num_elem = soup.find('b', class_='topBidder__number')
@@ -486,28 +524,7 @@ class RakutenAuctionScraper:
             if horse.get('detail_url'):
                 detail_data = self.scrape_horse_detail(horse['detail_url'])
                 if detail_data:
-                    # 総賞金はリストで取得した値を使用（詳細ページの値は使用しない）
-                    prize_str = horse.get('prize', '')
-                    if prize_str:
-                        try:
-                            # "1059.1万円" から "1059.1" を抽出してfloat化
-                            import re
-                            # より確実なパターン: 数字（小数点含む）+ 万円
-                            match = re.search(r'([0-9]+(?:\.[0-9]+)?)万円', prize_str)
-                            if match:
-                                prize_float = float(match.group(1))
-                            else:
-                                prize_float = 0.0
-                        except Exception as e:
-                            prize_float = 0.0
-                    else:
-                        prize_float = 0.0
-                    
-                    # 詳細データに総賞金を設定
-                    detail_data['total_prize_start'] = prize_float
-                    detail_data['total_prize_latest'] = prize_float
-                    detail_data['prize'] = prize_str  # 文字列も保持
-                    
+                    # 賞金情報は詳細ページで正しく抽出されているため、上書きしない
                     horse.update(detail_data)
             # サーバーに負荷をかけないよう少し待機
             time.sleep(1)
