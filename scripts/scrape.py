@@ -39,21 +39,7 @@ def main():
     # id付与・血統分割・dam_sire追加
     for idx, horse in enumerate(horses, 1):
         horse['id'] = idx
-        # 血統分割
-        sire = horse.get('sire', '')
-        dam = ''
-        dam_sire = ''
-        import re
-        dam_match = re.search(r'母：([^　]+)', sire)
-        if dam_match:
-            dam = dam_match.group(1)
-        dam_sire_match = re.search(r'母の父：([^　]+)', sire)
-        if dam_sire_match:
-            dam_sire = dam_sire_match.group(1)
-        sire_main = sire.split('　母：')[0] if '　母：' in sire else sire
-        horse['sire'] = sire_main
-        horse['dam'] = dam
-        horse['dam_sire'] = dam_sire
+        # 血統情報は既にscrape_all_horsesで正しく抽出されているため、再処理は不要
         if 'comment' not in horse or horse['comment'] is None:
             horse['comment'] = ''
         # === 賞金・価格を万円単位・小数1桁に正規化 ===
