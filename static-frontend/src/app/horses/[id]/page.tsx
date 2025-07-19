@@ -73,6 +73,8 @@ export default function HorseDetailPage(props: any) {
   const [horse, setHorse] = useState<Horse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // コメントタブ用の状態
+  const [commentTab, setCommentTab] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -261,7 +263,7 @@ export default function HorseDetailPage(props: any) {
                         {/* 体重履歴 */}
                         <div className="flex justify-between">
                           <span className="text-gray-600">体重:</span>
-                          <span className="font-medium">{horse.weight}kg</span>
+                          <span className="font-medium">{horse.weight !== null ? horse.weight : '-'}kg</span>
                         </div>
                         {/* 販売者履歴 */}
                         <div className="flex justify-between">
@@ -318,26 +320,69 @@ export default function HorseDetailPage(props: any) {
               </CardContent>
             </Card>
 
-            {/* コメント履歴 */}
-            {latest.comment && (String(latest.comment).trim() !== '') ? (
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle className="text-lg">コメント</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-700 whitespace-pre-line leading-relaxed">{latest.comment}</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle className="text-lg">コメント</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-400">-</p>
-                </CardContent>
-              </Card>
-            )}
+            {/* 履歴テーブル表示 */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="text-lg">全履歴</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm border">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="px-2 py-1 border">回</th>
+                        <th className="px-2 py-1 border">日付</th>
+                        <th className="px-2 py-1 border">馬名</th>
+                        <th className="px-2 py-1 border">性</th>
+                        <th className="px-2 py-1 border">年齢</th>
+                        <th className="px-2 py-1 border">販売者</th>
+                        <th className="px-2 py-1 border">成績</th>
+                        <th className="px-2 py-1 border">落札価格</th>
+                        <th className="px-2 py-1 border">落札時賞金</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {horse.history.map((h, i) => (
+                        <tr key={i} className="border-b">
+                          <td className="px-2 py-1 border text-center">{i + 1}</td>
+                          <td className="px-2 py-1 border">{h.auction_date}</td>
+                          <td className="px-2 py-1 border">{h.name}</td>
+                          <td className="px-2 py-1 border">{h.sex}</td>
+                          <td className="px-2 py-1 border">{h.age}</td>
+                          <td className="px-2 py-1 border">{h.seller}</td>
+                          <td className="px-2 py-1 border">{h.race_record}</td>
+                          <td className="px-2 py-1 border text-right">{formatPrice(h.sold_price)}</td>
+                          <td className="px-2 py-1 border text-right">{formatPrize(h.total_prize_start)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* コメント履歴（タブ切り替え） */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="text-lg">コメント履歴</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 mb-2">
+                  {horse.history.map((h, i) => (
+                    <button
+                      key={i}
+                      className={`px-3 py-1 rounded-t ${commentTab === i ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                      onClick={() => setCommentTab(i)}
+                    >
+                      {i + 1}回目
+                    </button>
+                  ))}
+                </div>
+                <div className="border p-3 bg-gray-50 min-h-[60px]">
+                  <p className="whitespace-pre-line text-gray-800">{horse.history[commentTab]?.comment || '-'}</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* サイドバー - 価格・賞金情報 */}
