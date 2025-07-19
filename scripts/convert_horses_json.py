@@ -33,12 +33,12 @@ for h in horses:
             if k in h:
                 horse_map[horse_id][k] = h[k]
         # 履歴を取らない項目の最新値をセット
-        for k in LATEST_FIELDS:
+        for k in LATEST_FIELDS + ['created_at', 'updated_at']:
             if k in h:
                 horse_map[horse_id][k] = h[k]
     else:
         # 既にある場合は、最新値で上書き
-        for k in LATEST_FIELDS:
+        for k in LATEST_FIELDS + ['created_at', 'updated_at']:
             if k in h:
                 horse_map[horse_id][k] = h[k]
     # 履歴部分だけ抽出

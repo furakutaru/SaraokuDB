@@ -28,7 +28,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001358802/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001358802/",
       "weight": 426,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846484",
+      "updated_at": "2025-07-19T17:26:25.846521"
     },
     {
       "id": 2,
@@ -53,7 +55,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001354818/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001354818/",
       "weight": 510,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846528",
+      "updated_at": "2025-07-19T17:26:25.846532"
     },
     {
       "id": 3,
@@ -78,7 +82,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001356277/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001356277/",
       "weight": 476,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846535",
+      "updated_at": "2025-07-19T17:26:25.846537"
     },
     {
       "id": 4,
@@ -103,7 +109,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001354202/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001354202/",
       "weight": 394,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846539",
+      "updated_at": "2025-07-19T17:26:25.846541"
     },
     {
       "id": 5,
@@ -128,7 +136,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001354555/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001354555/",
       "weight": 520,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846551",
+      "updated_at": "2025-07-19T17:26:25.846553"
     },
     {
       "id": 6,
@@ -153,7 +163,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001361091/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001361091/",
       "weight": 456,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846555",
+      "updated_at": "2025-07-19T17:26:25.846557"
     },
     {
       "id": 7,
@@ -178,7 +190,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001361665/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001361665/",
       "weight": 370,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846559",
+      "updated_at": "2025-07-19T17:26:25.846561"
     },
     {
       "id": 8,
@@ -203,7 +217,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001360535/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001360535/",
       "weight": 402,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846563",
+      "updated_at": "2025-07-19T17:26:25.846565"
     },
     {
       "id": 9,
@@ -228,7 +244,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001355708/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001355708/",
       "weight": 444,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846567",
+      "updated_at": "2025-07-19T17:26:25.846569"
     },
     {
       "id": 10,
@@ -253,7 +271,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001359991/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001359991/",
       "weight": 446,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846571",
+      "updated_at": "2025-07-19T17:26:25.846573"
     },
     {
       "id": 11,
@@ -278,7 +298,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001357295/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001357295/",
       "weight": 444,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846575",
+      "updated_at": "2025-07-19T17:26:25.846576"
     },
     {
       "id": 12,
@@ -303,7 +325,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001353469/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001353469/",
       "weight": 468,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846579",
+      "updated_at": "2025-07-19T17:26:25.846580"
     },
     {
       "id": 13,
@@ -328,7 +352,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001364639/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001364639/",
       "weight": 382,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846582",
+      "updated_at": "2025-07-19T17:26:25.846584"
     },
     {
       "id": 14,
@@ -353,7 +379,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001355950/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001355950/",
       "weight": 476,
-      "total_prize_latest": 54.0
+      "total_prize_latest": 54.0,
+      "created_at": "2025-07-19T17:26:25.846592",
+      "updated_at": "2025-07-19T17:26:25.846594"
     },
     {
       "id": 15,
@@ -378,7 +406,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001355426/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001355426/",
       "weight": 508,
-      "total_prize_latest": 56.0
+      "total_prize_latest": 56.0,
+      "created_at": "2025-07-19T17:26:25.846596",
+      "updated_at": "2025-07-19T17:26:25.846598"
     },
     {
       "id": 16,
@@ -403,7 +433,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001357265/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001357265/",
       "weight": 458,
-      "total_prize_latest": 140.0
+      "total_prize_latest": 140.0,
+      "created_at": "2025-07-19T17:26:25.846600",
+      "updated_at": "2025-07-19T17:26:25.846601"
     },
     {
       "id": 17,
@@ -428,7 +460,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001358756/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001358756/",
       "weight": 536,
-      "total_prize_latest": 178.0
+      "total_prize_latest": 178.0,
+      "created_at": "2025-07-19T17:26:25.846603",
+      "updated_at": "2025-07-19T17:26:25.846605"
     },
     {
       "id": 18,
@@ -453,7 +487,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001357603/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001357603/",
       "weight": 442,
-      "total_prize_latest": 193.0
+      "total_prize_latest": 193.0,
+      "created_at": "2025-07-19T17:26:25.846607",
+      "updated_at": "2025-07-19T17:26:25.846609"
     },
     {
       "id": 19,
@@ -478,7 +514,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001359621/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001359621/",
       "weight": 432,
-      "total_prize_latest": 250.0
+      "total_prize_latest": 250.0,
+      "created_at": "2025-07-19T17:26:25.846611",
+      "updated_at": "2025-07-19T17:26:25.846614"
     },
     {
       "id": 20,
@@ -503,7 +541,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001320904/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001320904/",
       "weight": 422,
-      "total_prize_latest": 505.1
+      "total_prize_latest": 505.1,
+      "created_at": "2025-07-19T17:26:25.846616",
+      "updated_at": "2025-07-19T17:26:25.846618"
     },
     {
       "id": 21,
@@ -528,7 +568,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001313041/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001313041/",
       "weight": 440,
-      "total_prize_latest": 1685.5
+      "total_prize_latest": 1685.5,
+      "created_at": "2025-07-19T17:26:25.846621",
+      "updated_at": "2025-07-19T17:26:25.846623"
     },
     {
       "id": 22,
@@ -553,7 +595,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001311707/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001311707/",
       "weight": 538,
-      "total_prize_latest": 4891.6
+      "total_prize_latest": 4891.6,
+      "created_at": "2025-07-19T17:26:25.846625",
+      "updated_at": "2025-07-19T17:26:25.846627"
     },
     {
       "id": 23,
@@ -578,7 +622,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001358166/pedigree/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001358166/pedigree/",
       "weight": 510,
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "created_at": "2025-07-19T17:26:25.846629",
+      "updated_at": "2025-07-19T17:26:25.846630"
     },
     {
       "id": 24,
@@ -603,7 +649,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001371943/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001371943/",
       "weight": 440,
-      "total_prize_latest": 17.5
+      "total_prize_latest": 17.5,
+      "created_at": "2025-07-19T17:26:25.846632",
+      "updated_at": "2025-07-19T17:26:25.846634"
     },
     {
       "id": 25,
@@ -628,7 +676,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001352133/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001352133/",
       "weight": 490,
-      "total_prize_latest": 30.0
+      "total_prize_latest": 30.0,
+      "created_at": "2025-07-19T17:26:25.846636",
+      "updated_at": "2025-07-19T17:26:25.846638"
     },
     {
       "id": 26,
@@ -653,7 +703,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001336019/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001336019/",
       "weight": 466,
-      "total_prize_latest": 127.3
+      "total_prize_latest": 127.3,
+      "created_at": "2025-07-19T17:26:25.846640",
+      "updated_at": "2025-07-19T17:26:25.846642"
     },
     {
       "id": 27,
@@ -678,7 +730,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001339072/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001339072/",
       "weight": 462,
-      "total_prize_latest": 237.1
+      "total_prize_latest": 237.1,
+      "created_at": "2025-07-19T17:26:25.846643",
+      "updated_at": "2025-07-19T17:26:25.846645"
     },
     {
       "id": 28,
@@ -703,7 +757,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001338505/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001338505/",
       "weight": 437,
-      "total_prize_latest": 915.0
+      "total_prize_latest": 915.0,
+      "created_at": "2025-07-19T17:26:25.846647",
+      "updated_at": "2025-07-19T17:26:25.846649"
     },
     {
       "id": 29,
@@ -728,7 +784,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001323589/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001323589/",
       "weight": 463,
-      "total_prize_latest": 503.0
+      "total_prize_latest": 503.0,
+      "created_at": "2025-07-19T17:26:25.846651",
+      "updated_at": "2025-07-19T17:26:25.846653"
     },
     {
       "id": 30,
@@ -753,7 +811,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001322913/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001322913/",
       "weight": 491,
-      "total_prize_latest": 695.9
+      "total_prize_latest": 695.9,
+      "created_at": "2025-07-19T17:26:25.846655",
+      "updated_at": "2025-07-19T17:26:25.846675"
     },
     {
       "id": 31,
@@ -778,7 +838,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001323053/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001323053/",
       "weight": 465,
-      "total_prize_latest": 1069.5
+      "total_prize_latest": 1069.5,
+      "created_at": "2025-07-19T17:26:25.846692",
+      "updated_at": "2025-07-19T17:26:25.846694"
     },
     {
       "id": 32,
@@ -803,7 +865,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001323711/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001323711/",
       "weight": 474,
-      "total_prize_latest": 1463.0
+      "total_prize_latest": 1463.0,
+      "created_at": "2025-07-19T17:26:25.846696",
+      "updated_at": "2025-07-19T17:26:25.846698"
     },
     {
       "id": 33,
@@ -828,7 +892,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001296576/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001296576/",
       "weight": 490,
-      "total_prize_latest": 2363.5
+      "total_prize_latest": 2363.5,
+      "created_at": "2025-07-19T17:26:25.846700",
+      "updated_at": "2025-07-19T17:26:25.846702"
     },
     {
       "id": 34,
@@ -853,7 +919,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001261886/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001261886/",
       "weight": 520,
-      "total_prize_latest": 10260.6
+      "total_prize_latest": 10260.6,
+      "created_at": "2025-07-19T17:26:25.846704",
+      "updated_at": "2025-07-19T17:26:25.846706"
     },
     {
       "id": 35,
@@ -878,7 +946,9 @@
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001331762/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001331762/",
       "weight": null,
-      "total_prize_latest": 802.7
+      "total_prize_latest": 802.7,
+      "created_at": "2025-07-19T17:26:25.846708",
+      "updated_at": "2025-07-19T17:26:25.846709"
     }
   ]
 }
