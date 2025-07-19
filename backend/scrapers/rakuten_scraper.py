@@ -543,8 +543,9 @@ class RakutenAuctionScraper:
             if horse.get('detail_url'):
                 detail_data = self.scrape_horse_detail(horse['detail_url'])
                 if detail_data:
-                    # 賞金情報は詳細ページで正しく抽出されているため、上書きしない
                     horse.update(detail_data)
+                    # sexは必ず詳細ページの値で上書き
+                    horse['sex'] = detail_data['sex']
             # サーバーに負荷をかけないよう少し待機
             time.sleep(1)
         
