@@ -121,7 +121,7 @@ export default function DashboardPage() {
   if (showType === 'value') tableHorses = valueHorses;
 
   // ソート関数
-  const sortFunctions: { [key: string]: (a: Horse, b: Horse) => number } = {
+  const sortFunctions: { [key: string]: (a: any, b: any) => number } = {
     name: (a, b) => a.name.localeCompare(b.name, 'ja'),
     sex: (a, b) => a.sex.localeCompare(b.sex, 'ja'),
     age: (a, b) => a.age - b.age,
