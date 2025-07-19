@@ -41,7 +41,7 @@ class NetkeibaScraper:
             print(f"馬検索に失敗: {e}")
             return None
     
-    def get_latest_prize_money(self, horse_url: str) -> Union[float, str, None]:
+    def get_latest_prize_money(self, horse_url: str) -> Optional[float]:
         """netkeibaページから最新の地方獲得賞金を取得（万円単位・小数点1桁まで）"""
         try:
             response = self.session.get(horse_url)
@@ -50,37 +50,37 @@ class NetkeibaScraper:
             prize_rows = soup.find_all('tr')
             for row in prize_rows:
                 th_element = row.find('th')
-                if th_element and '獲得賞金 (地方)' in th_element.get_text():
+                if th_element and '獲得賞金' in th_element.get_text():
                     td_element = row.find('td')
                     if td_element:
                         prize_text = td_element.get_text(strip=True)
-                        match = re.search(r'([\d,]+)', prize_text)
+                        match = re.search(r'([\d,.]+)', prize_text)
                         if match:
                             prize_str = match.group(1).replace(',', '')
-                            prize_man = round(float(prize_str) / 10000, 1)  # 万円単位・小数点1桁
-                            return prize_man
-            return '-'
+                            try:
+                                return float(prize_str)
+                            except Exception:
+                                return None
+            return None
         except Exception as e:
             print(f"賞金取得に失敗: {e}")
-            return '-'
+            return None
     
-    def update_horse_prize_money(self, horse_name: str) -> Optional[Dict]:
+    def update_horse_prize_money(self, horse_name: str) -> dict:
         """馬の最新賞金情報を取得・更新（万円単位・小数点1桁まで）"""
         try:
             horse_url = self.search_horse(horse_name)
             if not horse_url:
                 print(f"馬が見つかりません: {horse_name}")
-                return {'netkeiba_url': None, 'total_prize_latest': '-'}
+                return {'netkeiba_url': None, 'total_prize_latest': None}
             latest_prize = self.get_latest_prize_money(horse_url)
-            if not isinstance(latest_prize, float):
-                latest_prize = '-'
             return {
                 'netkeiba_url': horse_url,
                 'total_prize_latest': latest_prize
             }
         except Exception as e:
             print(f"賞金更新に失敗: {e}")
-            return {'netkeiba_url': None, 'total_prize_latest': '-'}
+            return {'netkeiba_url': None, 'total_prize_latest': None}
     
     def batch_update_prize_money(self, horses: list) -> list:
         """複数の馬の賞金情報を一括更新（万円単位・小数点1桁まで、差分も同様）"""

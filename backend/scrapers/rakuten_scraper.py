@@ -503,17 +503,21 @@ class RakutenAuctionScraper:
             print(f"netkeiba URLの抽出に失敗: {e}")
         return ""
     
-    def _extract_prize_money_from_soup(self, soup: BeautifulSoup) -> str:
+    def _extract_prize_money_from_soup(self, soup: BeautifulSoup) -> Optional[float]:
         """
-        <div class="auctionTableRow__price"><div class="label">総賞金</div><div class="value">0.0万円</div></div>
-        から総賞金を抽出する。
+        <div class="auctionTableRow__price"><div class="label">総獲得賞金</div><div class="value">0.0万円</div></div>
+        から総獲得賞金をfloatで抽出。取得できなければNone。
         """
         for price_div in soup.find_all("div", class_="auctionTableRow__price"):
             label = price_div.find("div", class_="label")
             value = price_div.find("div", class_="value")
-            if label and value and "総賞金" in label.get_text():
-                return value.get_text(strip=True)
-        return ""
+            if label and value and "総獲得賞金" in label.get_text():
+                try:
+                    val = value.get_text(strip=True).replace('万円', '').replace(',', '')
+                    return float(val)
+                except Exception:
+                    return None
+        return None
 
     def _extract_comment_from_soup(self, soup: BeautifulSoup) -> str:
         """

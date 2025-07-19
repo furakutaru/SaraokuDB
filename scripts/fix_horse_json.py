@@ -1,6 +1,9 @@
 import json
 import argparse
 import os
+import requests
+from bs4 import BeautifulSoup
+import re
 
 # 使い方例:
 # python3 fix_horse_json.py --file static-frontend/public/data/horses_history.json --id 3 --set sex=セン --set unsold_count=1 --set sold_price=0
@@ -23,6 +26,7 @@ def main():
     parser.add_argument('--both', action='store_true', help='history配列と馬本体の両方を同時に修正')
     parser.add_argument('--truncate-history', action='store_true', help='history配列を先頭1件だけにする')
     parser.add_argument('--clean-disease-tags', action='store_true', help='disease_tagsから「なし」と疾病が両方入っている場合に「なし」を除去')
+    parser.add_argument('--refetch-prize-from-detail', action='store_true', help='detail_urlから落札時の賞金（total_prize_start）を再取得・補完')
     args = parser.parse_args()
 
     if not os.path.exists(args.file):
@@ -78,6 +82,41 @@ def main():
             else:
                 for k, v in set_dict.items():
                     horse[k] = v
+
+    if args.refetch_prize_from_detail:
+        for horse in horses:
+            url = horse.get('detail_url') or horse.get('history', [{}])[0].get('detail_url')
+            if not url:
+                continue
+            try:
+                response = requests.get(url, timeout=30)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.content, 'html.parser')
+                page_text = soup.get_text()
+                # 総賞金・中央・地方の全パターンをカバー
+                total_prize_match = re.search(r'総獲得賞金[：:]*\s*([\d.]+)万?円', page_text)
+                central_prize_match = re.search(r'中央獲得賞金[：:]*\s*([\d.]+)万?円', page_text)
+                local_prize_match = re.search(r'地方獲得賞金[：:]*\s*([\d.]+)万?円', page_text)
+                total_prize = None
+                if total_prize_match:
+                    try:
+                        total_prize = float(total_prize_match.group(1))
+                    except Exception:
+                        total_prize = None
+                else:
+                    try:
+                        central = float(central_prize_match.group(1)) if central_prize_match else 0.0
+                        local = float(local_prize_match.group(1)) if local_prize_match else 0.0
+                        if central or local:
+                            total_prize = central + local
+                        else:
+                            total_prize = None
+                    except Exception:
+                        total_prize = None
+                if total_prize is not None:
+                    horse['total_prize_start'] = total_prize
+            except Exception as e:
+                pass
 
     with open(args.file, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)

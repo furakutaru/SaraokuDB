@@ -140,9 +140,9 @@ export default function HorsesPage() {
 
   // 賞金表示用関数
   // 賞金は万円単位で表示
-  const formatPrize = (val: number | null | undefined) => {
-    if (val === null || val === undefined) return '-';
-    return `${val.toFixed(1)}万円`;
+  const formatPrize = (val: number | string | null | undefined) => {
+    if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
+    return `${Number(val).toFixed(1)}万円`;
   };
 
   // 落札価格表示用関数

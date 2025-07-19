@@ -56,17 +56,19 @@ def main():
                 page_text = soup.get_text()
                 
                 # 総賞金を抽出
-                prize_match = re.search(r'総賞金\s*([\d,]+\.?\d*)万円', page_text)
+                prize_match = re.search(r'総獲得賞金\s*([\d,]+\.?\d*)万?円', page_text)
                 if prize_match:
                     prize_str = prize_match.group(1).replace(',', '')
-                    total_prize_latest = prize_str
-                    horse['total_prize_latest'] = total_prize_latest
+                    try:
+                        horse['total_prize_latest'] = float(prize_str)
+                    except Exception:
+                        horse['total_prize_latest'] = None
                 else:
-                    horse['total_prize_latest'] = ''
+                    horse['total_prize_latest'] = None
             except Exception as e:
-                horse['total_prize_latest'] = ''
+                horse['total_prize_latest'] = None
         else:
-            horse['total_prize_latest'] = ''
+            horse['total_prize_latest'] = None
         
         # サーバーに負荷をかけないよう少し待機
         time.sleep(1)

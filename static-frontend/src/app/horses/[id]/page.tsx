@@ -63,9 +63,9 @@ const calculateGrowthRate = (start: number, latest: number) => {
 
 // 賞金は万円単位で表示
 // 現在の総賞金はJBISからスクレイピングして取得している点に注意。
-const formatPrize = (val: number | null | undefined) => {
-  if (val === null || val === undefined) return '-';
-  return `${val.toFixed(1)}万円`;
+const formatPrize = (val: number | string | null | undefined) => {
+  if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
+  return `${Number(val).toFixed(1)}万円`;
 };
 
 export default function HorseDetailPage(props: any) {

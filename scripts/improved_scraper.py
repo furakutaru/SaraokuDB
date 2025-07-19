@@ -215,31 +215,30 @@ class ImprovedRakutenScraper:
         return ""
     
     def _extract_prize_money(self, page_text: str) -> Dict:
-        """獲得賞金を抽出"""
         result = {}
-        
-        # 中央獲得賞金と地方獲得賞金を個別に取得
-        central_prize_match = re.search(r'中央獲得賞金[：:]\s*([\d.]+)万円', page_text)
-        local_prize_match = re.search(r'地方獲得賞金[：:]\s*([\d.]+)万円', page_text)
-        
-        central_prize = ''
-        local_prize = ''
-        
-        if central_prize_match:
-            central_prize = central_prize_match.group(1)
-        
-        if local_prize_match:
-            local_prize = local_prize_match.group(1)
-        
-        # 合計もそのまま文字列連結（必要ならfloat変換は呼び出し側で）
-        if central_prize or local_prize:
-            total_prize = str(central_prize) + str(local_prize)
-            result['total_prize_start'] = total_prize
-            result['total_prize_latest'] = total_prize
+        # 中央・地方・総獲得賞金の全パターンをカバー
+        central_prize_match = re.search(r'中央獲得賞金[：:]\s*([\d.]+)万?円', page_text)
+        local_prize_match = re.search(r'地方獲得賞金[：:]\s*([\d.]+)万?円', page_text)
+        total_prize_match = re.search(r'総獲得賞金[：:]\s*([\d.]+)万?円', page_text)
+        total_prize = None
+        if total_prize_match:
+            try:
+                total_prize = float(total_prize_match.group(1))
+            except Exception:
+                total_prize = None
         else:
-            result['total_prize_start'] = ''
-            result['total_prize_latest'] = ''
-        
+            # 中央＋地方の合計
+            try:
+                central = float(central_prize_match.group(1)) if central_prize_match else 0.0
+                local = float(local_prize_match.group(1)) if local_prize_match else 0.0
+                if central or local:
+                    total_prize = central + local
+                else:
+                    total_prize = None
+            except Exception:
+                total_prize = None
+        result['total_prize_start'] = total_prize
+        result['total_prize_latest'] = total_prize
         return result
     
     def _extract_comment(self, page_text: str) -> str:

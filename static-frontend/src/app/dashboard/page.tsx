@@ -47,9 +47,9 @@ const formatPrice = (price: number | null | undefined) => {
   if (price === null || price === undefined) return '-';
   return '¥' + price.toLocaleString();
 };
-const formatPrize = (val: number | null | undefined) => {
-  if (val === null || val === undefined) return '-';
-  return `${val.toFixed(1)}万円`;
+const formatPrize = (val: number | string | null | undefined) => {
+  if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
+  return `${Number(val).toFixed(1)}万円`;
 };
 const calcROI = (prize: number, price: number) => {
   if (!price || price === 0) return '-';
