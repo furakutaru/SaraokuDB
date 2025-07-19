@@ -29,6 +29,7 @@ interface Horse {
   disease_tags: string;
   netkeiba_url: string;
   jbis_url: string;
+  unsold_count: number | null; // 主取り馬の回数（またはnull）
 }
 
 interface Metadata {
@@ -97,7 +98,7 @@ export default function DashboardPage() {
       ...horse,
       ...latest
     };
-  });
+  }) as any[];
 
   // 主取り馬除外
   let horses = horsesWithLatest.filter(h => !h.unsold_count || h.unsold_count === 0);
@@ -206,7 +207,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {tableHorses.map((horse) => (
+                {(tableHorses as any[]).map((horse) => (
                   <tr key={horse.id} className="hover:bg-blue-50">
                     <td className="px-3 py-2 font-medium text-gray-900">
                       <Link href={`/horses/${horse.id}`} className="hover:underline text-blue-700">{horse.name}</Link>
