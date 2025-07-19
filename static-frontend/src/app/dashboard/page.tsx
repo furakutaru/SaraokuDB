@@ -45,8 +45,7 @@ interface HorseData {
 
 const formatPrice = (price: number | null | undefined) => {
   if (price === null || price === undefined) return '-';
-  // 落札価格は万円単位ではなく、実際の金額（円）で表示
-  return '¥' + (price * 10000).toLocaleString();
+  return '¥' + price.toLocaleString();
 };
 const formatPrize = (val: number | null | undefined) => {
   if (val === null || val === undefined) return '-';
