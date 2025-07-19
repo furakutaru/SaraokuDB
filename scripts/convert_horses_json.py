@@ -6,7 +6,7 @@ OUTPUT_PATH = 'static-frontend/public/data/horses_history.json'
 
 # 履歴化するフィールド
 HISTORY_FIELDS = [
-    'auction_date', 'name', 'sex', 'age', 'seller', 'race_record', 'comment', 'sold_price', 'total_prize_start'
+    'auction_date', 'name', 'sex', 'age', 'seller', 'race_record', 'comment', 'sold_price', 'total_prize_start', 'unsold'
 ]
 # 履歴を取らず最新値だけ持つフィールド
 LATEST_FIELDS = ['weight', 'total_prize_latest']
