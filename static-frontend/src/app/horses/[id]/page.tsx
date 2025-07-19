@@ -19,6 +19,7 @@ interface HorseHistory {
   comment: string;
   sold_price: number;
   total_prize_start: number;
+  unsold?: boolean;
 }
 
 interface Horse {
@@ -361,7 +362,7 @@ export default function HorseDetailPage(props: any) {
                           <td className="px-2 py-1 border">{h.age}</td>
                           <td className="px-2 py-1 border">{h.seller}</td>
                           <td className="px-2 py-1 border">{h.race_record}</td>
-                          <td className="px-2 py-1 border text-right">{displayPrice(h.sold_price, horse.unsold)}</td>
+                          <td className="px-2 py-1 border text-right">{displayPrice(h.sold_price, h.unsold)}</td>
                           <td className="px-2 py-1 border text-right">{formatPrize(h.total_prize_start)}</td>
                         </tr>
                       ))}
@@ -408,14 +409,14 @@ export default function HorseDetailPage(props: any) {
                 )}
                 {/* 落札価格（最新） */}
                 <div className="text-center">
-                  <span className="text-red-600 text-3xl font-extrabold align-middle">{displayPrice(toArray(latest.sold_price).slice(-1)[0], horse.unsold)}</span>
+                  <span className="text-red-600 text-3xl font-extrabold align-middle">{displayPrice(toArray(latest.sold_price).slice(-1)[0], latest.unsold)}</span>
                 </div>
                 {/* 履歴が2回以上ある場合のみ履歴表示 */}
                 {toArray(latest.sold_price).length > 1 && (
                   <div className="text-center mt-2">
                     {toArray(latest.sold_price).map((sp, i) => (
                       <div key={i} className="text-lg font-bold mb-1">
-                        <span className="text-red-600">{displayPrice(sp, horse.unsold)}</span>
+                        <span className="text-red-600">{displayPrice(sp, horse.history[i]?.unsold)}</span>
                         <span className="text-xs text-gray-500 ml-2">{toArray(latest.auction_date)[i] ?? ''}</span>
                       </div>
                     ))}
