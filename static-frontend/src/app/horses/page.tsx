@@ -35,6 +35,7 @@ interface Horse {
   total_prize_latest: number; // 最新賞金
   created_at: string;
   updated_at: string;
+  hidden?: boolean;
 }
 
 interface Metadata {
@@ -113,8 +114,9 @@ export default function HorsesPage() {
     };
   });
 
-  // 検索とソート
+  // 検索とソート前にhidden馬を除外
   const filteredHorses = horsesWithLatest
+    .filter(horse => !horse.hidden)
     .filter(horse => 
       horse.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (horse.sire || '').toLowerCase().includes(searchTerm.toLowerCase()) ||

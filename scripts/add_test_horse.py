@@ -41,7 +41,8 @@ TEST_HORSE = {
     "unsold_count": None,
     "total_prize_latest": 50000,
     "created_at": "2024-01-01T00:00:00",
-    "updated_at": "2024-06-01T00:00:00"
+    "updated_at": "2024-06-01T00:00:00",
+    "hidden": True
 }
 
 def main():
