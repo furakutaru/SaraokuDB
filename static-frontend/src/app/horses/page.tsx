@@ -147,8 +147,8 @@ export default function HorsesPage() {
 
   // 落札価格表示用関数
   // 落札価格は取得値そのまま（円単位）で表示すること。データは既に円単位で格納されている。
-  const displayPrice = (price: number | null | undefined, unsold_count: number | null | undefined) => {
-    if (Number(unsold_count) >= 1) return '主取り';
+  const displayPrice = (price: number | null | undefined, unsold: boolean | undefined) => {
+    if (unsold === true) return '主取り';
     if (price === null || price === undefined) return '-';
     return '¥' + price.toLocaleString();
   };
@@ -269,7 +269,7 @@ export default function HorsesPage() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <span className="text-gray-600">落札価格:</span>
-                          <p className="font-semibold text-red-600">{displayPrice(horse.sold_price, horse.unsold_count)}</p>
+                          <p className="font-semibold text-red-600">{displayPrice(horse.sold_price, horse.unsold)}</p>
                         </div>
                         <div>
                           <span className="text-gray-600">販売者:</span>

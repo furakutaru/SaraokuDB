@@ -158,8 +158,8 @@ export default function DashboardPage() {
     return sortOrder === 'asc' ? <FaSortUp className="inline ml-1 text-blue-600" /> : <FaSortDown className="inline ml-1 text-blue-600" />;
   };
 
-  const displayPrice = (price: number | null | undefined, unsold_count: number | null | undefined) => {
-    if (Number(unsold_count) >= 1) return '主取り';
+  const displayPrice = (price: number | null | undefined, unsold: boolean | undefined) => {
+    if (unsold === true) return '主取り';
     if (price === null || price === undefined) return '-';
     return '¥' + price.toLocaleString();
   };
@@ -227,7 +227,7 @@ export default function DashboardPage() {
                     <td className="px-3 py-2">{horse.sex}</td>
                     <td className="px-3 py-2">{horse.age}</td>
                     <td className="px-3 py-2">{horse.sire}</td>
-                    <td className="px-3 py-2">{displayPrice(horse.sold_price, horse.unsold_count)}</td>
+                    <td className="px-3 py-2">{displayPrice(horse.sold_price, horse.unsold)}</td>
                     <td className="px-3 py-2">{formatPrize(horse.total_prize_start)}</td>
                     <td className="px-3 py-2">{formatPrize(horse.total_prize_latest)}</td>
                     <td className="px-3 py-2">{calcROI(horse.total_prize_latest, horse.sold_price)}</td>

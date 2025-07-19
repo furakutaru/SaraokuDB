@@ -49,8 +49,8 @@ const formatManYen = (val: number) => isNaN(val) ? '-' : `${(val/10000).toFixed(
 
 // 落札価格表示用関数
 // 落札価格は取得値そのまま（円単位）で表示すること。データは既に円単位で格納されている。
-const displayPrice = (price: number | null | undefined, unsold_count: number | null | undefined) => {
-  if (Number(unsold_count) >= 1) return '主取り';
+const displayPrice = (price: number | null | undefined, unsold: boolean | undefined) => {
+  if (unsold === true) return '主取り';
   if (price === null || price === undefined) return '-';
   return '¥' + price.toLocaleString();
 };
@@ -360,7 +360,7 @@ export default function HorseDetailPage(props: any) {
                           <td className="px-2 py-1 border">{h.age}</td>
                           <td className="px-2 py-1 border">{h.seller}</td>
                           <td className="px-2 py-1 border">{h.race_record}</td>
-                          <td className="px-2 py-1 border text-right">{displayPrice(h.sold_price, horse.unsold_count)}</td>
+                          <td className="px-2 py-1 border text-right">{displayPrice(h.sold_price, horse.unsold_count === 0)}</td>
                           <td className="px-2 py-1 border text-right">{formatPrize(h.total_prize_start)}</td>
                         </tr>
                       ))}
@@ -407,14 +407,14 @@ export default function HorseDetailPage(props: any) {
                 )}
                 {/* 落札価格（最新） */}
                 <div className="text-center">
-                  <span className="text-red-600 text-3xl font-extrabold align-middle">{displayPrice(toArray(latest.sold_price).slice(-1)[0], horse.unsold_count)}</span>
+                  <span className="text-red-600 text-3xl font-extrabold align-middle">{displayPrice(toArray(latest.sold_price).slice(-1)[0], horse.unsold_count === 0)}</span>
                 </div>
                 {/* 履歴が2回以上ある場合のみ履歴表示 */}
                 {toArray(latest.sold_price).length > 1 && (
                   <div className="text-center mt-2">
                     {toArray(latest.sold_price).map((sp, i) => (
                       <div key={i} className="text-lg font-bold mb-1">
-                        <span className="text-red-600">{displayPrice(sp, horse.unsold_count)}</span>
+                        <span className="text-red-600">{displayPrice(sp, horse.unsold_count === 0)}</span>
                         <span className="text-xs text-gray-500 ml-2">{toArray(latest.auction_date)[i] ?? ''}</span>
                       </div>
                     ))}
