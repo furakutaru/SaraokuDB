@@ -16,6 +16,7 @@ interface Horse {
   seller: string;
   total_prize_start: number;
   total_prize_latest: number;
+  prize_diff?: string; // JBISから取得した賞金差額
   sire: string;
   dam: string;
   dam_sire: string;
@@ -26,6 +27,7 @@ interface Horse {
   auction_date: string;
   disease_tags: string;
   netkeiba_url: string;
+  jbis_url?: string; // JBISのURL
   created_at: string;
   updated_at: string;
   unsold_count: number; // 追加: 未売出数
@@ -259,14 +261,14 @@ export default function HorsesPage() {
                           <span className="text-gray-600">体重:</span>
                           <p className="font-medium">{horse.weight}kg</p>
                         </div>
-                        {horse.total_prize_start > 0 && (
+                        {horse.total_prize_start > 0 ? (
                           <div>
                             <span className="text-gray-600">成長率:</span>
                             <p className={`font-semibold ${parseFloat(getGrowthRate(horse.total_prize_start, horse.total_prize_latest)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {getGrowthRate(horse.total_prize_start, horse.total_prize_latest)}%
                             </p>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </div>

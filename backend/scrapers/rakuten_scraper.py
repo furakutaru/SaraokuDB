@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional, Union, cast
 from datetime import datetime
+from .netkeiba_scraper import NetkeibaScraper
 
 class RakutenAuctionScraper:
     def __init__(self):
@@ -17,6 +18,7 @@ class RakutenAuctionScraper:
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
         })
+        self.netkeiba_scraper = NetkeibaScraper()
         
     def get_auction_date(self) -> str:
         """ページから開催日を取得"""
@@ -526,6 +528,68 @@ class RakutenAuctionScraper:
                 if detail_data:
                     # 賞金情報は詳細ページで正しく抽出されているため、上書きしない
                     horse.update(detail_data)
+            # サーバーに負荷をかけないよう少し待機
+            time.sleep(1)
+        
+        # JBISから現在の総賞金を取得し、差額を計算
+        print("=== JBISから現在の総賞金を取得中... ===")
+        for i, horse in enumerate(horses, 1):
+            print(f"  {i}/{len(horses)}: {horse['name']} - JBIS賞金取得中...")
+            
+            # JBISから現在の総賞金を取得
+            if horse.get('jbis_url'):
+                try:
+                    # JBISの基本情報ページから総賞金を取得
+                    jbis_response = self.session.get(horse['jbis_url'], timeout=30)
+                    jbis_response.raise_for_status()
+                    jbis_soup = BeautifulSoup(jbis_response.content, 'html.parser')
+                    
+                    # 総賞金を抽出（JBISのページ構造に合わせて修正）
+                    total_prize_latest = None
+                    page_text = jbis_soup.get_text()
+                    
+                    # 「総賞金X.X万円」のパターンを探す
+                    prize_match = re.search(r'総賞金([\d,]+\.?\d*)万円', page_text)
+                    if prize_match:
+                        prize_str = prize_match.group(1).replace(',', '')
+                        total_prize_latest = float(prize_str)
+                    else:
+                        # フォールバック: 他の賞金パターンを探す
+                        prize_match = re.search(r'([\d,]+\.?\d*)万円', page_text)
+                        if prize_match:
+                            prize_str = prize_match.group(1).replace(',', '')
+                            total_prize_latest = float(prize_str)
+                    
+                    if total_prize_latest is not None:
+                        # オークション時と現在の賞金を比較して、より信頼性の高い方を採用
+                        start_prize = horse.get('total_prize_start', 0)
+                        
+                        # オークション直後の場合は、オークション時の賞金を優先
+                        # 数ヶ月後は現在の賞金を採用
+                        if start_prize > 0 and total_prize_latest == 0:
+                            # オークション時は賞金があるが、現在は0 → オークション時の値を採用
+                            horse['total_prize_latest'] = start_prize
+                            horse['prize_diff'] = '0万円'
+                        elif start_prize == 0 and total_prize_latest > 0:
+                            # オークション時は0だが、現在は賞金がある → 現在の値を採用
+                            horse['total_prize_start'] = total_prize_latest
+                            horse['total_prize_latest'] = total_prize_latest
+                            horse['prize_diff'] = '0万円'
+                        else:
+                            # 通常の差額計算
+                            horse['total_prize_latest'] = total_prize_latest
+                            diff = round(total_prize_latest - start_prize, 1)
+                            sign = '+' if diff >= 0 else ''
+                            horse['prize_diff'] = f"{sign}{diff}万円"
+                    else:
+                        horse['prize_diff'] = '-'
+                        
+                except Exception as e:
+                    print(f"    JBIS賞金取得に失敗: {e}")
+                    horse['prize_diff'] = '-'
+            else:
+                horse['prize_diff'] = '-'
+            
             # サーバーに負荷をかけないよう少し待機
             time.sleep(1)
         

@@ -17,6 +17,7 @@ interface Horse {
   seller: string;
   total_prize_start: number;
   total_prize_latest: number;
+  prize_diff?: string; // JBISから取得した賞金差額
   sire: string;
   dam: string;
   dam_sire: string;
@@ -27,6 +28,7 @@ interface Horse {
   auction_date: string;
   disease_tags: string[] | string;
   netkeiba_url: string;
+  jbis_url?: string; // JBISのURL
   created_at: string;
   updated_at: string;
   unsold_count: number; // 追加: 主取り回数
@@ -198,10 +200,10 @@ export default function HorseDetailPage(props: any) {
                       </Badge>
                     ))}
                   </div>
-                  {/* JBISリンクはそのまま */}
-                  {horse.netkeiba_url && (
+                  {/* JBISリンク */}
+                  {(horse.jbis_url || horse.netkeiba_url) && (
                     <a
-                      href={horse.netkeiba_url}
+                      href={horse.jbis_url || horse.netkeiba_url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -393,9 +395,7 @@ export default function HorseDetailPage(props: any) {
                         }
                       })()}
                     </div>
-                    <div className={`text-sm font-medium ${horse.total_prize_latest - horse.total_prize_start > 0 ? 'text-green-600' : horse.total_prize_latest - horse.total_prize_start < 0 ? 'text-red-600' : 'text-gray-600'}`}> 
-                      {Number(horse.total_prize_start) === 0 ? '-' : ((Number(horse.total_prize_latest) - Number(horse.total_prize_start)) / Number(horse.total_prize_start) * 100).toFixed(1) + '%'}
-                    </div>
+                    <div className="text-sm text-gray-600">オークション後の活躍</div>
                   </div>
                 </div>
               </CardContent>
