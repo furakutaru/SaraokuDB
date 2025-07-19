@@ -208,8 +208,7 @@ class RakutenAuctionScraper:
 
             # 性別（「牡」「牝」「セン」パターン）
             sex = ''
-            # 例: サウンドペガサス　　セン３歳　　※中央競馬　登録抹消
-            # タイトルやh1タグから優先的に抽出
+            # タイトルやh1タグから必ず抽出
             title_text = ''
             if name_tag and name_tag.get_text() is not None:
                 title_text = name_tag.get_text(strip=True)
@@ -217,19 +216,11 @@ class RakutenAuctionScraper:
                 title_tag = soup.find('title')
                 if title_tag and title_tag.get_text() is not None:
                     title_text = title_tag.get_text(strip=True)
-                else:
-                    title_text = page_text
             sex_match = re.match(r'^.+?\s+(牡|牝|セン)\s*\d{1,2}歳', title_text)
             if sex_match:
                 sex = sex_match.group(1)
             else:
-                # フォールバック: ページ全体から「セン」「牡」「牝」単語を探す（誤判定リスクあり）
-                if 'セン' in page_text:
-                    sex = 'セン'
-                elif '牡' in page_text:
-                    sex = '牡'
-                elif '牝' in page_text:
-                    sex = '牝'
+                raise ValueError(f"性別がタイトルから抽出できません: {title_text} ({detail_url})")
             detail_data['sex'] = sex
             if not sex:
                 print(f"[異常] 性別が抽出できません: {detail_url}")
