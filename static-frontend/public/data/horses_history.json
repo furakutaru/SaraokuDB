@@ -949,6 +949,45 @@
       "total_prize_latest": 802.7,
       "created_at": "2025-07-19T17:26:25.846708",
       "updated_at": "2025-07-19T17:26:25.846709"
+    },
+    {
+      "id": 9999,
+      "history": [
+        {
+          "auction_date": "2024-01-01",
+          "name": "テストホースA",
+          "sex": "牡",
+          "age": "2",
+          "seller": "テスト牧場",
+          "race_record": "0戦0勝",
+          "comment": "初回出品時のコメント。",
+          "sold_price": 100000,
+          "total_prize_start": 0.0
+        },
+        {
+          "auction_date": "2024-06-01",
+          "name": "テストホースB",
+          "sex": "牡",
+          "age": "3",
+          "seller": "テスト牧場2",
+          "race_record": "1戦0勝",
+          "comment": "再出品時のコメント。名前が変わりました。",
+          "sold_price": 200000,
+          "total_prize_start": 50000
+        }
+      ],
+      "sire": "テストサイアー",
+      "dam": "テストダム",
+      "dam_sire": "テストダムサイアー",
+      "primary_image": "",
+      "disease_tags": "なし",
+      "netkeiba_url": "",
+      "jbis_url": "",
+      "weight": null,
+      "unsold_count": null,
+      "total_prize_latest": 50000,
+      "created_at": "2024-01-01T00:00:00",
+      "updated_at": "2024-06-01T00:00:00"
     }
   ]
 }
