@@ -170,6 +170,17 @@ export default function HorseDetailPage(props: any) {
     return sex === '牡' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800';
   };
 
+  // 日付フォーマット関数を追加
+  function formatDate(val: string) {
+    if (!val) return '-';
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.toLocaleDateString('ja-JP');
+    // ISOでなければYYYY-MM-DD等も試す
+    const m = val.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+    if (m) return `${m[1]}/${m[2]}/${m[3]}`;
+    return val;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
@@ -402,11 +413,11 @@ export default function HorseDetailPage(props: any) {
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600">作成日:</span>
-                  <span>{new Date(horse.created_at).toLocaleDateString('ja-JP')}</span>
+                  <span>{formatDate(horse.created_at)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">更新日:</span>
-                  <span>{new Date(horse.updated_at).toLocaleDateString('ja-JP')}</span>
+                  <span>{formatDate(horse.updated_at)}</span>
                 </div>
               </CardContent>
             </Card>
