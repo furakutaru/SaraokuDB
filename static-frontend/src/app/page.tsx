@@ -75,7 +75,7 @@ const formatPrize = (val: number | string | null | undefined) => {
 
 // 落札価格表示用関数を追加
 const displayPrice = (price: number | null | undefined, unsold_count: number | null | undefined) => {
-  if (unsold_count && unsold_count > 0) return '-';
+  if (unsold_count !== null && unsold_count !== undefined && unsold_count >= 1) return '-';
   if (price === null || price === undefined) return '-';
   return '¥' + price.toLocaleString();
 };
@@ -124,26 +124,21 @@ export default function Home() {
       {/* ヘッダー */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">サラブレッドオークションDB</h1>
-              <p className="text-gray-600">最終更新: {new Date(metadata.last_updated).toLocaleString('ja-JP')}</p>
-            </div>
-            <div className="flex items-center space-x-6">
+          <div className="flex justify-between items-center py-4">
+            <button
+              onClick={() => window.history.back()}
+              className="rounded-md bg-white border border-black text-black px-4 py-2 hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              戻る
+            </button>
+            <div className="flex gap-4">
               <Link href="/dashboard">
-                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">
-                  解析
-                </Button>
+                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">解析</Button>
               </Link>
               <Link href="/horses">
-                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">
-                  馬一覧
-                </Button>
+                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">馬一覧</Button>
               </Link>
-              <div className="text-right">
-                <p className="text-sm text-gray-500">次回スクレイピング</p>
-                <p className="text-lg font-semibold text-blue-600">{getNextScrapingDate()}</p>
-              </div>
             </div>
           </div>
         </div>
@@ -221,7 +216,7 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {horses.filter(h => !h.unsold_count || h.unsold_count === 0).slice(0, 5).map((horse: Horse) => (
+              {horses.slice(0, 5).map((horse: Horse) => (
                 <Link key={horse.id} href={`/horses/${horse.id}`}>
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                     <div className="flex items-center space-x-3">
