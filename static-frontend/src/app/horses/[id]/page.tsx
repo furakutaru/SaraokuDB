@@ -351,16 +351,22 @@ export default function HorseDetailPage(props: any) {
                 {horse.unsold_count && horse.unsold_count > 0 && (
                   <div className="text-center text-blue-600 font-bold mb-2">主取り{horse.unsold_count}回</div>
                 )}
-                {/* 落札価格履歴 */}
+                {/* 落札価格（最新） */}
                 <div className="text-center">
-                  {toArray(latest.sold_price).map((sp, i) => (
-                    <div key={i} className="text-2xl font-bold mb-1">
-                      {formatPrice(sp)}
-                      <span className="text-xs text-gray-500 ml-2">{toArray(latest.auction_date)[i] ?? ''}</span>
-                    </div>
-                  ))}
-                  <div className="text-sm text-gray-600">落札価格履歴</div>
+                  <span className="text-red-600 text-3xl font-extrabold align-middle">{formatPrice(toArray(latest.sold_price).slice(-1)[0])}</span>
                 </div>
+                {/* 履歴が2回以上ある場合のみ履歴表示 */}
+                {toArray(latest.sold_price).length > 1 && (
+                  <div className="text-center mt-2">
+                    {toArray(latest.sold_price).map((sp, i) => (
+                      <div key={i} className="text-lg font-bold mb-1">
+                        <span className="text-red-600">{formatPrice(sp)}</span>
+                        <span className="text-xs text-gray-500 ml-2">{toArray(latest.auction_date)[i] ?? ''}</span>
+                      </div>
+                    ))}
+                    <div className="text-sm text-gray-600">落札価格履歴</div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

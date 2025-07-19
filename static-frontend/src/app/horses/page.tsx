@@ -145,8 +145,8 @@ export default function HorsesPage() {
   // 落札価格表示用関数を追加
   const formatPrice = (price: number | null | undefined) => {
     if (price === null || price === undefined) return '-';
-    // 落札価格は万円単位ではなく、実際の金額（円）で表示
-    return '¥' + (price * 10000).toLocaleString();
+    // そのまま円単位で表示
+    return '¥' + price.toLocaleString();
   };
 
   const getGrowthRate = (start: number, latest: number) => {
