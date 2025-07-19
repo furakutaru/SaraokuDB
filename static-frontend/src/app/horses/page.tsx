@@ -36,6 +36,7 @@ interface Horse {
   created_at: string;
   updated_at: string;
   hidden?: boolean;
+  unsold?: boolean;
 }
 
 interface Metadata {

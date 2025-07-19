@@ -30,6 +30,7 @@ interface Horse {
   netkeiba_url: string;
   jbis_url: string;
   unsold_count: number | null; // 主取り馬の回数（またはnull）
+  unsold?: boolean;
 }
 
 interface Metadata {

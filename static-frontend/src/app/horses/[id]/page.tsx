@@ -36,6 +36,7 @@ interface Horse {
   total_prize_latest: number; // 最新賞金
   created_at: string;
   updated_at: string;
+  unsold?: boolean;
 }
 
 interface HorseData {
