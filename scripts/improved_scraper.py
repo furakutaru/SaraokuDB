@@ -162,22 +162,20 @@ class ImprovedRakutenScraper:
         
         return result
     
-    def _extract_sold_price(self, page_text: str) -> int:
+    def _extract_sold_price(self, page_text: str) -> str:
         """落札価格を抽出（税込価格）"""
         # 現在価格の税込価格を取得（例: "2,000,000円(税込 2,200,000円)"）
         price_match = re.search(r'(\d{1,3}(?:,\d{3})*)円\(税込\s*(\d{1,3}(?:,\d{3})*)円\)', page_text)
         if price_match:
             # 税込価格を使用
-            price_str = price_match.group(2).replace(',', '')
-            return int(price_str)
+            return price_match.group(2).replace(',', '')
         
         # フォールバック: 単純な税込価格パターン
         price_match = re.search(r'税込\s*(\d{1,3}(?:,\d{3})*)円', page_text)
         if price_match:
-            price_str = price_match.group(1).replace(',', '')
-            return int(price_str)
+            return price_match.group(1).replace(',', '')
         
-        return 0
+        return ''
     
     def _extract_pedigree(self, page_text: str) -> Dict:
         """血統情報を抽出"""
@@ -224,19 +222,23 @@ class ImprovedRakutenScraper:
         central_prize_match = re.search(r'中央獲得賞金[：:]\s*([\d.]+)万円', page_text)
         local_prize_match = re.search(r'地方獲得賞金[：:]\s*([\d.]+)万円', page_text)
         
-        central_prize = 0.0
-        local_prize = 0.0
+        central_prize = ''
+        local_prize = ''
         
         if central_prize_match:
-            central_prize = float(central_prize_match.group(1)) * 10000  # 万円を円に変換
+            central_prize = central_prize_match.group(1)
         
         if local_prize_match:
-            local_prize = float(local_prize_match.group(1)) * 10000  # 万円を円に変換
+            local_prize = local_prize_match.group(1)
         
-        # 総賞金は中央と地方の合計
-        total_prize = central_prize + local_prize
-        result['total_prize_start'] = total_prize
-        result['total_prize_latest'] = total_prize
+        # 合計もそのまま文字列連結（必要ならfloat変換は呼び出し側で）
+        if central_prize or local_prize:
+            total_prize = str(central_prize) + str(local_prize)
+            result['total_prize_start'] = total_prize
+            result['total_prize_latest'] = total_prize
+        else:
+            result['total_prize_start'] = ''
+            result['total_prize_latest'] = ''
         
         return result
     
@@ -317,8 +319,8 @@ def main():
         # 各馬の情報を表示
         for i, horse in enumerate(horses, 1):
             print(f"\n{i}. {horse.get('name', 'N/A')}")
-            print(f"   落札価格: {horse.get('sold_price', 0):,}円")
-            print(f"   賞金: {horse.get('total_prize_start', 0):,}円")
+            print(f"   落札価格: {horse.get('sold_price', '')}")
+            print(f"   賞金: {horse.get('total_prize_start', '')}")
             print(f"   成績: {horse.get('race_record', 'N/A')}")
     else:
         print("馬のデータを取得できませんでした")

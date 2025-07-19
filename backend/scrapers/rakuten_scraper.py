@@ -591,12 +591,10 @@ class RakutenAuctionScraper:
                         if start_prize > 0 and total_prize_latest == 0:
                             # オークション時は賞金があるが、現在は0 → オークション時の値を採用
                             horse['total_prize_latest'] = start_prize
-                            horse['prize_diff'] = '0万円'
                         elif start_prize == 0 and total_prize_latest > 0:
                             # オークション時は0だが、現在は賞金がある → 現在の値を採用
                             horse['total_prize_start'] = total_prize_latest
                             horse['total_prize_latest'] = total_prize_latest
-                            horse['prize_diff'] = '0万円'
                         else:
                             # 通常の差額計算
                             horse['total_prize_latest'] = total_prize_latest

@@ -50,21 +50,8 @@ def main():
         # 血統情報は既にscrape_all_horsesで正しく抽出されているため、再処理は不要
         if 'comment' not in horse or horse['comment'] is None:
             horse['comment'] = ''
-        # === 賞金・価格の正規化（既に万円単位なので変換不要） ===
-        for key in ['sold_price', 'total_prize_start', 'total_prize_latest']:
-            val = horse.get(key, 0)
-            try:
-                if isinstance(val, (int, float)) and val > 0:
-                    horse[key] = round(val, 1)  # 既に万円単位なので変換不要
-                else:
-                    horse[key] = 0.0
-            except Exception:
-                horse[key] = 0.0
-    # バリデーション
-    for horse in horses:
-        for key in ['sold_price', 'total_prize_start', 'total_prize_latest']:
-            if key in horse and (horse[key] is None or horse[key] == '' or not isinstance(horse[key], (int, float))):
-                horse[key] = 0.0
+        # 掛け算・割り算・round・0やNoneや-への置換・型変換・異常値補正は一切行わず、値はそのまま保存
+    # バリデーションや型補正も削除
     # メタデータ
     from datetime import datetime
     total_horses = len(horses)

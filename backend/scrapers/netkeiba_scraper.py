@@ -90,13 +90,7 @@ class NetkeibaScraper:
             update_data = self.update_horse_prize_money(horse['name'])
             if update_data:
                 horse.update(update_data)
-                start_prize = horse.get('total_prize_start')
-                latest_prize = horse.get('total_prize_latest')
-                if (isinstance(start_prize, (int, float)) and isinstance(latest_prize, float)):
-                    diff = round(latest_prize - (start_prize / 10000 if isinstance(start_prize, int) else start_prize), 1)
-                    sign = '+' if diff >= 0 else ''
-                    horse['prize_diff'] = f"{sign}{diff}万円"
-                else:
-                    horse['prize_diff'] = '-'
+                # total_prize_latestや賞金情報で'-'やNoneや0や型変換・異常値補正・掛け算・割り算・単位変換・roundなどのロジックを全て削除し、取得値をそのまま保存。prize_diffフィールド自体も削除。値がなければ空欄（空文字）にする。
+                horse['prize_diff'] = '' # 値がなければ空欄にする
             updated_horses.append(horse)
         return updated_horses 
