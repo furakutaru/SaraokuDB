@@ -25,6 +25,7 @@ def main():
     parser.add_argument('--normalize-sold-price', action='store_true', help='sold_priceが1000未満なら×10000して円単位に統一')
     parser.add_argument('--normalize-prize', action='store_true', help='history配列のtotal_prize_start, total_prize_latestも1000未満なら×10000して円単位に統一')
     parser.add_argument('--denormalize-prize', action='store_true', help='history配列のtotal_prize_start, total_prize_latestが10000以上なら/10000して万円単位に戻す')
+    parser.add_argument('--clean-disease-tags', action='store_true', help='disease_tagsから「なし」と疾病が両方入っている場合に「なし」を除去')
     args = parser.parse_args()
 
     if not os.path.exists(args.file):
@@ -68,6 +69,28 @@ def main():
         # history配列を1件だけにする
         if args.truncate_history and 'history' in horse and isinstance(horse['history'], list) and len(horse['history']) > 1:
             horse['history'] = [horse['history'][0]]
+        # disease_tagsの「なし」除去
+        if args.clean_disease_tags:
+            # 本体
+            tags = horse.get('disease_tags')
+            if isinstance(tags, str):
+                tag_list = [t.strip() for t in tags.split(',') if t.strip()]
+                if 'なし' in tag_list and len(tag_list) > 1:
+                    tag_list = [t for t in tag_list if t != 'なし']
+                if not tag_list:
+                    tag_list = ['なし']
+                horse['disease_tags'] = ','.join(tag_list)
+            # history配列
+            if 'history' in horse and isinstance(horse['history'], list):
+                for h in horse['history']:
+                    tags = h.get('disease_tags')
+                    if isinstance(tags, str):
+                        tag_list = [t.strip() for t in tags.split(',') if t.strip()]
+                        if 'なし' in tag_list and len(tag_list) > 1:
+                            tag_list = [t for t in tag_list if t != 'なし']
+                        if not tag_list:
+                            tag_list = ['なし']
+                        h['disease_tags'] = ','.join(tag_list)
         # 既存の部分修正ロジック ...
         if args.set:
             set_dict = parse_set_args(args.set)
