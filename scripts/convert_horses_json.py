@@ -8,13 +8,14 @@ OUTPUT_PATH = 'static-frontend/public/data/horses_history.json'
 HISTORY_FIELDS = [
     'auction_date', 'name', 'sex', 'age', 'seller', 'race_record', 'comment', 'sold_price', 'total_prize_start'
 ]
+# 履歴を取らず最新値だけ持つフィールド
+LATEST_FIELDS = ['weight', 'total_prize_latest']
 
 with open(INPUT_PATH, encoding='utf-8') as f:
     src = json.load(f)
 
 horses = src['horses']
 
-# idごとに履歴をまとめる
 class HorseHistory(dict):
     def __init__(self):
         super().__init__()
@@ -29,6 +30,15 @@ for h in horses:
         horse_map[horse_id]['id'] = horse_id
         # 履歴化しないフィールドをコピー
         for k in ['sire', 'dam', 'dam_sire', 'primary_image', 'disease_tags', 'netkeiba_url', 'jbis_url']:
+            if k in h:
+                horse_map[horse_id][k] = h[k]
+        # 履歴を取らない項目の最新値をセット
+        for k in LATEST_FIELDS:
+            if k in h:
+                horse_map[horse_id][k] = h[k]
+    else:
+        # 既にある場合は、最新値で上書き
+        for k in LATEST_FIELDS:
             if k in h:
                 horse_map[horse_id][k] = h[k]
     # 履歴部分だけ抽出

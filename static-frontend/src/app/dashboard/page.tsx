@@ -7,36 +7,34 @@ import Link from 'next/link';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 
-interface Horse {
-  id: number;
+interface HorseHistory {
+  auction_date: string;
   name: string;
   sex: string;
-  age: number;
-  sold_price: number;
+  age: string;
   seller: string;
+  race_record: string;
+  comment: string;
+  sold_price: number;
   total_prize_start: number;
-  total_prize_latest: number;
+}
+
+interface Horse {
+  id: number;
+  history: HorseHistory[];
   sire: string;
   dam: string;
   dam_sire: string;
-  comment: string;
-  weight: number;
-  race_record: string;
   primary_image: string;
-  auction_date: string;
   disease_tags: string;
   netkeiba_url: string;
-  created_at: string;
-  updated_at: string;
-  unsold_count: number;
+  jbis_url: string;
 }
 
 interface Metadata {
   last_updated: string;
   total_horses: number;
   average_price: number;
-  average_growth_rate: number;
-  horses_with_growth_data: number;
 }
 
 interface HorseData {
@@ -74,7 +72,7 @@ export default function DashboardPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/data/horses.json');
+      const response = await fetch('/data/horses_history.json');
       if (!response.ok) throw new Error('データの取得に失敗しました');
       const d = await response.json();
       setData(d);
@@ -92,8 +90,17 @@ export default function DashboardPage() {
     return <div className="min-h-screen flex items-center justify-center text-red-600">{error || 'データがありません'}</div>;
   }
 
+  // 最新履歴を抽出
+  const horsesWithLatest = data.horses.map(horse => {
+    const latest = horse.history[horse.history.length - 1];
+    return {
+      ...horse,
+      ...latest
+    };
+  });
+
   // 主取り馬除外
-  let horses = data.horses.filter(h => !h.unsold_count || h.unsold_count === 0);
+  let horses = horsesWithLatest.filter(h => !h.unsold_count || h.unsold_count === 0);
 
   // サマリー
   const avgROI = horses.length > 0 ? (

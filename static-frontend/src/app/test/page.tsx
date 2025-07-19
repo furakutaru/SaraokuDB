@@ -13,7 +13,7 @@ export default function TestPage() {
   const testDataFetch = async () => {
     try {
       setStatus('データを取得中...');
-      const response = await fetch('/data/horses.json');
+      const response = await fetch('/data/horses_history.json');
       setStatus(`レスポンスステータス: ${response.status}`);
       
       if (!response.ok) {

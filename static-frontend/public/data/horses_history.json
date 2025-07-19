@@ -26,7 +26,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_01/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001358802/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001358802/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001358802/",
+      "weight": 426,
+      "total_prize_latest": 0.0
     },
     {
       "id": 2,
@@ -49,7 +51,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_02/2.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001354818/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001354818/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001354818/",
+      "weight": 510,
+      "total_prize_latest": 0.0
     },
     {
       "id": 3,
@@ -72,7 +76,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_03/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001356277/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001356277/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001356277/",
+      "weight": 476,
+      "total_prize_latest": 0.0
     },
     {
       "id": 4,
@@ -95,7 +101,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_05/2.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001354202/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001354202/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001354202/",
+      "weight": 394,
+      "total_prize_latest": 0.0
     },
     {
       "id": 5,
@@ -118,7 +126,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_06/1.JPG",
       "disease_tags": "屈腱炎",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001354555/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001354555/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001354555/",
+      "weight": 520,
+      "total_prize_latest": 0.0
     },
     {
       "id": 6,
@@ -141,7 +151,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_07/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001361091/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001361091/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001361091/",
+      "weight": 456,
+      "total_prize_latest": 0.0
     },
     {
       "id": 7,
@@ -164,7 +176,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_08/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001361665/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001361665/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001361665/",
+      "weight": 370,
+      "total_prize_latest": 0.0
     },
     {
       "id": 8,
@@ -187,7 +201,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_09/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001360535/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001360535/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001360535/",
+      "weight": 402,
+      "total_prize_latest": 0.0
     },
     {
       "id": 9,
@@ -210,7 +226,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_10/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001355708/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001355708/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001355708/",
+      "weight": 444,
+      "total_prize_latest": 0.0
     },
     {
       "id": 10,
@@ -233,7 +251,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_11/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001359991/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001359991/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001359991/",
+      "weight": 446,
+      "total_prize_latest": 0.0
     },
     {
       "id": 11,
@@ -256,7 +276,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_12/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001357295/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001357295/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001357295/",
+      "weight": 444,
+      "total_prize_latest": 0.0
     },
     {
       "id": 12,
@@ -279,7 +301,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_13/1.JPG",
       "disease_tags": "屈腱炎",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001353469/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001353469/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001353469/",
+      "weight": 468,
+      "total_prize_latest": 0.0
     },
     {
       "id": 13,
@@ -302,7 +326,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_14/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001364639/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001364639/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001364639/",
+      "weight": 382,
+      "total_prize_latest": 0.0
     },
     {
       "id": 14,
@@ -325,7 +351,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_15/1.jpeg",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001355950/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001355950/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001355950/",
+      "weight": 476,
+      "total_prize_latest": 54.0
     },
     {
       "id": 15,
@@ -348,7 +376,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_16/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001355426/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001355426/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001355426/",
+      "weight": 508,
+      "total_prize_latest": 56.0
     },
     {
       "id": 16,
@@ -371,7 +401,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_17/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001357265/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001357265/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001357265/",
+      "weight": 458,
+      "total_prize_latest": 140.0
     },
     {
       "id": 17,
@@ -394,7 +426,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_18/1.JPG",
       "disease_tags": "骨折",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001358756/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001358756/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001358756/",
+      "weight": 536,
+      "total_prize_latest": 178.0
     },
     {
       "id": 18,
@@ -417,7 +451,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_19/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001357603/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001357603/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001357603/",
+      "weight": 442,
+      "total_prize_latest": 193.0
     },
     {
       "id": 19,
@@ -440,7 +476,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_20/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001359621/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001359621/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001359621/",
+      "weight": 432,
+      "total_prize_latest": 250.0
     },
     {
       "id": 20,
@@ -463,7 +501,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_21/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001320904/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001320904/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001320904/",
+      "weight": 422,
+      "total_prize_latest": 505.1
     },
     {
       "id": 21,
@@ -486,7 +526,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_22/1.jpg",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001313041/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001313041/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001313041/",
+      "weight": 440,
+      "total_prize_latest": 1685.5
     },
     {
       "id": 22,
@@ -509,7 +551,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_23/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001311707/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001311707/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001311707/",
+      "weight": 538,
+      "total_prize_latest": 4891.6
     },
     {
       "id": 23,
@@ -532,7 +576,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_24/1.jpg",
       "disease_tags": "骨折",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001358166/pedigree/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001358166/pedigree/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001358166/pedigree/",
+      "weight": 510,
+      "total_prize_latest": 0.0
     },
     {
       "id": 24,
@@ -555,7 +601,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_25/1.jpg",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001371943/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001371943/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001371943/",
+      "weight": 440,
+      "total_prize_latest": 17.5
     },
     {
       "id": 25,
@@ -578,7 +626,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_26/1.jpeg",
       "disease_tags": "骨折",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001352133/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001352133/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001352133/",
+      "weight": 490,
+      "total_prize_latest": 30.0
     },
     {
       "id": 26,
@@ -601,7 +651,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_27/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001336019/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001336019/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001336019/",
+      "weight": 466,
+      "total_prize_latest": 127.3
     },
     {
       "id": 27,
@@ -624,7 +676,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_28/1.jpg",
       "disease_tags": "骨折",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001339072/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001339072/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001339072/",
+      "weight": 462,
+      "total_prize_latest": 237.1
     },
     {
       "id": 28,
@@ -647,7 +701,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_29/1.JPG",
       "disease_tags": "骨折",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001338505/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001338505/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001338505/",
+      "weight": 437,
+      "total_prize_latest": 915.0
     },
     {
       "id": 29,
@@ -670,7 +726,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_30/1.JPG",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001323589/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001323589/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001323589/",
+      "weight": 463,
+      "total_prize_latest": 503.0
     },
     {
       "id": 30,
@@ -693,7 +751,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_31/1.jpg",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001322913/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001322913/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001322913/",
+      "weight": 491,
+      "total_prize_latest": 695.9
     },
     {
       "id": 31,
@@ -716,7 +776,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_32/1.jpeg",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001323053/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001323053/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001323053/",
+      "weight": 465,
+      "total_prize_latest": 1069.5
     },
     {
       "id": 32,
@@ -739,7 +801,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_33/1.jpeg",
       "disease_tags": "骨折",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001323711/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001323711/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001323711/",
+      "weight": 474,
+      "total_prize_latest": 1463.0
     },
     {
       "id": 33,
@@ -762,7 +826,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_34/1.jpg",
       "disease_tags": "骨折",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001296576/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001296576/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001296576/",
+      "weight": 490,
+      "total_prize_latest": 2363.5
     },
     {
       "id": 34,
@@ -785,7 +851,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_35/1.jpeg",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001261886/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001261886/"
+      "jbis_url": "https://www.jbis.or.jp/horse/0001261886/",
+      "weight": 520,
+      "total_prize_latest": 10260.6
     },
     {
       "id": 35,
@@ -808,41 +876,9 @@
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_36/1.jpg",
       "disease_tags": "なし",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001331762/",
-      "jbis_url": "https://www.jbis.or.jp/horse/0001331762/"
-    },
-    {
-      "id": 9999,
-      "history": [
-        {
-          "auction_date": "2024-01-01",
-          "name": "テストホースA",
-          "sex": "牡",
-          "age": "2",
-          "seller": "テスト牧場",
-          "race_record": "0戦0勝",
-          "comment": "初回出品時のコメント。",
-          "sold_price": 100000,
-          "total_prize_start": 0.0
-        },
-        {
-          "auction_date": "2024-06-01",
-          "name": "テストホースB",
-          "sex": "牡",
-          "age": "3",
-          "seller": "テスト牧場2",
-          "race_record": "1戦0勝",
-          "comment": "再出品時のコメント。名前が変わりました。",
-          "sold_price": 200000,
-          "total_prize_start": 50000
-        }
-      ],
-      "sire": "テストサイアー",
-      "dam": "テストダム",
-      "dam_sire": "テストダムサイアー",
-      "primary_image": "",
-      "disease_tags": "なし",
-      "netkeiba_url": "",
-      "jbis_url": ""
+      "jbis_url": "https://www.jbis.or.jp/horse/0001331762/",
+      "weight": null,
+      "total_prize_latest": 802.7
     }
   ]
 }

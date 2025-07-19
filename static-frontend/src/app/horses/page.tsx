@@ -8,39 +8,34 @@ import Link from 'next/link';
 import HorseImage from '@/components/HorseImage';
 import { useRouter } from 'next/navigation';
 
-interface Horse {
-  id: number;
+interface HorseHistory {
+  auction_date: string;
   name: string;
   sex: string;
-  age: number;
-  sold_price: number;
+  age: string;
   seller: string;
+  race_record: string;
+  comment: string;
+  sold_price: number;
   total_prize_start: number;
-  total_prize_latest: number;
-  prize_diff?: string; // JBISから取得した賞金差額
+}
+
+interface Horse {
+  id: number;
+  history: HorseHistory[];
   sire: string;
   dam: string;
   dam_sire: string;
-  comment: string;
-  weight: number;
-  race_record: string;
   primary_image: string;
-  auction_date: string;
   disease_tags: string;
   netkeiba_url: string;
-  jbis_url?: string; // JBISのURL
-  created_at: string;
-  updated_at: string;
-  unsold_count: number; // 追加: 未売出数
+  jbis_url: string;
 }
 
 interface Metadata {
   last_updated: string;
   total_horses: number;
   average_price: number;
-  average_growth_rate: number;
-  horses_with_growth_data: number;
-  next_auction_date: string;
 }
 
 interface HorseData {
@@ -64,8 +59,8 @@ export default function HorsesPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // horses.jsonから馬データを取得
-      const response = await fetch('/data/horses.json');
+      // horses_history.jsonから馬データを取得
+      const response = await fetch('/data/horses_history.json');
       if (!response.ok) {
         throw new Error('データの取得に失敗しました');
       }
@@ -104,11 +99,17 @@ export default function HorsesPage() {
     );
   }
 
-  const { horses } = data;
+  // 最新履歴を抽出
+  const horsesWithLatest = data.horses.map(horse => {
+    const latest = horse.history[horse.history.length - 1];
+    return {
+      ...horse,
+      ...latest
+    };
+  });
 
   // 検索とソート
-  const filteredHorses = horses
-    .filter(horse => !horse.unsold_count || horse.unsold_count === 0)
+  const filteredHorses = horsesWithLatest
     .filter(horse => 
       horse.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (horse.sire || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -124,7 +125,7 @@ export default function HorsesPage() {
           comparison = (a.sold_price || 0) - (b.sold_price || 0);
           break;
         case 'age':
-          comparison = a.age - b.age;
+          comparison = parseInt(a.age) - parseInt(b.age);
           break;
       }
       return sortOrder === 'asc' ? comparison : -comparison;
