@@ -152,82 +152,86 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-8">
-      <header className="bg-white shadow-sm border-b w-full">
-        <div className="flex justify-between items-center py-4">
-          <button
-            onClick={() => router.back()}
-            className="rounded-md bg-white border border-black text-black px-4 py-2 hover:bg-gray-100 transition-colors"
-          >
-            <svg className="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-            戻る
-          </button>
-          <h1 className="text-xl font-semibold text-gray-900">解析</h1>
+    <>
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <button
+              onClick={() => router.back()}
+              className="rounded-md bg-white border border-black text-black px-4 py-2 hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              戻る
+            </button>
+            <h1 className="text-xl font-semibold text-gray-900">解析</h1>
+          </div>
         </div>
       </header>
-      <div className="max-w-7xl mx-auto">
-        {/* サマリー 横並びテキスト */}
-        <div className="mb-6 text-lg font-semibold text-gray-700 flex flex-wrap gap-8">
-          <span>総馬数: {horses.length}</span>
-          <span>平均落札価格: {formatPrice(data.metadata.average_price)}</span>
-          <span>平均ROI: {avgROI.toFixed(2)}</span>
-        </div>
-        {/* 指標ボタン（白文字色付き） */}
-        <div className="flex gap-4 mb-6">
-          <Button onClick={() => setShowType('all')} variant="default" className={showType==='all'?"bg-blue-600 text-white":"bg-blue-400 text-white"}>全馬</Button>
-          <Button onClick={() => setShowType('roi')} variant="default" className={showType==='roi'?"bg-green-600 text-white":"bg-green-400 text-white"}>ROIランキング</Button>
-          <Button onClick={() => setShowType('value')} variant="default" className={showType==='value'?"bg-orange-600 text-white":"bg-orange-400 text-white"}>妙味馬</Button>
-        </div>
-        {/* DataTable風の表 */}
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_start')}>オークション時賞金{renderSortIcon('total_prize_start')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_latest')}>現在賞金{renderSortIcon('total_prize_latest')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('roi')}>ROI{renderSortIcon('roi')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">リンク</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {tableHorses.map((horse) => (
-                <tr key={horse.id} className="hover:bg-blue-50">
-                  <td className="px-3 py-2 font-medium text-gray-900">
-                    <Link href={`/horses/${horse.id}`} className="hover:underline text-blue-700">{horse.name}</Link>
-                  </td>
-                  <td className="px-3 py-2">{horse.sex}</td>
-                  <td className="px-3 py-2">{horse.age}</td>
-                  <td className="px-3 py-2">{horse.sire}</td>
-                  <td className="px-3 py-2">{formatPrice(horse.sold_price)}</td>
-                  <td className="px-3 py-2">{formatPrize(horse.total_prize_start)}</td>
-                  <td className="px-3 py-2">{formatPrize(horse.total_prize_latest)}</td>
-                  <td className="px-3 py-2">{calcROI(horse.total_prize_latest, horse.sold_price)}</td>
-                  <td className="px-3 py-2">
-                    {horse.primary_image ? (
-                      <HorseImage src={horse.primary_image} alt={horse.name} className="w-12 h-12 object-contain rounded bg-gray-100" />
-                    ) : (
-                      <span className="text-gray-400">No Image</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-col gap-1">
-                      {horse.netkeiba_url && (
-                        <a href={horse.netkeiba_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">JBIS</a>
-                      )}
-                    </div>
-                  </td>
+      <div className="min-h-screen bg-gray-50 px-4 py-8">
+        <div className="max-w-7xl mx-auto">
+          {/* サマリー 横並びテキスト */}
+          <div className="mb-6 text-lg font-semibold text-gray-700 flex flex-wrap gap-8">
+            <span>総馬数: {horses.length}</span>
+            <span>平均落札価格: {formatPrice(data.metadata.average_price)}</span>
+            <span>平均ROI: {avgROI.toFixed(2)}</span>
+          </div>
+          {/* 指標ボタン（白文字色付き） */}
+          <div className="flex gap-4 mb-6">
+            <Button onClick={() => setShowType('all')} variant="default" className={showType==='all'?"bg-blue-600 text-white":"bg-blue-400 text-white"}>全馬</Button>
+            <Button onClick={() => setShowType('roi')} variant="default" className={showType==='roi'?"bg-green-600 text-white":"bg-green-400 text-white"}>ROIランキング</Button>
+            <Button onClick={() => setShowType('value')} variant="default" className={showType==='value'?"bg-orange-600 text-white":"bg-orange-400 text-white"}>妙味馬</Button>
+          </div>
+          {/* DataTable風の表 */}
+          <div className="overflow-x-auto bg-white rounded-lg shadow">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_start')}>オークション時賞金{renderSortIcon('total_prize_start')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_latest')}>現在賞金{renderSortIcon('total_prize_latest')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('roi')}>ROI{renderSortIcon('roi')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">リンク</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {tableHorses.map((horse) => (
+                  <tr key={horse.id} className="hover:bg-blue-50">
+                    <td className="px-3 py-2 font-medium text-gray-900">
+                      <Link href={`/horses/${horse.id}`} className="hover:underline text-blue-700">{horse.name}</Link>
+                    </td>
+                    <td className="px-3 py-2">{horse.sex}</td>
+                    <td className="px-3 py-2">{horse.age}</td>
+                    <td className="px-3 py-2">{horse.sire}</td>
+                    <td className="px-3 py-2">{formatPrice(horse.sold_price)}</td>
+                    <td className="px-3 py-2">{formatPrize(horse.total_prize_start)}</td>
+                    <td className="px-3 py-2">{formatPrize(horse.total_prize_latest)}</td>
+                    <td className="px-3 py-2">{calcROI(horse.total_prize_latest, horse.sold_price)}</td>
+                    <td className="px-3 py-2">
+                      {horse.primary_image ? (
+                        <HorseImage src={horse.primary_image} alt={horse.name} className="w-12 h-12 object-contain rounded bg-gray-100" />
+                      ) : (
+                        <span className="text-gray-400">No Image</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col gap-1">
+                        {horse.netkeiba_url && (
+                          <a href={horse.netkeiba_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">JBIS</a>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 } 
