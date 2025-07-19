@@ -211,12 +211,12 @@ class RakutenAuctionScraper:
             # タイトルやh1タグから必ず抽出
             title_text = ''
             if name_tag and name_tag.get_text() is not None:
-                title_text = name_tag.get_text(strip=True)
+                title_text = name_tag.get_text().strip()
             else:
                 title_tag = soup.find('title')
                 if title_tag and title_tag.get_text() is not None:
-                    title_text = title_tag.get_text(strip=True)
-            sex_match = re.match(r'^.+?\s+(牡|牝|セン)\s*\d{1,2}歳', title_text)
+                    title_text = title_tag.get_text().strip()
+            sex_match = re.match(r'^.+?[ \t\u3000]+(牡|牝|セン)[ \t\u3000]*\d{1,2}歳', title_text)
             if sex_match:
                 sex = sex_match.group(1)
             else:
