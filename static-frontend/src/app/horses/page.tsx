@@ -280,7 +280,8 @@ export default function HorsesPage() {
                           <span className="text-gray-600">体重:</span>
                           <p className="font-medium">{horse.weight}kg</p>
                         </div>
-                        {horse.total_prize_start > 0 ? (
+                        {/* 成長率: 出品時賞金が1円以上かつ計算可能な場合のみ表示 */}
+                        {horse.total_prize_start !== null && horse.total_prize_start !== undefined && Number(horse.total_prize_start) > 0 ? (
                           <div>
                             <span className="text-gray-600">成長率:</span>
                             <p className={`font-semibold ${parseFloat(getGrowthRate(horse.total_prize_start, horse.total_prize_latest)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
