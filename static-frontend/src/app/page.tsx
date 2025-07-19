@@ -76,7 +76,8 @@ const formatPrize = (val: number | null | undefined) => {
 // 落札価格表示用関数を追加
 const formatPrice = (price: number | null | undefined) => {
   if (price === null || price === undefined) return '-';
-  return '¥' + price.toLocaleString();
+  // 落札価格は万円単位ではなく、実際の金額（円）で表示
+  return '¥' + (price * 10000).toLocaleString();
 };
 
 // 直近の火曜または土曜18:30を計算する関数を追加
