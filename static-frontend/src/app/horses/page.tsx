@@ -110,8 +110,8 @@ export default function HorsesPage() {
   const horsesWithLatest = data.horses.map(horse => {
     const latest = horse.history[horse.history.length - 1];
     return {
-      ...horse,
-      ...latest
+      ...latest,
+      ...horse
     };
   });
 
