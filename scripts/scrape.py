@@ -18,15 +18,23 @@ import urllib.parse
 import importlib.util
 
 # プロジェクトルートをパスに追加
-sys.path.append(os.path.join(os.path.dirname(__file__), '../backend'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '../backend/scrapers'))
-rakuten_scraper_path = os.path.join(os.path.dirname(__file__), '../backend/scrapers/rakuten_scraper.py')
-spec = importlib.util.spec_from_file_location('rakuten_scraper', rakuten_scraper_path)
-if spec is None or spec.loader is None:
-    raise ImportError('rakuten_scraper.pyのロードに失敗しました')
-rakuten_scraper = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(rakuten_scraper)
-RakutenAuctionScraper = rakuten_scraper.RakutenAuctionScraper
+project_root = os.path.dirname(os.path.dirname(__file__))
+sys.path.append(project_root)
+sys.path.append(os.path.join(project_root, 'backend'))
+sys.path.append(os.path.join(project_root, 'backend/scrapers'))
+
+# 楽天スクレイパーをインポート
+try:
+    from backend.scrapers.rakuten_scraper import RakutenAuctionScraper
+except ImportError:
+    # フォールバック: 直接インポート
+    rakuten_scraper_path = os.path.join(project_root, 'backend/scrapers/rakuten_scraper.py')
+    spec = importlib.util.spec_from_file_location('rakuten_scraper', rakuten_scraper_path)
+    if spec is None or spec.loader is None:
+        raise ImportError('rakuten_scraper.pyのロードに失敗しました')
+    rakuten_scraper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rakuten_scraper)
+    RakutenAuctionScraper = rakuten_scraper.RakutenAuctionScraper
 
 
 def main():

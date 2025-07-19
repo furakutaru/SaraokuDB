@@ -4,7 +4,13 @@ import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional, Union, cast
 from datetime import datetime
-from .netkeiba_scraper import NetkeibaScraper
+try:
+    from backend.scrapers.netkeiba_scraper import NetkeibaScraper
+except ImportError:
+    try:
+        from .netkeiba_scraper import NetkeibaScraper
+    except ImportError:
+        from netkeiba_scraper import NetkeibaScraper
 
 class RakutenAuctionScraper:
     def __init__(self):

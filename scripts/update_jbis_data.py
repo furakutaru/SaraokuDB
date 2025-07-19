@@ -14,7 +14,19 @@ sys.path.append(project_root)
 sys.path.append(os.path.join(project_root, 'backend'))
 sys.path.append(os.path.join(project_root, 'backend/scrapers'))
 
-from backend.scrapers.rakuten_scraper import RakutenAuctionScraper
+# 楽天スクレイパーをインポート
+try:
+    from backend.scrapers.rakuten_scraper import RakutenAuctionScraper
+except ImportError:
+    # フォールバック: 直接インポート
+    import importlib.util
+    rakuten_scraper_path = os.path.join(project_root, 'backend/scrapers/rakuten_scraper.py')
+    spec = importlib.util.spec_from_file_location('rakuten_scraper', rakuten_scraper_path)
+    if spec is None or spec.loader is None:
+        raise ImportError('rakuten_scraper.pyのロードに失敗しました')
+    rakuten_scraper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rakuten_scraper)
+    RakutenAuctionScraper = rakuten_scraper.RakutenAuctionScraper
 
 def main():
     print("=== JBISデータ更新スクリプト ===")
