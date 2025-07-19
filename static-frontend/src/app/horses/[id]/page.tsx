@@ -31,6 +31,9 @@ interface Horse {
   disease_tags: string;
   netkeiba_url: string;
   jbis_url: string;
+  weight: number | null; // 体重（またはnull）
+  unsold_count: number | null; // 主取り回数
+  total_prize_latest: number; // 最新賞金
 }
 
 interface HorseData {
