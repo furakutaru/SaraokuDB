@@ -155,7 +155,7 @@ export default function HorsesPage() {
   };
 
   const getGrowthRate = (start: number, latest: number) => {
-    if (start === 0) return '0';
+    if (start === 0) return '0.0';
     return ((latest - start) / start * 100).toFixed(1);
   };
 
