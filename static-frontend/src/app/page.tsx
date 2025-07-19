@@ -131,10 +131,14 @@ export default function Home() {
             </div>
             <div className="flex items-center space-x-6">
               <Link href="/dashboard">
-                <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 rounded shadow">解析</Button>
+                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">
+                  解析
+                </Button>
               </Link>
-              <Link href="/horses" className="text-blue-600 hover:text-blue-800 font-medium">
-                馬一覧
+              <Link href="/horses">
+                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">
+                  馬一覧
+                </Button>
               </Link>
               <div className="text-right">
                 <p className="text-sm text-gray-500">次回スクレイピング</p>
