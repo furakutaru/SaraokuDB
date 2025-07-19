@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2025-07-19T13:18:36.655914",
+    "last_updated": "2025-07-19T15:22:14.351429",
     "total_horses": 35,
     "average_price": 1208571
   },
@@ -28,11 +28,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_01/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001358802/",
+      "prize_diff": "+0.0万円",
       "id": 1,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655639",
-      "updated_at": "2025-07-19T13:18:36.655677",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350832",
+      "updated_at": "2025-07-19T15:22:14.350877"
     },
     {
       "name": "イベンチュアリー",
@@ -57,11 +57,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_02/2.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001354818/",
+      "prize_diff": "+0.0万円",
       "id": 2,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655687",
-      "updated_at": "2025-07-19T13:18:36.655689",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350884",
+      "updated_at": "2025-07-19T15:22:14.350886"
     },
     {
       "name": "サウンドペガサス",
@@ -86,11 +86,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_03/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001356277/",
+      "prize_diff": "+0.0万円",
       "id": 3,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655692",
-      "updated_at": "2025-07-19T13:18:36.655694",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350889",
+      "updated_at": "2025-07-19T15:22:14.350891"
     },
     {
       "name": "トレベルフィーユ",
@@ -115,11 +115,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_05/2.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001354202/",
+      "prize_diff": "+0.0万円",
       "id": 4,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655696",
-      "updated_at": "2025-07-19T13:18:36.655698",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350893",
+      "updated_at": "2025-07-19T15:22:14.350895"
     },
     {
       "name": "フリットフライ",
@@ -144,11 +144,11 @@
       "disease_tags": "屈腱炎",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_06/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001354555/",
+      "prize_diff": "+0.0万円",
       "id": 5,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655701",
-      "updated_at": "2025-07-19T13:18:36.655703",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350897",
+      "updated_at": "2025-07-19T15:22:14.350899"
     },
     {
       "name": "マイネルトラキア",
@@ -173,11 +173,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_07/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001361091/",
+      "prize_diff": "+0.0万円",
       "id": 6,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655705",
-      "updated_at": "2025-07-19T13:18:36.655707",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350902",
+      "updated_at": "2025-07-19T15:22:14.350904"
     },
     {
       "name": "ミシャベル",
@@ -202,11 +202,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_08/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001361665/",
+      "prize_diff": "+0.0万円",
       "id": 7,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655710",
-      "updated_at": "2025-07-19T13:18:36.655712",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350908",
+      "updated_at": "2025-07-19T15:22:14.350909"
     },
     {
       "name": "ムコリッタ",
@@ -231,11 +231,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_09/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001360535/",
+      "prize_diff": "+0.0万円",
       "id": 8,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655719",
-      "updated_at": "2025-07-19T13:18:36.655721",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350918",
+      "updated_at": "2025-07-19T15:22:14.350920"
     },
     {
       "name": "メイショウゲッカ",
@@ -260,11 +260,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_10/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001355708/",
+      "prize_diff": "+0.0万円",
       "id": 9,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655723",
-      "updated_at": "2025-07-19T13:18:36.655725",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350926",
+      "updated_at": "2025-07-19T15:22:14.350928"
     },
     {
       "name": "メイショウスエヒロ",
@@ -289,11 +289,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_11/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001359991/",
+      "prize_diff": "+0.0万円",
       "id": 10,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655727",
-      "updated_at": "2025-07-19T13:18:36.655729",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350930",
+      "updated_at": "2025-07-19T15:22:14.350931"
     },
     {
       "name": "メイショウミスイチ",
@@ -318,11 +318,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_12/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001357295/",
+      "prize_diff": "+0.0万円",
       "id": 11,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655731",
-      "updated_at": "2025-07-19T13:18:36.655733",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350933",
+      "updated_at": "2025-07-19T15:22:14.350935"
     },
     {
       "name": "メイズ",
@@ -347,11 +347,11 @@
       "disease_tags": "屈腱炎",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_13/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001353469/",
+      "prize_diff": "+0.0万円",
       "id": 12,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655735",
-      "updated_at": "2025-07-19T13:18:36.655737",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350941",
+      "updated_at": "2025-07-19T15:22:14.350943"
     },
     {
       "name": "レインチェック",
@@ -376,11 +376,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_14/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001364639/",
+      "prize_diff": "+0.0万円",
       "id": 13,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655739",
-      "updated_at": "2025-07-19T13:18:36.655740",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350945",
+      "updated_at": "2025-07-19T15:22:14.350947"
     },
     {
       "name": "サバイバルナイン",
@@ -405,11 +405,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_15/1.jpeg",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001355950/",
+      "prize_diff": "+0.0万円",
       "id": 14,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655743",
-      "updated_at": "2025-07-19T13:18:36.655745",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350949",
+      "updated_at": "2025-07-19T15:22:14.350950"
     },
     {
       "name": "コスモナッシュビル",
@@ -434,11 +434,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_16/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001355426/",
+      "prize_diff": "+0.0万円",
       "id": 15,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655747",
-      "updated_at": "2025-07-19T13:18:36.655749",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350952",
+      "updated_at": "2025-07-19T15:22:14.350954"
     },
     {
       "name": "アレグリーニ",
@@ -463,11 +463,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_17/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001357265/",
+      "prize_diff": "+0.0万円",
       "id": 16,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655760",
-      "updated_at": "2025-07-19T13:18:36.655764",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350956",
+      "updated_at": "2025-07-19T15:22:14.350958"
     },
     {
       "name": "カイトベルク",
@@ -492,11 +492,11 @@
       "disease_tags": "骨折",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_18/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001358756/",
+      "prize_diff": "+0.0万円",
       "id": 17,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655766",
-      "updated_at": "2025-07-19T13:18:36.655768",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350960",
+      "updated_at": "2025-07-19T15:22:14.350962"
     },
     {
       "name": "ウインコンパス",
@@ -521,11 +521,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_19/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001357603/",
+      "prize_diff": "+0.0万円",
       "id": 18,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655770",
-      "updated_at": "2025-07-19T13:18:36.655772",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350964",
+      "updated_at": "2025-07-19T15:22:14.350965"
     },
     {
       "name": "ヒタムキ",
@@ -550,11 +550,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_20/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001359621/",
+      "prize_diff": "+0.0万円",
       "id": 19,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655774",
-      "updated_at": "2025-07-19T13:18:36.655776",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350968",
+      "updated_at": "2025-07-19T15:22:14.350969"
     },
     {
       "name": "ブライテン",
@@ -579,11 +579,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_21/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001320904/",
+      "prize_diff": "+0.0万円",
       "id": 20,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655779",
-      "updated_at": "2025-07-19T13:18:36.655780",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350972",
+      "updated_at": "2025-07-19T15:22:14.350974"
     },
     {
       "name": "ブラックサウザー",
@@ -608,11 +608,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_22/1.jpg",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001313041/",
+      "prize_diff": "+0.0万円",
       "id": 21,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655782",
-      "updated_at": "2025-07-19T13:18:36.655784",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350976",
+      "updated_at": "2025-07-19T15:22:14.350977"
     },
     {
       "name": "モンタナアゲート",
@@ -637,11 +637,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_23/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001311707/",
+      "prize_diff": "+0.0万円",
       "id": 22,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655786",
-      "updated_at": "2025-07-19T13:18:36.655787",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350985",
+      "updated_at": "2025-07-19T15:22:14.350987"
     },
     {
       "name": "ヌンウーヌス",
@@ -666,11 +666,11 @@
       "disease_tags": "骨折",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_24/1.jpg",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001358166/pedigree/",
+      "prize_diff": "-",
       "id": 23,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655789",
-      "updated_at": "2025-07-19T13:18:36.655791",
-      "prize_diff": "-"
+      "created_at": "2025-07-19T15:22:14.350989",
+      "updated_at": "2025-07-19T15:22:14.350991"
     },
     {
       "name": "リードカナリー",
@@ -695,11 +695,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_25/1.jpg",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001371943/",
+      "prize_diff": "+0.0万円",
       "id": 24,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655793",
-      "updated_at": "2025-07-19T13:18:36.655795",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350993",
+      "updated_at": "2025-07-19T15:22:14.350994"
     },
     {
       "name": "コルニーシュ",
@@ -724,11 +724,11 @@
       "disease_tags": "骨折",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_26/1.jpeg",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001352133/",
+      "prize_diff": "+0.0万円",
       "id": 25,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655797",
-      "updated_at": "2025-07-19T13:18:36.655799",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.350997",
+      "updated_at": "2025-07-19T15:22:14.350998"
     },
     {
       "name": "ウィンカラー",
@@ -753,11 +753,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_27/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001336019/",
+      "prize_diff": "+0.0万円",
       "id": 26,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655800",
-      "updated_at": "2025-07-19T13:18:36.655802",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.351001",
+      "updated_at": "2025-07-19T15:22:14.351002"
     },
     {
       "name": "ルクスソレイユ",
@@ -782,11 +782,11 @@
       "disease_tags": "骨折",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_28/1.jpg",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001339072/",
+      "prize_diff": "+0.0万円",
       "id": 27,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655804",
-      "updated_at": "2025-07-19T13:18:36.655806",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.351004",
+      "updated_at": "2025-07-19T15:22:14.351006"
     },
     {
       "name": "ミスファントム",
@@ -811,11 +811,11 @@
       "disease_tags": "骨折",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_29/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001338505/",
+      "prize_diff": "+0.0万円",
       "id": 28,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655808",
-      "updated_at": "2025-07-19T13:18:36.655810",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.351012",
+      "updated_at": "2025-07-19T15:22:14.351014"
     },
     {
       "name": "デルマネコダマシ",
@@ -840,11 +840,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_30/1.JPG",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001323589/",
+      "prize_diff": "+0.0万円",
       "id": 29,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655812",
-      "updated_at": "2025-07-19T13:18:36.655814",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.351016",
+      "updated_at": "2025-07-19T15:22:14.351017"
     },
     {
       "name": "ハートループ",
@@ -869,11 +869,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_31/1.jpg",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001322913/",
+      "prize_diff": "+0.0万円",
       "id": 30,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655816",
-      "updated_at": "2025-07-19T13:18:36.655818",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.351020",
+      "updated_at": "2025-07-19T15:22:14.351021"
     },
     {
       "name": "イセベイ",
@@ -898,11 +898,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_32/1.jpeg",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001323053/",
+      "prize_diff": "+0.0万円",
       "id": 31,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655820",
-      "updated_at": "2025-07-19T13:18:36.655822",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.351023",
+      "updated_at": "2025-07-19T15:22:14.351025"
     },
     {
       "name": "パイアイヤー",
@@ -927,11 +927,11 @@
       "disease_tags": "骨折",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_33/1.jpeg",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001323711/",
+      "prize_diff": "+0.0万円",
       "id": 32,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655824",
-      "updated_at": "2025-07-19T13:18:36.655826",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.351027",
+      "updated_at": "2025-07-19T15:22:14.351029"
     },
     {
       "name": "エアセイラン",
@@ -956,11 +956,11 @@
       "disease_tags": "骨折",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_34/1.jpg",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001296576/",
+      "prize_diff": "+0.0万円",
       "id": 33,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655828",
-      "updated_at": "2025-07-19T13:18:36.655829",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.351031",
+      "updated_at": "2025-07-19T15:22:14.351032"
     },
     {
       "name": "ルコルセール",
@@ -985,11 +985,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_35/1.jpeg",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001261886/",
+      "prize_diff": "+0.0万円",
       "id": 34,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655831",
-      "updated_at": "2025-07-19T13:18:36.655833",
-      "prize_diff": "+0.0万円"
+      "created_at": "2025-07-19T15:22:14.351034",
+      "updated_at": "2025-07-19T15:22:14.351036"
     },
     {
       "name": "ディディット",
@@ -1014,11 +1014,11 @@
       "disease_tags": "なし",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_36/1.jpg",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001331762/",
+      "prize_diff": "0万円",
       "id": 35,
       "auction_date": "2025-07-19",
-      "created_at": "2025-07-19T13:18:36.655835",
-      "updated_at": "2025-07-19T13:18:36.655837",
-      "prize_diff": "0万円"
+      "created_at": "2025-07-19T15:22:14.351038",
+      "updated_at": "2025-07-19T15:22:14.351040"
     }
   ]
 }

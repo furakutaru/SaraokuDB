@@ -50,12 +50,12 @@ def main():
         # 血統情報は既にscrape_all_horsesで正しく抽出されているため、再処理は不要
         if 'comment' not in horse or horse['comment'] is None:
             horse['comment'] = ''
-        # === 賞金・価格を万円単位・小数1桁に正規化 ===
+        # === 賞金・価格の正規化（既に万円単位なので変換不要） ===
         for key in ['sold_price', 'total_prize_start', 'total_prize_latest']:
             val = horse.get(key, 0)
             try:
                 if isinstance(val, (int, float)) and val > 0:
-                    horse[key] = round(val / 10000, 1)
+                    horse[key] = round(val, 1)  # 既に万円単位なので変換不要
                 else:
                     horse[key] = 0.0
             except Exception:
