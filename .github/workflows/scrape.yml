@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: "0 12 * * 2,6"  # 火・土 21:00 JST (UTC+9)
   workflow_dispatch:       # 手動実行も可能
-  push:
-    branches: [ main ]
-    paths:
-      - 'scripts/**'
-      - 'requirements.txt'
 
 permissions:
   contents: write
