@@ -223,13 +223,13 @@ class RakutenAuctionScraper:
             if sex_match:
                 sex = sex_match.group(1)
             else:
-                # フォールバック: ページ全体から「牡」「牝」「セン」単語を探す（誤判定リスクあり）
-                if '牡' in page_text:
+                # フォールバック: ページ全体から「セン」「牡」「牝」単語を探す（誤判定リスクあり）
+                if 'セン' in page_text:
+                    sex = 'セン'
+                elif '牡' in page_text:
                     sex = '牡'
                 elif '牝' in page_text:
                     sex = '牝'
-                elif 'セン' in page_text:
-                    sex = 'セン'
             detail_data['sex'] = sex
             if not sex:
                 print(f"[異常] 性別が抽出できません: {detail_url}")
