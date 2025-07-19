@@ -22,9 +22,6 @@ def main():
     parser.add_argument('--history', action='store_true', help='history配列の全要素も修正する場合に指定')
     parser.add_argument('--both', action='store_true', help='history配列と馬本体の両方を同時に修正')
     parser.add_argument('--truncate-history', action='store_true', help='history配列を先頭1件だけにする')
-    parser.add_argument('--normalize-sold-price', action='store_true', help='sold_priceが1000未満なら×10000して円単位に統一')
-    parser.add_argument('--normalize-prize', action='store_true', help='history配列のtotal_prize_start, total_prize_latestも1000未満なら×10000して円単位に統一')
-    parser.add_argument('--denormalize-prize', action='store_true', help='history配列のtotal_prize_start, total_prize_latestが10000以上なら/10000して万円単位に戻す')
     parser.add_argument('--clean-disease-tags', action='store_true', help='disease_tagsから「なし」と疾病が両方入っている場合に「なし」を除去')
     args = parser.parse_args()
 
@@ -39,33 +36,6 @@ def main():
     for horse in horses:
         if args.id is not None and horse['id'] != args.id:
             continue
-        # sold_price正規化
-        if args.normalize_sold_price:
-            # 馬本体
-            if 'sold_price' in horse and isinstance(horse['sold_price'], (int, float)) and 0 < horse['sold_price'] < 1000:
-                horse['sold_price'] = int(horse['sold_price'] * 10000)
-            # history配列
-            if 'history' in horse and isinstance(horse['history'], list):
-                for h in horse['history']:
-                    sp = h.get('sold_price')
-                    if isinstance(sp, (int, float)) and 0 < sp < 1000:
-                        h['sold_price'] = int(sp * 10000)
-        # 賞金正規化
-        if args.normalize_prize:
-            if 'history' in horse and isinstance(horse['history'], list):
-                for h in horse['history']:
-                    for k in ['total_prize_start', 'total_prize_latest']:
-                        val = h.get(k)
-                        if isinstance(val, (int, float)) and 0 < val < 1000:
-                            h[k] = int(val * 10000)
-        # 賞金を万円単位に戻す
-        if args.denormalize_prize:
-            if 'history' in horse and isinstance(horse['history'], list):
-                for h in horse['history']:
-                    for k in ['total_prize_start', 'total_prize_latest']:
-                        val = h.get(k)
-                        if isinstance(val, (int, float)) and val >= 10000:
-                            h[k] = round(val / 10000, 1)
         # history配列を1件だけにする
         if args.truncate_history and 'history' in horse and isinstance(horse['history'], list) and len(horse['history']) > 1:
             horse['history'] = [horse['history'][0]]
