@@ -377,8 +377,8 @@ export default function HorseDetailPage(props: any) {
                     <div className={`text-xl font-bold ${horse.total_prize_latest - latest.total_prize_start > 0 ? 'text-green-600' : horse.total_prize_latest - latest.total_prize_start < 0 ? 'text-red-600' : 'text-gray-600'}`}> 
                       {(() => {
                         const start = Number(latest.total_prize_start ?? 0);
-                        const latest = Number(horse.total_prize_latest ?? 0);
-                        const diff = latest - start;
+                        const latestPrize = Number(horse.total_prize_latest ?? 0);
+                        const diff = latestPrize - start;
                         if (diff === 0) {
                           return '0万円';
                         } else if (diff > 0) {
