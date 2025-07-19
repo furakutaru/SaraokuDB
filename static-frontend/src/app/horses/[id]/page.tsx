@@ -34,6 +34,8 @@ interface Horse {
   weight: number | null; // 体重（またはnull）
   unsold_count: number | null; // 主取り回数
   total_prize_latest: number; // 最新賞金
+  created_at: string;
+  updated_at: string;
 }
 
 interface HorseData {
@@ -274,25 +276,25 @@ export default function HorseDetailPage(props: any) {
                       <div className="space-y-2 text-sm">
                         <div className="flex">
                           <span className="text-gray-600 w-12">父：</span>
-                          <span className="font-medium text-left">{latest.sire || '-'}</span>
+                          <span className="font-medium text-left">{horse.sire || '-'}</span>
                         </div>
                         <div className="flex">
                           <span className="text-gray-600 w-12">母：</span>
-                          <span className="font-medium text-left">{latest.dam || '-'}</span>
+                          <span className="font-medium text-left">{horse.dam || '-'}</span>
                         </div>
                         <div className="flex">
                           <span className="text-gray-600 w-12">母父：</span>
-                          <span className="font-medium text-left">{latest.dam_sire || '-'}</span>
+                          <span className="font-medium text-left">{horse.dam_sire || '-'}</span>
                         </div>
                       </div>
                     </div>
 
                     {/* 病歴 */}
-                    {(latest.disease_tags && (String(latest.disease_tags).trim() !== '')) && (
+                    {(horse.disease_tags && (String(horse.disease_tags).trim() !== '')) && (
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-3">病歴</h3>
                         <div className="flex flex-wrap gap-2">
-                          {String(latest.disease_tags).split(',').map((tag, index) => (
+                          {String(horse.disease_tags).split(',').map((tag, index) => (
                                 <Badge key={index} variant="secondary" className="bg-red-100 text-red-800">
                                   {tag.trim() || '-'}
                                 </Badge>
@@ -335,8 +337,8 @@ export default function HorseDetailPage(props: any) {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* 主取り回数表示 */}
-                {latest.unsold_count > 0 && (
-                  <div className="text-center text-blue-600 font-bold mb-2">主取り{latest.unsold_count}回</div>
+                {horse.unsold_count && horse.unsold_count > 0 && (
+                  <div className="text-center text-blue-600 font-bold mb-2">主取り{horse.unsold_count}回</div>
                 )}
                 {/* 落札価格履歴 */}
                 <div className="text-center">
