@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2025-07-20T05:55:29.524416",
+    "last_updated": "2025-07-20T06:02:08.038019",
     "total_horses": 35,
     "average_price": 1208571
   },
@@ -25,13 +25,13 @@
       "dam": "ピュアゴシップ",
       "dam_sire": "Pure Prize",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_01/1.JPG",
-      "disease_tags": "なし",
+      "disease_tags": "皮膚病",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001358802/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001358802/",
       "weight": 426,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846484",
-      "updated_at": "2025-07-20T05:55:23.590559"
+      "updated_at": "2025-07-20T06:02:02.120224"
     },
     {
       "id": 2,
@@ -53,13 +53,13 @@
       "dam": "オンヴェラ",
       "dam_sire": "Smart Strike",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_02/2.JPG",
-      "disease_tags": "なし",
+      "disease_tags": "骨瘤",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001354818/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001354818/",
       "weight": 510,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846528",
-      "updated_at": "2025-07-20T05:55:23.746780"
+      "updated_at": "2025-07-20T06:02:02.300774"
     },
     {
       "id": 3,
@@ -81,13 +81,13 @@
       "dam": "サウンドガガ",
       "dam_sire": "Roman Ruler",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_03/1.JPG",
-      "disease_tags": "なし",
+      "disease_tags": "皮膚病",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001356277/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001356277/",
       "weight": 476,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846535",
-      "updated_at": "2025-07-20T05:55:23.958118"
+      "updated_at": "2025-07-20T06:02:02.503127"
     },
     {
       "id": 4,
@@ -115,7 +115,7 @@
       "weight": 394,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846539",
-      "updated_at": "2025-07-20T05:55:24.181798"
+      "updated_at": "2025-07-20T06:02:02.653721"
     },
     {
       "id": 5,
@@ -143,7 +143,7 @@
       "weight": 520,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846551",
-      "updated_at": "2025-07-20T05:55:24.392555"
+      "updated_at": "2025-07-20T06:02:02.820968"
     },
     {
       "id": 6,
@@ -165,13 +165,13 @@
       "dam": "ブリングイットオン",
       "dam_sire": "キンシャサノキセキ",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_07/1.JPG",
-      "disease_tags": "なし",
+      "disease_tags": "捻挫,腫れ",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001361091/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001361091/",
       "weight": 456,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846555",
-      "updated_at": "2025-07-20T05:55:24.552102"
+      "updated_at": "2025-07-20T06:02:02.987689"
     },
     {
       "id": 7,
@@ -199,7 +199,7 @@
       "weight": 370,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846559",
-      "updated_at": "2025-07-20T05:55:24.741085"
+      "updated_at": "2025-07-20T06:02:03.204044"
     },
     {
       "id": 8,
@@ -227,7 +227,7 @@
       "weight": 402,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846563",
-      "updated_at": "2025-07-20T05:55:24.952858"
+      "updated_at": "2025-07-20T06:02:03.382487"
     },
     {
       "id": 9,
@@ -249,13 +249,13 @@
       "dam": "メイショウルナ",
       "dam_sire": "スタチューオブリバティ",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_10/1.JPG",
-      "disease_tags": "なし",
+      "disease_tags": "皮膚病,旋回癖",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001355708/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001355708/",
       "weight": 444,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846567",
-      "updated_at": "2025-07-20T05:55:25.099101"
+      "updated_at": "2025-07-20T06:02:03.540989"
     },
     {
       "id": 10,
@@ -283,7 +283,7 @@
       "weight": 446,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846571",
-      "updated_at": "2025-07-20T05:55:25.258178"
+      "updated_at": "2025-07-20T06:02:03.712649"
     },
     {
       "id": 11,
@@ -311,7 +311,7 @@
       "weight": 444,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846575",
-      "updated_at": "2025-07-20T05:55:25.412787"
+      "updated_at": "2025-07-20T06:02:03.863084"
     },
     {
       "id": 12,
@@ -339,7 +339,7 @@
       "weight": 468,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846579",
-      "updated_at": "2025-07-20T05:55:25.563426"
+      "updated_at": "2025-07-20T06:02:04.006924"
     },
     {
       "id": 13,
@@ -367,7 +367,7 @@
       "weight": 382,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846582",
-      "updated_at": "2025-07-20T05:55:25.749989"
+      "updated_at": "2025-07-20T06:02:04.177819"
     },
     {
       "id": 14,
@@ -395,7 +395,7 @@
       "weight": 476,
       "total_prize_latest": 54.0,
       "created_at": "2025-07-19T17:26:25.846592",
-      "updated_at": "2025-07-20T05:55:25.945352"
+      "updated_at": "2025-07-20T06:02:04.361905"
     },
     {
       "id": 15,
@@ -417,13 +417,13 @@
       "dam": "テネシーワルツ",
       "dam_sire": "High Chaparral",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_16/1.JPG",
-      "disease_tags": "なし",
+      "disease_tags": "腫れ,靭帯損傷,砂のぼり",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001355426/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001355426/",
       "weight": 508,
       "total_prize_latest": 56.0,
       "created_at": "2025-07-19T17:26:25.846596",
-      "updated_at": "2025-07-20T05:55:26.141410"
+      "updated_at": "2025-07-20T06:02:04.534374"
     },
     {
       "id": 16,
@@ -451,7 +451,7 @@
       "weight": 458,
       "total_prize_latest": 140.0,
       "created_at": "2025-07-19T17:26:25.846600",
-      "updated_at": "2025-07-20T05:55:26.347086"
+      "updated_at": "2025-07-20T06:02:04.696638"
     },
     {
       "id": 17,
@@ -473,13 +473,13 @@
       "dam": "ララベスラーナ",
       "dam_sire": "デュランダル",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_18/1.JPG",
-      "disease_tags": "骨折",
+      "disease_tags": "骨折,旋回癖",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001358756/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001358756/",
       "weight": 536,
       "total_prize_latest": 178.0,
       "created_at": "2025-07-19T17:26:25.846603",
-      "updated_at": "2025-07-20T05:55:26.511798"
+      "updated_at": "2025-07-20T06:02:04.866454"
     },
     {
       "id": 18,
@@ -501,13 +501,13 @@
       "dam": "オフクヒメ",
       "dam_sire": "キンシャサノキセキ",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_19/1.JPG",
-      "disease_tags": "なし",
+      "disease_tags": "鼻出血",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001357603/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001357603/",
       "weight": 442,
       "total_prize_latest": 193.0,
       "created_at": "2025-07-19T17:26:25.846607",
-      "updated_at": "2025-07-20T05:55:26.678646"
+      "updated_at": "2025-07-20T06:02:05.025837"
     },
     {
       "id": 19,
@@ -535,7 +535,7 @@
       "weight": 432,
       "total_prize_latest": 250.0,
       "created_at": "2025-07-19T17:26:25.846611",
-      "updated_at": "2025-07-20T05:55:26.859983"
+      "updated_at": "2025-07-20T06:02:05.186138"
     },
     {
       "id": 20,
@@ -557,13 +557,13 @@
       "dam": "ペルレストラーダ",
       "dam_sire": "アルデバランⅡ",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_21/1.JPG",
-      "disease_tags": "なし",
+      "disease_tags": "皮膚病",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001320904/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001320904/",
       "weight": 422,
       "total_prize_latest": 505.1,
       "created_at": "2025-07-19T17:26:25.846616",
-      "updated_at": "2025-07-20T05:55:27.024771"
+      "updated_at": "2025-07-20T06:02:05.357500"
     },
     {
       "id": 21,
@@ -591,7 +591,7 @@
       "weight": 440,
       "total_prize_latest": 1685.5,
       "created_at": "2025-07-19T17:26:25.846621",
-      "updated_at": "2025-07-20T05:55:27.192801"
+      "updated_at": "2025-07-20T06:02:05.561484"
     },
     {
       "id": 22,
@@ -613,13 +613,13 @@
       "dam": "カリスペル",
       "dam_sire": "Singspiel",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_23/1.JPG",
-      "disease_tags": "なし",
+      "disease_tags": "腫れ,骨瘤",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001311707/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001311707/",
       "weight": 538,
       "total_prize_latest": 4891.6,
       "created_at": "2025-07-19T17:26:25.846625",
-      "updated_at": "2025-07-20T05:55:27.373239"
+      "updated_at": "2025-07-20T06:02:05.745511"
     },
     {
       "id": 23,
@@ -647,7 +647,7 @@
       "weight": 510,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846629",
-      "updated_at": "2025-07-20T05:55:27.545373"
+      "updated_at": "2025-07-20T06:02:05.923993"
     },
     {
       "id": 24,
@@ -675,7 +675,7 @@
       "weight": 440,
       "total_prize_latest": 17.5,
       "created_at": "2025-07-19T17:26:25.846632",
-      "updated_at": "2025-07-20T05:55:27.698991"
+      "updated_at": "2025-07-20T06:02:06.083154"
     },
     {
       "id": 25,
@@ -703,7 +703,7 @@
       "weight": 490,
       "total_prize_latest": 30.0,
       "created_at": "2025-07-19T17:26:25.846636",
-      "updated_at": "2025-07-20T05:55:27.840421"
+      "updated_at": "2025-07-20T06:02:06.234341"
     },
     {
       "id": 26,
@@ -731,7 +731,7 @@
       "weight": 466,
       "total_prize_latest": 127.3,
       "created_at": "2025-07-19T17:26:25.846640",
-      "updated_at": "2025-07-20T05:55:27.996557"
+      "updated_at": "2025-07-20T06:02:06.425691"
     },
     {
       "id": 27,
@@ -759,7 +759,7 @@
       "weight": 462,
       "total_prize_latest": 237.1,
       "created_at": "2025-07-19T17:26:25.846643",
-      "updated_at": "2025-07-20T05:55:28.207011"
+      "updated_at": "2025-07-20T06:02:06.589658"
     },
     {
       "id": 28,
@@ -781,13 +781,13 @@
       "dam": "エクディス",
       "dam_sire": "クロフネ",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_29/1.JPG",
-      "disease_tags": "骨折",
+      "disease_tags": "骨折,屈腱炎",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001338505/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001338505/",
       "weight": 437,
       "total_prize_latest": 915.0,
       "created_at": "2025-07-19T17:26:25.846647",
-      "updated_at": "2025-07-20T05:55:28.362969"
+      "updated_at": "2025-07-20T06:02:06.758089"
     },
     {
       "id": 29,
@@ -809,13 +809,13 @@
       "dam": "デルマアラレチャン",
       "dam_sire": "スクリーンヒーロー",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_30/1.JPG",
-      "disease_tags": "なし",
+      "disease_tags": "骨瘤",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001323589/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001323589/",
       "weight": 463,
       "total_prize_latest": 503.0,
       "created_at": "2025-07-19T17:26:25.846651",
-      "updated_at": "2025-07-20T05:55:28.538697"
+      "updated_at": "2025-07-20T06:02:06.909792"
     },
     {
       "id": 30,
@@ -837,13 +837,13 @@
       "dam": "グランデアモーレ",
       "dam_sire": "ネオユニヴァース",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_31/1.jpg",
-      "disease_tags": "なし",
+      "disease_tags": "腫れ,滑膜炎",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001322913/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001322913/",
       "weight": 491,
       "total_prize_latest": 695.9,
       "created_at": "2025-07-19T17:26:25.846655",
-      "updated_at": "2025-07-20T05:55:28.697282"
+      "updated_at": "2025-07-20T06:02:07.093442"
     },
     {
       "id": 31,
@@ -871,7 +871,7 @@
       "weight": 465,
       "total_prize_latest": 1069.5,
       "created_at": "2025-07-19T17:26:25.846692",
-      "updated_at": "2025-07-20T05:55:28.876817"
+      "updated_at": "2025-07-20T06:02:07.275529"
     },
     {
       "id": 32,
@@ -899,7 +899,7 @@
       "weight": 474,
       "total_prize_latest": 1463.0,
       "created_at": "2025-07-19T17:26:25.846696",
-      "updated_at": "2025-07-20T05:55:29.027403"
+      "updated_at": "2025-07-20T06:02:07.482173"
     },
     {
       "id": 33,
@@ -927,7 +927,7 @@
       "weight": 490,
       "total_prize_latest": 2363.5,
       "created_at": "2025-07-19T17:26:25.846700",
-      "updated_at": "2025-07-20T05:55:29.189258"
+      "updated_at": "2025-07-20T06:02:07.666686"
     },
     {
       "id": 34,
@@ -955,7 +955,7 @@
       "weight": 520,
       "total_prize_latest": 10260.6,
       "created_at": "2025-07-19T17:26:25.846704",
-      "updated_at": "2025-07-20T05:55:29.347007"
+      "updated_at": "2025-07-20T06:02:07.855945"
     },
     {
       "id": 35,
@@ -977,13 +977,13 @@
       "dam": "エイグレット",
       "dam_sire": "サンデーサイレンス",
       "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250717_horse_36/1.jpg",
-      "disease_tags": "なし",
+      "disease_tags": "鼻出血",
       "netkeiba_url": "https://www.jbis.or.jp/horse/0001331762/",
       "jbis_url": "https://www.jbis.or.jp/horse/0001331762/",
       "weight": null,
       "total_prize_latest": 0.0,
       "created_at": "2025-07-19T17:26:25.846708",
-      "updated_at": "2025-07-20T05:55:29.524398"
+      "updated_at": "2025-07-20T06:02:08.037999"
     }
   ]
 }

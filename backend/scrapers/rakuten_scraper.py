@@ -450,12 +450,19 @@ class RakutenAuctionScraper:
         return comment
     
     def _extract_disease_tags(self, comment: str) -> str:
-        """疾病タグを抽出"""
+        """疾病タグを抽出（複数該当時はカンマ区切り、重複なし）"""
         try:
-            disease_keywords = ['さく癖', '球節炎', '骨折', '屈腱炎', '蹄葉炎']
+            disease_keywords = [
+                'さく癖', '球節炎', '骨折', '屈腱炎', '蹄葉炎',
+                '皮膚病', '捻挫', '腫れ', '旋回癖', '靭帯損傷',
+                '砂のぼり', '蟻洞', '鼻出血', '骨瘤', '滑膜炎'
+            ]
+            found = []
             for keyword in disease_keywords:
-                if keyword in comment:
-                    return keyword
+                if keyword in comment and keyword not in found:
+                    found.append(keyword)
+            if found:
+                return ','.join(found)
         except Exception as e:
             print(f"疾病タグの抽出に失敗: {e}")
         return "なし"
