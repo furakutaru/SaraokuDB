@@ -124,14 +124,22 @@ export default function Home() {
       {/* ヘッダー */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-end items-center py-4">
-            <div className="flex gap-4">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">サラブレッドオークションDB</h1>
+              <p className="text-gray-600">最終更新: {new Date(metadata.last_updated).toLocaleString('ja-JP')}</p>
+            </div>
+            <div className="flex items-center space-x-6">
               <Link href="/dashboard">
                 <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">解析</Button>
               </Link>
               <Link href="/horses">
                 <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">馬一覧</Button>
               </Link>
+              <div className="text-right">
+                <p className="text-sm text-gray-500">次回スクレイピング</p>
+                <p className="text-lg font-semibold text-blue-600">{getNextScrapingDate()}</p>
+              </div>
             </div>
           </div>
         </div>

@@ -177,11 +177,11 @@ export default function DashboardPage() {
               戻る
             </button>
             <div className="flex gap-4">
-              <Link href="/horses">
-                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">馬一覧</Button>
+              <Link href="/dashboard">
+                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">解析トップへ</Button>
               </Link>
-              <Link href="/">
-                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">トップへ</Button>
+              <Link href="/horses">
+                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">解析馬一覧</Button>
               </Link>
             </div>
           </div>

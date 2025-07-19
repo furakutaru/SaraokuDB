@@ -148,7 +148,7 @@ export default function HorsesPage() {
   // 落札価格表示用関数
   // 落札価格は取得値そのまま（円単位）で表示すること。データは既に円単位で格納されている。
   const displayPrice = (price: number | null | undefined, unsold_count: number | null | undefined) => {
-    if (unsold_count !== null && unsold_count !== undefined && unsold_count >= 1) return '-';
+    if (typeof unsold_count === 'number' && unsold_count >= 1) return '-';
     if (price === null || price === undefined) return '-';
     return '¥' + price.toLocaleString();
   };
