@@ -159,7 +159,7 @@ export default function DashboardPage() {
   };
 
   const displayPrice = (price: number | null | undefined, unsold_count: number | null | undefined) => {
-    if (unsold_count && unsold_count > 0) return '-';
+    if (Number(unsold_count) >= 1) return '主取り';
     if (price === null || price === undefined) return '-';
     return '¥' + price.toLocaleString();
   };
@@ -178,10 +178,10 @@ export default function DashboardPage() {
             </button>
             <div className="flex gap-4">
               <Link href="/dashboard">
-                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">解析トップへ</Button>
+                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">解析</Button>
               </Link>
               <Link href="/horses">
-                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">解析馬一覧</Button>
+                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">馬一覧</Button>
               </Link>
             </div>
           </div>
