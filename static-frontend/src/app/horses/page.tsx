@@ -138,16 +138,17 @@ export default function HorsesPage() {
       return sortOrder === 'asc' ? comparison : -comparison;
     });
 
-  // 賞金表示用関数を追加
+  // 賞金表示用関数
+  // 賞金は万円単位で表示
   const formatPrize = (val: number | null | undefined) => {
     if (val === null || val === undefined) return '-';
-    return `${(val / 10000).toFixed(1)}万円`;
+    return `${val.toFixed(1)}万円`;
   };
 
-  // 落札価格表示用関数を追加
+  // 落札価格表示用関数
+  // 落札価格は取得値そのまま（円単位）で表示すること。データは既に円単位で格納されている。
   const formatPrice = (price: number | null | undefined) => {
     if (price === null || price === undefined) return '-';
-    // そのまま円単位で表示
     return '¥' + price.toLocaleString();
   };
 

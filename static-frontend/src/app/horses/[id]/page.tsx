@@ -47,10 +47,10 @@ interface HorseData {
 const toArray = (val: any) => Array.isArray(val) ? val : [val];
 const formatManYen = (val: number) => isNaN(val) ? '-' : `${(val/10000).toFixed(1)}万円`;
 
-// 落札価格表示用関数を追加
+// 落札価格表示用関数
+// 落札価格は取得値そのまま（円単位）で表示すること。データは既に円単位で格納されている。
 const formatPrice = (price: number | null | undefined) => {
   if (price === null || price === undefined) return '-';
-  // そのまま円単位で表示
   return '¥' + price.toLocaleString();
 };
 
@@ -61,7 +61,8 @@ const calculateGrowthRate = (start: number, latest: number) => {
   return (latest - start >= 0 ? '+' : '') + rate;
 };
 
-// 賞金バリデーション関数を追加
+// 賞金は万円単位で表示
+// 現在の総賞金はJBISからスクレイピングして取得している点に注意。
 const formatPrize = (val: number | null | undefined) => {
   if (val === null || val === undefined) return '-';
   return `${val.toFixed(1)}万円`;
