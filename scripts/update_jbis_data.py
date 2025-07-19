@@ -55,16 +55,19 @@ def main():
                 soup = BeautifulSoup(response.content, 'html.parser')
                 page_text = soup.get_text()
                 
-                # 総賞金を抽出
-                prize_match = re.search(r'総獲得賞金\s*([\d,]+\.?\d*)万?円', page_text)
-                if prize_match:
-                    prize_str = prize_match.group(1).replace(',', '')
-                    try:
-                        horse['total_prize_latest'] = float(prize_str)
-                    except Exception:
-                        horse['total_prize_latest'] = None
-                else:
-                    horse['total_prize_latest'] = None
+                # 総賞金をHTML構造から抽出（dt:総賞金→直後のdd:値）
+                prize_val = None
+                for dt in soup.find_all('dt'):
+                    if dt.get_text(strip=True) == '総賞金':
+                        dd = dt.find_next_sibling('dd')
+                        if dd:
+                            text = dd.get_text(strip=True).replace('万円', '').replace(',', '')
+                            try:
+                                prize_val = float(text)
+                            except Exception:
+                                prize_val = None
+                        break
+                horse['total_prize_latest'] = prize_val
             except Exception as e:
                 horse['total_prize_latest'] = None
         else:
