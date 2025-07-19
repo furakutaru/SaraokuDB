@@ -105,10 +105,10 @@ class RakutenAuctionScraper:
                 value_element = price_element.find(class_="value")
                 if value_element:
                     price_text = value_element.get_text(strip=True)
-                    # "72.0万円" から数値を抽出して円に変換
+                    # "72.0万円" から数値を抽出（万円単位で保存）
                     match = re.search(r'(\d+\.?\d*)', price_text)
                     if match:
-                        total_prize = int(float(match.group(1)) * 10000)  # 万円を円に変換
+                        total_prize = float(match.group(1))  # 万円単位で保存
             
             # 販売申込者
             seller_element = card.find(class_="auctionTableCard__seller")
@@ -260,10 +260,10 @@ class RakutenAuctionScraper:
             if local_match:
                 local_prize = float(local_match.group(1))
             
-            # 総賞金を計算
+            # 総賞金を計算（万円単位で保存）
             total_prize_float = central_prize + local_prize
-            detail_data['total_prize_start'] = total_prize_float
-            detail_data['total_prize_latest'] = total_prize_float
+            detail_data['total_prize_start'] = total_prize_float  # 万円単位で保存
+            detail_data['total_prize_latest'] = total_prize_float  # 万円単位で保存
             detail_data['prize'] = f"{total_prize_float}万円"
 
             # --- ここから主取り判定・入札数取得 ---
