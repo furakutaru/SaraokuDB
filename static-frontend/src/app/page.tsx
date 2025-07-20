@@ -80,26 +80,26 @@ const displayPrice = (price: number | null | undefined, unsold_count: number | n
   return '¥' + price.toLocaleString();
 };
 
-// 直近の火曜または土曜18:30を計算する関数を追加
+// 直近の木曜または日曜23:59を計算する関数を追加
 function getNextScrapingDate(): string {
   const now = new Date();
   const day = now.getDay(); // 0:日, 1:月, 2:火, 3:水, 4:木, 5:金, 6:土
   const hour = now.getHours();
   const minute = now.getMinutes();
-  // 火曜18:30
-  let nextTuesday = new Date(now);
-  nextTuesday.setDate(now.getDate() + ((2 - day + 7) % 7));
-  nextTuesday.setHours(18, 30, 0, 0);
-  // 土曜18:30
-  let nextSaturday = new Date(now);
-  nextSaturday.setDate(now.getDate() + ((6 - day + 7) % 7));
-  nextSaturday.setHours(18, 30, 0, 0);
+  // 木曜23:59
+  let nextThursday = new Date(now);
+  nextThursday.setDate(now.getDate() + ((4 - day + 7) % 7));
+  nextThursday.setHours(23, 59, 0, 0);
+  // 日曜23:59
+  let nextSunday = new Date(now);
+  nextSunday.setDate(now.getDate() + ((0 - day + 7) % 7));
+  nextSunday.setHours(23, 59, 0, 0);
   // どちらも今より前なら+7日
-  if (nextTuesday < now) nextTuesday.setDate(nextTuesday.getDate() + 7);
-  if (nextSaturday < now) nextSaturday.setDate(nextSaturday.getDate() + 7);
+  if (nextThursday < now) nextThursday.setDate(nextThursday.getDate() + 7);
+  if (nextSunday < now) nextSunday.setDate(nextSunday.getDate() + 7);
   // 直近を選ぶ
-  const next = nextTuesday < nextSaturday ? nextTuesday : nextSaturday;
-  return `${next.getFullYear()}-${(next.getMonth()+1).toString().padStart(2,'0')}-${next.getDate().toString().padStart(2,'0')} 18:30`;
+  const next = nextThursday < nextSunday ? nextThursday : nextSunday;
+  return `${next.getFullYear()}-${(next.getMonth()+1).toString().padStart(2,'0')}-${next.getDate().toString().padStart(2,'0')} 23:59`;
 }
 
 export default function Home() {

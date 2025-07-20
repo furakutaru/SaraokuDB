@@ -2,7 +2,7 @@ name: Scrape Horse Data
 
 on:
   schedule:
-    - cron: "0 12 * * 2,6"  # 火・土 21:00 JST (UTC+9)
+    - cron: "59 23 * * 4,0"  # 木・日 23:59 JST (UTC+9)
   workflow_dispatch:       # 手動実行も可能
 
 permissions:

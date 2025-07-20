@@ -116,7 +116,7 @@ const ScrapingPage: React.FC = () => {
               </Typography>
               <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
                 楽天サラブレッドオークションから新しい馬データを取得します。
-                木曜オークションは火曜18:00以降、日曜オークションは土曜18:00以降に実行してください。
+                木曜オークションは木曜23:59、日曜オークションは日曜23:59に実行してください。
               </Typography>
               
               <TextField
@@ -244,10 +244,10 @@ const ScrapingPage: React.FC = () => {
                 スクレイピングスケジュール（手動実行時）
               </Typography>
               <Typography variant="body2" color="textSecondary">
-                <strong>木曜オークション:</strong> 火曜18:00頃に出品一覧が反映されるため、火曜夜以降にスクレイピングを実行してください。
+                <strong>木曜オークション:</strong> 木曜23:59に自動実行されます。手動実行の場合は木曜夜にスクレイピングを実行してください。
               </Typography>
               <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                <strong>日曜オークション:</strong> 土曜18:00頃に出品一覧が反映されるため、土曜夜以降にスクレイピングを実行してください。
+                <strong>日曜オークション:</strong> 日曜23:59に自動実行されます。手動実行の場合は日曜夜にスクレイピングを実行してください。
               </Typography>
               <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
                 <strong>注意:</strong> スクレイピングはサーバーに負荷をかけるため、適切な間隔を空けて実行してください。

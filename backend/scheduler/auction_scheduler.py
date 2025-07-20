@@ -21,23 +21,23 @@ class AuctionScheduler:
         """次のオークション開催日を計算"""
         today = datetime.now()
         
-        # 木曜オークション（火曜18:00以降に実行）
-        if today.weekday() == 1:  # 火曜日
-            if today.hour >= 18:
+        # 木曜オークション（木曜23:59以降に実行）
+        if today.weekday() == 3:  # 木曜日
+            if today.hour >= 23 and today.minute >= 59:
                 # 次の木曜日
                 days_until_thursday = (3 - today.weekday()) % 7
                 next_thursday = today + timedelta(days=days_until_thursday)
                 return next_thursday.strftime("%Y-%m-%d")
         
-        # 日曜オークション（土曜18:00以降に実行）
-        if today.weekday() == 5:  # 土曜日
-            if today.hour >= 18:
+        # 日曜オークション（日曜23:59以降に実行）
+        if today.weekday() == 6:  # 日曜日
+            if today.hour >= 23 and today.minute >= 59:
                 # 次の日曜日
                 days_until_sunday = (6 - today.weekday()) % 7
                 next_sunday = today + timedelta(days=days_until_sunday)
                 return next_sunday.strftime("%Y-%m-%d")
         
-        return None
+        return ""
     
     def should_run_scraping(self) -> bool:
         """スクレイピングを実行すべきかチェック"""
@@ -76,6 +76,12 @@ class AuctionScheduler:
     def run_prize_update_job(self):
         """賞金更新ジョブを実行"""
         try:
+            # 毎月1日のみ実行
+            today = datetime.now()
+            if today.day != 1:
+                logger.info("今日は賞金更新対象日ではありません（毎月1日のみ実行）")
+                return
+            
             logger.info("自動賞金更新を開始します...")
             
             db = SessionLocal()
@@ -90,13 +96,13 @@ class AuctionScheduler:
     
     def setup_schedule(self):
         """スケジュールを設定"""
-        # 火曜日18:00に木曜オークションのスクレイピング
-        schedule.every().tuesday.at("18:00").do(self.run_scraping_job)
+        # 木曜日23:59に木曜オークションのスクレイピング
+        schedule.every().thursday.at("23:59").do(self.run_scraping_job)
         
-        # 土曜日18:00に日曜オークションのスクレイピング
-        schedule.every().saturday.at("18:00").do(self.run_scraping_job)
+        # 日曜日23:59に日曜オークションのスクレイピング
+        schedule.every().sunday.at("23:59").do(self.run_scraping_job)
         
-        # 毎日午前2:00に賞金情報を更新
+        # 毎月1日午前2:00に賞金情報を更新
         schedule.every().day.at("02:00").do(self.run_prize_update_job)
         
         logger.info("スケジュールを設定しました")
@@ -133,9 +139,9 @@ class AuctionScheduler:
             "next_scraping": self.get_next_auction_date(),
             "should_run": self.should_run_scraping(),
             "scheduled_jobs": [
-                "火曜日18:00 - 木曜オークションスクレイピング",
-                "土曜日18:00 - 日曜オークションスクレイピング",
-                "毎日02:00 - 賞金情報更新"
+                "木曜日23:59 - 木曜オークションスクレイピング",
+                "日曜日23:59 - 日曜オークションスクレイピング",
+                "毎月1日02:00 - 賞金情報更新"
             ]
         }
 
