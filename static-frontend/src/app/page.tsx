@@ -5,6 +5,7 @@ import Link from 'next/link';
 import HorseImage from '@/components/HorseImage';
 import fs from 'fs';
 import path from 'path';
+import { useEffect } from 'react';
 
 interface Horse {
   id: number;
@@ -105,6 +106,11 @@ function getNextScrapingDate(): string {
 export default function Home() {
   const data = loadHorseData();
   const { metadata, horses } = data;
+
+  // ページタイトルを設定
+  useEffect(() => {
+    document.title = 'サラオクDB | ホーム';
+  }, []);
 
   // 成長率データ
   const growthData = horses

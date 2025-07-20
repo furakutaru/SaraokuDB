@@ -90,6 +90,13 @@ export default function HorseDetailPage(props: any) {
         const found = data.horses.find(h => h.id === horseId) || null;
         setHorse(found);
         if (!found) setError('該当データがありません');
+        // ページタイトルを設定（馬名がある場合）
+        if (found) {
+          const latestHistory = found.history[found.history.length - 1];
+          document.title = `サラオクDB | ${latestHistory.name}`;
+        } else {
+          document.title = 'サラオクDB | 馬詳細';
+        }
       } catch (e: any) {
         setError('データの読み込みに失敗しました');
       } finally {

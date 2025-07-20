@@ -61,6 +61,8 @@ export default function HorsesPage() {
 
   useEffect(() => {
     fetchData();
+    // ページタイトルを設定
+    document.title = 'サラオクDB | 馬一覧';
   }, []);
 
   const fetchData = async () => {

@@ -68,6 +68,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
+    // ページタイトルを設定
+    document.title = 'サラオクDB | 解析';
   }, []);
 
   const fetchData = async () => {
