@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   keywords: "サラブレッド,オークション,競馬,馬,データベース",
   authors: [{ name: "サラオクDB" }],
   viewport: "width=device-width, initial-scale=1",
-  robots: "index, follow",
+  robots: "noindex, nofollow",
 };
 
 export default function RootLayout({
