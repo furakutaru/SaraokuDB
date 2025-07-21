@@ -17,6 +17,47 @@ def parse_set_args(set_args):
         result[k] = v
     return result
 
+def fix_prize_values(horses):
+    """賞金が異常値（10000万円以上など）の場合、1000で割って修正する"""
+    fixed_count = 0
+    for horse in horses:
+        for key in ['total_prize_start', 'total_prize_latest']:
+            val = horse.get(key)
+            if isinstance(val, (int, float)) and val is not None and val >= 10000:
+                horse[key] = round(val / 1000, 1)
+                fixed_count += 1
+        # history配列も修正
+        if 'history' in horse and isinstance(horse['history'], list):
+            for h in horse['history']:
+                for key in ['total_prize_start', 'total_prize_latest']:
+                    val = h.get(key)
+                    if isinstance(val, (int, float)) and val is not None and val >= 10000:
+                        h[key] = round(val / 1000, 1)
+                        fixed_count += 1
+    return fixed_count
+
+def fix_name_values(horses):
+    """
+    馬名から「（インボイス登録あり）」などの注釈を除去する
+    """
+    fixed_count = 0
+    pattern = re.compile(r'（インボイス登録あり）')
+    for horse in horses:
+        if 'name' in horse and horse['name']:
+            new_name = pattern.sub('', horse['name']).strip()
+            if new_name != horse['name']:
+                horse['name'] = new_name
+                fixed_count += 1
+        # history配列も修正
+        if 'history' in horse and isinstance(horse['history'], list):
+            for h in horse['history']:
+                if 'name' in h and h['name']:
+                    new_name = pattern.sub('', h['name']).strip()
+                    if new_name != h['name']:
+                        h['name'] = new_name
+                        fixed_count += 1
+    return fixed_count
+
 def main():
     parser = argparse.ArgumentParser(description='馬データ部分修正スクリプト')
     parser.add_argument('--file', required=True, help='修正対象のJSONファイルパス')
@@ -27,6 +68,8 @@ def main():
     parser.add_argument('--truncate-history', action='store_true', help='history配列を先頭1件だけにする')
     parser.add_argument('--clean-disease-tags', action='store_true', help='disease_tagsから「なし」と疾病が両方入っている場合に「なし」を除去')
     parser.add_argument('--refetch-prize-from-detail', action='store_true', help='detail_urlから落札時の賞金（total_prize_start）を再取得・補完')
+    parser.add_argument('--fix-prize', action='store_true', help='賞金の異常値（10000万円以上）を自動修正')
+    parser.add_argument('--fix-name', action='store_true', help='馬名の注釈を除去する')
     args = parser.parse_args()
 
     if not os.path.exists(args.file):
@@ -118,8 +161,17 @@ def main():
             except Exception as e:
                 pass
 
+    if args.fix_prize:
+        fixed = fix_prize_values(horses)
+        print(f'賞金の異常値を{fixed}件修正しました')
+
+    if args.fix_name:
+        fixed = fix_name_values(horses)
+        print(f'馬名の注釈を{fixed}件修正しました')
+
     with open(args.file, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    print('修正を保存しました')
 
 if __name__ == '__main__':
     main() 
