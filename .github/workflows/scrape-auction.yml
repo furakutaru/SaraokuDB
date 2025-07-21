@@ -5,8 +5,7 @@ name: Scrape Auction Horses
 
 on:
   schedule:
-    - cron: '59 23 * * 4,0'  # 毎週木曜・日曜 23:59
-    - cron: '40 0 * * 1'     # 毎週月曜 09:40 JST（テスト用）
+    - cron: '59 14 * * 4,0'  # 毎週木曜・日曜 23:59 JST（UTC 14:59）
   workflow_dispatch:
 
 permissions:
