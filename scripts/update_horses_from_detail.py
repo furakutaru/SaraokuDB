@@ -23,8 +23,8 @@ except ImportError:
     spec.loader.exec_module(rakuten_scraper)
     RakutenAuctionScraper = rakuten_scraper.RakutenAuctionScraper
 
-INPUT_PATH = 'static-frontend/public/data/horses.json'
-OUTPUT_PATH = 'static-frontend/public/data/horses.json'
+INPUT_PATH = 'static-frontend/public/data/horses_history.json'
+OUTPUT_PATH = 'static-frontend/public/data/horses_history.json'
 
 with open(INPUT_PATH, encoding='utf-8') as f:
     src = json.load(f)
@@ -41,9 +41,8 @@ for i, horse in enumerate(horses, 1):
     print(f"[{i}] {horse.get('name', '')}: {detail_url} から再取得")
     detail_data = scraper.scrape_horse_detail(detail_url)
     if detail_data:
-        # 既存データのIDや履歴などを引き継ぐ
         merged = {**horse, **detail_data}
-        merged['sex'] = detail_data['sex']  # sexは必ず詳細ページの値で上書き
+        merged['sex'] = detail_data['sex']
         merged['id'] = horse.get('id', i)
         merged['created_at'] = horse.get('created_at', datetime.now().isoformat())
         merged['updated_at'] = datetime.now().isoformat()
@@ -51,7 +50,6 @@ for i, horse in enumerate(horses, 1):
     else:
         print(f"  → 詳細ページ取得失敗: {detail_url}")
 
-# メタデータ更新
 total_horses = len(new_horses)
 avg_price = sum(h.get('sold_price', 0) for h in new_horses) / total_horses if total_horses > 0 else 0
 data = {

@@ -18,30 +18,37 @@ def parse_set_args(set_args):
     return result
 
 def fix_prize_values(horses):
-    """賞金が異常値（10000万円以上など）の場合、1000で割って修正する"""
+    """
+    賞金が異常値（1000万円以上など）の場合、何度でも1000で割って正しい桁に修正する
+    """
     fixed_count = 0
     for horse in horses:
         for key in ['total_prize_start', 'total_prize_latest']:
             val = horse.get(key)
-            if isinstance(val, (int, float)) and val is not None and val >= 10000:
+            while isinstance(val, (int, float)) and val is not None and val >= 1000:
                 horse[key] = round(val / 1000, 1)
+                val = horse[key]
                 fixed_count += 1
         # history配列も修正
         if 'history' in horse and isinstance(horse['history'], list):
             for h in horse['history']:
                 for key in ['total_prize_start', 'total_prize_latest']:
                     val = h.get(key)
-                    if isinstance(val, (int, float)) and val is not None and val >= 10000:
+                    while isinstance(val, (int, float)) and val is not None and val >= 1000:
                         h[key] = round(val / 1000, 1)
+                        val = h[key]
                         fixed_count += 1
     return fixed_count
 
 def fix_name_values(horses):
     """
-    馬名から「（インボイス登録あり）」などの注釈を除去する
+    馬名から「インボイス登録あり」などの注釈を柔軟に除去する
+    - 全角・半角カッコ、スペース、カンマ、波カッコ、丸カッコ、[]、{}、<> なども対応
+    - 例: 濱村 充哉（インボイス登録あり）、濱村 充哉(インボイス登録あり)、濱村 充哉【インボイス登録あり】
     """
     fixed_count = 0
-    pattern = re.compile(r'（インボイス登録あり）')
+    # 様々なカッコとスペースに対応
+    pattern = re.compile(r'[\(\[\{\<（【『「]\s*インボイス登録あり\s*[\)\]\}\>）】』」]', re.UNICODE)
     for horse in horses:
         if 'name' in horse and horse['name']:
             new_name = pattern.sub('', horse['name']).strip()
@@ -58,6 +65,26 @@ def fix_name_values(horses):
                         fixed_count += 1
     return fixed_count
 
+def fix_seller_invoice(horses):
+    """
+    販売者（seller, owner, consignor など）から「（インボイス登録あり）」を完全一致で削除する
+    """
+    fixed_count = 0
+    targets = ['seller', 'owner', 'consignor']
+    for horse in horses:
+        for key in targets:
+            if key in horse and isinstance(horse[key], str) and '（インボイス登録あり）' in horse[key]:
+                horse[key] = horse[key].replace('（インボイス登録あり）', '').strip()
+                fixed_count += 1
+        # history配列も修正
+        if 'history' in horse and isinstance(horse['history'], list):
+            for h in horse['history']:
+                for key in targets:
+                    if key in h and isinstance(h[key], str) and '（インボイス登録あり）' in h[key]:
+                        h[key] = h[key].replace('（インボイス登録あり）', '').strip()
+                        fixed_count += 1
+    return fixed_count
+
 def main():
     parser = argparse.ArgumentParser(description='馬データ部分修正スクリプト')
     parser.add_argument('--file', required=True, help='修正対象のJSONファイルパス')
@@ -70,6 +97,7 @@ def main():
     parser.add_argument('--refetch-prize-from-detail', action='store_true', help='detail_urlから落札時の賞金（total_prize_start）を再取得・補完')
     parser.add_argument('--fix-prize', action='store_true', help='賞金の異常値（10000万円以上）を自動修正')
     parser.add_argument('--fix-name', action='store_true', help='馬名の注釈を除去する')
+    parser.add_argument('--fix-seller-invoice', action='store_true', help='販売者からインボイス注釈を除去する')
     args = parser.parse_args()
 
     if not os.path.exists(args.file):
@@ -168,6 +196,10 @@ def main():
     if args.fix_name:
         fixed = fix_name_values(horses)
         print(f'馬名の注釈を{fixed}件修正しました')
+
+    if args.fix_seller_invoice:
+        fixed = fix_seller_invoice(horses)
+        print(f'販売者注釈を{fixed}件修正しました')
 
     with open(args.file, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
