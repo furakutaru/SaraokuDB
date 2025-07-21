@@ -23,6 +23,12 @@ class RakutenAuctionScraper:
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
         })
         self.netkeiba_scraper = NetkeibaScraper()
         
@@ -41,12 +47,35 @@ class RakutenAuctionScraper:
         horses = []
         try:
             print("トップページにアクセス中...")
+            print(f"User-Agent: {self.session.headers.get('User-Agent', 'N/A')}")
             response = self.session.get(self.base_url, timeout=30)
             response.raise_for_status()
+            print(f"レスポンスステータス: {response.status_code}")
+            print(f"レスポンスサイズ: {len(response.content)} bytes")
+            
             soup = BeautifulSoup(response.content, 'html.parser')
-
+            
+            # デバッグ: ページタイトルを確認
+            title = soup.find('title')
+            if title:
+                print(f"ページタイトル: {title.get_text(strip=True)}")
+            
+            # デバッグ: 全div要素の数を確認
+            all_divs = soup.find_all('div')
+            print(f"全div要素数: {len(all_divs)}")
+            
             # auctionTableCardクラスのdivを全て取得
             cards = soup.find_all('div', class_='auctionTableCard')
+            print(f"auctionTableCard要素数: {len(cards)}")
+            
+            # デバッグ: 他のauction関連クラスも確認
+            auction_elements = soup.find_all(class_=lambda x: x and 'auction' in x)
+            print(f"auctionを含むクラス要素数: {len(auction_elements)}")
+            
+            if len(auction_elements) > 0:
+                print("auction関連クラスの例:")
+                for i, elem in enumerate(auction_elements[:5]):
+                    print(f"  {i+1}. {elem.get('class', [])}")
             for card in cards:
                 # 馬名・詳細リンク
                 name_elem = card.find('div', class_='auctionTableCard__name')
