@@ -28,7 +28,6 @@ interface Horse {
   dam_sire: string;
   primary_image: string;
   disease_tags: string;
-  netkeiba_url: string;
   jbis_url: string;
   weight: number | null; // 体重
   unsold_count: number | null; // 主取り回数

@@ -217,26 +217,19 @@ class ImprovedRakutenScraper:
     def _extract_prize_money(self, page_text: str) -> Dict:
         result = {}
         # 中央・地方・総獲得賞金の全パターンをカバー
-        central_prize_match = re.search(r'中央獲得賞金[：:]\s*([\d.]+)万?円', page_text)
-        local_prize_match = re.search(r'地方獲得賞金[：:]\s*([\d.]+)万?円', page_text)
-        total_prize_match = re.search(r'総獲得賞金[：:]\s*([\d.]+)万?円', page_text)
-        total_prize = None
-        if total_prize_match:
-            try:
-                total_prize = float(total_prize_match.group(1))
-            except Exception:
-                total_prize = None
-        else:
-            # 中央＋地方の合計
-            try:
-                central = float(central_prize_match.group(1)) if central_prize_match else 0.0
-                local = float(local_prize_match.group(1)) if local_prize_match else 0.0
-                if central or local:
-                    total_prize = central + local
-                else:
-                    total_prize = None
-            except Exception:
-                total_prize = None
+        central_prize_match = re.search(r'中央獲得賞金[：:]\s*([\d,.]+)万?円', page_text)
+        local_prize_match = re.search(r'地方獲得賞金[：:]\s*([\d,.]+)万?円', page_text)
+        total_prize_match = re.search(r'総獲得賞金[：:]\s*([\d,.]+)万?円', page_text)
+        total_prize = 0.0 # デフォルトを0.0に
+        try:
+            if total_prize_match:
+                total_prize = float(total_prize_match.group(1).replace(',', ''))
+            else:
+                central = float(central_prize_match.group(1).replace(',', '')) if central_prize_match else 0.0
+                local = float(local_prize_match.group(1).replace(',', '')) if local_prize_match else 0.0
+                total_prize = central + local
+        except (ValueError, TypeError):
+             total_prize = 0.0 # 変換失敗時も0.0に
         result['total_prize_start'] = total_prize
         result['total_prize_latest'] = total_prize
         return result
@@ -302,27 +295,132 @@ class ImprovedRakutenScraper:
         
         return horses
 
+def scrape_from_history_urls():
+    """horses_history.jsonのURLリストからスクレイピングする"""
+    import os
+    import json
+    print(f"DEBUG: using json module: {json.__file__}")
+
+    input_file = "/tmp/history_44.json"
+    output_file = "/tmp/scraped_result.json"
+    
+    if not os.path.exists(input_file):
+        print(f"ERROR: {input_file} が見つかりません")
+        return
+
+    data = None
+    try:
+        with open(input_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"ERROR: failed to load or parse {input_file}: {e}")
+        return
+
+    if not data:
+        print(f"ERROR: No data loaded from {input_file}")
+        return
+
+    # horses_list = data # 'horses' キーがトップレベルにある場合
+    horses_list = data.get("horses", [])
+
+    url_list = []
+    missing_url_horses = []
+    for horse_data in horses_list:
+        top_level_url = horse_data.get("detail_url")
+        history_url = None
+        if horse_data.get("history"):
+            # historyの最初の要素からURLを取得しようと試みる
+            history_entry = horse_data["history"][0] if horse_data["history"] else {}
+            history_url = history_entry.get("detail_url")
+
+        final_url = top_level_url or history_url
+
+        if final_url:
+            url_list.append(final_url)
+        else:
+            horse_name = "名前不明"
+            if horse_data.get("history") and horse_data["history"]:
+                horse_name = horse_data["history"][0].get("name", horse_name)
+            elif "name" in horse_data:
+                horse_name = horse_data["name"]
+            
+            missing_url_horses.append(horse_name)
+
+    # 重複を除去
+    url_list = sorted(list(set(url_list)))
+
+    print(f"履歴ファイルから{len(url_list)}件のURLを再取得します")
+    if missing_url_horses:
+        print(f"--- URL欠損データ ({len(missing_url_horses)}件) ---")
+        for name in sorted(list(set(missing_url_horses))):
+            print(f"- {name}")
+        print("------------------------------------")
+        # URL欠損がある場合は、ここで処理を中断または補完ロジックへ
+        # return
+
+    scraper = ImprovedRakutenScraper()
+    horses = []
+    failed = []
+    for i, url in enumerate(url_list, 1):
+        print(f"({i}/{len(url_list)}) {url}")
+        try:
+            horse = scraper.scrape_horse_detail(url)
+            if horse:
+                horse["detail_url"] = url
+                horses.append(horse)
+            else:
+                failed.append({"url": url, "reason": "no data returned"})
+        except Exception as e:
+            failed.append({"url": url, "reason": str(e)})
+        time.sleep(1)
+    
+    # メタデータ
+    total_horses = len(horses)
+    def to_num(x):
+        try:
+            return float(x)
+        except Exception:
+            return 0
+    avg_price = sum(to_num(h.get('sold_price', 0)) for h in horses) / total_horses if total_horses > 0 else 0
+    out_data = {
+        "metadata": {
+            "last_updated": datetime.now().isoformat(),
+            "total_horses": total_horses,
+            "average_price": int(avg_price),
+        },
+        "horses": horses,
+        "failed": failed
+    }
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(out_data, f, ensure_ascii=False, indent=2)
+    print(f"{total_horses}頭分のデータを {output_file} に保存しました")
+    if failed:
+        print(f"取得失敗: {len(failed)}件")
+        for fitem in failed:
+            print(f"FAILED: {fitem['url']} - {fitem['reason']}")
+
 def main():
     """メイン実行関数"""
-    scraper = ImprovedRakutenScraper()
-    horses = scraper.scrape_all_horses()
+    # scraper = ImprovedRakutenScraper()
+    # horses = scraper.scrape_all_horses()
     
-    if horses:
-        # 結果をJSONファイルに保存
-        output_file = "scraped_horses.json"
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(horses, f, ensure_ascii=False, indent=2)
+    # if horses:
+    #     # 結果をJSONファイルに保存
+    #     output_file = "scraped_horses.json"
+    #     with open(output_file, 'w', encoding='utf-8') as f:
+    #         json.dump(horses, f, ensure_ascii=False, indent=2)
         
-        print(f"\n{len(horses)}頭の馬のデータを {output_file} に保存しました")
+    #     print(f"\n{len(horses)}頭の馬のデータを {output_file} に保存しました")
         
-        # 各馬の情報を表示
-        for i, horse in enumerate(horses, 1):
-            print(f"\n{i}. {horse.get('name', 'N/A')}")
-            print(f"   落札価格: {horse.get('sold_price', '')}")
-            print(f"   賞金: {horse.get('total_prize_start', '')}")
-            print(f"   成績: {horse.get('race_record', 'N/A')}")
-    else:
-        print("馬のデータを取得できませんでした")
+    #     # 各馬の情報を表示
+    #     for i, horse in enumerate(horses, 1):
+    #         print(f"\n{i}. {horse.get('name', 'N/A')}")
+    #         print(f"   落札価格: {horse.get('sold_price', '')}")
+    #         print(f"   賞金: {horse.get('total_prize_start', '')}")
+    #         print(f"   成績: {horse.get('race_record', 'N/A')}")
+    # else:
+    #     print("馬のデータを取得できませんでした")
+    pass # 何もしない
 
 if __name__ == "__main__":
-    main() 
+    scrape_from_history_urls() 

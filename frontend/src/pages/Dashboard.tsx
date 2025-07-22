@@ -23,7 +23,7 @@ interface Horse {
   primary_image: string;
   auction_date: string;
   disease_tags: string;
-  netkeiba_url: string;
+  jbis_url: string;
   created_at: string;
   updated_at: string;
   unsold_count: number;
@@ -170,10 +170,10 @@ export default function DashboardPage() {
                   <td className="px-3 py-2">{horse.sex}</td>
                   <td className="px-3 py-2">{horse.age}</td>
                   <td className="px-3 py-2">{horse.sire}</td>
-                  <td className="px-3 py-2">{formatPrice(horse.sold_price)}</td>
-                  <td className="px-3 py-2">{formatPrize(horse.total_prize_start)}</td>
-                  <td className="px-3 py-2">{formatPrize(horse.total_prize_latest)}</td>
-                  <td className="px-3 py-2">{calcROI(horse.total_prize_latest, horse.sold_price)}</td>
+                  <td className="px-3 py-2">{horse.sold_price}</td>
+                  <td className="px-3 py-2">{horse.total_prize_start}</td>
+                  <td className="px-3 py-2">{horse.total_prize_latest}</td>
+                  <td className="px-3 py-2">{horse.sold_price && horse.total_prize_latest ? (horse.total_prize_latest / horse.sold_price).toFixed(2) : '-'}</td>
                   <td className="px-3 py-2">
                     {horse.primary_image ? (
                       <HorseImage src={horse.primary_image} alt={horse.name} className="w-12 h-12 object-contain rounded bg-gray-100" />
@@ -183,8 +183,8 @@ export default function DashboardPage() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-col gap-1">
-                      {horse.netkeiba_url && (
-                        <a href={horse.netkeiba_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">JBIS</a>
+                      {horse.jbis_url && (
+                        <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">JBIS</a>
                       )}
                     </div>
                   </td>

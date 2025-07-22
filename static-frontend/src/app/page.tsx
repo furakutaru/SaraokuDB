@@ -5,8 +5,9 @@ import Link from 'next/link';
 import HorseImage from '@/components/HorseImage';
 import fs from 'fs';
 import path from 'path';
+import { useState } from 'react';
 
-interface Horse {
+type Horse = {
   id: number;
   name: string;
   sex: string;
@@ -24,11 +25,11 @@ interface Horse {
   primary_image: string;
   auction_date: string;
   disease_tags: string;
-  netkeiba_url: string;
+  jbis_url: string;
   created_at: string;
   updated_at: string;
   unsold_count: number; // 追加: 主取り馬の数
-}
+};
 
 interface Metadata {
   last_updated: string;

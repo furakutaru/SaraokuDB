@@ -35,7 +35,6 @@ TEST_HORSE = {
     "dam_sire": "テストダムサイアー",
     "primary_image": "",
     "disease_tags": "なし",
-    "netkeiba_url": "",
     "jbis_url": "",
     "weight": None,
     "unsold_count": None,

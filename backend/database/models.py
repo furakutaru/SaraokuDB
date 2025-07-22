@@ -26,7 +26,6 @@ class Horse(Base):
     seller = Column(Text)  # 販売申込者履歴（JSON配列文字列: ["社台", ...]）
     disease_tags = Column(Text)  # 疾病カテゴリ
     comment = Column(Text)  # コメント履歴（JSON配列文字列: ["1回目コメント", ...]）
-    netkeiba_url = Column(String(500))  # netkeibaの個体URL
     image_url = Column(String(500))  # 馬画像URL
     primary_image = Column(String(500))  # 馬体写真1枚目のURL
     unsold_count = Column(Integer, default=0)  # 主取り回数

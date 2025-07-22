@@ -21,16 +21,16 @@ interface HorseHistory {
 
 interface Horse {
   id: number;
-  history: HorseHistory[];
+  name: string;
+  sex: string;
+  age: number | string;
   sire: string;
   dam: string;
-  dam_sire: string;
-  primary_image: string;
-  disease_tags: string;
-  netkeiba_url: string;
+  seller: string;
+  sold_price: number | string;
+  auction_date: string;
   jbis_url: string;
-  unsold_count: number | null; // 主取り馬の回数（またはnull）
-  unsold?: boolean;
+  primary_image: string;
 }
 
 interface Metadata {
@@ -243,8 +243,8 @@ export default function DashboardPage() {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-col gap-1">
-                        {horse.netkeiba_url && (
-                          <a href={horse.netkeiba_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">JBIS</a>
+                        {horse.jbis_url && (
+                          <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">JBIS</a>
                         )}
                       </div>
                     </td>

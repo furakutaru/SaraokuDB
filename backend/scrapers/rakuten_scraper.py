@@ -4,13 +4,6 @@ import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional, Union, cast
 from datetime import datetime
-try:
-    from backend.scrapers.netkeiba_scraper import NetkeibaScraper
-except ImportError:
-    try:
-        from .netkeiba_scraper import NetkeibaScraper
-    except ImportError:
-        from netkeiba_scraper import NetkeibaScraper
 
 class RakutenAuctionScraper:
     def __init__(self):
@@ -30,7 +23,6 @@ class RakutenAuctionScraper:
             'Sec-Fetch-Site': 'none',
             'Sec-Fetch-User': '?1',
         })
-        self.netkeiba_scraper = NetkeibaScraper()
         
     def get_auction_date(self) -> str:
         """ページから開催日を取得"""
@@ -379,7 +371,8 @@ class RakutenAuctionScraper:
             detail_data['race_record'] = self._extract_race_record(soup)
             detail_data['disease_tags'] = self._extract_disease_tags(detail_data.get('comment', ''))
             detail_data['primary_image'] = self._extract_primary_image(soup)
-            detail_data['netkeiba_url'] = self._extract_netkeiba_url(soup)
+            detail_data['jbis_url'] = self._extract_jbis_url(soup)
+
             return detail_data
         except Exception as e:
             print(f"詳細情報の取得に失敗: {e}")
@@ -507,9 +500,9 @@ class RakutenAuctionScraper:
         except Exception as e:
             print(f"画像の抽出に失敗: {e}")
         return ""
-    
-    def _extract_netkeiba_url(self, soup) -> str:
-        """netkeiba URLを抽出（基本情報を優先）"""
+
+    def _extract_jbis_url(self, soup) -> str:
+        """JBIS URLを抽出（基本情報を優先）"""
         try:
             links = soup.find_all('a', href=True)
             
@@ -527,34 +520,16 @@ class RakutenAuctionScraper:
                     else:
                         return href
         except Exception as e:
-            print(f"netkeiba URLの抽出に失敗: {e}")
+            print(f"JBIS URLの抽出に失敗: {e}")
         return ""
-    
-    def _extract_prize_money_from_soup(self, soup: BeautifulSoup) -> Optional[float]:
-        """
-        <div class="auctionTableRow__price"><div class="label">総獲得賞金</div><div class="value">0.0万円</div></div>
-        から総獲得賞金をfloatで抽出。取得できなければNone。
-        """
-        for price_div in soup.find_all("div", class_="auctionTableRow__price"):
-            label = price_div.find("div", class_="label")
-            value = price_div.find("div", class_="value")
-            if label and value and "総獲得賞金" in label.get_text():
-                try:
-                    val = value.get_text(strip=True).replace('万円', '').replace(',', '')
-                    return float(val)
-                except Exception:
-                    return None
-        return None
 
-    def _extract_comment_from_soup(self, soup: BeautifulSoup) -> str:
-        """
-        <b>本馬について</b>直下の<pre>内テキストを抽出する。
-        """
-        for b in soup.find_all("b"):
-            if b.get_text(strip=True) == "本馬について":
-                pre = b.find_next("pre")
-                if pre:
-                    return pre.get_text(strip=True) or ""
+    def _extract_seller(self, page_text: str) -> str:
+        """販売申込者を抽出"""
+        seller_match = re.search(r'販売申込者：([^\n\r\t]+)', page_text)
+        if seller_match:
+            seller = seller_match.group(1).strip()
+            seller = re.sub(r'（.*$', '', seller).strip()
+            return seller
         return ""
     
     def scrape_all_horses(self, auction_date: Optional[str] = None) -> List[Dict]:

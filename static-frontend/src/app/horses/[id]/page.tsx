@@ -20,6 +20,7 @@ interface HorseHistory {
   sold_price: number;
   total_prize_start: number;
   unsold?: boolean;
+  detail_url?: string; // サラオク公式ページへのリンク
 }
 
 interface Horse {
@@ -30,7 +31,6 @@ interface Horse {
   dam_sire: string;
   primary_image: string;
   disease_tags: string;
-  netkeiba_url: string;
   jbis_url: string;
   weight: number | null; // 体重（またはnull）
   unsold_count: number | null; // 主取り回数
@@ -236,9 +236,9 @@ export default function HorseDetailPage(props: any) {
                     ))}
                   </div>
                   {/* JBISリンク */}
-                  {(horse.jbis_url || horse.netkeiba_url) && (
+                  {horse.jbis_url && (
                     <a
-                      href={horse.jbis_url || horse.netkeiba_url}
+                      href={horse.jbis_url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -488,6 +488,20 @@ export default function HorseDetailPage(props: any) {
                   <span className="text-gray-600">更新日:</span>
                   <span>{formatDate(horse.updated_at)}</span>
                 </div>
+                {/* サラオク公式ページへのリンクを追加 */}
+                {horse.history && horse.history.length > 0 && horse.history[horse.history.length-1].detail_url && (
+                  <div className="flex justify-between pt-2">
+                    <span className="text-gray-600">サラオク該当ページ:</span>
+                    <a
+                      href={horse.history[horse.history.length-1].detail_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline hover:text-blue-800"
+                    >
+                      {horse.history[horse.history.length-1].detail_url}
+                    </a>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

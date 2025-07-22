@@ -40,7 +40,6 @@ class HorseResponse(BaseModel):
     seller: Optional[List[str]] = None
     disease_tags: Optional[str] = None
     comment: Optional[List[str]] = None
-    netkeiba_url: Optional[str] = None
     image_url: Optional[str] = None
     unsold_count: Optional[int] = None  # 主取り回数
     created_at: datetime
@@ -65,8 +64,11 @@ class HorseCreate(BaseModel):
     seller: Optional[str] = None
     disease_tags: Optional[str] = None
     comment: Optional[str] = None
-    netkeiba_url: Optional[str] = None
     image_url: Optional[str] = None
+
+class HorseUpdate(BaseModel):
+    total_prize_latest: Optional[float] = None
+    jbis_url: Optional[str] = None
 
 class StatisticsResponse(BaseModel):
     total_horses: int

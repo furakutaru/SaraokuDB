@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Session
 from backend.database.models import Horse, get_db
 from backend.scrapers.rakuten_scraper import RakutenAuctionScraper
-from backend.scrapers.netkeiba_scraper import NetkeibaScraper
 from typing import List, Dict, Optional
 from datetime import datetime
 import json
@@ -10,7 +9,6 @@ from sqlalchemy.inspection import inspect
 class HorseService:
     def __init__(self):
         self.rakuten_scraper = RakutenAuctionScraper()
-        self.netkeiba_scraper = NetkeibaScraper()
     
     def create_horse(self, db: Session, horse_data: Dict) -> Horse:
         """馬データをデータベースに保存"""
@@ -62,8 +60,7 @@ class HorseService:
                 print("取得した馬データがありません。")
                 return []
             
-            # netkeibaから最新賞金情報を取得
-            horses_data = self.netkeiba_scraper.batch_update_prize_money(horses_data)
+            # netkeiba_scraper関連の処理を全て削除
             
             # データベースに保存
             saved_horses = []
@@ -178,12 +175,8 @@ class HorseService:
         updated_count = 0
         
         for horse in horses:
-            update_data = self.netkeiba_scraper.update_horse_prize_money(horse.__dict__['name'])
-            if update_data:
-                horse.__dict__['total_prize_latest'] = update_data.get('total_prize_latest')
-                horse.__dict__['netkeiba_url'] = update_data.get('netkeiba_url')
-                horse.__dict__['updated_at'] = datetime.utcnow()
-                updated_count += 1
+            # netkeibaからの賞金情報更新ロジックは削除
+            pass
         
         db.commit()
         return updated_count

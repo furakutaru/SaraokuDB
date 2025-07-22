@@ -87,13 +87,6 @@ const HorseList: React.FC = () => {
     horse.seller.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const formatPrice = (price: number) => {
-    if (price >= 10000) {
-      return `¥${(price / 10000).toLocaleString()}万円`;
-    }
-    return `¥${price.toLocaleString()}`;
-  };
-
   const calculateGrowthRate = (start: number, latest: number) => {
     if (start === 0) return 0;
     return ((latest - start) / start * 100).toFixed(1);
@@ -200,15 +193,15 @@ const HorseList: React.FC = () => {
                 <TableCell>{horse.sex}</TableCell>
                 <TableCell>{horse.age}</TableCell>
                 <TableCell>
-                  {horse.unsold_count !== undefined && horse.unsold_count > 0 && horse.sold_price === 0 ? '¥-' : formatPrice(horse.sold_price)}
+                  {horse.unsold_count !== undefined && horse.unsold_count > 0 && horse.sold_price === 0 ? '¥-' : horse.sold_price}
                 </TableCell>
                 {horse.unsold_count !== undefined && horse.unsold_count > 0 && (
                   <TableCell style={{ color: '#b71c1c', fontWeight: 'bold' }}>主取り{horse.unsold_count}回</TableCell>
                 )}
                 <TableCell>{horse.auction_date}</TableCell>
                 <TableCell>{horse.seller}</TableCell>
-                <TableCell>{formatPrice(horse.total_prize_start)}</TableCell>
-                <TableCell>{formatPrice(horse.total_prize_latest)}</TableCell>
+                <TableCell>{horse.total_prize_start}</TableCell>
+                <TableCell>{horse.total_prize_latest}</TableCell>
                 <TableCell>
                   {horse.total_prize_start && horse.total_prize_latest ? (
                     <span style={{ 

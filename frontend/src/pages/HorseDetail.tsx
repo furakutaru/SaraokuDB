@@ -29,11 +29,11 @@ interface Horse {
   seller: string | string[];
   disease_tags: string;
   comment: string | string[];
-  netkeiba_url: string;
   primary_image: string;
   created_at: string;
   updated_at: string;
   unsold_count?: number;
+  jbis_url?: string;
 }
 
 const HorseDetail: React.FC = () => {
@@ -61,16 +61,6 @@ const HorseDetail: React.FC = () => {
     }
   };
 
-  // 落札価格・履歴用（円単位カンマ区切り＋¥）
-  const formatYenWithMark = (price: number | undefined) => {
-    if (typeof price !== 'number' || isNaN(price)) return '-';
-    return `¥${price.toLocaleString()}`;
-  };
-  // 賞金情報用（xx.x万円）
-  const formatPrizeMan = (prize: number | undefined) => {
-    if (typeof prize !== 'number' || isNaN(prize) || prize === 0) return '-';
-    return `${prize.toFixed(1)}万円`;
-  };
   // 配列・単体どちらも対応して最新値を取得
   const getLastNumber = (val: number | number[] | undefined): number | undefined => {
     if (Array.isArray(val)) {
@@ -188,7 +178,7 @@ const HorseDetail: React.FC = () => {
                     落札価格
                   </Typography>
                   <Typography variant="body1">
-                    {horse.unsold_count !== undefined && horse.unsold_count > 0 && horse.sold_price && getLastNumber(horse.sold_price) === 0 ? '¥-' : formatYenWithMark(getLastNumber(horse.sold_price))}
+                    {getLastNumber(horse.sold_price)}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
@@ -213,7 +203,7 @@ const HorseDetail: React.FC = () => {
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" color="textSecondary">落札価格履歴</Typography>
                   <Typography variant="body1">
-                    {horse.sold_price.map((price) => formatYenWithMark(typeof price === 'number' ? price : undefined)).join(', ')}
+                    {horse.sold_price.map((price) => price).join(', ')}
                   </Typography>
                   <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>落札日履歴</Typography>
                   <Typography variant="body1">
@@ -280,7 +270,7 @@ const HorseDetail: React.FC = () => {
                     出品時
                   </Typography>
                   <Typography variant="body1">
-                    {formatPrizeMan(getLastNumber(horse.total_prize_start))}
+                    {getLastNumber(horse.total_prize_start)}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
@@ -288,7 +278,7 @@ const HorseDetail: React.FC = () => {
                     現在
                   </Typography>
                   <Typography variant="body1">
-                    {formatPrizeMan(getLastNumber(horse.total_prize_latest))}
+                    {getLastNumber(horse.total_prize_latest)}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
@@ -352,22 +342,22 @@ const HorseDetail: React.FC = () => {
           </Grid>
         )}
 
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                外部リンク
-              </Typography>
-              {horse.netkeiba_url && (
+        {horse.jbis_url && (
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  外部リンク
+                </Typography>
                 <Typography variant="body1">
-                  <a href={horse.netkeiba_url} target="_blank" rel="noopener noreferrer">
-                    netkeibaで詳細を見る
+                  <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer">
+                    JBISで詳細を見る
                   </a>
                 </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
       </Grid>
     </Box>
   );
