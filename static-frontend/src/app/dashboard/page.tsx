@@ -17,6 +17,7 @@ interface HorseHistory {
   comment: string;
   sold_price: number;
   total_prize_start: number;
+  detail_url?: string; // サラオク公式ページへのリンク
 }
 
 interface Horse {
@@ -31,6 +32,10 @@ interface Horse {
   auction_date: string;
   jbis_url: string;
   primary_image: string;
+  // historyを追加
+  history?: HorseHistory[];
+  // detail_urlも追加
+  detail_url?: string;
 }
 
 interface Metadata {
@@ -95,10 +100,14 @@ export default function DashboardPage() {
 
   // 最新履歴を抽出
   const horsesWithLatest = data.horses.map(horse => {
-    const latest = horse.history[horse.history.length - 1];
+    let latest = {} as HorseHistory;
+    if (horse.history && horse.history.length > 0) {
+      latest = horse.history[horse.history.length - 1];
+    }
     return {
       ...horse,
-      ...latest
+      ...latest,
+      detail_url: latest.detail_url || horse.detail_url // detail_urlも最新履歴優先で
     };
   }) as any[];
 
@@ -245,6 +254,9 @@ export default function DashboardPage() {
                       <div className="flex flex-col gap-1">
                         {horse.jbis_url && (
                           <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">JBIS</a>
+                        )}
+                        {horse.detail_url && (
+                          <a href={horse.detail_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">サラオク</a>
                         )}
                       </div>
                     </td>
