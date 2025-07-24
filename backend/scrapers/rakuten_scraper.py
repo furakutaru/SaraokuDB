@@ -276,7 +276,7 @@ class RakutenAuctionScraper:
                 print(f"[異常] 販売申込者が抽出できません: {detail_url}")
 
             # 総賞金（auctionTableRow__priceからlabel=総賞金のvalueを取得）
-            total_prize = self._extract_prize_money_from_soup(soup)
+            # total_prize = self._extract_prize_money_from_soup(soup)  # ←未実装なので削除
             # 総賞金は詳細ページでは設定しない（リストで取得した値を使用）
             # 詳細ページの総賞金は信頼性が低いため、scrape_all_horsesで上書きする
             detail_data['total_prize_start'] = None
@@ -344,24 +344,22 @@ class RakutenAuctionScraper:
             # --- ここまで主取り判定・入札数取得 ---
 
             # コメント（<b>本馬について</b>直下の<pre>を優先）
-            comment = self._extract_comment_from_soup(soup)
+            comment = ''
+            desc_div = soup.find('div', class_='itemDetail__description')
+            if desc_div and getattr(desc_div, 'text', None):
+                comment = str(desc_div.text).strip() if desc_div.text is not None else ''
             if not comment:
-                # fallback: 既存ロジック
-                desc_div = soup.find('div', class_='itemDetail__description')
-                if desc_div and getattr(desc_div, 'text', None):
-                    comment = str(desc_div.text).strip() if desc_div.text is not None else ''
-                if not comment:
-                    remarks_div = soup.find('div', class_='itemDetail__remarks')
-                    if remarks_div and getattr(remarks_div, 'text', None):
-                        comment = str(remarks_div.text).strip() if remarks_div.text is not None else ''
-                if not comment:
-                    div = soup.find('div', class_='comment')
-                    if div and getattr(div, 'text', None):
-                        comment = str(div.text).strip() if div.text is not None else ''
-                    else:
-                        p = soup.find('p', class_='comment')
-                        if p and getattr(p, 'text', None):
-                            comment = str(p.text).strip() if p.text is not None else ''
+                remarks_div = soup.find('div', class_='itemDetail__remarks')
+                if remarks_div and getattr(remarks_div, 'text', None):
+                    comment = str(remarks_div.text).strip() if remarks_div.text is not None else ''
+            if not comment:
+                div = soup.find('div', class_='comment')
+                if div and getattr(div, 'text', None):
+                    comment = str(div.text).strip() if div.text is not None else ''
+                else:
+                    p = soup.find('p', class_='comment')
+                    if p and getattr(p, 'text', None):
+                        comment = str(p.text).strip() if p.text is not None else ''
             if not comment:
                 print(f"[異常] コメントが抽出できません: {detail_url}")
             detail_data['comment'] = comment

@@ -22,7 +22,15 @@ interface HorseHistory {
 
 interface Horse {
   id: number;
-  history: HorseHistory[];
+  name?: string;
+  sex?: string;
+  age?: number | string;
+  seller?: string;
+  sold_price?: number;
+  auction_date?: string;
+  race_record?: string;
+  total_prize_start?: number;
+  history?: HorseHistory[];
   sire: string;
   dam: string;
   dam_sire: string;
@@ -36,6 +44,7 @@ interface Horse {
   updated_at: string;
   hidden?: boolean;
   unsold?: boolean;
+  detail_url?: string;
 }
 
 interface Metadata {
@@ -109,6 +118,20 @@ export default function HorsesPage() {
 
   // 最新履歴を抽出
   const horsesWithLatest = data.horses.map(horse => {
+    // historyが存在しない場合は馬自体のデータを使用
+    if (!horse.history || horse.history.length === 0) {
+      return {
+        ...horse,
+        name: horse.name || 'Unknown',
+        sex: horse.sex || 'Unknown',
+        age: horse.age || 'Unknown',
+        seller: horse.seller || 'Unknown',
+        sold_price: horse.sold_price || 0,
+        auction_date: horse.auction_date || 'Unknown',
+        race_record: horse.race_record || 'Unknown'
+      };
+    }
+    
     const latest = horse.history[horse.history.length - 1];
     return {
       ...latest,
@@ -134,7 +157,7 @@ export default function HorsesPage() {
           comparison = (a.sold_price || 0) - (b.sold_price || 0);
           break;
         case 'age':
-          comparison = parseInt(a.age) - parseInt(b.age);
+          comparison = parseInt(String(a.age || 0)) - parseInt(String(b.age || 0));
           break;
       }
       return sortOrder === 'asc' ? comparison : -comparison;
@@ -284,8 +307,8 @@ export default function HorsesPage() {
                         {/* 成長率: すべての馬で必ず表示 */}
                         <div>
                           <span className="text-gray-600">成長率:</span>
-                          <p className={`font-semibold ${parseFloat(getGrowthRate(horse.total_prize_start, horse.total_prize_latest)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {getGrowthRate(horse.total_prize_start, horse.total_prize_latest)}%
+                          <p className={`font-semibold ${parseFloat(getGrowthRate(horse.total_prize_start || 0, horse.total_prize_latest)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {getGrowthRate(horse.total_prize_start || 0, horse.total_prize_latest)}%
                           </p>
                         </div>
                       </div>

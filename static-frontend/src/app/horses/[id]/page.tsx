@@ -298,6 +298,23 @@ export default function HorseDetailPage(props: any) {
                           <span className="text-gray-600">レース成績:</span>
                           <span className="font-medium">{toArray(latest.race_record).join(' / ')}</span>
                         </div>
+                        {/* オークションページリンク */}
+                        {latest.detail_url && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">オークションページ:</span>
+                            <a
+                              href={latest.detail_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                            >
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                              詳細を見る
+                            </a>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -488,20 +505,7 @@ export default function HorseDetailPage(props: any) {
                   <span className="text-gray-600">更新日:</span>
                   <span>{formatDate(horse.updated_at)}</span>
                 </div>
-                {/* サラオク公式ページへのリンクを追加 */}
-                {horse.history && horse.history.length > 0 && horse.history[horse.history.length-1].detail_url && (
-                  <div className="flex justify-between pt-2">
-                    <span className="text-gray-600">サラオク該当ページ:</span>
-                    <a
-                      href={horse.history[horse.history.length-1].detail_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline hover:text-blue-800"
-                    >
-                      {horse.history[horse.history.length-1].detail_url}
-                    </a>
-                  </div>
-                )}
+
               </CardContent>
             </Card>
           </div>
