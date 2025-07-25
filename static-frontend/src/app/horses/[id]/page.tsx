@@ -21,6 +21,9 @@ interface HorseHistory {
   total_prize_start: number;
   unsold?: boolean;
   detail_url?: string; // サラオク公式ページへのリンク
+  primary_image?: string; // 馬体画像のURL
+  disease_tags?: string; // 病歴タグ
+  weight?: number; // 体重
 }
 
 interface Horse {
@@ -253,11 +256,11 @@ export default function HorseDetailPage(props: any) {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* 画像はそのまま */}
+                  {/* 画像は最新履歴から取得 */}
                   <div className="flex justify-center">
-                    {horse.primary_image ? (
+                    {latest.primary_image ? (
                       <HorseImage 
-                        src={horse.primary_image} 
+                        src={latest.primary_image} 
                         alt={latest.name} 
                         className="w-64 h-64 object-contain rounded-lg shadow-lg bg-gray-100"
                       />
