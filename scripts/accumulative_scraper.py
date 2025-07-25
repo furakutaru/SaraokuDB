@@ -35,7 +35,10 @@ except ImportError:
 class AccumulativeScraper:
     def __init__(self):
         self.scraper = RakutenAuctionScraper()
-        self.history_file = "static-frontend/public/data/horses_history.json"
+        # プロジェクトルートからの絶対パスを使用
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        self.history_file = os.path.join(project_root, "static-frontend", "public", "data", "horses_history.json")
         
     def load_existing_data(self) -> Dict:
         """既存の履歴データを読み込み"""
@@ -242,9 +245,22 @@ class AccumulativeScraper:
         }
         
         # ファイルに保存
+        print(f"保存先ディレクトリ作成: {os.path.dirname(self.history_file)}")
         os.makedirs(os.path.dirname(self.history_file), exist_ok=True)
+        print(f"ファイル保存開始: {self.history_file}")
+        print(f"保存データサイズ: 馬数={len(existing_horses)}, メタデータ={updated_data['metadata']}")
+        
         with open(self.history_file, 'w', encoding='utf-8') as f:
             json.dump(updated_data, f, ensure_ascii=False, indent=2)
+        
+        print(f"ファイル保存完了: {self.history_file}")
+        
+        # 保存確認
+        if os.path.exists(self.history_file):
+            file_size = os.path.getsize(self.history_file)
+            print(f"保存確認OK: ファイルサイズ={file_size}バイト")
+        else:
+            print(f"[エラー] ファイル保存に失敗: {self.history_file}")
         
         print(f"=== 積み上げ完了 ===")
         print(f"新規追加: {added_count}頭")
