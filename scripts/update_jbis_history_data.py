@@ -38,33 +38,74 @@ except ImportError:
             sys.exit(1)
 
 
+def normalize_jbis_url(jbis_url: str) -> str:
+    """JBIS URLを基本情報ページのURLに正規化する"""
+    if not jbis_url:
+        return jbis_url
+    
+    # /pedigree/ や /record/ を除去して基本情報ページのURLに変換
+    normalized_url = jbis_url
+    if '/pedigree/' in jbis_url:
+        normalized_url = jbis_url.replace('/pedigree/', '/')
+    elif '/record/' in jbis_url:
+        normalized_url = jbis_url.replace('/record/', '/')
+    
+    # 末尾のスラッシュを確保
+    if not normalized_url.endswith('/'):
+        normalized_url += '/'
+    
+    return normalized_url
+
 def get_jbis_prize(scraper_session, jbis_url: str) -> Optional[float]:
     """JBISのページから総賞金を取得する"""
     if not jbis_url or not jbis_url.startswith('http'):
         return None
+    
+    # URL正規化: 血統情報ページや競走成績ページを基本情報ページに変換
+    normalized_url = normalize_jbis_url(jbis_url)
+    if normalized_url != jbis_url:
+        print(f"  - URL正規化: {jbis_url} -> {normalized_url}")
 
     retries = 3
     for attempt in range(retries):
         try:
-            response = scraper_session.get(jbis_url, timeout=30)  # タイムアウトを30秒に延長
+            response = scraper_session.get(normalized_url, timeout=30)  # タイムアウトを30秒に延長
             response.raise_for_status()
             soup = BeautifulSoup(response.content, 'html.parser')
 
-            # 「総賞金」のdtタグを見つける
+            # 方法1: dtタグから総賞金を取得（最も確実）
             total_prize_dt = soup.find('dt', string=re.compile(r'^\s*総賞金\s*$'))
             if total_prize_dt:
-                # dtの次のddタグが賞金額
                 dd = total_prize_dt.find_next_sibling('dd')
                 if dd:
-                    prize_text = dd.get_text(strip=True).replace(',', '').replace('万円', '')
-                    try:
-                        return float(prize_text)
-                    except ValueError:
-                        print(f"  - 賞金額を数値に変換できませんでした: {prize_text}")
-                        return None
+                    prize_text = dd.get_text(strip=True)
+                    # 数値を抽出（例: "9077.9万円" -> 9077.9）
+                    prize_num_match = re.search(r'([\d,]+\.?\d*)', prize_text)
+                    if prize_num_match:
+                        try:
+                            prize_str = prize_num_match.group(1).replace(',', '')
+                            prize_value = float(prize_str)
+                            print(f"  - dtタグから賞金取得成功: {prize_value}万円")
+                            return prize_value
+                        except ValueError:
+                            print(f"  - dtタグの賞金を数値変換できませんでした: {prize_text}")
+            
+            # 方法2: スペースを考慮した正規表現（dtタグが失敗した場合のフォールバック）
+            page_text = soup.get_text()
+            prize_match = re.search(r'総賞金\s*([\d,]+\.?\d*)\s*万円', page_text)
+            if prize_match:
+                try:
+                    prize_str = prize_match.group(1).replace(',', '')
+                    prize_value = float(prize_str)
+                    print(f"  - 正規表現から賞金取得成功: {prize_value}万円")
+                    return prize_value
+                except ValueError:
+                    print(f"  - 正規表現の賞金を数値変換できませんでした: {prize_match.group(1)}")
+            
+            print(f"  - 賞金データが見つかりませんでした")
             return None
         except requests.exceptions.RequestException as e:
-            print(f"  - ページ取得エラー ({jbis_url}) - 試行 {attempt + 1}/{retries}: {e}")
+            print(f"  - ページ取得エラー ({normalized_url}) - 試行 {attempt + 1}/{retries}: {e}")
             if attempt < retries - 1:
                 time.sleep(3 * (attempt + 1))
                 continue
@@ -72,7 +113,7 @@ def get_jbis_prize(scraper_session, jbis_url: str) -> Optional[float]:
                 print(f"  - {retries}回のリトライに失敗しました。")
                 return None
         except Exception as e:
-            print(f"  - 予期せぬエラー ({jbis_url}): {e}")
+            print(f"  - 予期せぬエラー ({normalized_url}): {e}")
             return None
     return None
 

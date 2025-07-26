@@ -521,6 +521,24 @@ class RakutenAuctionScraper:
             print(f"JBIS URLの抽出に失敗: {e}")
         return ""
 
+    def _normalize_jbis_url(self, jbis_url: str) -> str:
+        """JBIS URLを基本情報ページのURLに正規化する"""
+        if not jbis_url:
+            return jbis_url
+        
+        # /pedigree/ や /record/ を除去して基本情報ページのURLに変換
+        normalized_url = jbis_url
+        if '/pedigree/' in jbis_url:
+            normalized_url = jbis_url.replace('/pedigree/', '/')
+        elif '/record/' in jbis_url:
+            normalized_url = jbis_url.replace('/record/', '/')
+        
+        # 末尾のスラッシュを確保
+        if not normalized_url.endswith('/'):
+            normalized_url += '/'
+        
+        return normalized_url
+
     def _extract_seller(self, page_text: str) -> str:
         """販売申込者を抽出"""
         seller_match = re.search(r'販売申込者：([^\n\r\t]+)', page_text)
@@ -566,26 +584,49 @@ class RakutenAuctionScraper:
             # JBISから現在の総賞金を取得
             if horse.get('jbis_url'):
                 try:
+                    # JBIS URLを正規化（血統情報ページを基本情報ページに変換）
+                    normalized_jbis_url = self._normalize_jbis_url(horse['jbis_url'])
+                    if normalized_jbis_url != horse['jbis_url']:
+                        print(f"    JBIS URL正規化: {horse['jbis_url']} -> {normalized_jbis_url}")
+                    
                     # JBISの基本情報ページから総賞金を取得
-                    jbis_response = self.session.get(horse['jbis_url'], timeout=30)
+                    jbis_response = self.session.get(normalized_jbis_url, timeout=30)
                     jbis_response.raise_for_status()
                     jbis_soup = BeautifulSoup(jbis_response.content, 'html.parser')
                     
                     # 総賞金を抽出（JBISのページ構造に合わせて修正）
                     total_prize_latest = None
-                    page_text = jbis_soup.get_text()
                     
-                    # 「総賞金X.X万円」のパターンを探す
-                    prize_match = re.search(r'総賞金([\d,]+\.?\d*)万円', page_text)
-                    if prize_match:
-                        prize_str = prize_match.group(1).replace(',', '')
-                        total_prize_latest = float(prize_str)
-                    else:
-                        # フォールバック: 他の賞金パターンを探す
-                        prize_match = re.search(r'([\d,]+\.?\d*)万円', page_text)
+                    # 方法1: dtタグから総賞金を取得（最も確実）
+                    total_prize_dt = jbis_soup.find('dt', string=re.compile(r'^\s*総賞金\s*$'))
+                    if total_prize_dt:
+                        dd = total_prize_dt.find_next_sibling('dd')
+                        if dd:
+                            prize_text = dd.get_text(strip=True)
+                            # 数値を抽出（例: "9077.9万円" -> 9077.9）
+                            prize_num_match = re.search(r'([\d,]+\.?\d*)', prize_text)
+                            if prize_num_match:
+                                try:
+                                    prize_str = prize_num_match.group(1).replace(',', '')
+                                    total_prize_latest = float(prize_str)
+                                    print(f"    dtタグから賞金取得成功: {total_prize_latest}万円")
+                                except ValueError:
+                                    print(f"    dtタグの賞金を数値変換できませんでした: {prize_text}")
+                    
+                    # 方法2: スペースを考慮した正規表現（dtタグが失敗した場合のフォールバック）
+                    if total_prize_latest is None:
+                        page_text = jbis_soup.get_text()
+                        # スペースを考慮したパターン
+                        prize_match = re.search(r'総賞金\s*([\d,]+\.?\d*)\s*万円', page_text)
                         if prize_match:
-                            prize_str = prize_match.group(1).replace(',', '')
-                            total_prize_latest = float(prize_str)
+                            try:
+                                prize_str = prize_match.group(1).replace(',', '')
+                                total_prize_latest = float(prize_str)
+                                print(f"    正規表現から賞金取得成功: {total_prize_latest}万円")
+                            except ValueError:
+                                print(f"    正規表現の賞金を数値変換できませんでした: {prize_match.group(1)}")
+                        else:
+                            print(f"    賞金データが見つかりませんでした")
                     
                     if total_prize_latest is not None:
                         # オークション時と現在の賞金を比較して、より信頼性の高い方を採用

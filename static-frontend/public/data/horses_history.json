@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2025-07-26T02:24:23.006677",
+    "last_updated": "2025-07-26T17:11:21.467731",
     "total_horses": 45,
     "average_price": 1380697,
     "auction_date": "2025-07-26",
@@ -18,7 +18,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14510",
       "created_at": "2025-07-25T00:19:06.961017",
-      "updated_at": "2025-07-26T02:24:23.002899",
+      "updated_at": "2025-07-26T17:10:10.335444",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -56,7 +56,8 @@
           "disease_tags": "なし",
           "weight": 511
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 2,
@@ -68,7 +69,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14511",
       "created_at": "2025-07-25T00:19:06.961041",
-      "updated_at": "2025-07-26T02:24:23.002946",
+      "updated_at": "2025-07-26T17:10:11.905791",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -106,7 +107,8 @@
           "disease_tags": "なし",
           "weight": 514
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 3,
@@ -118,7 +120,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14512",
       "created_at": "2025-07-25T00:19:06.961063",
-      "updated_at": "2025-07-26T02:24:23.003101",
+      "updated_at": "2025-07-26T17:10:13.486779",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -156,7 +158,8 @@
           "disease_tags": "なし",
           "weight": 405
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 4,
@@ -168,7 +171,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14513",
       "created_at": "2025-07-25T00:19:06.961094",
-      "updated_at": "2025-07-26T02:24:23.003177",
+      "updated_at": "2025-07-26T16:14:18.840833",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -206,7 +209,8 @@
           "disease_tags": "なし",
           "weight": 500
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 5,
@@ -218,7 +222,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14514",
       "created_at": "2025-07-25T00:19:06.961121",
-      "updated_at": "2025-07-26T02:24:23.003201",
+      "updated_at": "2025-07-26T16:14:20.418873",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -256,7 +260,8 @@
           "disease_tags": "なし",
           "weight": 454
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 6,
@@ -268,7 +273,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14515",
       "created_at": "2025-07-25T00:19:06.961149",
-      "updated_at": "2025-07-26T02:24:23.003223",
+      "updated_at": "2025-07-26T16:14:22.009183",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -306,7 +311,8 @@
           "disease_tags": "なし",
           "weight": 406
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 7,
@@ -318,7 +324,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14516",
       "created_at": "2025-07-25T00:19:06.961182",
-      "updated_at": "2025-07-26T02:24:23.003429",
+      "updated_at": "2025-07-26T16:14:23.582554",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -356,7 +362,8 @@
           "disease_tags": "なし",
           "weight": 436
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 8,
@@ -368,7 +375,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14518",
       "created_at": "2025-07-25T00:19:06.961215",
-      "updated_at": "2025-07-26T02:24:23.003453",
+      "updated_at": "2025-07-26T16:14:25.286663",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -406,7 +413,8 @@
           "disease_tags": "なし",
           "weight": 500
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 9,
@@ -418,7 +426,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14519",
       "created_at": "2025-07-25T00:19:06.961253",
-      "updated_at": "2025-07-26T02:24:23.003499",
+      "updated_at": "2025-07-26T16:14:26.861982",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -456,7 +464,8 @@
           "disease_tags": "なし",
           "weight": 486
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 10,
@@ -468,7 +477,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14520",
       "created_at": "2025-07-25T00:19:06.961293",
-      "updated_at": "2025-07-26T02:24:23.003533",
+      "updated_at": "2025-07-26T16:14:28.509213",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -506,7 +515,8 @@
           "disease_tags": "なし",
           "weight": 480
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 11,
@@ -518,7 +528,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14521",
       "created_at": "2025-07-25T00:19:06.961337",
-      "updated_at": "2025-07-26T02:24:23.003565",
+      "updated_at": "2025-07-26T16:14:30.083808",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -556,7 +566,8 @@
           "disease_tags": "なし",
           "weight": 446
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 12,
@@ -568,7 +579,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14522",
       "created_at": "2025-07-25T00:19:06.961382",
-      "updated_at": "2025-07-26T02:24:23.003599",
+      "updated_at": "2025-07-26T16:14:31.667959",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -606,7 +617,8 @@
           "disease_tags": "なし",
           "weight": 400
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 13,
@@ -618,7 +630,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14523",
       "created_at": "2025-07-25T00:19:06.961426",
-      "updated_at": "2025-07-26T02:24:23.003633",
+      "updated_at": "2025-07-26T16:14:33.253118",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -656,7 +668,8 @@
           "disease_tags": "なし",
           "weight": 436
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 14,
@@ -668,7 +681,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14524",
       "created_at": "2025-07-25T00:19:06.961473",
-      "updated_at": "2025-07-26T02:24:23.003666",
+      "updated_at": "2025-07-26T16:14:34.839774",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -706,7 +719,8 @@
           "disease_tags": "なし",
           "weight": 420
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 15,
@@ -718,7 +732,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14525",
       "created_at": "2025-07-25T00:19:06.961524",
-      "updated_at": "2025-07-26T02:24:23.003704",
+      "updated_at": "2025-07-26T16:14:36.420511",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -756,7 +770,8 @@
           "disease_tags": "なし",
           "weight": 436
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 16,
@@ -768,7 +783,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14526",
       "created_at": "2025-07-25T00:19:06.961579",
-      "updated_at": "2025-07-26T02:24:23.003742",
+      "updated_at": "2025-07-26T16:14:37.995489",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -806,7 +821,8 @@
           "disease_tags": "なし",
           "weight": 508
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 17,
@@ -818,7 +834,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14527",
       "created_at": "2025-07-25T00:19:06.961634",
-      "updated_at": "2025-07-26T02:24:23.003783",
+      "updated_at": "2025-07-26T16:14:39.568144",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -856,7 +872,8 @@
           "disease_tags": "なし",
           "weight": 410
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 18,
@@ -868,7 +885,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14528",
       "created_at": "2025-07-25T00:19:06.961698",
-      "updated_at": "2025-07-26T02:24:23.003823",
+      "updated_at": "2025-07-26T16:14:41.143968",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -906,7 +923,8 @@
           "disease_tags": "なし",
           "weight": 486
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 19,
@@ -918,7 +936,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14529",
       "created_at": "2025-07-25T00:19:06.961756",
-      "updated_at": "2025-07-26T02:24:23.003995",
+      "updated_at": "2025-07-26T16:14:42.761409",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -956,7 +974,8 @@
           "disease_tags": "なし",
           "weight": 534
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 20,
@@ -968,7 +987,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14530",
       "created_at": "2025-07-25T00:19:06.961850",
-      "updated_at": "2025-07-26T02:24:23.004043",
+      "updated_at": "2025-07-26T16:14:44.345879",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1006,7 +1025,8 @@
           "disease_tags": "なし",
           "weight": 436
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 21,
@@ -1018,7 +1038,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14531",
       "created_at": "2025-07-25T00:19:06.961972",
-      "updated_at": "2025-07-26T02:24:23.004088",
+      "updated_at": "2025-07-26T16:14:45.918692",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1056,7 +1076,8 @@
           "disease_tags": "なし",
           "weight": 438
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 22,
@@ -1068,7 +1089,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14532",
       "created_at": "2025-07-25T00:19:06.962046",
-      "updated_at": "2025-07-26T02:24:23.004136",
+      "updated_at": "2025-07-26T16:14:47.495007",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1106,7 +1127,8 @@
           "disease_tags": "なし",
           "weight": 426
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 23,
@@ -1118,7 +1140,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14533",
       "created_at": "2025-07-25T00:19:06.962136",
-      "updated_at": "2025-07-26T02:24:23.004184",
+      "updated_at": "2025-07-26T16:14:49.074875",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1156,7 +1178,8 @@
           "disease_tags": "なし",
           "weight": 454
         }
-      ]
+      ],
+      "total_prize_latest": 56.0
     },
     {
       "id": 24,
@@ -1168,7 +1191,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14534",
       "created_at": "2025-07-25T00:19:06.962217",
-      "updated_at": "2025-07-26T02:24:23.004235",
+      "updated_at": "2025-07-26T16:14:50.756223",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1206,7 +1229,8 @@
           "disease_tags": "なし",
           "weight": 484
         }
-      ]
+      ],
+      "total_prize_latest": 86.4
     },
     {
       "id": 25,
@@ -1218,7 +1242,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14535",
       "created_at": "2025-07-25T00:19:06.962292",
-      "updated_at": "2025-07-26T02:24:23.004561",
+      "updated_at": "2025-07-26T16:14:52.341190",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1256,7 +1280,8 @@
           "disease_tags": "なし",
           "weight": 484
         }
-      ]
+      ],
+      "total_prize_latest": 110.0
     },
     {
       "id": 26,
@@ -1268,7 +1293,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14536",
       "created_at": "2025-07-25T00:19:06.962365",
-      "updated_at": "2025-07-26T02:24:23.004616",
+      "updated_at": "2025-07-26T16:14:53.937070",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1306,7 +1331,8 @@
           "disease_tags": "なし",
           "weight": 440
         }
-      ]
+      ],
+      "total_prize_latest": 110.0
     },
     {
       "id": 27,
@@ -1318,7 +1344,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14537",
       "created_at": "2025-07-25T00:19:06.962452",
-      "updated_at": "2025-07-26T02:24:23.004674",
+      "updated_at": "2025-07-26T16:14:55.527750",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1356,7 +1382,8 @@
           "disease_tags": "なし",
           "weight": 484
         }
-      ]
+      ],
+      "total_prize_latest": 110.0
     },
     {
       "id": 28,
@@ -1368,7 +1395,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14538",
       "created_at": "2025-07-25T00:19:06.962534",
-      "updated_at": "2025-07-26T02:24:23.004735",
+      "updated_at": "2025-07-26T16:14:57.110175",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1406,7 +1433,8 @@
           "disease_tags": "なし",
           "weight": 490
         }
-      ]
+      ],
+      "total_prize_latest": 160.0
     },
     {
       "id": 29,
@@ -1418,7 +1446,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14539",
       "created_at": "2025-07-25T00:19:06.962620",
-      "updated_at": "2025-07-26T02:24:23.004795",
+      "updated_at": "2025-07-26T16:14:58.696311",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1456,7 +1484,8 @@
           "disease_tags": "なし",
           "weight": 438
         }
-      ]
+      ],
+      "total_prize_latest": 166.0
     },
     {
       "id": 30,
@@ -1468,7 +1497,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14540",
       "created_at": "2025-07-25T00:19:06.962705",
-      "updated_at": "2025-07-26T02:24:23.004861",
+      "updated_at": "2025-07-26T16:15:00.275081",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1506,7 +1535,8 @@
           "disease_tags": "なし",
           "weight": 426
         }
-      ]
+      ],
+      "total_prize_latest": 276.0
     },
     {
       "id": 31,
@@ -1518,7 +1548,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14541",
       "created_at": "2025-07-25T00:19:06.962791",
-      "updated_at": "2025-07-26T02:24:23.005090",
+      "updated_at": "2025-07-26T16:15:01.853502",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1556,7 +1586,8 @@
           "disease_tags": "なし",
           "weight": 424
         }
-      ]
+      ],
+      "total_prize_latest": 290.0
     },
     {
       "id": 32,
@@ -1568,7 +1599,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14542",
       "created_at": "2025-07-25T00:19:06.962878",
-      "updated_at": "2025-07-26T02:24:23.005156",
+      "updated_at": "2025-07-26T16:15:03.435857",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1606,7 +1637,8 @@
           "disease_tags": "なし",
           "weight": 502
         }
-      ]
+      ],
+      "total_prize_latest": 304.0
     },
     {
       "id": 33,
@@ -1618,7 +1650,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14543",
       "created_at": "2025-07-25T00:19:06.962975",
-      "updated_at": "2025-07-26T02:24:23.005225",
+      "updated_at": "2025-07-26T16:15:05.014915",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1656,7 +1688,8 @@
           "disease_tags": "なし",
           "weight": 420
         }
-      ]
+      ],
+      "total_prize_latest": 360.0
     },
     {
       "id": 34,
@@ -1668,7 +1701,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14544",
       "created_at": "2025-07-25T00:19:06.963069",
-      "updated_at": "2025-07-26T02:24:23.005477",
+      "updated_at": "2025-07-26T16:15:06.595437",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1706,7 +1739,8 @@
           "disease_tags": "なし",
           "weight": 482
         }
-      ]
+      ],
+      "total_prize_latest": 404.0
     },
     {
       "id": 35,
@@ -1718,7 +1752,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14545",
       "created_at": "2025-07-25T00:19:06.963164",
-      "updated_at": "2025-07-26T02:24:23.005559",
+      "updated_at": "2025-07-26T16:15:08.183908",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1756,7 +1790,8 @@
           "disease_tags": "なし",
           "weight": 432
         }
-      ]
+      ],
+      "total_prize_latest": 800.0
     },
     {
       "id": 36,
@@ -1768,7 +1803,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14546",
       "created_at": "2025-07-25T00:19:06.963266",
-      "updated_at": "2025-07-26T02:24:23.005655",
+      "updated_at": "2025-07-26T16:15:09.769443",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1806,7 +1841,8 @@
           "disease_tags": "なし",
           "weight": 468
         }
-      ]
+      ],
+      "total_prize_latest": 1200.0
     },
     {
       "id": 37,
@@ -1818,7 +1854,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14547",
       "created_at": "2025-07-25T00:19:06.963370",
-      "updated_at": "2025-07-26T02:24:23.005748",
+      "updated_at": "2025-07-26T16:15:11.376317",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1856,7 +1892,8 @@
           "disease_tags": "なし",
           "weight": 506
         }
-      ]
+      ],
+      "total_prize_latest": 4448.3
     },
     {
       "id": 38,
@@ -1868,7 +1905,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14548",
       "created_at": "2025-07-25T00:19:06.963474",
-      "updated_at": "2025-07-26T02:24:23.005986",
+      "updated_at": "2025-07-26T16:15:12.993823",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1906,7 +1943,8 @@
           "disease_tags": "なし",
           "weight": 480
         }
-      ]
+      ],
+      "total_prize_latest": 9077.9
     },
     {
       "id": 39,
@@ -1918,7 +1956,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14549",
       "created_at": "2025-07-25T00:19:06.963581",
-      "updated_at": "2025-07-26T02:24:23.006069",
+      "updated_at": "2025-07-26T16:15:14.564298",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -1956,7 +1994,8 @@
           "disease_tags": "なし",
           "weight": 457
         }
-      ]
+      ],
+      "total_prize_latest": 0.0
     },
     {
       "id": 40,
@@ -1968,7 +2007,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14550",
       "created_at": "2025-07-25T00:19:06.963690",
-      "updated_at": "2025-07-26T02:24:23.006259",
+      "updated_at": "2025-07-26T16:15:16.165751",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -2006,7 +2045,8 @@
           "disease_tags": "なし",
           "weight": 435
         }
-      ]
+      ],
+      "total_prize_latest": 291.4
     },
     {
       "id": 41,
@@ -2018,7 +2058,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14551",
       "created_at": "2025-07-25T00:19:06.963806",
-      "updated_at": "2025-07-26T02:24:23.006342",
+      "updated_at": "2025-07-26T16:15:17.770148",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -2056,7 +2096,8 @@
           "disease_tags": "なし",
           "weight": 478
         }
-      ]
+      ],
+      "total_prize_latest": 357.7
     },
     {
       "id": 42,
@@ -2068,7 +2109,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14555",
       "created_at": "2025-07-25T00:19:06.963926",
-      "updated_at": "2025-07-26T02:24:23.006414",
+      "updated_at": "2025-07-26T16:15:19.354797",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -2106,7 +2147,8 @@
           "disease_tags": "なし",
           "weight": 478
         }
-      ]
+      ],
+      "total_prize_latest": 142.2
     },
     {
       "id": 43,
@@ -2118,7 +2160,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14552",
       "created_at": "2025-07-25T00:19:06.964052",
-      "updated_at": "2025-07-26T02:24:23.006491",
+      "updated_at": "2025-07-26T16:15:20.986965",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -2156,7 +2198,8 @@
           "disease_tags": "なし",
           "weight": 495
         }
-      ]
+      ],
+      "total_prize_latest": 717.5
     },
     {
       "id": 44,
@@ -2168,7 +2211,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14553",
       "created_at": "2025-07-25T00:19:06.964214",
-      "updated_at": "2025-07-26T02:24:23.006565",
+      "updated_at": "2025-07-26T16:15:22.601473",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -2206,7 +2249,8 @@
           "disease_tags": "なし",
           "weight": 514
         }
-      ]
+      ],
+      "total_prize_latest": 872.5
     },
     {
       "id": 45,
@@ -2218,7 +2262,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14554",
       "created_at": "2025-07-25T00:19:06.964351",
-      "updated_at": "2025-07-26T02:24:23.006642",
+      "updated_at": "2025-07-26T16:15:24.200635",
       "history": [
         {
           "auction_date": "2025-07-25",
@@ -2256,7 +2300,8 @@
           "disease_tags": "なし",
           "weight": 454
         }
-      ]
+      ],
+      "total_prize_latest": 1272.5
     }
   ]
 }
