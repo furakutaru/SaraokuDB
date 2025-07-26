@@ -57,7 +57,8 @@
           "weight": 511
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 511
     },
     {
       "id": 2,
@@ -108,7 +109,8 @@
           "weight": 514
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 514
     },
     {
       "id": 3,
@@ -159,7 +161,8 @@
           "weight": 405
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 405
     },
     {
       "id": 4,
@@ -210,7 +213,8 @@
           "weight": 500
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 500
     },
     {
       "id": 5,
@@ -261,7 +265,8 @@
           "weight": 454
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 454
     },
     {
       "id": 6,
@@ -312,7 +317,8 @@
           "weight": 406
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 406
     },
     {
       "id": 7,
@@ -363,7 +369,8 @@
           "weight": 436
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 436
     },
     {
       "id": 8,
@@ -414,7 +421,8 @@
           "weight": 500
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 500
     },
     {
       "id": 9,
@@ -465,7 +473,8 @@
           "weight": 486
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 486
     },
     {
       "id": 10,
@@ -516,7 +525,8 @@
           "weight": 480
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 480
     },
     {
       "id": 11,
@@ -567,7 +577,8 @@
           "weight": 446
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 446
     },
     {
       "id": 12,
@@ -618,14 +629,15 @@
           "weight": 400
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 400
     },
     {
       "id": 13,
       "name": "トラストユー",
-      "sire": "",
-      "dam": "",
-      "dam_sire": "",
+      "sire": "ノーブルミッション",
+      "dam": "フェリーチェレガロ",
+      "dam_sire": "マンハッタンカフェ",
       "jbis_url": "https://www.jbis.or.jp/horse/0001354892/",
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14523",
@@ -669,14 +681,15 @@
           "weight": 436
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 436
     },
     {
       "id": 14,
       "name": "ドラマツルギー",
-      "sire": "",
-      "dam": "",
-      "dam_sire": "",
+      "sire": "カレンブラックヒル",
+      "dam": "ロイヤルソード",
+      "dam_sire": "スウェプトオーヴァーボード",
       "jbis_url": "https://www.jbis.or.jp/horse/0001359050/",
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14524",
@@ -720,7 +733,8 @@
           "weight": 420
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 420
     },
     {
       "id": 15,
@@ -771,7 +785,8 @@
           "weight": 436
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 436
     },
     {
       "id": 16,
@@ -822,7 +837,8 @@
           "weight": 508
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 508
     },
     {
       "id": 17,
@@ -873,14 +889,15 @@
           "weight": 410
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 410
     },
     {
       "id": 18,
       "name": "ボンショワ",
-      "sire": "",
-      "dam": "",
-      "dam_sire": "",
+      "sire": "リアルインパクト",
+      "dam": "スイートレッドキャット",
+      "dam_sire": "Bluegrass",
       "jbis_url": "https://www.jbis.or.jp/horse/0001360020/",
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14528",
@@ -924,7 +941,8 @@
           "weight": 486
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 486
     },
     {
       "id": 19,
@@ -975,14 +993,15 @@
           "weight": 534
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 534
     },
     {
       "id": 20,
       "name": "メイショウハント",
-      "sire": "",
-      "dam": "",
-      "dam_sire": "",
+      "sire": "メイショウサムソン",
+      "dam": "メイショウラバンド",
+      "dam_sire": "メイショウオウドウ",
       "jbis_url": "https://www.jbis.or.jp/horse/0001360642/",
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14530",
@@ -1026,7 +1045,8 @@
           "weight": 436
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 436
     },
     {
       "id": 21,
@@ -1077,7 +1097,8 @@
           "weight": 438
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 438
     },
     {
       "id": 22,
@@ -1128,14 +1149,15 @@
           "weight": 426
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 426
     },
     {
       "id": 23,
       "name": "エーデルムート",
-      "sire": "",
-      "dam": "",
-      "dam_sire": "",
+      "sire": "シルバーステート",
+      "dam": "ショコラミーティア",
+      "dam_sire": "マジェスティックウォリアー",
       "jbis_url": "https://www.jbis.or.jp/horse/0001360154/",
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14533",
@@ -1179,7 +1201,8 @@
           "weight": 454
         }
       ],
-      "total_prize_latest": 56.0
+      "total_prize_latest": 56.0,
+      "weight": 454
     },
     {
       "id": 24,
@@ -1230,7 +1253,8 @@
           "weight": 484
         }
       ],
-      "total_prize_latest": 86.4
+      "total_prize_latest": 86.4,
+      "weight": 484
     },
     {
       "id": 25,
@@ -1281,14 +1305,15 @@
           "weight": 484
         }
       ],
-      "total_prize_latest": 110.0
+      "total_prize_latest": 110.0,
+      "weight": 484
     },
     {
       "id": 26,
       "name": "スターアイズ",
-      "sire": "",
-      "dam": "",
-      "dam_sire": "",
+      "sire": "ルヴァンスレーヴ",
+      "dam": "スノードリーム",
+      "dam_sire": "スウェプトオーヴァーボード",
       "jbis_url": "https://www.jbis.or.jp/horse/0001357332/",
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14536",
@@ -1332,7 +1357,8 @@
           "weight": 440
         }
       ],
-      "total_prize_latest": 110.0
+      "total_prize_latest": 110.0,
+      "weight": 440
     },
     {
       "id": 27,
@@ -1383,7 +1409,8 @@
           "weight": 484
         }
       ],
-      "total_prize_latest": 110.0
+      "total_prize_latest": 110.0,
+      "weight": 484
     },
     {
       "id": 28,
@@ -1434,7 +1461,8 @@
           "weight": 490
         }
       ],
-      "total_prize_latest": 160.0
+      "total_prize_latest": 160.0,
+      "weight": 490
     },
     {
       "id": 29,
@@ -1485,7 +1513,8 @@
           "weight": 438
         }
       ],
-      "total_prize_latest": 166.0
+      "total_prize_latest": 166.0,
+      "weight": 438
     },
     {
       "id": 30,
@@ -1536,7 +1565,8 @@
           "weight": 426
         }
       ],
-      "total_prize_latest": 276.0
+      "total_prize_latest": 276.0,
+      "weight": 426
     },
     {
       "id": 31,
@@ -1587,14 +1617,15 @@
           "weight": 424
         }
       ],
-      "total_prize_latest": 290.0
+      "total_prize_latest": 290.0,
+      "weight": 424
     },
     {
       "id": 32,
       "name": "パドロック",
-      "sire": "",
-      "dam": "",
-      "dam_sire": "",
+      "sire": "ブリックスアンドモルタル",
+      "dam": "キープレイヤー",
+      "dam_sire": "メイショウボーラー",
       "jbis_url": "https://www.jbis.or.jp/horse/0001356097/",
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14542",
@@ -1638,7 +1669,8 @@
           "weight": 502
         }
       ],
-      "total_prize_latest": 304.0
+      "total_prize_latest": 304.0,
+      "weight": 502
     },
     {
       "id": 33,
@@ -1689,7 +1721,8 @@
           "weight": 420
         }
       ],
-      "total_prize_latest": 360.0
+      "total_prize_latest": 360.0,
+      "weight": 420
     },
     {
       "id": 34,
@@ -1740,7 +1773,8 @@
           "weight": 482
         }
       ],
-      "total_prize_latest": 404.0
+      "total_prize_latest": 404.0,
+      "weight": 482
     },
     {
       "id": 35,
@@ -1791,7 +1825,8 @@
           "weight": 432
         }
       ],
-      "total_prize_latest": 800.0
+      "total_prize_latest": 800.0,
+      "weight": 432
     },
     {
       "id": 36,
@@ -1842,7 +1877,8 @@
           "weight": 468
         }
       ],
-      "total_prize_latest": 1200.0
+      "total_prize_latest": 1200.0,
+      "weight": 468
     },
     {
       "id": 37,
@@ -1893,7 +1929,8 @@
           "weight": 506
         }
       ],
-      "total_prize_latest": 4448.3
+      "total_prize_latest": 4448.3,
+      "weight": 506
     },
     {
       "id": 38,
@@ -1944,7 +1981,8 @@
           "weight": 480
         }
       ],
-      "total_prize_latest": 9077.9
+      "total_prize_latest": 9077.9,
+      "weight": 480
     },
     {
       "id": 39,
@@ -1995,7 +2033,8 @@
           "weight": 457
         }
       ],
-      "total_prize_latest": 0.0
+      "total_prize_latest": 0.0,
+      "weight": 457
     },
     {
       "id": 40,
@@ -2046,7 +2085,8 @@
           "weight": 435
         }
       ],
-      "total_prize_latest": 291.4
+      "total_prize_latest": 291.4,
+      "weight": 435
     },
     {
       "id": 41,
@@ -2097,7 +2137,8 @@
           "weight": 478
         }
       ],
-      "total_prize_latest": 357.7
+      "total_prize_latest": 357.7,
+      "weight": 478
     },
     {
       "id": 42,
@@ -2148,7 +2189,8 @@
           "weight": 478
         }
       ],
-      "total_prize_latest": 142.2
+      "total_prize_latest": 142.2,
+      "weight": 478
     },
     {
       "id": 43,
@@ -2199,7 +2241,8 @@
           "weight": 495
         }
       ],
-      "total_prize_latest": 717.5
+      "total_prize_latest": 717.5,
+      "weight": 495
     },
     {
       "id": 44,
@@ -2250,7 +2293,8 @@
           "weight": 514
         }
       ],
-      "total_prize_latest": 872.5
+      "total_prize_latest": 872.5,
+      "weight": 514
     },
     {
       "id": 45,
@@ -2301,7 +2345,8 @@
           "weight": 454
         }
       ],
-      "total_prize_latest": 1272.5
+      "total_prize_latest": 1272.5,
+      "weight": 454
     }
   ]
 }

@@ -155,7 +155,27 @@ class AccumulativeScraper:
         if new_horse.get('detail_url'):
             existing_horse['detail_url'] = new_horse.get('detail_url')
         
+        # 最新の体重をトップレベルに反映
+        latest_weight = self._get_latest_weight(existing_horse['history'])
+        existing_horse['weight'] = latest_weight
+        
         return existing_horse
+    
+    def _get_latest_weight(self, history: List[Dict]) -> Optional[int]:
+        """履歴から最新の体重を取得"""
+        if not history:
+            return None
+        
+        # 履歴を日付順でソート（最新が最後）
+        sorted_history = sorted(history, key=lambda x: x.get('auction_date', ''))
+        
+        # 最新の履歴から体重を取得
+        for entry in reversed(sorted_history):
+            weight = entry.get('weight')
+            if weight is not None:
+                return weight
+        
+        return None
     
     def create_new_horse_entry(self, horse_data: Dict, auction_date: str, horse_id: int) -> Dict:
         """新しい馬エントリを作成"""
@@ -172,7 +192,8 @@ class AccumulativeScraper:
             'detail_url': horse_data.get('detail_url'),
             'created_at': datetime.now().isoformat(),
             'updated_at': datetime.now().isoformat(),
-            'history': [history_entry]
+            'history': [history_entry],
+            'weight': horse_data.get('weight')  # トップレベルに体重を追加
         }
     
     def scrape_and_accumulate(self) -> bool:

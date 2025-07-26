@@ -387,29 +387,55 @@ class RakutenAuctionScraper:
                 if tag and tag_text and '父：' in str(tag_text):
                     text = str(tag_text).strip() if tag_text is not None else ""
                     break
+        
         # textは必ずstr型
         text = str(text)
         sire = ""
         dam = ""
         dam_sire = ""
-        if '父：' in text and '母：' in text:
-            sire = text.split('父：')[1].split('母：')[0].strip()
-            if sire is None:
-                sire = ''
+        
+        try:
+            # 正規表現で精密に抽出
+            import re
+            
+            # 父、母、母の父を一度に抽出
+            pedigree_pattern = r'父：([^\u3000\n\r]+?)\s*母：([^\u3000\n\r]+?)\s*母の父：([^\n\r\u3000]+?)(?=\s|\n|\r|$)'
+            pedigree_match = re.search(pedigree_pattern, text)
+            
+            if pedigree_match:
+                sire = pedigree_match.group(1).strip()
+                dam = pedigree_match.group(2).strip()
+                dam_sire = pedigree_match.group(3).strip()
             else:
-                sire = sire.strip() or ''
-        if '母：' in text:
-            dam = text.split('母：')[1].split('母の父：')[0].strip()
-            if dam is None:
-                dam = ''
-            else:
-                dam = dam.strip() or ''
-        if '母の父：' in text:
-            dam_sire_raw = text.split('母の父：')[1].strip()
-            if dam_sire_raw is None:
-                dam_sire = ''
-            else:
-                dam_sire = dam_sire_raw.strip() or ''
+                # フォールバック: 従来のロジックを改善
+                if '父：' in text and '母：' in text:
+                    sire_part = text.split('父：')[1].split('母：')[0]
+                    sire = re.sub(r'[\n\r\u3000]+', ' ', sire_part).strip()
+                
+                if '母：' in text and '母の父：' in text:
+                    dam_part = text.split('母：')[1].split('母の父：')[0]
+                    dam = re.sub(r'[\n\r\u3000]+', ' ', dam_part).strip()
+                
+                if '母の父：' in text:
+                    dam_sire_part = text.split('母の父：')[1]
+                    # 最初の単語または行までを抽出
+                    dam_sire_match = re.match(r'([^\n\r\u3000]+)', dam_sire_part)
+                    if dam_sire_match:
+                        dam_sire = dam_sire_match.group(1).strip()
+                    else:
+                        dam_sire = dam_sire_part.split('\n')[0].split('\r')[0].strip()
+            
+            # 空白やNoneのチェック
+            sire = sire.strip() if sire else ""
+            dam = dam.strip() if dam else ""
+            dam_sire = dam_sire.strip() if dam_sire else ""
+            
+        except Exception as e:
+            print(f"血統情報の抽出に失敗: {e}")
+            sire = ""
+            dam = ""
+            dam_sire = ""
+        
         return {
             "sire": sire,
             "dam": dam,
@@ -443,30 +469,80 @@ class RakutenAuctionScraper:
     
     def _extract_comment(self, soup) -> str:
         """
-        コメント欄を素直に抽出する（例：divやpタグ内のテキストを優先的に取得）。
+        コメント欄を抽出する（「本馬について」セクションの<hr>以降のテキスト）。
         """
-        # 例：div.comment, p.comment, それ以外は最初のdiv/pテキスト
         comment = ""
-        div = soup.find('div', class_='comment')
-        if div and div.text:
-            comment = div.text.strip()
-        else:
-            p = soup.find('p', class_='comment')
-            if p and p.text:
-                comment = p.text.strip()
-            else:
-                # fallback: 最初のdiv/p
-                divs = soup.find_all('div')
-                for d in divs:
-                    if d and d.text and len(d.text.strip()) > 10:
-                        comment = d.text.strip()
-                        break
-                if not comment:
-                    ps = soup.find_all('p')
-                    for p in ps:
-                        if p and p.text and len(p.text.strip()) > 10:
-                            comment = p.text.strip()
+        
+        try:
+            # 「本馬について」のテキストを含む要素を検索
+            about_horse_elements = soup.find_all(text=lambda text: text and '本馬について' in text)
+            
+            if about_horse_elements:
+                # 「本馬について」を含む要素の親要素から開始
+                for about_text in about_horse_elements:
+                    parent = about_text.parent
+                    if not parent:
+                        continue
+                    
+                    # 親要素から<hr>タグを探す
+                    hr_tag = None
+                    
+                    # 同じ親要素内で<hr>を探す
+                    hr_tag = parent.find('hr')
+                    
+                    # 見つからない場合は、親要素の次の兄弟要素で<hr>を探す
+                    if not hr_tag:
+                        current = parent
+                        while current:
+                            next_sibling = current.find_next_sibling()
+                            if next_sibling:
+                                if next_sibling.name == 'hr':
+                                    hr_tag = next_sibling
+                                    break
+                                hr_tag = next_sibling.find('hr')
+                                if hr_tag:
+                                    break
+                            current = next_sibling
+                    
+                    # <hr>以降のテキストを抽出
+                    if hr_tag:
+                        comment_parts = []
+                        current = hr_tag.next_sibling
+                        
+                        while current:
+                            if hasattr(current, 'get_text'):
+                                text = current.get_text().strip()
+                                if text and len(text) > 0:
+                                    comment_parts.append(text)
+                            elif isinstance(current, str):
+                                text = current.strip()
+                                if text and len(text) > 0:
+                                    comment_parts.append(text)
+                            current = current.next_sibling
+                        
+                        if comment_parts:
+                            comment = ' '.join(comment_parts).strip()
                             break
+            
+            # フォールバック: 従来のロジック
+            if not comment:
+                div = soup.find('div', class_='comment')
+                if div and div.text:
+                    comment = div.text.strip()
+                else:
+                    p = soup.find('p', class_='comment')
+                    if p and p.text:
+                        comment = p.text.strip()
+            
+            # コメントの整形
+            if comment:
+                # 改行を適切に処理
+                comment = ' '.join(comment.split())
+                    
+        except Exception as e:
+            print(f"コメントの抽出に失敗: {e}")
+            comment = ""
+        
         return comment
     
     def _extract_disease_tags(self, comment: str) -> str:
