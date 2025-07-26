@@ -70,7 +70,7 @@ export default function HorsesPage() {
   useEffect(() => {
     fetchData();
     // ページタイトルを設定
-    document.title = 'サラオクDB | 馬一覧';
+    document.title = 'サラオクDB | 直近の追加';
   }, []);
 
   const fetchData = async () => {
@@ -81,8 +81,22 @@ export default function HorsesPage() {
       if (!response.ok) {
         throw new Error('データの取得に失敗しました');
       }
-      const data = await response.json();
-      setData(data);
+      const jsonData = await response.json();
+      
+      // 直近1週間以内に追加された馬をフィルタリング
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      
+      const recentHorses = {
+        ...jsonData,
+        horses: jsonData.horses.filter((horse: Horse) => {
+          if (!horse.created_at) return false;
+          const createdAt = new Date(horse.created_at);
+          return createdAt > oneWeekAgo;
+        })
+      };
+      
+      setData(recentHorses);
     } catch (err) {
       setError('データの読み込みに失敗しました');
       console.error('Error fetching data:', err);
@@ -104,13 +118,23 @@ export default function HorsesPage() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">エラー</h2>
-          <p className="text-gray-600 mb-4">{error || 'データが見つかりません'}</p>
-          <Button onClick={fetchData} className="bg-blue-600 hover:bg-blue-700">
-            再試行
-          </Button>
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">直近の追加</h1>
+                <p className="text-gray-600">直近1週間以内に追加された馬の一覧です。</p>
+              </div>
+              <div className="text-sm text-gray-500">
+                現在の日時: {new Date().toLocaleString('ja-JP')}
+              </div>
+            </div>
+            <p className="text-gray-600 mb-4">{error || 'データが見つかりません'}</p>
+            <Button onClick={fetchData} className="bg-blue-600 hover:bg-blue-700">
+              再試行
+            </Button>
+          </div>
         </div>
       </div>
     );

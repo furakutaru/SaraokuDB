@@ -6,60 +6,27 @@ import HorseImage from '@/components/HorseImage';
 import Link from 'next/link';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
+import { Horse, HorseData, HorseHistory } from '@/types/horse';
 
-interface HorseHistory {
-  auction_date: string;
-  name: string;
-  sex: string;
-  age: string;
-  seller: string;
-  race_record: string;
-  comment: string;
-  sold_price: number;
-  total_prize_start: number;
-  detail_url?: string; // サラオク公式ページへのリンク
-}
-
-interface Horse {
-  id: number;
-  name: string;
-  sex: string;
-  age: number | string;
-  sire: string;
-  dam: string;
-  seller: string;
-  sold_price: number | string;
-  auction_date: string;
-  jbis_url: string;
-  primary_image: string;
-  // historyを追加
-  history?: HorseHistory[];
-  // detail_urlも追加
-  detail_url?: string;
-}
-
-interface Metadata {
-  last_updated: string;
-  total_horses: number;
-  average_price: number;
-}
-
-interface HorseData {
-  metadata: Metadata;
-  horses: Horse[];
-}
-
-const formatPrice = (price: number | null | undefined) => {
+const formatPrice = (price: number | string | null | undefined) => {
   if (price === null || price === undefined) return '-';
-  return '¥' + price.toLocaleString();
+  const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+  if (isNaN(numPrice)) return '-';
+  return '¥' + numPrice.toLocaleString();
 };
+
 const formatPrize = (val: number | string | null | undefined) => {
-  if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
-  return `${Number(val).toFixed(1)}万円`;
+  if (val === null || val === undefined || val === '') return '-';
+  const numVal = Number(val);
+  if (isNaN(numVal)) return '-';
+  return `${numVal.toFixed(1)}万円`;
 };
-const calcROI = (prize: number, price: number) => {
-  if (!price || price === 0) return '-';
-  return (prize / price).toFixed(2);
+
+const calcROI = (prize: number | undefined, price: number | string | undefined): string => {
+  if (!prize || !price) return '-';
+  const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+  if (isNaN(numPrice) || numPrice === 0) return '-';
+  return (prize / numPrice).toFixed(2);
 };
 
 export default function DashboardPage() {
@@ -99,51 +66,95 @@ export default function DashboardPage() {
   }
 
   // 最新履歴を抽出
-  const horsesWithLatest = data.horses.map(horse => {
-    let latest = {} as HorseHistory;
+  type HorseWithLatest = Horse & {
+    total_prize_start: number | undefined;
+    total_prize_latest: number | undefined;
+    sold_price: number | string | undefined;
+    unsold: boolean;
+  };
+
+  const horsesWithLatest: HorseWithLatest[] = data.horses.map(horse => {
+    let latest: Partial<HorseHistory> = {};
     if (horse.history && horse.history.length > 0) {
       latest = horse.history[horse.history.length - 1];
     }
     return {
       ...horse,
       ...latest,
-      detail_url: latest.detail_url || horse.detail_url // detail_urlも最新履歴優先で
-    };
-  }) as any[];
+      detail_url: latest.detail_url || horse.detail_url, // detail_urlも最新履歴優先で
+      total_prize_start: latest.total_prize_start ?? horse.total_prize_start,
+      total_prize_latest: latest.total_prize_latest ?? horse.total_prize_latest,
+      sold_price: latest.sold_price ?? horse.sold_price,
+      unsold: horse.unsold_count ? horse.unsold_count > 0 : false
+    } as HorseWithLatest;
+  });
 
   // 主取り馬除外
   let horses = horsesWithLatest.filter(h => !h.unsold_count || h.unsold_count === 0);
 
+  // 型ガード関数
+  const isNumber = (value: unknown): value is number => {
+    return typeof value === 'number' && !isNaN(value);
+  };
+
   // サマリー
   const avgROI = horses.length > 0 ? (
-    horses.reduce((sum, h) => sum + (h.sold_price > 0 ? h.total_prize_latest / h.sold_price : 0), 0) / horses.length
+    horses.reduce((sum, h) => {
+      const soldPrice = typeof h.sold_price === 'number' ? h.sold_price : 0;
+      const prizeLatest = h.total_prize_latest || 0;
+      return sum + (soldPrice > 0 ? prizeLatest / soldPrice : 0);
+    }, 0) / horses.length
   ) : 0;
 
   // 指標ボタン用データ
   const roiRanking = [...horses]
-    .filter(h => h.sold_price > 0)
-    .sort((a, b) => (b.total_prize_latest / b.sold_price) - (a.total_prize_latest / a.sold_price))
+    .filter(h => {
+      const soldPrice = typeof h.sold_price === 'number' ? h.sold_price : 0;
+      return soldPrice > 0 && h.total_prize_latest;
+    })
+    .sort((a, b) => {
+      const aSoldPrice = typeof a.sold_price === 'number' ? a.sold_price : 0;
+      const bSoldPrice = typeof b.sold_price === 'number' ? b.sold_price : 0;
+      const aROI = a.total_prize_latest ? a.total_prize_latest / aSoldPrice : 0;
+      const bROI = b.total_prize_latest ? b.total_prize_latest / bSoldPrice : 0;
+      return bROI - aROI;
+    })
     .slice(0, 10);
-  const valueHorses = horses.filter(h => h.sold_price > 0 && (h.total_prize_latest / h.sold_price) > avgROI && h.sold_price < data.metadata.average_price);
+
+  const valueHorses = horses.filter(h => {
+    const soldPrice = typeof h.sold_price === 'number' ? h.sold_price : 0;
+    const roi = h.total_prize_latest && soldPrice > 0 ? h.total_prize_latest / soldPrice : 0;
+    return soldPrice > 0 && roi > avgROI && soldPrice < data.metadata.average_price;
+  });
 
   // 表示切替
-  let tableHorses = horses;
-  if (showType === 'roi') tableHorses = roiRanking;
-  if (showType === 'value') tableHorses = valueHorses;
+  let tableHorses: (Horse & HorseWithLatest)[] = [...horses];
+  if (showType === 'roi') tableHorses = [...roiRanking] as (Horse & HorseWithLatest)[];
+  if (showType === 'value') tableHorses = [...valueHorses] as (Horse & HorseWithLatest)[];
 
   // ソート関数
-  const sortFunctions: { [key: string]: (a: any, b: any) => number } = {
-    name: (a, b) => a.name.localeCompare(b.name, 'ja'),
-    sex: (a, b) => a.sex.localeCompare(b.sex, 'ja'),
-    age: (a, b) => a.age - b.age,
-    sire: (a, b) => a.sire.localeCompare(b.sire, 'ja'),
-    sold_price: (a, b) => a.sold_price - b.sold_price,
-    total_prize_start: (a, b) => a.total_prize_start - b.total_prize_start,
-    total_prize_latest: (a, b) => a.total_prize_latest - b.total_prize_latest,
+  const sortFunctions: { [key: string]: (a: Horse & HorseWithLatest, b: Horse & HorseWithLatest) => number } = {
+    name: (a, b) => (a.name || '').localeCompare(b.name || '', 'ja'),
+    sex: (a, b) => (a.sex || '').localeCompare(b.sex || '', 'ja'),
+    age: (a, b) => {
+      const ageA = typeof a.age === 'number' ? a.age : parseFloat(a.age as string) || 0;
+      const ageB = typeof b.age === 'number' ? b.age : parseFloat(b.age as string) || 0;
+      return ageA - ageB;
+    },
+    sire: (a, b) => (a.sire || '').localeCompare(b.sire || '', 'ja'),
+    sold_price: (a, b) => {
+      const aPrice = typeof a.sold_price === 'number' ? a.sold_price : 0;
+      const bPrice = typeof b.sold_price === 'number' ? b.sold_price : 0;
+      return aPrice - bPrice;
+    },
+    total_prize_start: (a, b) => (a.total_prize_start || 0) - (b.total_prize_start || 0),
+    total_prize_latest: (a, b) => (a.total_prize_latest || 0) - (b.total_prize_latest || 0),
     roi: (a, b) => {
-      const ra = a.sold_price > 0 ? a.total_prize_latest / a.sold_price : 0;
-      const rb = b.sold_price > 0 ? b.total_prize_latest / b.sold_price : 0;
-      return ra - rb;
+      const aSoldPrice = typeof a.sold_price === 'number' ? a.sold_price : 0;
+      const bSoldPrice = typeof b.sold_price === 'number' ? b.sold_price : 0;
+      const aROI = a.total_prize_latest && aSoldPrice > 0 ? a.total_prize_latest / aSoldPrice : 0;
+      const bROI = b.total_prize_latest && bSoldPrice > 0 ? b.total_prize_latest / bSoldPrice : 0;
+      return aROI - bROI;
     },
   };
 
@@ -170,10 +181,17 @@ export default function DashboardPage() {
     return sortOrder === 'asc' ? <FaSortUp className="inline ml-1 text-blue-600" /> : <FaSortDown className="inline ml-1 text-blue-600" />;
   };
 
-  const displayPrice = (price: number | null | undefined, unsold: boolean | undefined) => {
+  const displayPrice = (price: number | string | null | undefined, unsold: boolean | undefined = false) => {
     if (unsold === true) return '主取り';
-    if (price === null || price === undefined) return '-';
-    return '¥' + price.toLocaleString();
+    if (price === null || price === undefined || price === '') return '-';
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+    if (isNaN(numPrice)) return '-';
+    return '¥' + numPrice.toLocaleString();
+  };
+  
+  // Helper function to safely get detail URL
+  const getDetailUrl = (horse: Horse & HorseWithLatest): string | undefined => {
+    return horse.detail_url || (horse.history && horse.history.length > 0 ? horse.history[0].detail_url : undefined);
   };
 
   return (
@@ -231,7 +249,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {(tableHorses as any[]).map((horse) => (
+                {tableHorses.map((horse) => (
                   <tr key={horse.id} className="hover:bg-blue-50">
                     <td className="px-3 py-2 font-medium text-gray-900">
                       <Link href={`/horses/${horse.id}`} className="hover:underline text-blue-700">{horse.name}</Link>
@@ -239,13 +257,17 @@ export default function DashboardPage() {
                     <td className="px-3 py-2">{horse.sex}</td>
                     <td className="px-3 py-2">{horse.age}</td>
                     <td className="px-3 py-2">{horse.sire}</td>
-                    <td className="px-3 py-2">{displayPrice(horse.sold_price, horse.unsold)}</td>
+                    <td className="px-3 py-2">
+                      {displayPrice(horse.sold_price, horse.unsold_count ? horse.unsold_count > 0 : undefined)}
+                    </td>
                     <td className="px-3 py-2">{formatPrize(horse.total_prize_start)}</td>
                     <td className="px-3 py-2">{formatPrize(horse.total_prize_latest)}</td>
-                    <td className="px-3 py-2">{calcROI(horse.total_prize_latest, horse.sold_price)}</td>
+                    <td className="px-3 py-2">
+                      {calcROI(horse.total_prize_latest, horse.sold_price)}
+                    </td>
                     <td className="px-3 py-2">
                       {horse.primary_image ? (
-                        <HorseImage src={horse.primary_image} alt={horse.name} className="w-12 h-12 object-contain rounded bg-gray-100" />
+                        <HorseImage src={horse.primary_image} alt={horse.name || 'Horse image'} className="w-12 h-12 object-contain rounded bg-gray-100" />
                       ) : (
                         <span className="text-gray-400">No Image</span>
                       )}
@@ -255,8 +277,8 @@ export default function DashboardPage() {
                         {horse.jbis_url && (
                           <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">JBIS</a>
                         )}
-                        {horse.detail_url && (
-                          <a href={horse.detail_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">サラオク</a>
+                        {getDetailUrl(horse) && (
+                          <a href={getDetailUrl(horse)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">サラオク</a>
                         )}
                       </div>
                     </td>
