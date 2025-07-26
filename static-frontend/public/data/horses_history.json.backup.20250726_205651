@@ -1,14 +1,14 @@
 {
   "metadata": {
-    "last_updated": "2025-07-26T20:56:51.438878",
+    "last_updated": "2025-07-26T20:56:27.848408",
     "total_horses": 45,
     "average_price": 1380697,
     "auction_date": "2025-07-26",
     "history_reset": true,
-    "reset_date": "2025-07-26T20:56:51.438891",
+    "reset_date": "2025-07-26T20:56:27.848422",
     "horses_reset": 10,
-    "total_history_before": 55,
-    "total_history_after": 45
+    "total_history_before": 65,
+    "total_history_after": 55
   },
   "horses": [
     {
@@ -23,6 +23,24 @@
       "created_at": "2025-07-25T00:19:06.961017",
       "updated_at": "2025-07-26T17:10:10.335444",
       "history": [
+        {
+          "auction_date": "2025-07-20",
+          "name": "スリーカーニバルの23",
+          "sex": "牝",
+          "age": "2",
+          "seller": "(株) サンティスト",
+          "sold_price": 1000000,
+          "start_price": null,
+          "bid_num": 0,
+          "unsold": true,
+          "comment": "",
+          "race_record": "",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14510",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_01/1.jpg",
+          "disease_tags": "なし",
+          "weight": 511
+        },
         {
           "auction_date": "2025-07-23",
           "name": "スリーカーニバルの23",
@@ -58,6 +76,24 @@
       "updated_at": "2025-07-26T17:10:11.905791",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "ベルキューズの22",
+          "sex": "牝",
+          "age": "3",
+          "seller": "小林 祥晃",
+          "sold_price": 2010000,
+          "start_price": null,
+          "bid_num": 42,
+          "unsold": false,
+          "comment": "",
+          "race_record": "",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14511",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_02/1.jpeg",
+          "disease_tags": "なし",
+          "weight": 514
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "ベルキューズの22",
           "sex": "牝",
@@ -91,6 +127,24 @@
       "created_at": "2025-07-25T00:19:06.961063",
       "updated_at": "2025-07-26T17:10:13.486779",
       "history": [
+        {
+          "auction_date": "2025-07-20",
+          "name": "ナツキアンレーヴ",
+          "sex": "牡",
+          "age": "2",
+          "seller": "ホースアディクト",
+          "sold_price": 4500000,
+          "start_price": null,
+          "bid_num": 1,
+          "unsold": false,
+          "comment": "",
+          "race_record": "",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14512",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_03/1.jpeg",
+          "disease_tags": "なし",
+          "weight": 405
+        },
         {
           "auction_date": "2025-07-23",
           "name": "ナツキアンレーヴ",
@@ -126,6 +180,24 @@
       "updated_at": "2025-07-26T16:14:18.840833",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "アンファング",
+          "sex": "牡",
+          "age": "3",
+          "seller": "林 正道",
+          "sold_price": 1340000,
+          "start_price": null,
+          "bid_num": 73,
+          "unsold": false,
+          "comment": "",
+          "race_record": "4戦0勝［0-0-0-4］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14513",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_04/1.JPG",
+          "disease_tags": "なし",
+          "weight": 500
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "アンファング",
           "sex": "牡",
@@ -159,6 +231,24 @@
       "created_at": "2025-07-25T00:19:06.961121",
       "updated_at": "2025-07-26T16:14:20.418873",
       "history": [
+        {
+          "auction_date": "2025-07-20",
+          "name": "カナメイシ",
+          "sex": "牝",
+          "age": "3",
+          "seller": "(株) 協栄",
+          "sold_price": 710000,
+          "start_price": null,
+          "bid_num": 32,
+          "unsold": false,
+          "comment": "",
+          "race_record": "5戦0勝［0-0-0-5］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14514",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_05/1.jpeg",
+          "disease_tags": "なし",
+          "weight": 454
+        },
         {
           "auction_date": "2025-07-23",
           "name": "カナメイシ",
@@ -194,6 +284,24 @@
       "updated_at": "2025-07-26T16:14:22.009183",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "キョウエイレッド",
+          "sex": "牝",
+          "age": "3",
+          "seller": "田中 晴夫",
+          "sold_price": 770000,
+          "start_price": null,
+          "bid_num": 44,
+          "unsold": false,
+          "comment": "",
+          "race_record": "3戦0勝［0-0-0-3］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14515",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_06/1.JPG",
+          "disease_tags": "なし",
+          "weight": 406
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "キョウエイレッド",
           "sex": "牝",
@@ -227,6 +335,24 @@
       "created_at": "2025-07-25T00:19:06.961182",
       "updated_at": "2025-07-26T16:14:23.582554",
       "history": [
+        {
+          "auction_date": "2025-07-20",
+          "name": "クリノアラジン",
+          "sex": "牡",
+          "age": "3",
+          "seller": "栗本 依利子",
+          "sold_price": 730000,
+          "start_price": null,
+          "bid_num": 19,
+          "unsold": false,
+          "comment": "",
+          "race_record": "4戦0勝［0-0-0-4］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14516",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_07/1.jpg",
+          "disease_tags": "なし",
+          "weight": 436
+        },
         {
           "auction_date": "2025-07-23",
           "name": "クリノアラジン",
@@ -262,6 +388,24 @@
       "updated_at": "2025-07-26T16:14:25.286663",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "ゴールドエンペラー",
+          "sex": "牡",
+          "age": "3",
+          "seller": "(株) ノルマンディーサラブレッドR",
+          "sold_price": 1100000,
+          "start_price": null,
+          "bid_num": 37,
+          "unsold": false,
+          "comment": "",
+          "race_record": "3戦0勝［0-0-0-3］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14518",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_09/1.jpg",
+          "disease_tags": "なし",
+          "weight": 500
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "ゴールドエンペラー",
           "sex": "牡",
@@ -296,6 +440,24 @@
       "updated_at": "2025-07-26T16:14:26.861982",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "スエズマックス",
+          "sex": "牡",
+          "age": "3",
+          "seller": "服部 健太郎",
+          "sold_price": 2000000,
+          "start_price": null,
+          "bid_num": 99,
+          "unsold": false,
+          "comment": "",
+          "race_record": "3戦0勝［0-0-0-3］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14519",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_10/1.JPG",
+          "disease_tags": "なし",
+          "weight": 486
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "スエズマックス",
           "sex": "牡",
@@ -329,6 +491,24 @@
       "created_at": "2025-07-25T00:19:06.961293",
       "updated_at": "2025-07-26T16:14:28.509213",
       "history": [
+        {
+          "auction_date": "2025-07-20",
+          "name": "セージブラッシュ",
+          "sex": "牡",
+          "age": "3",
+          "seller": "(有) ビッグレッドファーム",
+          "sold_price": 1380000,
+          "start_price": null,
+          "bid_num": 66,
+          "unsold": false,
+          "comment": "",
+          "race_record": "5戦0勝［0-0-0-5］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14520",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_11/1.JPG",
+          "disease_tags": "なし",
+          "weight": 480
+        },
         {
           "auction_date": "2025-07-23",
           "name": "セージブラッシュ",
