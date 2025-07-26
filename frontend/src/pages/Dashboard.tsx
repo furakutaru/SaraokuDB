@@ -1,9 +1,10 @@
-"use client";
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from '../../static-frontend/src/components/ui/card';
-import { Button } from '../../static-frontend/src/components/ui/button';
-import HorseImage from '../../static-frontend/src/components/HorseImage';
-import Link from 'next/link';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import HorseImage from '../components/HorseImage';
+import { MissingDataSummaryAlert } from '../components/MissingDataAlert';
+import { getMissingDataSummary } from '../utils/dataValidation';
 
 interface Horse {
   id: number;
@@ -87,6 +88,9 @@ export default function DashboardPage() {
     return <div className="min-h-screen flex items-center justify-center text-red-600">{error || 'データがありません'}</div>;
   }
 
+  // 不足データのサマリーを取得
+  const missingDataSummary = getMissingDataSummary(data.horses);
+
   // 主取り馬除外
   const horses = data.horses.filter(h => !h.unsold_count || h.unsold_count === 0);
 
@@ -107,8 +111,20 @@ export default function DashboardPage() {
   if (showType === 'roi') tableHorses = roiRanking;
   if (showType === 'value') tableHorses = valueHorses;
 
+  const navigate = useNavigate();
+
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-8">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+      {/* 不足データアラート */}
+      <div className="mb-6">
+        <MissingDataSummaryAlert 
+          summary={missingDataSummary} 
+          onViewDetails={() => {
+            // 馬一覧ページに遷移（フィルター付き）
+            navigate('/horses?missing_data=true');
+          }}
+        />
+      </div>
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">ダッシュボード</h1>
         {/* サマリー */}
