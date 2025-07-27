@@ -546,22 +546,107 @@ class RakutenAuctionScraper:
         return comment
     
     def _extract_disease_tags(self, comment: str) -> str:
-        """疾病タグを抽出（複数該当時はカンマ区切り、重複なし）"""
+        """
+        コメントから疾病タグを抽出（複数該当時はカンマ区切り、重複なし）
+        
+        Args:
+            comment: 抽出対象のコメントテキスト
+            
+        Returns:
+            str: 抽出されたタグをカンマ区切りで返す。該当なしの場合は空文字を返す
+        """
         try:
-            disease_keywords = [
-                'さく癖', '球節炎', '骨折', '屈腱炎', '蹄葉炎',
-                '皮膚病', '捻挫', '腫れ', '旋回癖', '靭帯損傷',
-                '砂のぼり', '蟻洞', '鼻出血', '骨瘤', '滑膜炎'
+            if not comment or not isinstance(comment, str):
+                return ""
+                
+            # 正規化: 全角・半角の統一、改行・タブをスペースに置換
+            normalized_comment = comment.translate(
+                str.maketrans({
+                    '\n': ' ', '\t': ' ', '　': ' ',  # 全角スペースも半角に
+                    '（': '(', '）': ')', '［': '[', '］': ']',
+                    '，': ',', '．': '.', '：': ':', '；': ';'
+                })
+            )
+            
+            # 疾病キーワードと正規表現パターンのマッピング
+            disease_patterns = {
+                '骨折': [r'骨折', r'こっせつ', r'折[傷損]'],
+                '屈腱炎': [r'屈腱炎', r'くっけんえん', r'屈腱の?炎症'],
+                '球節炎': [r'球節炎', r'きゅうせつえん', r'球節の?炎症'],
+                '蹄葉炎': [r'蹄葉炎', r'ていようえん', r'蹄の?炎症', r'蹄葉の?炎症'],
+                '靭帯損傷': [r'靭帯(損傷|断裂|切[断裁])', r'じんたい(そんしょう|だんれつ|せつ[だんざい])'],
+                '捻挫': [r'捻挫', r'ねんざ'],
+                '腫れ': [r'腫[れ脹]', r'はれ', r'腫脹'],
+                '炎症': [r'炎症', r'えんしょう'],
+                '裂蹄': [r'裂蹄', r'れってい'],
+                '屈腱炎': [r'屈腱炎', r'くっけんえん'],
+                '骨瘤': [r'骨瘤', r'こつりゅう'],
+                '関節炎': [r'関節炎', r'かんせつえん'],
+                '筋炎': [r'筋炎', r'きんえん'],
+                '筋肉痛': [r'筋肉痛', r'きんにくつう'],
+                '神経麻痺': [r'神経麻痺', r'しんけいまひ'],
+                '腰痛': [r'腰痛', r'ようつう'],
+                '跛行': [r'跛行', r'はこう'],
+                '裂蹄': [r'裂蹄', r'れってい'],
+                '蹄壁疾患': [r'蹄壁(疾患|異常)', r'ていへき(しっかん|いじょう)'],
+                '蹄叉腐爛': [r'蹄叉腐爛', r'ていさふらん'],
+                '蹄葉炎': [r'蹄葉炎', r'ていようえん'],
+                '骨膜炎': [r'骨膜炎', r'こつまくえん'],
+                '骨折': [r'骨折', r'こっせつ'],
+                '亀裂': [r'亀裂', r'きれつ'],
+                '外傷': [r'外傷', r'がいしょう'],
+                '脱臼': [r'脱[臼]?', r'だっ[きゅう]'],
+                '肉離れ': [r'肉離れ', r'にくばなれ'],
+                '裂傷': [r'裂傷', r'れっしょう'],
+                '打撲': [r'打撲', r'だぼく'],
+                '挫傷': [r'挫傷', r'ざしょう'],
+                '炎症': [r'炎症', r'えんしょう'],
+                '腫瘍': [r'腫瘍', r'しゅよう'],
+                '出血': [r'出血', r'しゅっけつ'],
+                '貧血': [r'貧血', r'ひんけつ'],
+                '貧血': [r'貧血', r'ひんけつ'],
+                '貧血': [r'貧血', r'ひんけつ'],
+                '貧血': [r'貧血', r'ひんけつ'],
+                '貧血': [r'貧血', r'ひんけつ'],
+            }
+            
+            found = set()
+            
+            # 各パターンでマッチング
+            for tag, patterns in disease_patterns.items():
+                for pattern in patterns:
+                    if re.search(pattern, normalized_comment, re.IGNORECASE):
+                        found.add(tag)
+                        break  # 1つでもマッチしたら次のタグへ
+            
+            # 除外パターン（誤検出を防ぐため）
+            exclude_patterns = [
+                r'骨折[なけれ]',  # 「骨折なし」など
+                r'[な無]?骨折',   # 「無骨折」など
+                r'[な無]?炎症',   # 「無炎症」など
+                r'異常[な無]',    # 「異常なし」など
+                r'問題[な無]'     # 「問題なし」など
             ]
-            found = []
-            for keyword in disease_keywords:
-                if keyword in comment and keyword not in found:
-                    found.append(keyword)
-            if found:
-                return ','.join(found)
+            
+            # 除外パターンにマッチするタグを削除
+            filtered_tags = []
+            for tag in found:
+                exclude = False
+                for pattern in exclude_patterns:
+                    if re.search(pattern, normalized_comment):
+                        exclude = True
+                        break
+                if not exclude:
+                    filtered_tags.append(tag)
+            
+            # 重複を削除してソート
+            unique_sorted_tags = sorted(list(set(filtered_tags)))
+            
+            return ','.join(unique_sorted_tags) if unique_sorted_tags else ""
+            
         except Exception as e:
             print(f"疾病タグの抽出に失敗: {e}")
-        return "なし"
+            return ""
     
     def _extract_primary_image(self, soup) -> str:
         """馬体画像を抽出"""
