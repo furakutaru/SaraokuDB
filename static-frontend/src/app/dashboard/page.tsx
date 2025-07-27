@@ -132,13 +132,29 @@ export default function DashboardPage() {
   if (showType === 'roi') tableHorses = [...roiRanking] as (Horse & HorseWithLatest)[];
   if (showType === 'value') tableHorses = [...valueHorses] as (Horse & HorseWithLatest)[];
 
+  // 誕生日から年齢を計算するヘルパー関数
+  const calculateAge = (birthday: string): number => {
+    if (!birthday) return 0;
+    const birthDate = new Date(birthday.replace(/-/g, '/'));
+    if (isNaN(birthDate.getTime())) return 0;
+    
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   // ソート関数
   const sortFunctions: { [key: string]: (a: Horse & HorseWithLatest, b: Horse & HorseWithLatest) => number } = {
     name: (a, b) => (a.name || '').localeCompare(b.name || '', 'ja'),
     sex: (a, b) => (a.sex || '').localeCompare(b.sex || '', 'ja'),
     age: (a, b) => {
-      const ageA = typeof a.age === 'number' ? a.age : parseFloat(a.age as string) || 0;
-      const ageB = typeof b.age === 'number' ? b.age : parseFloat(b.age as string) || 0;
+      const ageA = calculateAge(a.birthday);
+      const ageB = calculateAge(b.birthday);
       return ageA - ageB;
     },
     sire: (a, b) => (a.sire || '').localeCompare(b.sire || '', 'ja'),
@@ -255,7 +271,7 @@ export default function DashboardPage() {
                       <Link href={`/horses/${horse.id}`} className="hover:underline text-blue-700">{horse.name}</Link>
                     </td>
                     <td className="px-3 py-2">{horse.sex}</td>
-                    <td className="px-3 py-2">{horse.age}</td>
+                    <td className="px-3 py-2">{calculateAge(horse.birthday)}歳</td>
                     <td className="px-3 py-2">{horse.sire}</td>
                     <td className="px-3 py-2">
                       {displayPrice(horse.sold_price, horse.unsold_count ? horse.unsold_count > 0 : undefined)}
