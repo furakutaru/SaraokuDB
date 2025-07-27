@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, use } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -344,41 +344,51 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
     );
   }
 
-  // 性別の色を取得
-  const getSexColor = (sex: string) => {
-    switch (sex) {
-      case '牡': return 'text-blue-600';
-      case '牝': return 'text-pink-600';
-      case 'セ': return 'text-purple-600';
-      default: return 'text-gray-600';
-    }
-  };
+  // 最新の履歴をメモ化
+  const latestHistory = useMemo(() => {
+    if (!horse.history || horse.history.length === 0) return null;
+    return horse.history[horse.history.length - 1];
+  }, [horse.history]);
 
-  // 性別アイコンを取得
-  const getSexIcon = (sex: string) => {
-    switch (sex) {
-      case '牡': return '♂';
-      case '牝': return '♀';
-      case 'セ': return '⚥';
-      default: return '';
-    }
-  };
+  // 性別の色とアイコンをメモ化
+  const { sexColor, sexIcon } = useMemo(() => {
+    // 馬の基本情報から性別を取得（履歴がなければデフォルトで空文字）
+    const sex = horse.sex || latestHistory?.sex || '';
+    let color = 'text-white';
+    let bgColor = 'bg-gray-200';
+    let icon = '';
 
-  // 最新の履歴を取得
-  const latestHistory = horse.history?.[horse.history.length - 1];
+    if (sex === '牡') {
+      bgColor = 'bg-blue-600';
+      icon = '♂';
+    } else if (sex === '牝') {
+      bgColor = 'bg-pink-500';
+      icon = '♀';
+    } else if (sex === 'セ' || sex === 'せん' || sex === 'セン') {
+      bgColor = 'bg-green-600';
+      color = 'text-white';
+      icon = '⚥';
+    }
+
+    return { 
+      sexColor: `text-white ${bgColor}`, // 常に白文字を強制
+      sexIcon: icon 
+    };
+  }, [latestHistory?.sex]);
+
   if (!latestHistory) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-500">履歴データがありません</p>
-          <Button asChild className="mt-4">
-            <Link href="/">トップに戻る</Link>
-          </Button>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">データが見つかりません</h1>
+          <p className="text-gray-600 mb-6">この馬の情報を取得できませんでした。</p>
+          <Link href="/horses">
+            <Button>馬一覧に戻る</Button>
+          </Link>
         </div>
       </div>
     );
   }
-
   // 最新履歴を取得
   const latest = horse.history[horse.history.length - 1];
 
@@ -402,11 +412,11 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
               戻る
             </button>
             <div className="flex gap-4">
-              <Link href="/dashboard">
+              <Link href="/">
                 <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">解析</Button>
               </Link>
               <Link href="/horses">
-                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">馬一覧</Button>
+                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">直近の追加</Button>
               </Link>
             </div>
           </div>
@@ -422,15 +432,12 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <h2 className="text-3xl font-bold text-gray-900">{latest.name}</h2>
-                    {/* 性別・年齢履歴 */}
-                    {toArray(latest.sex).map((sx, i) => {
-                      const age = Array.isArray(latest.age) ? latest.age[i] : latest.age;
-                      return (
-                        <Badge key={i} className={getSexColor(sx)}>
-                          {sx} {age}歳
-                        </Badge>
-                      );
-                    })}
+                    {/* 性別・年齢 */}
+                    <div className="flex items-center gap-2">
+                      <Badge className={sexColor}>
+                        {horse.sex || latestHistory?.sex} {latestHistory?.age || latest.age}歳
+                      </Badge>
+                    </div>
                   </div>
                   {/* JBISリンク */}
                   {horse.jbis_url && (
@@ -451,20 +458,20 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* 画像は最新履歴から取得 */}
-                  <div className="flex justify-center">
+                  <div className="flex justify-center w-full h-64">
                     {latest.primary_image ? (
-                      <HorseImage 
-                        src={latest.primary_image} 
-                        alt={latest.name} 
-                        className="w-64 h-64 object-contain rounded-lg shadow-lg bg-gray-100"
+                      <HorseImage
+                        src={latest.primary_image}
+                        alt={`${latest.name}の画像`}
+                        className="w-full h-full max-w-xs"
                       />
                     ) : (
-                      <div className="w-64 h-64 bg-gray-200 rounded-lg flex items-center justify-center">
+                      <div className="w-full max-w-xs h-64 bg-gray-200 rounded-lg flex items-center justify-center">
                         <div className="text-center text-gray-500">
                           <svg className="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
-                          <p>No Image</p>
+                          <p>画像なし</p>
                         </div>
                       </div>
                     )}
@@ -495,44 +502,20 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                           <span className="text-gray-600">レース成績:</span>
                           <span className="font-medium">{toArray(latest.race_record).join(' / ')}</span>
                         </div>
-                        {latest.disease_tags && latest.disease_tags !== 'なし' && (
-                          <div className="flex justify-between items-center mt-2">
-                            <span className="text-gray-600">病歴:</span>
-                            <div className="flex flex-wrap gap-1 justify-end">
-                              {latest.disease_tags.split(',').map((tag, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {tag.trim()}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {latest.disease_tags && latest.disease_tags !== 'なし' && (
-                          <div className="flex justify-between items-center mt-2">
-                            <span className="text-gray-600">病歴:</span>
-                            <div className="flex flex-wrap gap-1 justify-end">
-                              {latest.disease_tags.split(',').map((tag, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {tag.trim()}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                         {/* オークションページリンク */}
                         {latest.detail_url && (
-                          <div className="flex justify-between items-center">
+                          <div className="flex justify-between items-center mt-2">
                             <span className="text-gray-600">オークションページ:</span>
-                            <a
-                              href={latest.detail_url}
-                              target="_blank"
+                            <a 
+                              href={latest.detail_url} 
+                              target="_blank" 
                               rel="noopener noreferrer"
-                              className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                              className="text-blue-600 hover:underline text-sm flex items-center"
                             >
-                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              詳細を見る
+                              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                               </svg>
-                              詳細を見る
                             </a>
                           </div>
                         )}
@@ -558,17 +541,19 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                       </div>
                     </div>
 
-                    {/* 病歴 */}
-                    {((latest.disease_tags && String(latest.disease_tags).trim() !== '') || (horse.disease_tags && String(horse.disease_tags).trim() !== '')) && (
+                    {/* 病歴（血統の下に1箇所のみ表示） */}
+                    {((latest.disease_tags && String(latest.disease_tags).trim() !== '') || 
+                      (horse.disease_tags && String(horse.disease_tags).trim() !== '')) && (
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-3">病歴</h3>
                         <div className="flex flex-wrap gap-2">
-                          {(latest.disease_tags ? String(latest.disease_tags).split(',') : String(horse.disease_tags || '').split(',')).map((tag, index) => (
-                            tag.trim() && (
+                          {(latest.disease_tags || horse.disease_tags || '')
+                            .split(',')
+                            .filter(tag => tag.trim())
+                            .map((tag, index) => (
                               <Badge key={index} variant="secondary" className="bg-red-100 text-red-800">
                                 {tag.trim()}
                               </Badge>
-                            )
                           ))}
                         </div>
                       </div>

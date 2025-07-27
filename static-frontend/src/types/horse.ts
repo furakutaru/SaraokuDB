@@ -21,6 +21,7 @@ export interface Horse {
   id: number;
   name: string;
   sex: string;
+  age: string | number;
   color: string;
   birthday: string;
   history: HorseHistory[];
@@ -28,7 +29,7 @@ export interface Horse {
   dam: string;
   dam_sire: string;
   primary_image: string;
-  disease_tags: string;
+  disease_tags: string[];
   jbis_url: string;
   weight: number | null;
   unsold_count: number | null;

@@ -7,7 +7,21 @@ import AnalysisContent from '@/components/AnalysisContent';
 
 export default function Home() {
   const router = useRouter();
-  
+
+  // 最新の年齢を取得するヘルパー関数
+  const getLatestAge = (horse: Horse): string => {
+    // 最新の履歴から年齢を取得
+    if (horse.history && horse.history.length > 0) {
+      const latestHistory = horse.history[horse.history.length - 1];
+      // 年齢が数値でない場合は空文字を返す
+      if (latestHistory.age === undefined || latestHistory.age === null) return '';
+      // 数値の場合は文字列に変換して返す
+      return latestHistory.age.toString();
+    }
+    // 履歴がない場合はトップレベルの年齢を確認
+    return horse.age?.toString() || '';
+  };
+
   // ヘッダー部分を残して、コンテンツ部分をAnalysisContentに置き換え
   return (
     <>

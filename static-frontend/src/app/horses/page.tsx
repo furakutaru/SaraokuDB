@@ -221,11 +221,11 @@ export default function HorsesPage() {
               戻る
             </button>
             <div className="flex gap-4">
-              <Link href="/dashboard">
+              <Link href="/">
                 <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">解析</Button>
               </Link>
               <Link href="/horses">
-                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">馬一覧</Button>
+                <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">直近の追加</Button>
               </Link>
             </div>
           </div>

@@ -2,7 +2,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import HorseImage from '@/components/HorseImage';
 import Link from 'next/link';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
@@ -126,20 +125,10 @@ export default function AnalysisContent() {
   if (showType === 'roi') tableHorses = [...roiRanking] as (Horse & HorseWithLatest)[];
   if (showType === 'value') tableHorses = [...valueHorses] as (Horse & HorseWithLatest)[];
 
-  // 誕生日から年齢を計算するヘルパー関数
-  const calculateAge = (birthday: string): number => {
-    if (!birthday) return 0;
-    const birthDate = new Date(birthday.replace(/-/g, '/'));
-    if (isNaN(birthDate.getTime())) return 0;
-    
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
+  // 年齢を表示するヘルパー関数（スクレイピングデータをそのまま表示）
+  const displayAge = (age: string | number | null | undefined): string => {
+    if (age === null || age === undefined || age === '') return '-';
+    return `${age}歳`;
   };
 
   // ソート関数
@@ -147,8 +136,8 @@ export default function AnalysisContent() {
     name: (a, b) => (a.name || '').localeCompare(b.name || '', 'ja'),
     sex: (a, b) => (a.sex || '').localeCompare(b.sex || '', 'ja'),
     age: (a, b) => {
-      const ageA = calculateAge(a.birthday);
-      const ageB = calculateAge(b.birthday);
+      const ageA = typeof a.age === 'number' ? a.age : parseFloat(a.age as string) || 0;
+      const ageB = typeof b.age === 'number' ? b.age : parseFloat(b.age as string) || 0;
       return ageA - ageB;
     },
     sire: (a, b) => (a.sire || '').localeCompare(b.sire || '', 'ja'),
@@ -236,8 +225,8 @@ export default function AnalysisContent() {
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_start')}>オークション時賞金{renderSortIcon('total_prize_start')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_latest')}>現在賞金{renderSortIcon('total_prize_latest')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('roi')}>ROI{renderSortIcon('roi')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">リンク</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-48">病歴</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -247,7 +236,7 @@ export default function AnalysisContent() {
                     <Link href={`/horses/${horse.id}`} className="hover:underline text-blue-700">{horse.name}</Link>
                   </td>
                   <td className="px-3 py-2">{horse.sex}</td>
-                  <td className="px-3 py-2">{calculateAge(horse.birthday)}歳</td>
+                  <td className="px-3 py-2">{displayAge(horse.age)}</td>
                   <td className="px-3 py-2">{horse.sire}</td>
                   <td className="px-3 py-2">
                     {displayPrice(horse.sold_price, horse.unsold_count ? horse.unsold_count > 0 : undefined)}
@@ -258,13 +247,6 @@ export default function AnalysisContent() {
                     {calcROI(horse.total_prize_latest, horse.sold_price)}
                   </td>
                   <td className="px-3 py-2">
-                    {horse.primary_image ? (
-                      <HorseImage src={horse.primary_image} alt={horse.name || 'Horse image'} className="w-12 h-12 object-contain rounded bg-gray-100" />
-                    ) : (
-                      <span className="text-gray-400">No Image</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
                     <div className="flex flex-col gap-1">
                       {horse.jbis_url && (
                         <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">JBIS</a>
@@ -273,6 +255,34 @@ export default function AnalysisContent() {
                         <a href={getDetailUrl(horse)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">サラオク</a>
                       )}
                     </div>
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    {(() => {
+                      // 病歴が「なし」の馬を判定
+                      const isNoDisease = (tags: any) => {
+                        if (tags === undefined || tags === null || tags === '') return true;
+                        if (Array.isArray(tags)) {
+                          if (tags.length === 0) return true;
+                          return tags.every(tag => {
+                            const strTag = String(tag).trim();
+                            return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
+                          });
+                        }
+                        const strTag = String(tags).trim();
+                        return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
+                      };
+                      
+                      // 病歴が「なし」の場合は青で表示、それ以外はピンクで「あり」と表示
+                      return isNoDisease(horse.disease_tags) ? (
+                        <span className="text-xs font-medium bg-blue-50 text-blue-600 px-3 py-1 rounded-full whitespace-nowrap">
+                          なし
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium bg-pink-100 text-pink-800 px-3 py-1 rounded-full whitespace-nowrap">
+                          あり
+                        </span>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))}
