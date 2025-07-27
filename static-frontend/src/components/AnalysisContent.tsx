@@ -135,6 +135,7 @@ export default function AnalysisContent() {
   const sortFunctions: { [key: string]: (a: Horse & HorseWithLatest, b: Horse & HorseWithLatest) => number } = {
     name: (a, b) => (a.name || '').localeCompare(b.name || '', 'ja'),
     sex: (a, b) => (a.sex || '').localeCompare(b.sex || '', 'ja'),
+    weight: (a, b) => (a.weight || 0) - (b.weight || 0),
     age: (a, b) => {
       const ageA = typeof a.age === 'number' ? a.age : parseFloat(a.age as string) || 0;
       const ageB = typeof b.age === 'number' ? b.age : parseFloat(b.age as string) || 0;
@@ -221,12 +222,13 @@ export default function AnalysisContent() {
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('weight')}>馬体重 (kg){renderSortIcon('weight')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_start')}>オークション時賞金{renderSortIcon('total_prize_start')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_latest')}>現在賞金{renderSortIcon('total_prize_latest')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('roi')}>ROI{renderSortIcon('roi')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">リンク</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-48">病歴</th>
+                <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">リンク</th>
+                <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase w-24">病歴</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -238,6 +240,7 @@ export default function AnalysisContent() {
                   <td className="px-3 py-2">{horse.sex}</td>
                   <td className="px-3 py-2">{displayAge(horse.age)}</td>
                   <td className="px-3 py-2">{horse.sire}</td>
+                  <td className="px-3 py-2 text-right">{horse.weight ? `${horse.weight} kg` : '-'}</td>
                   <td className="px-3 py-2">
                     {displayPrice(horse.sold_price, horse.unsold_count ? horse.unsold_count > 0 : undefined)}
                   </td>
@@ -247,12 +250,12 @@ export default function AnalysisContent() {
                     {calcROI(horse.total_prize_latest, horse.sold_price)}
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 items-center">
                       {horse.jbis_url && (
-                        <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">JBIS</a>
+                        <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline whitespace-nowrap">JBIS</a>
                       )}
                       {getDetailUrl(horse) && (
-                        <a href={getDetailUrl(horse)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">サラオク</a>
+                        <a href={getDetailUrl(horse)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline whitespace-nowrap">サラオク</a>
                       )}
                     </div>
                   </td>
@@ -274,11 +277,11 @@ export default function AnalysisContent() {
                       
                       // 病歴が「なし」の場合は青で表示、それ以外はピンクで「あり」と表示
                       return isNoDisease(horse.disease_tags) ? (
-                        <span className="text-xs font-medium bg-blue-50 text-blue-600 px-3 py-1 rounded-full whitespace-nowrap">
+                        <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full whitespace-nowrap inline-block w-12">
                           なし
                         </span>
                       ) : (
-                        <span className="text-xs font-medium bg-pink-100 text-pink-800 px-3 py-1 rounded-full whitespace-nowrap">
+                        <span className="text-xs font-medium bg-pink-100 text-pink-800 px-2 py-0.5 rounded-full whitespace-nowrap inline-block w-12">
                           あり
                         </span>
                       );
