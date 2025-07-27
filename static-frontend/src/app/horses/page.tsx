@@ -83,16 +83,19 @@ export default function HorsesPage() {
       }
       const jsonData = await response.json();
       
-      // 直近1週間以内に追加された馬をフィルタリング
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      // 直近のオークションで取引された馬をフィルタリング
+      const latestAuctionDate = jsonData.metadata.auction_date;
       
       const recentHorses = {
         ...jsonData,
         horses: jsonData.horses.filter((horse: Horse) => {
-          if (!horse.created_at) return false;
-          const createdAt = new Date(horse.created_at);
-          return createdAt > oneWeekAgo;
+          // historyが存在する場合は最新のオークション日を確認
+          if (horse.history && horse.history.length > 0) {
+            const latestHistory = horse.history[horse.history.length - 1];
+            return latestHistory.auction_date === latestAuctionDate;
+          }
+          // historyがなく、馬自体のauction_dateが直近のオークション日と一致する場合
+          return horse.auction_date === latestAuctionDate;
         })
       };
       
