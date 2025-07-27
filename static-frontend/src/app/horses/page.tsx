@@ -282,7 +282,7 @@ export default function HorsesPage() {
         </div>
 
         {/* 馬一覧 */}
-        <div className="space-y-4 mb-8">
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           {filteredHorses.map((horse) => {
             // デバッグ用
             console.log('馬データ:', horse, 'id:', horse.id, typeof horse.id);
@@ -290,51 +290,62 @@ export default function HorsesPage() {
             if (horse.id == null) return null;
             
             return (
-              <Link key={horse.id} href={`/horses/${horse.id}`} className="block">
-                <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow cursor-pointer">
-                  <div className="flex items-center space-x-4">
-                    {/* 馬体画像 */}
-                    <div className="flex-shrink-0">
-                      {horse.primary_image ? (
-                        <HorseImage
-                          src={horse.primary_image}
-                          alt={horse.name}
-                          className="w-20 h-20 object-contain rounded-lg bg-gray-100"
-                        />
-                      ) : (
-                        <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400">No Image</div>
-                      )}
-                    </div>
-                    {/* 基本情報 */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900 mr-3">
-                          {horse.name}
-                        </h3>
-                        <Badge variant={horse.sex === '牡' ? 'default' : 'secondary'}>
-                          {horse.sex} {horse.age}歳
-                        </Badge>
+              <Link key={horse.id} href={`/horses/${horse.id}`} className="block h-full">
+                <div className="w-full bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer flex flex-col overflow-hidden">
+                  {/* 馬体画像 */}
+                  <div className="w-full">
+                    {horse.primary_image ? (
+                      <HorseImage
+                        src={horse.primary_image}
+                        alt={`${horse.name}の画像`}
+                        className="w-full max-w-full h-auto object-cover"
+                      />
+                    ) : (
+                      <div className="w-full bg-gray-100 aspect-[4/3] flex items-center justify-center text-gray-400">
+                        <span>No Image</span>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-600">落札価格:</span>
-                          <p className="font-semibold text-red-600">{displayPrice(horse.sold_price, horse.unsold)}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">販売者:</span>
-                          <p className="font-medium">{horse.seller || ''}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">体重:</span>
-                          <p className="font-medium">{horse.weight}kg</p>
-                        </div>
-                        {/* 成長率: すべての馬で必ず表示 */}
-                        <div>
-                          <span className="text-gray-600">成長率:</span>
-                          <p className={`font-semibold ${parseFloat(getGrowthRate(horse.total_prize_start || 0, horse.total_prize_latest)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {getGrowthRate(horse.total_prize_start || 0, horse.total_prize_latest)}%
-                          </p>
-                        </div>
+                    )}
+                  </div>
+                  {/* 馬情報 */}
+                  <div className="p-3 w-full">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="text-sm font-semibold line-clamp-1">{horse.name}</h3>
+                      <div className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                        {horse.sex} {horse.age}歳
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-1 text-xs text-gray-600 mb-2 w-full">
+                      <div className="col-span-2">
+                        <span className="font-medium">父</span>: {horse.sire || '不明'}
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">母</span>: {horse.dam || '不明'}
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">母父</span>: {horse.dam_sire || '不明'}
+                      </div>
+                    </div>
+                    
+                    <div className="mt-auto pt-2 border-t border-gray-100">
+                      <div className="flex justify-between items-center">
+                        <span className={`inline-block px-2 py-1 text-xs rounded ${
+                          horse.unsold 
+                            ? 'bg-gray-100 text-gray-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {horse.unsold ? '主取り' : `落札: ¥${(horse.sold_price || 0).toLocaleString()}`}
+                        </span>
+                        
+                        {horse.disease_tags && horse.disease_tags.length > 0 && horse.disease_tags !== 'なし' && horse.disease_tags !== 'なし。' ? (
+                          <span className="inline-block bg-pink-100 text-pink-800 text-xs px-2 py-1 rounded">
+                            病歴: あり
+                          </span>
+                        ) : (
+                          <span className="inline-block bg-blue-50 text-blue-600 text-xs px-2 py-1 rounded">
+                            病歴: なし
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

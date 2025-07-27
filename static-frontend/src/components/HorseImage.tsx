@@ -26,7 +26,8 @@ export default function HorseImage({
         alt={alt}
         width={width}
         height={height}
-        className={`transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+        className={`w-full h-auto transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+        style={{ width: '100%', height: 'auto' }}
         onLoadingComplete={() => setIsLoading(false)}
         onError={() => {
           setImgSrc('/placeholder-horse.jpg');
