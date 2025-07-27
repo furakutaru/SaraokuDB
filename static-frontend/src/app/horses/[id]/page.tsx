@@ -423,11 +423,14 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                   <div className="flex items-center space-x-4">
                     <h2 className="text-3xl font-bold text-gray-900">{latest.name}</h2>
                     {/* 性別・年齢履歴 */}
-                    {toArray(latest.sex).map((sx, i) => (
-                      <Badge key={i} className={getSexColor(sx)}>
-                        {sx} {toArray(latest.age)[i] ?? ''}歳
-                      </Badge>
-                    ))}
+                    {toArray(latest.sex).map((sx, i) => {
+                      const age = Array.isArray(latest.age) ? latest.age[i] : latest.age;
+                      return (
+                        <Badge key={i} className={getSexColor(sx)}>
+                          {sx} {age}歳
+                        </Badge>
+                      );
+                    })}
                   </div>
                   {/* JBISリンク */}
                   {horse.jbis_url && (
@@ -492,6 +495,30 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                           <span className="text-gray-600">レース成績:</span>
                           <span className="font-medium">{toArray(latest.race_record).join(' / ')}</span>
                         </div>
+                        {latest.disease_tags && latest.disease_tags !== 'なし' && (
+                          <div className="flex justify-between items-center mt-2">
+                            <span className="text-gray-600">病歴:</span>
+                            <div className="flex flex-wrap gap-1 justify-end">
+                              {latest.disease_tags.split(',').map((tag, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {tag.trim()}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {latest.disease_tags && latest.disease_tags !== 'なし' && (
+                          <div className="flex justify-between items-center mt-2">
+                            <span className="text-gray-600">病歴:</span>
+                            <div className="flex flex-wrap gap-1 justify-end">
+                              {latest.disease_tags.split(',').map((tag, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {tag.trim()}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         {/* オークションページリンク */}
                         {latest.detail_url && (
                           <div className="flex justify-between items-center">
