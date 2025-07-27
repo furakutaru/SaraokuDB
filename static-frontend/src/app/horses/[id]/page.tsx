@@ -532,15 +532,17 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                     </div>
 
                     {/* 病歴 */}
-                    {(horse.disease_tags && (String(horse.disease_tags).trim() !== '')) && (
+                    {((latest.disease_tags && String(latest.disease_tags).trim() !== '') || (horse.disease_tags && String(horse.disease_tags).trim() !== '')) && (
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-3">病歴</h3>
                         <div className="flex flex-wrap gap-2">
-                          {String(horse.disease_tags).split(',').map((tag, index) => (
-                                <Badge key={index} variant="secondary" className="bg-red-100 text-red-800">
-                                  {tag.trim() || '-'}
-                                </Badge>
-                              ))}
+                          {(latest.disease_tags ? String(latest.disease_tags).split(',') : String(horse.disease_tags || '').split(',')).map((tag, index) => (
+                            tag.trim() && (
+                              <Badge key={index} variant="secondary" className="bg-red-100 text-red-800">
+                                {tag.trim()}
+                              </Badge>
+                            )
+                          ))}
                         </div>
                       </div>
                     )}
