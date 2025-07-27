@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AnalysisContent from '@/components/AnalysisContent';
+import { Horse } from '@/types/horse';
 
 export default function Home() {
   const router = useRouter();
