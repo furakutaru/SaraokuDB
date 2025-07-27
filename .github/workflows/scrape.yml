@@ -26,11 +26,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4 lxml
 
-      - name: Run scraper
-        run: python scripts/scrape.py
-      
-      - name: Update with JBIS data
-        run: python scripts/update_jbis_data.py
+      - name: Run accumulative scraper
+        run: python scripts/accumulative_scraper.py
 
       - name: Commit & Push scraped data
         run: |
