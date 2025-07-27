@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "last_updated": "2025-07-28T08:17:16.609637",
+    "last_updated": "2025-07-28T01:56:50.612213",
     "total_horses": 54,
     "average_price": 1352156,
-    "auction_date": "2025-07-28",
-    "added_horses": 0,
-    "updated_horses": 9
+    "auction_date": "2025-07-27",
+    "added_horses": 9,
+    "updated_horses": 0
   },
   "horses": [
     {
@@ -1548,7 +1548,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14556",
       "created_at": "2025-07-27T15:16:03.133763",
-      "updated_at": "2025-07-28T08:17:16.607909",
+      "updated_at": "2025-07-28T01:56:36.420414",
       "history": [
         {
           "auction_date": "2025-07-27",
@@ -1582,7 +1582,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14557",
       "created_at": "2025-07-27T15:16:03.133838",
-      "updated_at": "2025-07-28T08:17:16.608161",
+      "updated_at": "2025-07-28T01:56:38.012110",
       "history": [
         {
           "auction_date": "2025-07-27",
@@ -1616,7 +1616,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14558",
       "created_at": "2025-07-27T15:16:03.133907",
-      "updated_at": "2025-07-28T08:17:16.608367",
+      "updated_at": "2025-07-28T01:56:39.589617",
       "history": [
         {
           "auction_date": "2025-07-27",
@@ -1650,7 +1650,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14559",
       "created_at": "2025-07-27T15:16:03.133977",
-      "updated_at": "2025-07-28T08:17:16.608567",
+      "updated_at": "2025-07-28T01:56:41.172683",
       "history": [
         {
           "auction_date": "2025-07-27",
@@ -1684,7 +1684,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14560",
       "created_at": "2025-07-27T15:16:03.134049",
-      "updated_at": "2025-07-28T08:17:16.608802",
+      "updated_at": "2025-07-28T01:56:42.752020",
       "history": [
         {
           "auction_date": "2025-07-27",
@@ -1718,7 +1718,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14561",
       "created_at": "2025-07-27T15:16:03.134122",
-      "updated_at": "2025-07-28T08:17:16.608958",
+      "updated_at": "2025-07-28T01:56:44.334329",
       "history": [
         {
           "auction_date": "2025-07-27",
@@ -1752,7 +1752,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14562",
       "created_at": "2025-07-27T15:16:03.134196",
-      "updated_at": "2025-07-28T08:17:16.609147",
+      "updated_at": "2025-07-28T01:56:45.916197",
       "history": [
         {
           "auction_date": "2025-07-27",
@@ -1786,7 +1786,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14563",
       "created_at": "2025-07-27T15:16:03.134306",
-      "updated_at": "2025-07-28T08:17:16.609326",
+      "updated_at": "2025-07-28T01:56:47.498022",
       "history": [
         {
           "auction_date": "2025-07-27",
@@ -1820,7 +1820,7 @@
       "netkeiba_url": null,
       "detail_url": "https://auction.keiba.rakuten.co.jp/item/14564",
       "created_at": "2025-07-27T15:16:03.134382",
-      "updated_at": "2025-07-28T08:17:16.609571",
+      "updated_at": "2025-07-28T01:56:49.107342",
       "history": [
         {
           "auction_date": "2025-07-27",

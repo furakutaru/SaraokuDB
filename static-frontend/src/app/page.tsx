@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AnalysisContent from '@/components/AnalysisContent';
 import { Horse } from '@/types/horse';
+import { DataIntegrityAlert } from '@/components/DataIntegrityAlert';
 
 export default function Home() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function Home() {
   // ヘッダー部分を残して、コンテンツ部分をAnalysisContentに置き換え
   return (
     <>
+      <DataIntegrityAlert />
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">

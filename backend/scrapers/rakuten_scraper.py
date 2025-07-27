@@ -366,7 +366,21 @@ class RakutenAuctionScraper:
 
             # その他（既存ロジック）
             detail_data['weight'] = self._extract_weight(soup)
-            detail_data['race_record'] = self._extract_race_record(soup)
+            
+            # レース成績を取得（未出走の場合は「未出走」、成績が見つからない場合はNoneが返る）
+            race_record = self._extract_race_record(soup)
+            detail_data['race_record'] = race_record or ''  # Noneの場合は空文字列に
+            
+            # 明示的に未出走と記載がある場合のみ賞金を0.0に設定
+            if race_record == '未出走':
+                detail_data['total_prize_start'] = 0.0
+                detail_data['total_prize_latest'] = 0.0
+                detail_data['prize'] = "0.0万円"
+                print(f"  - 未出走馬のため総賞金を0.0万円に設定")
+            # 成績が見つからない場合はログを出力（エラー検知のため）
+            elif race_record is None:
+                print(f"  - 警告: レース成績が見つかりませんでした")
+            
             detail_data['disease_tags'] = self._extract_disease_tags(detail_data.get('comment', ''))
             detail_data['primary_image'] = self._extract_primary_image(soup)
             detail_data['jbis_url'] = self._extract_jbis_url(soup)
@@ -453,19 +467,36 @@ class RakutenAuctionScraper:
             print(f"馬体重の抽出に失敗: {e}")
         return None
     
-    def _extract_race_record(self, soup) -> str:
-        """成績を抽出"""
+    def _extract_race_record(self, soup) -> Optional[str]:
+        """
+        成績を抽出
+        
+        Returns:
+            Optional[str]: 
+                - レース成績（例: "24戦4勝［4-6-2-12］"）
+                - 明示的に未出走の場合は「未出走」
+                - 成績が見つからない場合はNone
+        """
         try:
             page_text = soup.get_text()
+            
             # 成績パターンを探す（例: "24戦4勝［4-6-2-12］"）
             record_match = re.search(r'(\d+戦\d+勝［\d+-\d+-\d+-\d+］)', page_text)
             if record_match:
                 result = record_match.group(1)
                 if result is not None:
                     return str(result)
+            
+            # 明示的に未出走と記載がある場合のみ「未出走」を返す
+            if '未出走' in page_text or '出走前' in page_text:
+                return "未出走"
+            
+            # 成績が見つからない場合はNoneを返す
+            return None
+            
         except Exception as e:
             print(f"成績の抽出に失敗: {e}")
-        return ""
+            return None  # エラー時はNoneを返す
     
     def _extract_comment(self, soup) -> str:
         """
@@ -740,7 +771,7 @@ class RakutenAuctionScraper:
         return ""
 
     def _extract_jbis_url(self, soup) -> str:
-        """JBIS URLを抽出（基本情報を優先）"""
+        """JBIS URLを抽出し、基本情報ページのURLに正規化して返す"""
         try:
             links = soup.find_all('a', href=True)
             
@@ -748,34 +779,46 @@ class RakutenAuctionScraper:
             for link in links:
                 href = link.get('href', '')
                 if 'jbis.or.jp' in href and 'horse' in href:
-                    # /record/が付いている場合は除去して基本情報ページのURLを作成
-                    if '/record/' in href:
-                        basic_info_url = href.replace('/record/', '')
-                        # 末尾のスラッシュを追加
-                        if not basic_info_url.endswith('/'):
-                            basic_info_url += '/'
-                        return basic_info_url
-                    else:
-                        return href
+                    # URLを正規化して基本情報ページのURLを取得
+                    return self._normalize_jbis_url(href)
+                    
+            # JBISリンクが見つからない場合は空文字を返す
+            return ""
         except Exception as e:
             print(f"JBIS URLの抽出に失敗: {e}")
         return ""
 
     def _normalize_jbis_url(self, jbis_url: str) -> str:
-        """JBIS URLを基本情報ページのURLに正規化する"""
+        """
+        JBIS URLを基本情報ページのURLに正規化する
+        
+        Args:
+            jbis_url: 正規化するJBISのURL
+            
+        Returns:
+            str: 正規化された基本情報ページのURL（例: https://www.jbis.or.jp/horse/0001378353/）
+        """
         if not jbis_url:
-            return jbis_url
+            return ""
+            
+        # 相対URLの場合はベースURLを追加
+        if jbis_url.startswith('//'):
+            jbis_url = 'https:' + jbis_url
+        elif not jbis_url.startswith('http'):
+            jbis_url = 'https://www.jbis.or.jp' + ('' if jbis_url.startswith('/') else '/') + jbis_url
         
-        # /pedigree/ や /record/ を除去して基本情報ページのURLに変換
-        normalized_url = jbis_url
-        if '/pedigree/' in jbis_url:
-            normalized_url = jbis_url.replace('/pedigree/', '/')
-        elif '/record/' in jbis_url:
-            normalized_url = jbis_url.replace('/record/', '/')
+        # クエリパラメータを除去
+        jbis_url = jbis_url.split('?')[0]
         
-        # 末尾のスラッシュを確保
-        if not normalized_url.endswith('/'):
-            normalized_url += '/'
+        # 馬IDを抽出（例: /horse/0001378353/ から 0001378353 を抽出）
+        horse_id_match = re.search(r'/horse/(\d+)', jbis_url)
+        if not horse_id_match:
+            return ""
+            
+        horse_id = horse_id_match.group(1)
+        
+        # 基本情報ページのURLを構築
+        normalized_url = f"https://www.jbis.or.jp/horse/{horse_id}/"
         
         return normalized_url
 
