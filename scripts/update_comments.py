@@ -66,8 +66,10 @@ def update_comments():
         for j, entry in enumerate(history):
             current_comment = entry.get('comment', '')
             
-            # 既にコメントがある場合はスキップ（必要に応じて強制更新も可能）
-            if current_comment and len(current_comment.strip()) > 10:
+            # 最初の3頭は強制的に更新、それ以外は既存コメントがあればスキップ
+            if i < 3:  # 最初の3頭は強制更新
+                print(f"   🔄 強制更新モード（最初の3頭）")
+            elif current_comment and len(current_comment.strip()) > 10:
                 if not entry_updated:
                     print(f"   ✅ 既にコメントが存在します（{len(current_comment)}文字）")
                     already_has_comment_count += 1

@@ -12,12 +12,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// ビューポート設定を分離
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export const metadata: Metadata = {
   title: "サラオクDB | サラブレッドオークション データベース",
   description: "楽天サラブレッドオークションのデータをスクレイピングし、統計情報と馬の詳細情報を表示するWebアプリケーション",
   keywords: "サラブレッド,オークション,競馬,馬,データベース",
   authors: [{ name: "サラオクDB" }],
-  viewport: "width=device-width, initial-scale=1",
   robots: "noindex, nofollow",
 };
 

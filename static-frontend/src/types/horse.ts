@@ -1,37 +1,46 @@
 export interface HorseHistory {
-  auction_date?: string;
-  name?: string;
-  sex?: string;
-  age?: string | number;
-  seller?: string;
-  race_record?: string;
-  comment?: string;
-  sold_price?: number | string;
-  total_prize_start?: number;
-  total_prize_latest?: number;
-  detail_url?: string;
+  auction_date: string;
+  name: string;
+  sex: string;
+  age: string | number;
+  seller: string;
+  race_record: string;
+  comment: string;
+  sold_price: number | null;
+  total_prize_start: number;
+  total_prize_latest: number;
+  detail_url: string;
+  primary_image?: string;
+  disease_tags?: string;
+  weight?: number;
   unsold?: boolean;
   unsold_count?: number;
 }
 
 export interface Horse {
   id: number;
-  name?: string;
-  sex?: string;
-  age?: number | string;
-  sire?: string;
-  dam?: string;
-  seller?: string;
-  sold_price?: number | string;
-  auction_date?: string;
-  jbis_url?: string;
-  primary_image?: string;
-  history?: HorseHistory[];
-  detail_url?: string;
-  unsold_count?: number;
-  total_prize_start?: number;
-  total_prize_latest?: number;
+  name: string;
+  sex: string;
+  color: string;
+  birthday: string;
+  history: HorseHistory[];
+  sire: string;
+  dam: string;
+  dam_sire: string;
+  primary_image: string;
+  disease_tags: string;
+  jbis_url: string;
+  weight: number | null;
+  unsold_count: number | null;
+  total_prize_latest: number;
+  created_at: string;
+  updated_at: string;
   unsold?: boolean;
+  seller?: string;
+  sold_price?: number | null;
+  auction_date?: string;
+  detail_url?: string;
+  total_prize_start?: number;
 }
 
 export interface Metadata {
