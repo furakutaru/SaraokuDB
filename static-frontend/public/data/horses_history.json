@@ -1,15 +1,11 @@
 {
   "metadata": {
-    "last_updated": "2025-07-27T02:11:00.974Z",
-    "total_horses": 45,
-    "average_price": 1380697,
-    "auction_date": "2025-07-26",
-    "history_reset": true,
-    "reset_date": "2025-07-26T20:56:51.438891",
-    "horses_reset": 10,
-    "total_history_before": 55,
-    "total_history_after": 45,
-    "comment_added": true
+    "last_updated": "2025-07-27T15:16:03.134399",
+    "total_horses": 54,
+    "average_price": 1352156,
+    "auction_date": "2025-07-27",
+    "added_horses": 9,
+    "updated_horses": 0
   },
   "horses": [
     {
@@ -1541,6 +1537,303 @@
       ],
       "total_prize_latest": 1272.5,
       "weight": 454
+    },
+    {
+      "id": 46,
+      "name": "アローロ",
+      "sire": "ゴールドシップ",
+      "dam": "シーデイライト",
+      "dam_sire": "ヘニーヒューズ",
+      "jbis_url": "https://www.jbis.or.jp/horse/0001358980/",
+      "netkeiba_url": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14556",
+      "created_at": "2025-07-27T15:16:03.133763",
+      "updated_at": "2025-07-27T15:16:03.133765",
+      "history": [
+        {
+          "auction_date": "2025-07-27",
+          "name": "アローロ",
+          "sex": "牝",
+          "age": "3",
+          "seller": "永見 貴昭",
+          "sold_price": 300000,
+          "start_price": null,
+          "bid_num": 0,
+          "unsold": true,
+          "comment": "",
+          "race_record": "2戦0勝［0-0-0-2］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14556",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250727_horse_01/1.JPG",
+          "disease_tags": "",
+          "weight": 480
+        }
+      ],
+      "weight": 480
+    },
+    {
+      "id": 47,
+      "name": "ウエスタンタマヤ",
+      "sire": "サンダースノー",
+      "dam": "プテリュクス",
+      "dam_sire": "スマートファルコン",
+      "jbis_url": "https://www.jbis.or.jp/horse/0001359620/",
+      "netkeiba_url": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14557",
+      "created_at": "2025-07-27T15:16:03.133838",
+      "updated_at": "2025-07-27T15:16:03.133839",
+      "history": [
+        {
+          "auction_date": "2025-07-27",
+          "name": "ウエスタンタマヤ",
+          "sex": "牝",
+          "age": "3",
+          "seller": "西川 賢",
+          "sold_price": 1400000,
+          "start_price": null,
+          "bid_num": 52,
+          "unsold": false,
+          "comment": "",
+          "race_record": "4戦0勝［0-0-0-4］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14557",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250727_horse_02/1.JPG",
+          "disease_tags": "",
+          "weight": 457
+        }
+      ],
+      "weight": 457
+    },
+    {
+      "id": 48,
+      "name": "ジャスマン",
+      "sire": "ゴールドシップ",
+      "dam": "ディアユリアザミ",
+      "dam_sire": "ボストンハーバー",
+      "jbis_url": "https://www.jbis.or.jp/horse/0001358609/",
+      "netkeiba_url": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14558",
+      "created_at": "2025-07-27T15:16:03.133907",
+      "updated_at": "2025-07-27T15:16:03.133909",
+      "history": [
+        {
+          "auction_date": "2025-07-27",
+          "name": "ジャスマン",
+          "sex": "牡",
+          "age": "3",
+          "seller": "(株) LDS",
+          "sold_price": 1450000,
+          "start_price": null,
+          "bid_num": 62,
+          "unsold": false,
+          "comment": "",
+          "race_record": "6戦0勝［0-0-0-6］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14558",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250727_horse_03/1.JPG",
+          "disease_tags": "",
+          "weight": 480
+        }
+      ],
+      "weight": 480
+    },
+    {
+      "id": 49,
+      "name": "ウインエンデバー",
+      "sire": "マクフィ",
+      "dam": "アラフネ",
+      "dam_sire": "クロフネ",
+      "jbis_url": "https://www.jbis.or.jp/horse/0001354607/",
+      "netkeiba_url": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14559",
+      "created_at": "2025-07-27T15:16:03.133977",
+      "updated_at": "2025-07-27T15:16:03.133978",
+      "history": [
+        {
+          "auction_date": "2025-07-27",
+          "name": "ウインエンデバー",
+          "sex": "牡",
+          "age": "3",
+          "seller": "(株) ウイン",
+          "sold_price": 220000,
+          "start_price": null,
+          "bid_num": 3,
+          "unsold": false,
+          "comment": "",
+          "race_record": "6戦0勝［0-0-1-5］",
+          "total_prize_start": 13.6,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14559",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250727_horse_04/1.jpeg",
+          "disease_tags": "",
+          "weight": 456
+        }
+      ],
+      "weight": 456
+    },
+    {
+      "id": 50,
+      "name": "ジューンアレグロ",
+      "sire": "ミッキーアイル",
+      "dam": "ジューンシルフィア",
+      "dam_sire": "タイキシャトル",
+      "jbis_url": "https://www.jbis.or.jp/horse/0001361225/",
+      "netkeiba_url": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14560",
+      "created_at": "2025-07-27T15:16:03.134049",
+      "updated_at": "2025-07-27T15:16:03.134050",
+      "history": [
+        {
+          "auction_date": "2025-07-27",
+          "name": "ジューンアレグロ",
+          "sex": "牡",
+          "age": "3",
+          "seller": "吉川 潤",
+          "sold_price": 1200000,
+          "start_price": null,
+          "bid_num": 67,
+          "unsold": false,
+          "comment": "",
+          "race_record": "5戦0勝［0-0-0-5］",
+          "total_prize_start": 56.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14560",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250727_horse_05/1.JPG",
+          "disease_tags": "",
+          "weight": 426
+        }
+      ],
+      "weight": 426
+    },
+    {
+      "id": 51,
+      "name": "ミリオンヒット",
+      "sire": "アジアエクスプレス",
+      "dam": "ポップシンガー",
+      "dam_sire": "スマートファルコン",
+      "jbis_url": "https://www.jbis.or.jp/horse/0001361262/",
+      "netkeiba_url": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14561",
+      "created_at": "2025-07-27T15:16:03.134122",
+      "updated_at": "2025-07-27T15:16:03.134124",
+      "history": [
+        {
+          "auction_date": "2025-07-27",
+          "name": "ミリオンヒット",
+          "sex": "牝",
+          "age": "3",
+          "seller": "(株) ノルマンディーサラブレッドR",
+          "sold_price": 750000,
+          "start_price": null,
+          "bid_num": 36,
+          "unsold": false,
+          "comment": "",
+          "race_record": "7戦0勝［0-0-1-6］",
+          "total_prize_start": 180.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14561",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250727_horse_06/1.JPG",
+          "disease_tags": "",
+          "weight": 398
+        }
+      ],
+      "weight": 398
+    },
+    {
+      "id": 52,
+      "name": "セレニティ",
+      "sire": "",
+      "dam": "",
+      "dam_sire": "",
+      "jbis_url": "https://www.jbis.or.jp/horse/0001361699/",
+      "netkeiba_url": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14562",
+      "created_at": "2025-07-27T15:16:03.134196",
+      "updated_at": "2025-07-27T15:16:03.134197",
+      "history": [
+        {
+          "auction_date": "2025-07-27",
+          "name": "セレニティ",
+          "sex": "牝",
+          "age": "3",
+          "seller": "社台ファーム",
+          "sold_price": 1390000,
+          "start_price": null,
+          "bid_num": 77,
+          "unsold": false,
+          "comment": "",
+          "race_record": "7戦0勝［0-1-0-6］",
+          "total_prize_start": 458.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14562",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250727_horse_07/1.JPG",
+          "disease_tags": "",
+          "weight": 386
+        }
+      ],
+      "weight": 386
+    },
+    {
+      "id": 53,
+      "name": "ウィルトゥーウェル",
+      "sire": "サンダースノー",
+      "dam": "オールトゥーウェル",
+      "dam_sire": "ハーツクライ",
+      "jbis_url": "https://www.jbis.or.jp/horse/0001359118/",
+      "netkeiba_url": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14563",
+      "created_at": "2025-07-27T15:16:03.134306",
+      "updated_at": "2025-07-27T15:16:03.134310",
+      "history": [
+        {
+          "auction_date": "2025-07-27",
+          "name": "ウィルトゥーウェル",
+          "sex": "牝",
+          "age": "3",
+          "seller": "前田 良平",
+          "sold_price": 1270000,
+          "start_price": null,
+          "bid_num": 59,
+          "unsold": false,
+          "comment": "",
+          "race_record": "17戦4勝［4-4-1-8］",
+          "total_prize_start": 480.7,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14563",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250727_horse_08/1.jpg",
+          "disease_tags": "",
+          "weight": 444
+        }
+      ],
+      "weight": 444
+    },
+    {
+      "id": 54,
+      "name": "スカリーワグ",
+      "sire": "ドゥラメンテ",
+      "dam": "ジプシーマイラブ",
+      "dam_sire": "Manduro",
+      "jbis_url": "https://www.jbis.or.jp/horse/0001267503/",
+      "netkeiba_url": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14564",
+      "created_at": "2025-07-27T15:16:03.134382",
+      "updated_at": "2025-07-27T15:16:03.134384",
+      "history": [
+        {
+          "auction_date": "2025-07-27",
+          "name": "スカリーワグ",
+          "sex": "牡",
+          "age": "7",
+          "seller": "鈴木 淳人",
+          "sold_price": 1010000,
+          "start_price": null,
+          "bid_num": 39,
+          "unsold": false,
+          "comment": "",
+          "race_record": "38戦10勝［10-7-3-18］",
+          "total_prize_start": 2552.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14564",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250727_horse_09/1.jpg",
+          "disease_tags": "",
+          "weight": 501
+        }
+      ],
+      "weight": 501
     }
   ]
 }
