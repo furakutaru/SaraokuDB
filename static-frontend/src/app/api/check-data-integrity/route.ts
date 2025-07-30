@@ -11,10 +11,22 @@ type FieldValidationRule = {
   enum?: any[];
   format?: string;
   items?: FieldValidationRule;
-  [key: string]: any;
 };
 
-const FIELD_VALIDATIONS = {
+type HorseValidationRules = {
+  [key: string]: FieldValidationRule;
+};
+
+type AuctionValidationRules = {
+  [key: string]: FieldValidationRule;
+};
+
+interface ValidationRules {
+  horse: HorseValidationRules;
+  auction: AuctionValidationRules;
+}
+
+const FIELD_VALIDATIONS: ValidationRules = {
   // 馬基本情報の検証ルール
   horse: {
     id: { type: 'string', required: true },
@@ -29,7 +41,7 @@ const FIELD_VALIDATIONS = {
     image_url: { type: 'string', required: true, format: 'url' },
     jbis_url: { type: 'string', required: true, format: 'url' },
     auction_url: { type: 'string', required: true, format: 'url' },
-    disease_tags: { type: 'array', required: true, items: { type: 'string' } },
+    disease_tags: { type: 'array', required: true, items: { type: 'string', required: true } },
     created_at: { type: 'string', required: true, format: 'date-time' },
     updated_at: { type: 'string', required: true, format: 'date-time' }
   },
@@ -75,42 +87,7 @@ export async function POST(request: Request) {
   }
 }
 
-// フィールドの検証ルール
-const FIELD_VALIDATIONS = {
-  // 馬基本情報の検証ルール
-  horse: {
-    id: { type: 'string', required: true },
-    name: { type: 'string', required: true },
-    sex: { type: 'string', required: true, enum: ['牡', '牝', 'セ'] },
-    age: { type: 'number', required: true, min: 0, max: 30 },
-    color: { type: 'string', required: false },
-    birthday: { type: 'string', required: false, format: 'date' },
-    sire: { type: 'string', required: true },
-    dam: { type: 'string', required: true },
-    damsire: { type: 'string', required: true },
-    image_url: { type: 'string', required: true, format: 'url' },
-    jbis_url: { type: 'string', required: true, format: 'url' },
-    auction_url: { type: 'string', required: true, format: 'url' },
-    disease_tags: { type: 'array', required: true, items: { type: 'string' } },
-    created_at: { type: 'string', required: true, format: 'date-time' },
-    updated_at: { type: 'string', required: true, format: 'date-time' }
-  },
-  // オークション履歴の検証ルール
-  auction: {
-    id: { type: 'string', required: true },
-    horse_id: { type: 'string', required: true },
-    auction_date: { type: 'string', required: true, format: 'date' },
-    sold_price: { type: ['number', 'null'], required: true, min: 0 },
-    total_prize_start: { type: 'number', required: true, min: 0 },
-    total_prize_latest: { type: 'number', required: true, min: 0 },
-    is_unsold: { type: 'boolean', required: true },
-    seller: { type: 'string', required: true },
-    weight: { type: ['number', 'null'], required: true, min: 0 },
-    comment: { type: 'string', required: false },
-    created_at: { type: 'string', required: true, format: 'date-time' },
-    updated_at: { type: 'string', required: true, format: 'date-time' }
-  }
-};
+
 
 // データ型を検証するヘルパー関数
 function validateType(value: any, type: string | string[]): boolean {
@@ -118,24 +95,68 @@ function validateType(value: any, type: string | string[]): boolean {
     return type.some(t => validateType(value, t));
   }
 
-  if (value === null || value === undefined) return false;
-  
+  if (value === null || value === undefined) {
+    return type === 'null' || type === 'undefined';
+  }
+
   switch (type) {
     case 'string': return typeof value === 'string';
     case 'number': return typeof value === 'number' && !isNaN(value);
     case 'boolean': return typeof value === 'boolean';
     case 'array': return Array.isArray(value);
+    case 'object': return value !== null && typeof value === 'object' && !Array.isArray(value);
     case 'date': return !isNaN(Date.parse(value));
-    case 'date-time': return !isNaN(Date.parse(value));
-    case 'url': 
-      try {
-        new URL(value);
-        return true;
-      } catch {
-        return false;
-      }
+    case 'url': return typeof value === 'string' && /^https?:\/\//.test(value);
     default: return false;
   }
+}
+
+// 値の有効性をチェックするヘルパー関数
+function isValidValue(
+  value: any, 
+  fieldName: keyof (HorseValidationRules & AuctionValidationRules), 
+  type: 'horse' | 'auction' = 'horse'
+): boolean {
+  const validationRules = FIELD_VALIDATIONS[type];
+  const fieldRule = validationRules[fieldName];
+  
+  if (!fieldRule) return true; // ルールが定義されていない場合は検証をスキップ
+  
+  // 値がnullまたはundefinedの場合
+  if (value === null || value === undefined) {
+    return !fieldRule.required; // 必須でない場合は有効
+  }
+
+  // 型チェック
+  if (!validateType(value, fieldRule.type)) {
+    return false;
+  }
+
+  // 最小値・最大値チェック
+  if (typeof value === 'number') {
+    if (fieldRule.min !== undefined && value < fieldRule.min) return false;
+    if (fieldRule.max !== undefined && value > fieldRule.max) return false;
+  }
+
+  // 列挙値チェック
+  if (fieldRule.enum && !fieldRule.enum.includes(value)) {
+    return false;
+  }
+
+  // フォーマットチェック
+  if (fieldRule.format === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  if (fieldRule.format === 'date-time' && isNaN(Date.parse(value))) {
+    return false;
+  }
+
+  if (fieldRule.format === 'url' && !/^https?:\/\//.test(value)) {
+    return false;
+  }
+
+  return true;
 }
 
 // データの整合性チェックを実行
@@ -183,51 +204,35 @@ async function checkDataIntegrity(horsesData: any, auctionHistoryData: any) {
   for (const horse of horsesData.horses) {
     const issues: Array<{ field: string; issue: string; value?: any }> = [];
     
-    // 各フィールドを検証
-    for (const [field, rule] of Object.entries(FIELD_VALIDATIONS.horse)) {
-      const value = horse[field];
-      const fieldRule = rule as FieldValidationRule;
+    // 各フィールドの検証
+    for (const field of Object.keys(FIELD_VALIDATIONS.horse) as Array<keyof HorseValidationRules>) {
+      const value = horse[field as keyof typeof horse];
       
-      // 必須フィールドチェック
-      if (fieldRule.required && (value === undefined || value === null || value === '')) {
-        issues.push({ field, issue: '必須フィールドがありません' });
-        continue;
-      }
-      
-      // 型チェック
-      if (value !== undefined && value !== null && !validateType(value, fieldRule.type)) {
-        issues.push({ 
-          field, 
-          issue: `無効な型です。期待: ${fieldRule.type}、実際: ${Array.isArray(value) ? 'array' : typeof value}`,
-          value
-        });
-      }
-      
-      // 列挙値チェック
-      if ('enum' in fieldRule && !fieldRule.enum?.includes(value)) {
-        issues.push({
-          field,
-          issue: `無効な値です。許可された値: ${fieldRule.enum?.join(', ')}`,
-          value
-        });
-      }
-      
-      // 最小値/最大値チェック
-      if (typeof value === 'number') {
-        if ('min' in fieldRule && value < (fieldRule.min as number)) {
-          issues.push({
-            field,
-            issue: `最小値は${fieldRule.min}である必要があります`,
-            value
-          });
+      if (!isValidValue(value, field, 'horse')) {
+        const rule = FIELD_VALIDATIONS.horse[field];
+        let error = '';
+        
+        if (value === null || value === undefined || value === '') {
+          error = '必須フィールドが空です';
+        } else if (!validateType(value, rule.type)) {
+          error = `型が一致しません。期待: ${rule.type}、実際: ${typeof value}`;
+        } else if (rule.format === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+          error = '日付の形式が正しくありません。YYYY-MM-DD形式で指定してください。';
+        } else if (rule.format === 'date-time' && isNaN(Date.parse(String(value)))) {
+          error = '日時の形式が正しくありません。ISO 8601形式で指定してください。';
+        } else if (rule.format === 'url' && !/^https?:\/\//.test(String(value))) {
+          error = 'URLの形式が正しくありません。http:// または https:// で始まる必要があります。';
+        } else if (rule.enum && !rule.enum.includes(value as any)) {
+          error = `無効な値です。許可されている値: ${rule.enum.join(', ')}`;
+        } else if (typeof value === 'number') {
+          if (rule.min !== undefined && value < rule.min) {
+            error = `最小値は${rule.min}です。`;
+          } else if (rule.max !== undefined && value > rule.max) {
+            error = `最大値は${rule.max}です。`;
+          }
         }
-        if ('max' in fieldRule && value > (fieldRule.max as number)) {
-          issues.push({
-            field,
-            issue: `最大値は${fieldRule.max}である必要があります`,
-            value
-          });
-        }
+        
+        issues.push({ field: field as string, issue: error, value });
       }
     }
     
@@ -251,42 +256,35 @@ async function checkDataIntegrity(horsesData: any, auctionHistoryData: any) {
   for (const auction of auctionHistoryData.auction_history) {
     const issues: Array<{ field: string; issue: string; value?: any }> = [];
     
-    // 各フィールドを検証
-    for (const [field, rule] of Object.entries(FIELD_VALIDATIONS.auction)) {
-      const value = auction[field];
-      const fieldRule = rule as FieldValidationRule;
+    // 各フィールドの検証
+    for (const field of Object.keys(FIELD_VALIDATIONS.auction) as Array<keyof AuctionValidationRules>) {
+      const value = auction[field as keyof typeof auction];
       
-      // 必須フィールドチェック
-      if (fieldRule.required && (value === undefined || value === null || value === '')) {
-        issues.push({ field, issue: '必須フィールドがありません' });
-        continue;
-      }
-      
-      // 型チェック
-      if (value !== undefined && value !== null && !validateType(value, fieldRule.type)) {
-        issues.push({ 
-          field, 
-          issue: `無効な型です。期待: ${fieldRule.type}、実際: ${Array.isArray(value) ? 'array' : typeof value}`,
-          value
-        });
-      }
-      
-      // 最小値/最大値チェック
-      if (typeof value === 'number') {
-        if ('min' in fieldRule && value < (fieldRule.min as number)) {
-          issues.push({
-            field,
-            issue: `最小値は${fieldRule.min}である必要があります`,
-            value
-          });
+      if (!isValidValue(value, field as keyof HorseValidationRules, 'auction')) {
+        const rule = FIELD_VALIDATIONS.auction[field];
+        let error = '';
+        
+        if (value === null || value === undefined || value === '') {
+          error = '必須フィールドが空です';
+        } else if (!validateType(value, rule.type)) {
+          error = `型が一致しません。期待: ${rule.type}、実際: ${typeof value}`;
+        } else if (rule.format === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+          error = '日付の形式が正しくありません。YYYY-MM-DD形式で指定してください。';
+        } else if (rule.format === 'date-time' && isNaN(Date.parse(String(value)))) {
+          error = '日時の形式が正しくありません。ISO 8601形式で指定してください。';
+        } else if (rule.format === 'url' && !/^https?:\/\//.test(String(value))) {
+          error = 'URLの形式が正しくありません。http:// または https:// で始まる必要があります。';
+        } else if (rule.enum && !rule.enum.includes(value as any)) {
+          error = `無効な値です。許可されている値: ${rule.enum.join(', ')}`;
+        } else if (typeof value === 'number') {
+          if (rule.min !== undefined && value < rule.min) {
+            error = `最小値は${rule.min}です。`;
+          } else if (rule.max !== undefined && value > rule.max) {
+            error = `最大値は${rule.max}です。`;
+          }
         }
-        if ('max' in fieldRule && value > (fieldRule.max as number)) {
-          issues.push({
-            field,
-            issue: `最大値は${fieldRule.max}である必要があります`,
-            value
-          });
-        }
+        
+        issues.push({ field: field as string, issue: error, value });
       }
     }
     
@@ -332,64 +330,4 @@ async function checkDataIntegrity(horsesData: any, auctionHistoryData: any) {
   }
   
   return results;
-}
-
-type FieldValidationRule = {
-  type: string | string[];
-  required: boolean;
-  min?: number;
-  max?: number;
-  enum?: any[];
-  format?: string;
-  items?: FieldValidationRule;
-  [key: string]: any;
-};
-
-function validateType(value: any, type: string | string[]): boolean {
-  if (Array.isArray(type)) {
-    return type.some(t => validateType(value, t));
-  }
-
-  if (value === null || value === undefined) return false;
-  
-  switch (type) {
-    case 'string': return typeof value === 'string';
-    case 'number': return typeof value === 'number' && !isNaN(value);
-    case 'boolean': return typeof value === 'boolean';
-    case 'array': return Array.isArray(value);
-    case 'date': return !isNaN(Date.parse(value));
-    case 'date-time': return !isNaN(Date.parse(value));
-    case 'url': 
-      try {
-        new URL(value);
-        return true;
-      } catch {
-        return false;
-      }
-    default: return false;
-  }
-}
-
-function isValidValue(value: any, fieldName: string): boolean {
-  if (value === null || value === undefined) {
-    return false;
-  }
-  
-  if (typeof value === 'string' && !value.trim()) {
-    return false;
-  }
-  
-  if (Array.isArray(value) && value.length === 0) {
-    return false;
-  }
-  
-  if (fieldName === 'comment' && value === '取得できませんでした') {
-    return false;
-  }
-  
-  if (fieldName === 'disease_tags' && JSON.stringify(value) === JSON.stringify([''])) {
-    return false;
-  }
-  
-  return true;
 }
