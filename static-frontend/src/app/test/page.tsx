@@ -13,17 +13,37 @@ export default function TestPage() {
   const testDataFetch = async () => {
     try {
       setStatus('データを取得中...');
-      const response = await fetch('/data/horses_history.json');
-      setStatus(`レスポンスステータス: ${response.status}`);
       
-      if (!response.ok) {
-        setStatus(`エラー: ${response.status} - ${response.statusText}`);
+      // horses.json を取得
+      const horsesResponse = await fetch('/data/horses.json');
+      if (!horsesResponse.ok) {
+        setStatus(`エラー: horses.json の取得に失敗 - ${horsesResponse.status} ${horsesResponse.statusText}`);
         return;
       }
       
-      const horseData = await response.json();
-      setData(horseData);
-      setStatus('データ取得成功！');
+      // auction_history.json を取得
+      const auctionHistoryResponse = await fetch('/data/auction_history.json');
+      if (!auctionHistoryResponse.ok) {
+        setStatus(`エラー: auction_history.json の取得に失敗 - ${auctionHistoryResponse.status} ${auctionHistoryResponse.statusText}`);
+        return;
+      }
+      
+      const horses = await horsesResponse.json();
+      const auctionHistory = await auctionHistoryResponse.json();
+      
+      // データをマージ
+      const mergedData = {
+        horses: horses,
+        auctionHistory: auctionHistory,
+        metadata: {
+          last_updated: new Date().toISOString(),
+          total_horses: horses.length,
+          total_auctions: auctionHistory.length
+        }
+      };
+      
+      setData(mergedData);
+      setStatus('データの取得とマージが完了しました！');
     } catch (err) {
       setStatus(`エラー: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
@@ -52,25 +72,60 @@ export default function TestPage() {
         </div>
 
         {data && (
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">取得したデータ</h2>
-            <div className="space-y-2">
-              <p><strong>総馬数:</strong> {data.metadata?.total_horses}</p>
-              <p><strong>平均価格:</strong> {formatPrice(data.metadata?.average_price)}</p>
-              <p><strong>最終更新:</strong> {data.metadata?.last_updated}</p>
-              <p><strong>馬の数:</strong> {data.horses?.length}</p>
-            </div>
-            
-            <h3 className="text-lg font-semibold mt-6 mb-4">馬一覧（最初の3頭）</h3>
-            <div className="space-y-2">
-              {data.horses?.slice(0, 3).map((horse: any, index: number) => (
-                <div key={index} className="p-3 bg-gray-50 rounded">
-                  <p><strong>名前:</strong> {horse.name}</p>
-                  <p><strong>性別:</strong> {horse.sex}</p>
-                  <p><strong>年齢:</strong> {horse.age}歳</p>
-                  <p><strong>落札価格:</strong> {formatPrice(horse.sold_price)}</p>
+          <div className="space-y-6">
+            {/* メタデータ表示 */}
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h2 className="text-xl font-semibold mb-4">メタデータ</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p><strong>馬の総数:</strong> {data.metadata?.total_horses || 0}</p>
+                  <p><strong>オークション履歴の総数:</strong> {data.metadata?.total_auctions || 0}</p>
                 </div>
-              ))}
+                <div>
+                  <p><strong>最終更新日時:</strong> {new Date(data.metadata?.last_updated).toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* 馬一覧 */}
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h2 className="text-xl font-semibold mb-4">馬一覧（最初の3頭）</h2>
+              {data.horses && data.horses.length > 0 ? (
+                <div className="space-y-2">
+                  {data.horses.slice(0, 3).map((horse: any) => (
+                    <div key={horse.id} className="p-4 border rounded-lg hover:bg-gray-50">
+                      <h3 className="font-semibold text-lg">{horse.name} (ID: {horse.id})</h3>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <p><span className="text-gray-600">性別・年齢:</span> {horse.sex || '-'} {horse.age || ''}歳</p>
+                        <p><span className="text-gray-600">父:</span> {horse.sire || '-'}</p>
+                        <p><span className="text-gray-600">母:</span> {horse.dam || '-'}</p>
+                        <p><span className="text-gray-600">母父:</span> {horse.damsire || '-'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>馬のデータがありません</p>
+              )}
+            </div>
+
+            {/* オークション履歴 */}
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h2 className="text-xl font-semibold mb-4">オークション履歴（最新3件）</h2>
+              {data.auctionHistory && data.auctionHistory.length > 0 ? (
+                <div className="space-y-2">
+                  {data.auctionHistory.slice(0, 3).map((auction: any, index: number) => (
+                    <div key={index} className="p-4 border rounded-lg">
+                      <p><strong>馬ID:</strong> {auction.horse_id}</p>
+                      <p><strong>オークション日:</strong> {auction.auction_date}</p>
+                      <p><strong>落札価格:</strong> {formatPrice(auction.sold_price)}</p>
+                      <p><strong>売り主:</strong> {auction.seller || '不明'}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>オークション履歴がありません</p>
+              )}
             </div>
           </div>
         )}

@@ -1,0 +1,37 @@
+{
+  "total_horses": 54,
+  "missing_data": {
+    "sire": {
+      "missing_count": 9,
+      "percentage": "16.7%"
+    },
+    "dam": {
+      "missing_count": 9,
+      "percentage": "16.7%"
+    },
+    "dam_sire": {
+      "missing_count": 9,
+      "percentage": "16.7%"
+    },
+    "weight": {
+      "missing_count": 9,
+      "percentage": "16.7%"
+    },
+    "comment": {
+      "missing_count": 9,
+      "percentage": "16.7%"
+    },
+    "disease_tags": {
+      "missing_count": 9,
+      "percentage": "16.7%"
+    },
+    "image_url": {
+      "missing_count": 54,
+      "percentage": "100.0%"
+    },
+    "total_prize": {
+      "missing_count": 18,
+      "percentage": "33.3%"
+    }
+  }
+}

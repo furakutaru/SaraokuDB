@@ -1,59 +1,92 @@
-export interface HorseHistory {
-  auction_date: string;
-  name: string;
-  sex: string;
-  age: string | number;
-  seller: string;
-  race_record: string;
-  comment: string;
-  sold_price: number | null;
-  total_prize_start: number;
-  total_prize_latest: number;
-  detail_url: string;
-  primary_image?: string;
-  disease_tags?: string;
-  weight?: number;
-  unsold?: boolean;
-  unsold_count?: number;
-}
-
+/**
+ * 馬の基本情報を表すインターフェース
+ */
 export interface Horse {
-  id: number;
+  /** 馬の一意識別子（UUID） */
+  id: string;
+  /** 馬名 */
   name: string;
-  sex: string;
-  age: string | number;
-  color: string;
-  birthday: string;
-  history: HorseHistory[];
+  /** 性別（牡・牝・セ） */
+  sex: '牡' | '牝' | 'セ' | string;
+  /** 年齢 */
+  age: number;
+  /** 毛色 */
+  color?: string;
+  /** 生年月日（YYYY-MM-DD形式） */
+  birthday?: string;
+  /** 父馬名 */
   sire: string;
+  /** 母馬名 */
   dam: string;
-  dam_sire: string;
-  primary_image: string;
-  disease_tags: string[];
+  /** 母父名 */
+  damsire: string;
+  /** 馬の画像URL */
+  image_url: string;
+  /** JBISの詳細ページURL */
   jbis_url: string;
-  weight: number | null;
-  unsold_count: number | null;
-  total_prize_latest: number;
+  /** サラブレッドオークションの詳細ページURL */
+  auction_url: string;
+  /** 疾病情報のタグ配列 */
+  disease_tags: string[];
+  /** 初回登録日時（ISO 8601形式） */
   created_at: string;
+  /** 最終更新日時（ISO 8601形式） */
   updated_at: string;
-  unsold?: boolean;
-  seller?: string;
-  sold_price?: number | null;
-  auction_date?: string;
-  detail_url?: string;
-  total_prize_start?: number;
+  /** オークション履歴 */
+  history?: AuctionHistory[];
 }
 
+/**
+ * オークション履歴を表すインターフェース
+ */
+export interface AuctionHistory {
+  /** オークション履歴の一意識別子（UUID） */
+  id: string;
+  /** 馬ID（horses.idへの外部キー） */
+  horse_id: string;
+  /** オークション日（YYYY-MM-DD形式） */
+  auction_date: string;
+  /** 落札価格（未落札の場合はnull） */
+  sold_price: number | null;
+  /** オークション時点の総賞金（万円） */
+  total_prize_start: number;
+  /** 最新の総賞金（万円） */
+  total_prize_latest: number;
+  /** 馬体重（kg、計測されていない場合はnull） */
+  weight: number | null;
+  /** 売り主名 */
+  seller: string;
+  /** 主取りフラグ */
+  is_unsold: boolean;
+  /** コメント */
+  comment: string;
+  /** 登録日時（ISO 8601形式） */
+  created_at: string;
+}
+
+/**
+ * メタデータを表すインターフェース
+ */
 export interface Metadata {
+  /** 最終更新日時（ISO 8601形式） */
   last_updated: string;
+  /** 馬の総数 */
   total_horses: number;
-  average_price: number;
-  average_growth_rate?: number;
-  horses_with_growth_data?: number;
-  next_auction_date?: string;
+  /** データの説明 */
+  description?: string;
+  /** データのバージョン */
+  version?: string;
+  /** データソース */
+  data_source?: string;
+  /** 生成日時（ISO 8601形式） */
+  generated_at?: string;
 }
 
+/**
+ * 馬データのルートオブジェクト
+ */
 export interface HorseData {
   metadata: Metadata;
   horses: Horse[];
+  auction_history?: AuctionHistory[];
 }

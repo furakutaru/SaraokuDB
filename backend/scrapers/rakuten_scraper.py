@@ -1,13 +1,21 @@
+import os
 import re
 import time
+import json
 import requests
 from bs4 import BeautifulSoup
-from typing import List, Dict, Optional, Union, cast
+from typing import List, Dict, Optional, Union, cast, Any, Tuple
 from datetime import datetime
+from .data_helpers import (
+    save_horse,
+    save_auction_history,
+    load_json_file
+)
 
 class RakutenAuctionScraper:
-    def __init__(self):
+    def __init__(self, data_dir: str = 'static-frontend/public/data'):
         self.base_url = "https://auction.keiba.rakuten.co.jp/"
+        self.data_dir = data_dir
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -24,26 +32,251 @@ class RakutenAuctionScraper:
             'Sec-Fetch-User': '?1',
         })
         
+        # データディレクトリが存在することを確認
+        os.makedirs(self.data_dir, exist_ok=True)
+        
+    def is_valid_auction_url(self, url: str) -> bool:
+        """
+        有効な楽天オークションのURLかどうかをチェックする
+        
+        Args:
+            url: チェックするURL
+            
+        Returns:
+            bool: 有効なURLの場合はTrue、それ以外はFalse
+        """
+        if not url or not isinstance(url, str):
+            return False
+            
+        # 基本的なURLパターンのチェック
+        valid_domains = [
+            'auction.keiba.rakuten.co.jp',
+            'www.auction.keiba.rakuten.co.jp'
+        ]
+        
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            
+            # ドメインのチェック
+            if parsed.netloc not in valid_domains:
+                return False
+                
+            # パスのチェック（/horse/ で始まることを確認）
+            if not parsed.path.startswith('/horse/'):
+                return False
+                
+            return True
+            
+        except Exception as e:
+            print(f"URLの検証中にエラーが発生しました: {e}")
+            return False
+            
     def get_auction_date(self) -> str:
         """ページから開催日を取得"""
         try:
+            # 実際のページから日付を取得するロジックに置き換える
+            # 例: date_elem = soup.find('div', class_='auction-date')
+            #     if date_elem:
+            #         return date_elem.text.strip()
             return datetime.now().strftime("%Y-%m-%d")
         except Exception as e:
             print(f"開催日の取得に失敗: {e}")
             return datetime.now().strftime("%Y-%m-%d")
     
-    def scrape_horse_list(self) -> List[Dict]:
+    def _extract_horse_info_from_detail(self, detail_url: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
-        トップページから馬のリスト（馬名・総賞金・詳細URL）を取得
+        馬の詳細ページから情報を抽出
+        
+        Args:
+            detail_url: 馬の詳細ページURL
+            
+        Returns:
+            Tuple[horse_data, auction_data]: 馬データとオークションデータのタプル
         """
-        horses = []
+        # URLのバリデーション
+        if not self.is_valid_auction_url(detail_url):
+            print(f"無効なURLのためスキップします: {detail_url}")
+            # 空のデータを返す
+            return ({
+                'name': '',
+                'sire': '',
+                'dam': '',
+                'damsire': '',
+                'sex': '',
+                'age': 0,
+                'image_url': '',
+                'jbis_url': '',
+                'auction_url': detail_url,
+                'disease_tags': []
+            }, {
+                'auction_date': self.get_auction_date(),
+                'sold_price': None,
+                'total_prize_start': 0.0,
+                'total_prize_latest': 0.0,
+                'weight': None,
+                'seller': '',
+                'is_unsold': False,
+                'comment': ''
+            })
+        
+        # 基本情報の抽出
+        horse_data = {
+            'name': '',
+            'sire': '',
+            'dam': '',
+            'damsire': '',
+            'sex': '',
+            'age': 0,
+            'image_url': '',
+            'jbis_url': '',
+            'auction_url': detail_url,
+            'disease_tags': []
+        }
+        
+        # オークション情報
+        auction_data = {
+            'auction_date': self.get_auction_date(),
+            'sold_price': None,
+            'total_prize_start': 0.0,
+            'total_prize_latest': 0.0,
+            'weight': None,
+            'seller': '',
+            'is_unsold': False,
+            'comment': ''
+        }
+        
+        try:
+            print(f"詳細ページにアクセス中: {detail_url}")
+            response = self.session.get(detail_url, timeout=30)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # 馬名の抽出
+            name_elem = soup.find('h1', class_='horse-name')
+            if name_elem:
+                horse_data['name'] = name_elem.get_text(strip=True)
+            
+            # 性別・年齢の抽出（例: "牡3" から性別と年齢を分離）
+            info_elem = soup.find('div', class_='horse-info')
+            if info_elem:
+                info_text = info_elem.get_text()
+                # 性別の抽出（例: "牡3" から "牡" を抽出）
+                sex_match = re.search(r'([牡牝セ])', info_text)
+                if sex_match:
+                    horse_data['sex'] = sex_match.group(1)
+                
+                # 年齢の抽出（例: "牡3" から 3 を抽出）
+                age_match = re.search(r'([0-9]+)歳?', info_text)
+                if age_match:
+                    try:
+                        horse_data['age'] = int(age_match.group(1))
+                    except (ValueError, TypeError):
+                        pass
+            
+            # 血統情報の抽出
+            pedigree_elem = soup.find('div', class_='pedigree')
+            if pedigree_elem:
+                # 父馬
+                sire_elem = pedigree_elem.find('span', class_='sire')
+                if sire_elem:
+                    horse_data['sire'] = sire_elem.get_text(strip=True)
+                
+                # 母馬
+                dam_elem = pedigree_elem.find('span', class_='dam')
+                if dam_elem:
+                    horse_data['dam'] = dam_elem.get_text(strip=True)
+                
+                # 母父
+                damsire_elem = pedigree_elem.find('span', class_='damsire')
+                if damsire_elem:
+                    horse_data['damsire'] = damsire_elem.get_text(strip=True)
+            
+            # 画像URLの抽出
+            img_elem = soup.find('img', class_='horse-image')
+            if img_elem and 'src' in img_elem.attrs:
+                horse_data['image_url'] = img_elem['src']
+            
+            # JBIS URLの抽出
+            jbis_link = soup.find('a', href=lambda x: x and 'jbis.or.jp' in x)
+            if jbis_link:
+                horse_data['jbis_url'] = jbis_link['href']
+            
+            # 落札価格の抽出
+            price_elem = soup.find('div', class_='price')
+            if price_elem:
+                price_text = price_elem.get_text(strip=True)
+                if '主取り' in price_text:
+                    auction_data['is_unsold'] = True
+                else:
+                    price_match = re.search(r'([0-9,]+)万円', price_text)
+                    if price_match:
+                        try:
+                            auction_data['sold_price'] = int(price_match.group(1).replace(',', '')) * 10000
+                        except (ValueError, TypeError):
+                            pass
+            
+            # 賞金情報の抽出
+            prize_elem = soup.find('div', class_='prize-money')
+            if prize_elem:
+                prize_text = prize_elem.get_text()
+                prize_match = re.search(r'([0-9,.]+)万円', prize_text)
+                if prize_match:
+                    try:
+                        prize = float(prize_match.group(1).replace(',', ''))
+                        auction_data['total_prize_start'] = prize
+                        auction_data['total_prize_latest'] = prize
+                    except (ValueError, TypeError):
+                        pass
+            
+            # 馬体重の抽出
+            weight_elem = soup.find('div', class_='weight')
+            if weight_elem:
+                weight_text = weight_elem.get_text(strip=True)
+                weight_match = re.search(r'([0-9]+)kg', weight_text)
+                if weight_match:
+                    try:
+                        auction_data['weight'] = int(weight_match.group(1))
+                    except (ValueError, TypeError):
+                        pass
+            
+            # 売り主情報の抽出
+            seller_elem = soup.find('div', class_='seller')
+            if seller_elem:
+                auction_data['seller'] = seller_elem.get_text(strip=True)
+            
+            # コメントの抽出
+            comment_elem = soup.find('div', class_='comment')
+            if comment_elem:
+                auction_data['comment'] = comment_elem.get_text(strip=True)
+            
+            # 疾病タグの抽出
+            disease_elems = soup.find_all('span', class_='disease-tag')
+            if disease_elems:
+                horse_data['disease_tags'] = [elem.get_text(strip=True) for elem in disease_elems]
+            
+            print(f"詳細情報を抽出完了: {horse_data['name']}")
+            
+        except Exception as e:
+            print(f"詳細ページの処理中にエラーが発生: {str(e)}")
+        
+        return horse_data, auction_data
+
+    def scrape_horse_list(self, max_horses: int = 5) -> List[Dict]:
+        """
+        トップページから馬のリストを取得し、各馬の詳細情報をスクレイピング
+        
+        Args:
+            max_horses: 処理する最大の馬の数（デバッグ用）
+            
+        Returns:
+            List[Dict]: スクレイピングした馬のリスト
+        """
         try:
             print("トップページにアクセス中...")
-            print(f"User-Agent: {self.session.headers.get('User-Agent', 'N/A')}")
             response = self.session.get(self.base_url, timeout=30)
             response.raise_for_status()
             print(f"レスポンスステータス: {response.status_code}")
-            print(f"レスポンスサイズ: {len(response.content)} bytes")
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
@@ -56,58 +289,116 @@ class RakutenAuctionScraper:
             all_divs = soup.find_all('div')
             print(f"全div要素数: {len(all_divs)}")
             
-            # auctionTableCardクラスのdivを全て取得
-            cards = soup.find_all('div', class_='auctionTableCard')
-            print(f"auctionTableCard要素数: {len(cards)}")
+            # 馬のリストを取得
+            horse_elems = soup.select('.auctionTableCard')
+            print(f"{len(horse_elems)}頭の馬を検出 (最大{max_horses}頭まで処理)")
             
-            # デバッグ: 他のauction関連クラスも確認
-            auction_elements = soup.find_all(class_=lambda x: x and 'auction' in x)
-            print(f"auctionを含むクラス要素数: {len(auction_elements)}")
+            processed_count = 0
+            for i, horse_elem in enumerate(horse_elems, 1):
+                if processed_count >= max_horses > 0:
+                    print(f"最大処理数 {max_horses} 頭に達したため処理を終了します")
+                    break
+                    
+                try:
+                    # 馬名と詳細URLを取得
+                    name_elem = horse_elem.select_one('.auctionTableCard__name a')
+                    if not name_elem or not name_elem.get('href'):
+                        print(f"{i}頭目: 馬名または詳細URLが見つかりません")
+                        continue
+                        
+                    horse_name = name_elem.get('title', '').strip() or name_elem.get_text(strip=True)
+                    detail_url = name_elem.get('href', '').strip()
+                    
+                    if not detail_url:
+                        print(f"{i}頭目 ({horse_name}): 詳細URLが空です")
+                        continue
+                    
+                    # 相対URLを絶対URLに変換
+                    if not detail_url.startswith('http'):
+                        detail_url = self.base_url.rstrip('/') + '/' + detail_url.lstrip('/')
+                    
+                    # URLのバリデーション
+                    if not self.is_valid_auction_url(detail_url):
+                        print(f"{i}頭目 ({horse_name}): 無効なURLのためスキップします: {detail_url}")
+                        continue
+                    
+                    print(f"\n--- {i}頭目: {horse_name} の処理を開始します ---")
+                    
+                    # 詳細ページから情報を取得
+                    horse_data, auction_data = self._extract_horse_info_from_detail(detail_url)
+                    
+                    if not horse_data.get('name'):
+                        horse_data['name'] = horse_name  # 詳細ページから名前が取得できなかった場合はリストの名前を使用
+                    
+                    # 総賞金を取得（リストページの値を使用）
+                    prize_elem = horse_elem.select_one('.auctionTableCard__price .value')
+                    if prize_elem:
+                        prize_text = prize_elem.get_text(strip=True)
+                        prize_match = re.search(r'([\d,]+)(?:\.\d+)?万?円?', prize_text)
+                        if prize_match:
+                            try:
+                                prize = float(prize_match.group(1).replace(',', ''))
+                                auction_data['total_prize_start'] = prize
+                                auction_data['total_prize_latest'] = prize
+                            except (ValueError, TypeError):
+                                pass
+                    
+                    # 馬情報を保存（辞書形式で渡す）
+                    horse_data_to_save = {
+                        'name': horse_data['name'],
+                        'age': horse_data['age'],
+                        'sire': horse_data.get('sire', ''),
+                        'dam': horse_data.get('dam', ''),
+                        'damsire': horse_data.get('damsire', ''),
+                        'sex': horse_data.get('sex', ''),
+                        'image_url': horse_data.get('image_url', ''),
+                        'jbis_url': horse_data.get('jbis_url', ''),
+                        'auction_url': horse_data.get('auction_url', ''),
+                        'disease_tags': horse_data.get('disease_tags', [])
+                    }
+                    saved_horse = save_horse(horse_data_to_save, self.data_dir)
+                    
+                    # オークション履歴を保存（辞書形式で渡す）
+                    history_data = {
+                        'horse_id': saved_horse['id'],
+                        'auction_date': auction_data.get('auction_date', ''),
+                        'sold_price': auction_data.get('sold_price'),
+                        'total_prize_start': auction_data.get('total_prize_start', 0.0),
+                        'total_prize_latest': auction_data.get('total_prize_latest', 0.0),
+                        'weight': auction_data.get('weight'),
+                        'seller': auction_data.get('seller', ''),
+                        'is_unsold': auction_data.get('is_unsold', False),
+                        'comment': auction_data.get('comment', '')
+                    }
+                    save_auction_history(history_data, self.data_dir)
+                    
+                    print(f"{i}頭目: {horse_name} の情報を保存しました")
+                    processed_count += 1
+                    
+                    # サーバーに負荷をかけないように少し待機
+                    time.sleep(1)
+                    
+                except Exception as e:
+                    print(f"{i}頭目の処理中にエラーが発生: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
             
-            if len(auction_elements) > 0:
-                print("auction関連クラスの例:")
-                for i, elem in enumerate(auction_elements[:5]):
-                    print(f"  {i+1}. {elem.get('class', [])}")
-            for card in cards:
-                # 馬名・詳細リンク
-                name_elem = card.find('div', class_='auctionTableCard__name')
-                if not name_elem:
-                    continue
-                a_tag = name_elem.find('a', href=True)
-                if not a_tag:
-                    continue
-                horse_name = a_tag.get('title') or a_tag.get_text(strip=True) or ''
-                detail_url = a_tag.get('href') or ''
-                if not detail_url:
-                    continue
-                if not detail_url.startswith('http'):
-                    detail_url = self.base_url.rstrip('/') + detail_url
-                # 総賞金
-                prize = ''
-                total_prize_float = 0.0
-                prize_elem = card.find('div', class_='auctionTableCard__price')
-                if prize_elem:
-                    label_elem = prize_elem.find('div', class_='label')
-                    value_elem = prize_elem.find('div', class_='value')
-                    if label_elem and value_elem and '総賞金' in label_elem.get_text():
-                        prize = value_elem.get_text(strip=True)
-                        try:
-                            total_prize_float = float(prize.replace('万円', '').replace(',', ''))
-                        except Exception:
-                            total_prize_float = 0.0
-                horses.append({
-                    'name': horse_name,
-                    'detail_url': detail_url,
-                    'prize': prize,
-                    'total_prize_start': total_prize_float,
-                    'total_prize_latest': total_prize_float
-                })
-            print(f"{len(horses)}頭の馬を発見しました。")
-            if len(horses) == 0:
-                raise RuntimeError("馬リストが1頭も取得できませんでした。HTML構造やクラス名を再確認してください。")
+            print(f"\n--- 処理完了 ---")
+            print(f"合計 {processed_count} 頭の馬の情報を処理しました")
+            
+            # 処理した馬のリストを返す
+            horses_file = os.path.join(self.data_dir, 'horses.json')
+            if os.path.exists(horses_file):
+                with open(horses_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            return []
+                    
         except Exception as e:
-            print(f"馬リストの取得に失敗: {e}")
-        return horses
+            print(f"馬リストの取得中にエラーが発生: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return []
     
     def _extract_horse_basic_info(self, card) -> Optional[Dict]:
         """馬カードから基本情報を抽出"""
@@ -177,8 +468,13 @@ class RakutenAuctionScraper:
             print(f"基本情報の抽出に失敗: {e}")
             return None
     
-    def scrape_horse_detail(self, detail_url: str) -> Optional[Dict]:
+    def scrape_horse_detail(self, detail_url: str, auction_date: Optional[str] = None) -> Optional[Dict]:
         """個別ページから詳細情報を取得"""
+        # URLのバリデーション
+        if not self.is_valid_auction_url(detail_url):
+            print(f"無効なURLのためスキップします: {detail_url}")
+            return None
+            
         try:
             print(f"詳細ページにアクセス中: {detail_url}")
             response = self.session.get(detail_url, timeout=30)
@@ -194,9 +490,10 @@ class RakutenAuctionScraper:
                 if title_tag and title_tag.get_text() is not None:
                     full_name = title_tag.get_text(strip=True)
             name_match = re.match(r'^([\w\-ァ-ヶ一-龠ぁ-んＡ-Ｚａ-ｚA-Za-z0-9]+)', full_name)
-            horse_name = name_match.group(1) if name_match else full_name.split()[0]
+            horse_name = name_match.group(1) if name_match else full_name.split()[0] if full_name else ''
             if not horse_name:
                 print(f"[異常] 馬名が抽出できません: {detail_url}")
+                horse_name = ''
             detail_data['name'] = horse_name
 
             # --- JBISリンク抽出を追加 ---
@@ -223,9 +520,10 @@ class RakutenAuctionScraper:
             age_match = re.search(r'([0-9]{1,2})歳', page_text)
             if age_match:
                 age = age_match.group(1)
-            detail_data['age'] = age
+            detail_data['age'] = age if age else '0'  # デフォルト値を'0'に設定
             if not age:
-                print(f"[異常] 馬齢が抽出できません: {detail_url}")
+                print(f"[警告] 馬齢が抽出できません: {detail_url}")
+                detail_data['age'] = '0'  # デフォルト値を'0'に設定
 
             # 性別（「牡」「牝」「セン」パターン）
             sex = ''
@@ -237,133 +535,177 @@ class RakutenAuctionScraper:
                 title_tag = soup.find('title')
                 if title_tag and title_tag.get_text() is not None:
                     title_text = title_tag.get_text().strip()
-            sex_match = re.match(r'^.+?[ \t\u3000]+(牡|牝|セン)[ \t\u3000]*\d{1,2}歳', title_text)
-            if sex_match:
-                sex = sex_match.group(1)
-            else:
-                raise ValueError(f"性別がタイトルから抽出できません: {title_text} ({detail_url})")
-            detail_data['sex'] = sex
+            
+            try:
+                sex_match = re.match(r'^.+?[ \t\u3000]+(牡|牝|セン)[ \t\u3000]*\d{1,2}歳', title_text)
+                if sex_match:
+                    sex = sex_match.group(1)
+                else:
+                    print(f"[警告] 性別がタイトルから抽出できません: {title_text} ({detail_url})")
+            except Exception as e:
+                print(f"[警告] 性別の抽出中にエラーが発生: {e}")
+            
+            detail_data['sex'] = sex if sex else '不明'  # デフォルト値を'不明'に設定
             if not sex:
-                print(f"[異常] 性別が抽出できません: {detail_url}")
+                print(f"[警告] 性別が抽出できません: {detail_url}")
+                detail_data['sex'] = '不明'  # デフォルト値を'不明'に設定
 
             # 血統（父・母・母父）
-            sire = ""
-            dam = ""
-            dam_sire = ""
-            pedigree_match = re.search(r'父：([^\u3000]+)\u3000母：([^\u3000]+)\u3000母の父：([^\n]+)', page_text)
-            if pedigree_match:
-                sire = str(pedigree_match.group(1) or "")
-                dam = str(pedigree_match.group(2) or "")
-                dam_sire = str(pedigree_match.group(3) or "")
-            detail_data['sire'] = str(sire)
-            detail_data['dam'] = str(dam)
-            detail_data['dam_sire'] = str(dam_sire)
-            if not sire:
-                print(f"[異常] 父が抽出できません: {detail_url}")
-            if not dam:
-                print(f"[異常] 母が抽出できません: {detail_url}")
-            if not dam_sire:
-                print(f"[異常] 母父が抽出できません: {detail_url}")
+            pedigree = self._extract_pedigree_from_page(soup)
+            # 血統情報を取得（damsireとdam_sireの両方を設定）
+            detail_data['sire'] = str(pedigree.get('sire', '')) if pedigree.get('sire') else '不明'  # デフォルト値を'不明'に設定
+            detail_data['dam'] = str(pedigree.get('dam', '')) if pedigree.get('dam') else '不明'  # デフォルト値を'不明'に設定
+            damsire = str(pedigree.get('damsire', '')) if pedigree.get('damsire') else '不明'  # デフォルト値を'不明'に設定
+            detail_data['damsire'] = damsire
+            detail_data['dam_sire'] = damsire  # 後方互換性のため
+            
+            # デバッグ用に血統情報を出力
+            print(f"血統情報 - 父: {detail_data['sire'] or 'N/A'}, 母: {detail_data['dam'] or 'N/A'}, 母父: {damsire or 'N/A'}")
+            
+            # 血統情報が空の場合は警告を出力
+            if not detail_data['sire'] or detail_data['sire'] == '不明':
+                print(f"[警告] 父が抽出できません: {detail_url}")
+                detail_data['sire'] = '不明'  # デフォルト値を'不明'に設定
+                
+            if not detail_data['dam'] or detail_data['dam'] == '不明':
+                print(f"[警告] 母が抽出できません: {detail_url}")
+                detail_data['dam'] = '不明'  # デフォルト値を'不明'に設定
+                
+            if not damsire or damsire == '不明':
+                print(f"[警告] 母父が抽出できません: {detail_url}")
+                detail_data['damsire'] = '不明'  # デフォルト値を'不明'に設定
+                detail_data['dam_sire'] = '不明'  # デフォルト値を'不明'に設定
+                
+            # オークション日付を設定
+            if auction_date:
+                detail_data['auction_date'] = auction_date
+            else:
+                detail_data['auction_date'] = self.get_auction_date() or datetime.now().strftime('%Y-%m-%d')
+            
+            # オークション日付がまだ空の場合は現在日付を設定
+            if not detail_data.get('auction_date'):
+                detail_data['auction_date'] = datetime.now().strftime('%Y-%m-%d')
+                print(f"[警告] オークション日付が設定されていないため、現在日時を設定: {detail_data['auction_date']}")
 
             # 販売申込者（「（」以降を除去）
             seller = ''
-            seller_match = re.search(r'販売申込者：([^\n\r\t]+)', page_text)
+            seller_match = re.search(r'販売申込者[：:]([^\n\r\t]+)', page_text)
             if seller_match:
                 seller = seller_match.group(1).strip()
                 seller = re.sub(r'（.*$', '', seller).strip()
-            detail_data['seller'] = seller
+            detail_data['seller'] = seller if seller else '不明'  # デフォルト値を'不明'に設定
             if not seller:
-                print(f"[異常] 販売申込者が抽出できません: {detail_url}")
+                print(f"[警告] 販売申込者が抽出できません: {detail_url}")
+                detail_data['seller'] = '不明'  # デフォルト値を'不明'に設定
 
             # 総賞金（auctionTableRow__priceからlabel=総賞金のvalueを取得）
             # total_prize = self._extract_prize_money_from_soup(soup)  # ←未実装なので削除
             # 総賞金は詳細ページでは設定しない（リストで取得した値を使用）
             # 詳細ページの総賞金は信頼性が低いため、scrape_all_horsesで上書きする
-            detail_data['total_prize_start'] = None
-            detail_data['total_prize_latest'] = None
+            detail_data['total_prize_start'] = ''
+            detail_data['total_prize_latest'] = ''
 
             # 賞金情報を正規表現で抽出
             central_prize = 0.0
             local_prize = 0.0
             
-            # 中央獲得賞金を抽出
-            central_match = re.search(r'中央獲得賞金：([0-9]+(?:\.[0-9]+)?)万円', page_text)
+            # 中央競馬の賞金を抽出（正規表現）
+            central_prize = 0.0
+            central_match = re.search(r'中央[\s\S]*?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)[\s\u3000]*万円', page_text)
             if central_match:
-                central_prize = float(central_match.group(1))
+                try:
+                    central_prize = float(central_match.group(1).replace(',', ''))
+                except (ValueError, AttributeError) as e:
+                    print(f"中央競馬の賞金抽出エラー: {e}")
             
-            # 地方獲得賞金を抽出
-            local_match = re.search(r'地方獲得賞金：([0-9]+(?:\.[0-9]+)?)万円', page_text)
+            # 地方競馬の賞金を抽出（正規表現）
+            local_prize = 0.0
+            local_match = re.search(r'地方[\s\S]*?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)[\s\u3000]*万円', page_text)
             if local_match:
-                local_prize = float(local_match.group(1))
+                try:
+                    local_prize = float(local_match.group(1).replace(',', ''))
+                except (ValueError, AttributeError) as e:
+                    print(f"地方競馬の賞金抽出エラー: {e}")
             
             # 総賞金を計算（万円単位で保存）
             total_prize_float = central_prize + local_prize
-            detail_data['total_prize_start'] = total_prize_float  # 万円単位で保存
-            detail_data['total_prize_latest'] = total_prize_float  # 万円単位で保存
-            detail_data['prize'] = f"{total_prize_float}万円"
+            if total_prize_float > 0:
+                detail_data['total_prize_start'] = str(total_prize_float)  # 万円単位で保存
+                detail_data['total_prize_latest'] = str(total_prize_float)  # 万円単位で保存
+                detail_data['prize'] = f"{total_prize_float}万円"
+            else:
+                detail_data['total_prize_start'] = ''  # 空文字列で統一
+                detail_data['total_prize_latest'] = ''  # 空文字列で統一
+                detail_data['prize'] = ""  # 空文字列
 
             # --- ここから主取り判定・入札数取得 ---
             # 開始価格
-            start_price = None
-            start_price_elem = soup.find('div', class_='itemDetail__price')
-            if start_price_elem:
-                price_text = start_price_elem.get_text(strip=True)
-                match = re.search(r'(\d{1,3}(?:,\d{3})*)', price_text)
-                if match:
-                    start_price = int(match.group(1).replace(',', ''))
-            # 落札価格
-            sold_price = None
-            # 正規表現で落札価格を抽出（「現在価格」の後の数字を取得）
-            sold_price_match = re.search(r'現在価格(\d{1,3}(?:,\d{3})*)円', page_text)
-            if sold_price_match:
-                sold_price = int(sold_price_match.group(1).replace(',', ''))
-            else:
-                # fallback: 既存のDOMベース抽出
-                sold_price_elem = soup.find('div', class_='itemDetail__soldPrice')
-                if sold_price_elem:
-                    sold_text = sold_price_elem.get_text(strip=True)
-                    match = re.search(r'(\d{1,3}(?:,\d{3})*)', sold_text)
-                    if match:
-                        sold_price = int(match.group(1).replace(',', ''))
-            # 入札数
-            bid_num = None
-            bid_num_elem = soup.find('b', class_='topBidder__number')
-            if bid_num_elem:
+            start_price = ''
+            start_price_elem = soup.find('th', string='開始価格')
+            if start_price_elem and start_price_elem.find_next_sibling('td'):
+                start_price_text = start_price_elem.find_next_sibling('td').get_text(strip=True)
+                if start_price_text and start_price_text != '-':
+                    try:
+                        start_price = str(int(start_price_text.replace('万円', '').replace(',', '')))
+                    except (ValueError, AttributeError):
+                        start_price = ''
+            detail_data['start_price'] = start_price
+
+            # 落札価格（itemprop="price" で検索）
+            sold_price = 0  # デフォルト値は0
+            price_elem = soup.find(attrs={"itemprop": "price"})
+            if price_elem and price_elem.get_text(strip=True):
                 try:
-                    bid_num = int(bid_num_elem.get_text(strip=True))
-                except Exception:
-                    bid_num = None
+                    sold_price_text = price_elem.get_text(strip=True)
+                    # カンマを削除して数値に変換
+                    sold_price = int(sold_price_text.replace(',', ''))
+                    # 万円単位に変換（必要に応じて調整）
+                    if sold_price < 10000:  # 1万円未満の場合は1万円単位とみなす
+                        sold_price *= 10000
+                    sold_price = sold_price // 10000  # 万円単位に変換
+                except (ValueError, AttributeError) as e:
+                    print(f"落札価格の抽出に失敗: {e}")
+                    sold_price = 0
+            detail_data['sold_price'] = sold_price
+            print(f"落札価格を設定: {sold_price}万円")  # デバッグ用
+
+            # 入札数
+            bid_num = ''
+            bid_num_elem = soup.find('th', string='入札数')
+            if bid_num_elem and bid_num_elem.find_next_sibling('td'):
+                bid_num_text = bid_num_elem.find_next_sibling('td').get_text(strip=True)
+                if bid_num_text and bid_num_text != '-':
+                    try:
+                        bid_num = str(int(bid_num_text.replace('回', '').strip()))
+                    except (ValueError, AttributeError):
+                        bid_num = ''
+            detail_data['bid_num'] = bid_num
+
             # 主取り判定
             unsold = False
-            if (bid_num == 0) or (start_price is not None and sold_price is not None and start_price == sold_price):
+            if (bid_num == '') or (start_price != '' and sold_price != '' and start_price == sold_price):
                 unsold = True
-            detail_data['start_price'] = start_price
-            detail_data['sold_price'] = sold_price
-            detail_data['bid_num'] = bid_num
             detail_data['unsold'] = unsold
             # --- ここまで主取り判定・入札数取得 ---
 
-            # コメント（<b>本馬について</b>直下の<pre>を優先）
-            comment = ''
-            desc_div = soup.find('div', class_='itemDetail__description')
-            if desc_div and getattr(desc_div, 'text', None):
-                comment = str(desc_div.text).strip() if desc_div.text is not None else ''
-            if not comment:
-                remarks_div = soup.find('div', class_='itemDetail__remarks')
-                if remarks_div and getattr(remarks_div, 'text', None):
-                    comment = str(remarks_div.text).strip() if remarks_div.text is not None else ''
-            if not comment:
-                div = soup.find('div', class_='comment')
-                if div and getattr(div, 'text', None):
-                    comment = str(div.text).strip() if div.text is not None else ''
-                else:
-                    p = soup.find('p', class_='comment')
-                    if p and getattr(p, 'text', None):
-                        comment = str(p.text).strip() if p.text is not None else ''
-            if not comment:
-                print(f"[異常] コメントが抽出できません: {detail_url}")
+            # コメント抽出を改善
+            comment = self._extract_comment(soup)
+            
+            # デバッグ情報を出力
+            if comment:
+                print(f"【デバッグ】コメントを抽出: {comment[:100]}...")
+            else:
+                print(f"[警告] コメントが見つかりませんでした: {detail_url}")
+                # デバッグ用にページの構造を出力
+                with open('debug_page.html', 'w', encoding='utf-8') as f:
+                    f.write(str(soup))
             detail_data['comment'] = comment
 
+            # デバッグ用にHTMLを保存
+            with open('debug_pedigree_page.html', 'w', encoding='utf-8') as f:
+                f.write(str(soup))
+                print("デバッグ: 血統情報抽出前のHTMLをdebug_pedigree_page.htmlに保存しました")
+            
             # その他（既存ロジック）
             detail_data['weight'] = self._extract_weight(soup)
             
@@ -371,11 +713,11 @@ class RakutenAuctionScraper:
             race_record = self._extract_race_record(soup)
             detail_data['race_record'] = race_record or ''  # Noneの場合は空文字列に
             
-            # 明示的に未出走と記載がある場合のみ賞金を0.0に設定
+            # 未出走馬の場合の処理
             if race_record == '未出走':
-                detail_data['total_prize_start'] = 0.0
-                detail_data['total_prize_latest'] = 0.0
-                detail_data['prize'] = "0.0万円"
+                detail_data['total_prize_start'] = ''  # 空文字列で統一
+                detail_data['total_prize_latest'] = ''  # 空文字列で統一
+                detail_data['prize'] = ""  # 空文字列
                 print(f"  - 未出走馬のため総賞金を0.0万円に設定")
             # 成績が見つからない場合はログを出力（エラー検知のため）
             elif race_record is None:
@@ -384,6 +726,10 @@ class RakutenAuctionScraper:
             detail_data['disease_tags'] = self._extract_disease_tags(detail_data.get('comment', ''))
             detail_data['primary_image'] = self._extract_primary_image(soup)
             detail_data['jbis_url'] = self._extract_jbis_url(soup)
+            
+            # auction_dateを設定
+            if auction_date:
+                detail_data['auction_date'] = auction_date
 
             return detail_data
         except Exception as e:
@@ -391,91 +737,103 @@ class RakutenAuctionScraper:
             return None
     
     def _extract_pedigree_from_page(self, soup) -> dict:
-        text = ""
-        pre = soup.find('pre')
-        if pre and getattr(pre, 'text', None):
-            text = str(pre.text).strip() if pre.text is not None else ""
-        else:
-            for tag in soup.find_all(['div', 'td']):
-                tag_text = getattr(tag, 'text', None)
-                if tag and tag_text and '父：' in str(tag_text):
-                    text = str(tag_text).strip() if tag_text is not None else ""
-                    break
+        """
+        ページから血統情報（父・母・母父）を抽出する
         
-        # textは必ずstr型
-        text = str(text)
-        sire = ""
-        dam = ""
-        dam_sire = ""
-        
+        Returns:
+            dict: 以下のキーを含む辞書
+                - sire: 父馬名
+                - dam: 母馬名
+                - damsire: 母父馬名
+        """
         try:
-            # 正規表現で精密に抽出
-            import re
+            # テキストを取得（改行や連続スペースを1つのスペースに正規化）
+            text = ' '.join(soup.get_text(separator=' ').split())
             
-            # 父、母、母の父を一度に抽出
-            pedigree_pattern = r'父：([^\u3000\n\r]+?)\s*母：([^\u3000\n\r]+?)\s*母の父：([^\n\r\u3000]+?)(?=\s|\n|\r|$)'
-            pedigree_match = re.search(pedigree_pattern, text)
+            # デバッグ用にテキストを出力
+            print(f"【デバッグ】抽出テキスト: {text[:200]}...")
             
-            if pedigree_match:
-                sire = pedigree_match.group(1).strip()
-                dam = pedigree_match.group(2).strip()
-                dam_sire = pedigree_match.group(3).strip()
-            else:
-                # フォールバック: 従来のロジックを改善
-                if '父：' in text and '母：' in text:
-                    sire_part = text.split('父：')[1].split('母：')[0]
-                    sire = re.sub(r'[\n\r\u3000]+', ' ', sire_part).strip()
-                
-                if '母：' in text and '母の父：' in text:
-                    dam_part = text.split('母：')[1].split('母の父：')[0]
-                    dam = re.sub(r'[\n\r\u3000]+', ' ', dam_part).strip()
-                
-                if '母の父：' in text:
-                    dam_sire_part = text.split('母の父：')[1]
-                    # 最初の単語または行までを抽出
-                    dam_sire_match = re.match(r'([^\n\r\u3000]+)', dam_sire_part)
-                    if dam_sire_match:
-                        dam_sire = dam_sire_match.group(1).strip()
-                    else:
-                        dam_sire = dam_sire_part.split('\n')[0].split('\r')[0].strip()
+            # デフォルト値
+            sire = ""
+            dam = ""
+            damsire = ""
             
-            # 空白やNoneのチェック
-            sire = sire.strip() if sire else ""
-            dam = dam.strip() if dam else ""
-            dam_sire = dam_sire.strip() if dam_sire else ""
+            # パターン1: 「父：XXX 母：YYY 母の父：ZZZ」形式
+            pattern1 = r'父[：:]\s*([^ 　(（]+)(?:\s*[(（][^)）]+[)）])?\s*母[：:]\s*([^ 　(（]+)(?:\s*[(（][^)）]+[)）])?\s*(?:母の?父|母父)[：:]\s*([^ 　(（]+)'
+            match = re.search(pattern1, text)
+            if match:
+                sire = match.group(1).strip()
+                dam = match.group(2).strip()
+                if len(match.groups()) >= 3 and match.group(3):
+                    damsire = match.group(3).strip()
+                print(f"【デバッグ】パターン1で抽出: 父={sire}, 母={dam}, 母父={damsire}")
+                return {'sire': sire, 'dam': dam, 'damsire': damsire}
+            
+            # パターン2: 「父：XXX 母：YYY」形式（母父なし）
+            pattern2 = r'父[：:]\s*([^ 　(（]+)(?:\s*[(（][^)）]+[)）])?\s*母[：:]\s*([^ 　(（]+)'
+            match = re.search(pattern2, text)
+            if match:
+                sire = match.group(1).strip()
+                dam = match.group(2).strip()
+                print(f"【デバッグ】パターン2で抽出: 父={sire}, 母={dam}")
+                return {'sire': sire, 'dam': dam, 'damsire': damsire}
+            
+            # パターン3: テーブル形式など別のレイアウト
+            # 父・母・母父のラベルを直接探す
+            for label, key in [('父', 'sire'), ('母', 'dam'), ('母の父', 'damsire'), ('母父', 'damsire')]:
+                elem = soup.find(string=re.compile(f'^{label}[：:]'))
+                if elem:
+                    parent_text = elem.find_next(string=True).strip()
+                    if key == 'sire':
+                        sire = parent_text.split()[0] if parent_text else ""
+                    elif key == 'dam':
+                        dam = parent_text.split()[0] if parent_text else ""
+                    elif key == 'damsire':
+                        damsire = parent_text.split()[0] if parent_text else ""
+            
+            # デバッグ情報を出力
+            print(f"【デバッグ】最終抽出結果: 父={sire}, 母={dam}, 母父={damsire}")
+            
+            return {
+                'sire': sire or '',
+                'dam': dam or '',
+                'damsire': damsire or ''
+            }
             
         except Exception as e:
             print(f"血統情報の抽出に失敗: {e}")
-            sire = ""
-            dam = ""
-            dam_sire = ""
-        
-        return {
-            "sire": sire,
-            "dam": dam,
-            "dam_sire": dam_sire
-        }
+            # エラー時も空文字を返す
+            return {
+                'sire': '',
+                'dam': '',
+                'damsire': ''
+            }
 
-    def _extract_weight(self, soup) -> Optional[int]:
-        """馬体重を抽出"""
+    def _extract_weight(self, soup) -> str:
+        """
+        馬体重を抽出
+        
+        Returns:
+            str: 馬体重（例: "450"）または空文字列（見つからない場合）
+        """
         try:
             page_text = soup.get_text()
             weight_match = re.search(r'(\d{3,4})[㎏kg]', page_text)
             if weight_match:
-                return int(weight_match.group(1))
+                return str(int(weight_match.group(1)))  # 文字列に変換して返す
         except Exception as e:
             print(f"馬体重の抽出に失敗: {e}")
-        return None
+        return ""  # 見つからない場合は空文字列を返す
     
-    def _extract_race_record(self, soup) -> Optional[str]:
+    def _extract_race_record(self, soup) -> str:
         """
         成績を抽出
         
         Returns:
-            Optional[str]: 
+            str: 
                 - レース成績（例: "24戦4勝［4-6-2-12］"）
                 - 明示的に未出走の場合は「未出走」
-                - 成績が見つからない場合はNone
+                - 成績が見つからない場合は空文字列
         """
         try:
             page_text = soup.get_text()
@@ -491,90 +849,71 @@ class RakutenAuctionScraper:
             if '未出走' in page_text or '出走前' in page_text:
                 return "未出走"
             
-            # 成績が見つからない場合はNoneを返す
-            return None
+            # 成績が見つからない場合は空文字列を返す
+            return ""
             
         except Exception as e:
             print(f"成績の抽出に失敗: {e}")
-            return None  # エラー時はNoneを返す
+            return ""  # エラー時は空文字列を返す
     
     def _extract_comment(self, soup) -> str:
         """
-        コメント欄を抽出する（「本馬について」セクションの<hr>以降のテキスト）。
-        """
-        comment = ""
+        コメント欄を抽出する。
+        「本馬について」の見出しの直後の<pre>タグ内のテキストを取得する。
         
+        Returns:
+            str: 抽出されたコメントテキスト。見つからない場合は空文字列。
+        """
         try:
-            # 「本馬について」のテキストを含む要素を検索
-            about_horse_elements = soup.find_all(text=lambda text: text and '本馬について' in text)
+            # デバッグ用にHTML全体を保存
+            with open('debug_comment_page.html', 'w', encoding='utf-8') as f:
+                f.write(str(soup))
+                
+            # 「本馬について」の見出しを探す
+            about_heading = soup.find('b', string='本馬について')
+            if not about_heading:
+                print("「本馬について」の見出しが見つかりませんでした")
+                # ページ内の全テキストを確認
+                all_text = soup.get_text()
+                print(f"ページの先頭500文字: {all_text[:500]}...")
+                return ""
+                
+            print(f"「本馬について」見出しを発見: {about_heading}")
             
-            if about_horse_elements:
-                # 「本馬について」を含む要素の親要素から開始
-                for about_text in about_horse_elements:
-                    parent = about_text.parent
-                    if not parent:
-                        continue
-                    
-                    # 親要素から<hr>タグを探す
-                    hr_tag = None
-                    
-                    # 同じ親要素内で<hr>を探す
-                    hr_tag = parent.find('hr')
-                    
-                    # 見つからない場合は、親要素の次の兄弟要素で<hr>を探す
-                    if not hr_tag:
-                        current = parent
-                        while current:
-                            next_sibling = current.find_next_sibling()
-                            if next_sibling:
-                                if next_sibling.name == 'hr':
-                                    hr_tag = next_sibling
-                                    break
-                                hr_tag = next_sibling.find('hr')
-                                if hr_tag:
-                                    break
-                            current = next_sibling
-                    
-                    # <hr>以降のテキストを抽出
-                    if hr_tag:
-                        comment_parts = []
-                        current = hr_tag.next_sibling
-                        
-                        while current:
-                            if hasattr(current, 'get_text'):
-                                text = current.get_text().strip()
-                                if text and len(text) > 0:
-                                    comment_parts.append(text)
-                            elif isinstance(current, str):
-                                text = current.strip()
-                                if text and len(text) > 0:
-                                    comment_parts.append(text)
-                            current = current.next_sibling
-                        
-                        if comment_parts:
-                            comment = ' '.join(comment_parts).strip()
-                            break
+            # 見出しの直後のhrタグを探す
+            hr_tag = about_heading.find_next('hr')
+            if not hr_tag:
+                print("hrタグが見つかりませんでした")
+                # hrタグがなくても、次の要素を探してみる
+                next_element = about_heading.find_next()
+                print(f"見出しの次にある要素: {next_element}")
+                return ""
+                
+            # hrタグの直後のpreタグを探す
+            pre_tag = hr_tag.find_next('pre')
+            if not pre_tag:
+                print("preタグが見つかりませんでした")
+                # preタグがなければ、hrタグ以降のテキストを取得してみる
+                next_siblings = []
+                current = hr_tag.next_sibling
+                while current and len(next_siblings) < 10:  # 最大10要素まで
+                    if hasattr(current, 'name') and current.name:
+                        next_siblings.append(str(current))
+                    current = current.next_sibling
+                print(f"hrタグの後の要素: {' | '.join(next_siblings[:3])}...")
+                return ""
+                
+            # preタグ内のテキストを取得して返す
+            comment = pre_tag.get_text(separator='\n', strip=True)
+            print(f"コメントを抽出しました（長さ: {len(comment)}文字）")
+            return comment
             
-            # フォールバック: 従来のロジック
-            if not comment:
-                div = soup.find('div', class_='comment')
-                if div and div.text:
-                    comment = div.text.strip()
-                else:
-                    p = soup.find('p', class_='comment')
-                    if p and p.text:
-                        comment = p.text.strip()
-            
-            # コメントの整形
-            if comment:
-                # 改行を適切に処理
-                comment = ' '.join(comment.split())
-                    
         except Exception as e:
             print(f"コメントの抽出に失敗: {e}")
-            comment = ""
-        
-        return comment
+            # エラーが発生した箇所を特定するため、スタックトレースを出力
+            import traceback
+            traceback.print_exc()
+            return ""
     
     def _extract_disease_tags(self, comment: str) -> str:
         """
@@ -851,11 +1190,24 @@ class RakutenAuctionScraper:
         for i, horse in enumerate(horses, 1):
             print(f"  {i}/{len(horses)}: {horse['name']}")
             if horse.get('detail_url'):
-                detail_data = self.scrape_horse_detail(horse['detail_url'])
+                # 詳細データを取得（auction_dateを渡す）
+                detail_data = self.scrape_horse_detail(horse['detail_url'], auction_date)
                 if detail_data:
-                    horse.update(detail_data)
-                    # sexは必ず詳細ページの値で上書き
-                    horse['sex'] = detail_data['sex']
+                    # 重要なフィールドを明示的にマージ
+                    for key in ['name', 'sex', 'age', 'sire', 'dam', 'damsire', 'seller', 'auction_date',
+                              'start_price', 'sold_price', 'bid_num', 'unsold', 'comment', 'disease_tags',
+                              'primary_image', 'jbis_url', 'total_prize_start', 'total_prize_latest', 'prize']:
+                        if key in detail_data and detail_data[key] is not None:
+                            horse[key] = detail_data[key]
+                    
+                    # 血統情報が不足している場合は警告を表示
+                    if not horse.get('sire'):
+                        print(f"  [警告] 父馬名が取得できません: {horse.get('name')}")
+                    if not horse.get('dam'):
+                        print(f"  [警告] 母馬名が取得できません: {horse.get('name')}")
+                    if not horse.get('damsire'):
+                        print(f"  [警告] 母父馬名が取得できません: {horse.get('name')}")
+                    
             # サーバーに負荷をかけないよう少し待機
             time.sleep(1)
         
@@ -945,7 +1297,8 @@ class RakutenAuctionScraper:
         # 共通フィールドを追加
         for i, horse in enumerate(horses, 1):
             horse['id'] = i  # IDを追加
-            horse['auction_date'] = auction_date
+            if 'auction_date' not in horse and auction_date:
+                horse['auction_date'] = auction_date
             horse['created_at'] = datetime.now().isoformat()
             horse['updated_at'] = datetime.now().isoformat()
         
@@ -1019,14 +1372,78 @@ def test_extract_pedigree():
         soup = DummySoup(text)
         result = scraper._extract_pedigree_from_page(soup)
         print(f"--- パターン{i+1} ---\n入力: {text}\n抽出結果: {result}\n")
+def debug_horse_scraping(max_horses=5):
+    """
+    利用可能な馬の詳細情報をデバッグ情報付きで取得し、新しいデータ構造で保存する
+    
+    Args:
+        max_horses: 処理する最大の馬の数
+    """
+    from pprint import pprint
+    import os
+    
+    print("=== デバッグ: 馬の詳細情報取得を開始 ===")
+    
+    # データディレクトリを指定（フロントエンドのpublic/dataディレクトリ）
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
+                          'static-frontend', 'public', 'data')
+    os.makedirs(data_dir, exist_ok=True)
+    
+    print(f"データ保存先: {data_dir}")
+    
+    scraper = RakutenAuctionScraper(data_dir=data_dir)
+    
+    # 馬のリストを取得して詳細情報を保存
+    print(f"\n1. 馬リストの取得を開始（最大{max_horses}頭）...")
+    horses = scraper.scrape_horse_list(max_horses=max_horses)
+    
+    if not horses:
+        print("エラー: 馬リストが空です。")
+        return
+    
+    print(f"\n2. 馬リストを取得しました（{len(horses)}頭）")
+    print("保存された馬の情報:", os.path.join(data_dir, 'horses.json'))
+    print("保存されたオークション履歴:", os.path.join(data_dir, 'auction_history.json'))
+    
+    # 保存されたデータを読み込んで表示
+    horses_file = os.path.join(data_dir, 'horses.json')
+    history_file = os.path.join(data_dir, 'auction_history.json')
+    
+    if os.path.exists(horses_file):
+        with open(horses_file, 'r', encoding='utf-8') as f:
+            horses_data = json.load(f)
+            print(f"\n3. 保存された馬の情報（{len(horses_data)}頭）:")
+            for i, horse in enumerate(horses_data[:5], 1):
+                print(f"  {i}. {horse.get('name', '名前なし')} (ID: {horse.get('id', 'N/A')})")
+                print(f"     性別: {horse.get('sex', 'N/A')}, 年齢: {horse.get('age', 'N/A')}")
+                print(f"     父: {horse.get('sire', 'N/A')}")
+                print(f"     母: {horse.get('dam', 'N/A')}")
+                print(f"     母父: {horse.get('damsire', 'N/A')}")
+                print(f"     疾病タグ: {', '.join(horse.get('disease_tags', [])) or 'なし'}")
+    
+    if os.path.exists(history_file):
+        with open(history_file, 'r', encoding='utf-8') as f:
+            history_data = json.load(f)
+            print(f"\n4. 保存されたオークション履歴（{len(history_data)}件）:")
+            for i, history in enumerate(history_data[:3], 1):
+                print(f"  {i}. 馬ID: {history.get('horse_id', 'N/A')}")
+                print(f"     オークション日: {history.get('auction_date', 'N/A')}")
+                print(f"     落札価格: {history.get('sold_price', 'N/A')}円")
+                print(f"     総賞金(開始時): {history.get('total_prize_start', 'N/A')}万円")
+                print(f"     総賞金(最新): {history.get('total_prize_latest', 'N/A')}万円")
+                print(f"     馬体重: {history.get('weight', 'N/A')}kg")
+                print(f"     売り手: {history.get('seller', 'N/A')}")
+                print(f"     主取り: {'はい' if history.get('is_unsold') else 'いいえ'}")
+                print(f"     コメント: {history.get('comment', 'N/A')}")
+    
+    print("\n=== デバッグ完了 ===")
+
 # テスト実行
 if __name__ == "__main__":
-    # test_extract_pedigree() をコメントアウトし、実スクレイピングを実行
-    # test_extract_pedigree()
-    scraper = RakutenAuctionScraper()
-    horses = scraper.scrape_all_horses()
-    # 取得した馬データの件数とサンプルを表示
-    print(f"取得馬数: {len(horses)}")
-    if horses:
-        print("サンプル馬データ:")
-        print(horses[0]) 
+    # デバッグ用: 利用可能な馬の詳細をデバッグ（最大5頭）
+    debug_horse_scraping(max_horses=5)
+    
+    # 通常のスクレイピングを実行する場合は以下のコメントを外す
+    # scraper = RakutenAuctionScraper()
+    # horses = scraper.scrape_all_horses()
+    # print(f"取得馬数: {len(horses)}")

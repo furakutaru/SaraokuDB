@@ -1,0 +1,47 @@
+[
+  {
+    "name": "アローロ",
+    "status": "error",
+    "message": "'RakutenAuctionScraper' object has no attribute '_fetch_page'"
+  },
+  {
+    "name": "ウエスタンタマヤ",
+    "status": "error",
+    "message": "'RakutenAuctionScraper' object has no attribute '_fetch_page'"
+  },
+  {
+    "name": "ジャスマン",
+    "status": "error",
+    "message": "'RakutenAuctionScraper' object has no attribute '_fetch_page'"
+  },
+  {
+    "name": "ウインエンデバー",
+    "status": "error",
+    "message": "'RakutenAuctionScraper' object has no attribute '_fetch_page'"
+  },
+  {
+    "name": "ジューンアレグロ",
+    "status": "error",
+    "message": "'RakutenAuctionScraper' object has no attribute '_fetch_page'"
+  },
+  {
+    "name": "ミリオンヒット",
+    "status": "error",
+    "message": "'RakutenAuctionScraper' object has no attribute '_fetch_page'"
+  },
+  {
+    "name": "セレニティ",
+    "status": "error",
+    "message": "'RakutenAuctionScraper' object has no attribute '_fetch_page'"
+  },
+  {
+    "name": "ウィルトゥーウェル",
+    "status": "error",
+    "message": "'RakutenAuctionScraper' object has no attribute '_fetch_page'"
+  },
+  {
+    "name": "スカリーワグ",
+    "status": "error",
+    "message": "'RakutenAuctionScraper' object has no attribute '_fetch_page'"
+  }
+]

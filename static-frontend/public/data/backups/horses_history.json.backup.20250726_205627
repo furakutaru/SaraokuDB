@@ -1,15 +1,17 @@
 {
   "metadata": {
-    "last_updated": "2025-07-27T02:11:00.974Z",
+    "last_updated": "2025-07-26T20:55:39.980161",
     "total_horses": 45,
     "average_price": 1380697,
     "auction_date": "2025-07-26",
     "history_reset": true,
-    "reset_date": "2025-07-26T20:56:51.438891",
-    "horses_reset": 10,
-    "total_history_before": 55,
+    "reset_date": "2025-07-26T20:35:08.163850",
+    "horses_reset": 45,
+    "total_history_before": 90,
     "total_history_after": 45,
-    "comment_added": true
+    "total_history_entries": 65,
+    "test_data_created": true,
+    "test_creation_date": "2025-07-26T20:55:39.980169"
   },
   "horses": [
     {
@@ -25,6 +27,24 @@
       "updated_at": "2025-07-26T17:10:10.335444",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "スリーカーニバルの23",
+          "sex": "牝",
+          "age": "2",
+          "seller": "(株) サンティスト",
+          "sold_price": 1000000,
+          "start_price": null,
+          "bid_num": 0,
+          "unsold": true,
+          "comment": "",
+          "race_record": "",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14510",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_01/1.jpg",
+          "disease_tags": "なし",
+          "weight": 511
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "スリーカーニバルの23",
           "sex": "牝",
@@ -34,16 +54,34 @@
           "start_price": null,
           "bid_num": 0,
           "unsold": true,
-          "comment": "テスト用のコメントです。\nこの馬はダノンスマッシュ産駒で、スリーカーニバルの2023年生まれの牝馬です。\n\n【調教状況】\n・7/20追い切り: 5F 1:02.5 (34.0-12.7)\n・7/15坂路: 5F 1:04.1 (36.3-13.0)\n\n【特徴】\n・バランスの良い馬体\n・柔らかい動きが特徴\n・気性はおだやか\n\n【所見】\n調教の進み具合は順調で、仕上がりは7割程度。レースに使える状態まではあと1-2週間かかりそうです。",
+          "comment": "",
           "race_record": "",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14510",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_01/1.jpg",
+          "disease_tags": "なし",
+          "weight": 511
+        },
+        {
+          "auction_date": "2025-07-26",
+          "name": "スリーカーニバルの23",
+          "sex": "牝",
+          "age": "2",
+          "seller": "(株) サンティスト",
+          "sold_price": 1200000,
+          "start_price": null,
+          "bid_num": 0,
+          "unsold": true,
+          "comment": "",
+          "race_record": "",
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14510",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_01/1.jpg",
           "disease_tags": "なし",
           "weight": 511
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 511
     },
     {
@@ -59,6 +97,24 @@
       "updated_at": "2025-07-26T17:10:11.905791",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "ベルキューズの22",
+          "sex": "牝",
+          "age": "3",
+          "seller": "小林 祥晃",
+          "sold_price": 2010000,
+          "start_price": null,
+          "bid_num": 42,
+          "unsold": false,
+          "comment": "",
+          "race_record": "",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14511",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_02/1.jpeg",
+          "disease_tags": "なし",
+          "weight": 514
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "ベルキューズの22",
           "sex": "牝",
@@ -68,16 +124,34 @@
           "start_price": null,
           "bid_num": 42,
           "unsold": false,
-          "comment": "2頭目のテストコメントです。\nこの馬は父モズアスコット、母クラウンドジャックの2023年生まれの牡馬です。\n\n【調教状況】\n・7/22追い切り: 5F 1:03.0 (34.5-12.8)\n・7/17坂路: 5F 1:04.5 (36.8-13.2)\n\n【特徴】\n・パワフルな走り\n・スタミナに優れる\n・気性はやや激しい\n\n【所見】\nパワーは十分だが、コントロールに課題あり。レースデビューまでにはもう少し時間がかかりそう。",
+          "comment": "",
           "race_record": "",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14511",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_02/1.jpeg",
+          "disease_tags": "なし",
+          "weight": 514
+        },
+        {
+          "auction_date": "2025-07-26",
+          "name": "ベルキューズの22",
+          "sex": "牝",
+          "age": "3",
+          "seller": "小林 祥晃",
+          "sold_price": 2210000,
+          "start_price": null,
+          "bid_num": 42,
+          "unsold": false,
+          "comment": "",
+          "race_record": "",
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14511",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_02/1.jpeg",
           "disease_tags": "なし",
           "weight": 514
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 514
     },
     {
@@ -93,6 +167,24 @@
       "updated_at": "2025-07-26T17:10:13.486779",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "ナツキアンレーヴ",
+          "sex": "牡",
+          "age": "2",
+          "seller": "ホースアディクト",
+          "sold_price": 4500000,
+          "start_price": null,
+          "bid_num": 1,
+          "unsold": false,
+          "comment": "",
+          "race_record": "",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14512",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_03/1.jpeg",
+          "disease_tags": "なし",
+          "weight": 405
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "ナツキアンレーヴ",
           "sex": "牡",
@@ -102,16 +194,34 @@
           "start_price": null,
           "bid_num": 1,
           "unsold": false,
-          "comment": "3頭目のテストコメントです。\nこの馬は父キタサンブラック、母サマーリガードの2023年生まれの牝馬です。\n\n【調教状況】\n・7/21追い切り: 5F 1:02.8 (34.3-12.6)\n・7/16坂路: 5F 1:04.3 (36.5-13.1)\n\n【特徴】\n・スピードに優れる\n・切れ味抜群\n・気性はおとなしい\n\n【所見】\nスピードは申し分ないが、スタミナにやや不安あり。短距離戦向きの馬。",
+          "comment": "",
           "race_record": "",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14512",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_03/1.jpeg",
+          "disease_tags": "なし",
+          "weight": 405
+        },
+        {
+          "auction_date": "2025-07-26",
+          "name": "ナツキアンレーヴ",
+          "sex": "牡",
+          "age": "2",
+          "seller": "ホースアディクト",
+          "sold_price": 4700000,
+          "start_price": null,
+          "bid_num": 1,
+          "unsold": false,
+          "comment": "",
+          "race_record": "",
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14512",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_03/1.jpeg",
           "disease_tags": "なし",
           "weight": 405
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 405
     },
     {
@@ -127,6 +237,24 @@
       "updated_at": "2025-07-26T16:14:18.840833",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "アンファング",
+          "sex": "牡",
+          "age": "3",
+          "seller": "林 正道",
+          "sold_price": 1340000,
+          "start_price": null,
+          "bid_num": 73,
+          "unsold": false,
+          "comment": "",
+          "race_record": "4戦0勝［0-0-0-4］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14513",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_04/1.JPG",
+          "disease_tags": "なし",
+          "weight": 500
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "アンファング",
           "sex": "牡",
@@ -138,14 +266,32 @@
           "unsold": false,
           "comment": "",
           "race_record": "4戦0勝［0-0-0-4］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14513",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_04/1.JPG",
+          "disease_tags": "なし",
+          "weight": 500
+        },
+        {
+          "auction_date": "2025-07-26",
+          "name": "アンファング",
+          "sex": "牡",
+          "age": "3",
+          "seller": "林 正道",
+          "sold_price": 1540000,
+          "start_price": null,
+          "bid_num": 73,
+          "unsold": false,
+          "comment": "",
+          "race_record": "4戦0勝［0-0-0-4］",
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14513",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_04/1.JPG",
           "disease_tags": "なし",
           "weight": 500
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 500
     },
     {
@@ -161,6 +307,24 @@
       "updated_at": "2025-07-26T16:14:20.418873",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "カナメイシ",
+          "sex": "牝",
+          "age": "3",
+          "seller": "(株) 協栄",
+          "sold_price": 710000,
+          "start_price": null,
+          "bid_num": 32,
+          "unsold": false,
+          "comment": "",
+          "race_record": "5戦0勝［0-0-0-5］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14514",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_05/1.jpeg",
+          "disease_tags": "なし",
+          "weight": 454
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "カナメイシ",
           "sex": "牝",
@@ -172,14 +336,32 @@
           "unsold": false,
           "comment": "",
           "race_record": "5戦0勝［0-0-0-5］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14514",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_05/1.jpeg",
+          "disease_tags": "なし",
+          "weight": 454
+        },
+        {
+          "auction_date": "2025-07-26",
+          "name": "カナメイシ",
+          "sex": "牝",
+          "age": "3",
+          "seller": "(株) 協栄",
+          "sold_price": 910000,
+          "start_price": null,
+          "bid_num": 32,
+          "unsold": false,
+          "comment": "",
+          "race_record": "5戦0勝［0-0-0-5］",
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14514",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_05/1.jpeg",
           "disease_tags": "なし",
           "weight": 454
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 454
     },
     {
@@ -195,6 +377,24 @@
       "updated_at": "2025-07-26T16:14:22.009183",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "キョウエイレッド",
+          "sex": "牝",
+          "age": "3",
+          "seller": "田中 晴夫",
+          "sold_price": 770000,
+          "start_price": null,
+          "bid_num": 44,
+          "unsold": false,
+          "comment": "",
+          "race_record": "3戦0勝［0-0-0-3］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14515",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_06/1.JPG",
+          "disease_tags": "なし",
+          "weight": 406
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "キョウエイレッド",
           "sex": "牝",
@@ -206,14 +406,32 @@
           "unsold": false,
           "comment": "",
           "race_record": "3戦0勝［0-0-0-3］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14515",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_06/1.JPG",
+          "disease_tags": "なし",
+          "weight": 406
+        },
+        {
+          "auction_date": "2025-07-26",
+          "name": "キョウエイレッド",
+          "sex": "牝",
+          "age": "3",
+          "seller": "田中 晴夫",
+          "sold_price": 970000,
+          "start_price": null,
+          "bid_num": 44,
+          "unsold": false,
+          "comment": "",
+          "race_record": "3戦0勝［0-0-0-3］",
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14515",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_06/1.JPG",
           "disease_tags": "なし",
           "weight": 406
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 406
     },
     {
@@ -229,6 +447,24 @@
       "updated_at": "2025-07-26T16:14:23.582554",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "クリノアラジン",
+          "sex": "牡",
+          "age": "3",
+          "seller": "栗本 依利子",
+          "sold_price": 730000,
+          "start_price": null,
+          "bid_num": 19,
+          "unsold": false,
+          "comment": "",
+          "race_record": "4戦0勝［0-0-0-4］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14516",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_07/1.jpg",
+          "disease_tags": "なし",
+          "weight": 436
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "クリノアラジン",
           "sex": "牡",
@@ -240,14 +476,32 @@
           "unsold": false,
           "comment": "",
           "race_record": "4戦0勝［0-0-0-4］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14516",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_07/1.jpg",
+          "disease_tags": "なし",
+          "weight": 436
+        },
+        {
+          "auction_date": "2025-07-26",
+          "name": "クリノアラジン",
+          "sex": "牡",
+          "age": "3",
+          "seller": "栗本 依利子",
+          "sold_price": 930000,
+          "start_price": null,
+          "bid_num": 19,
+          "unsold": false,
+          "comment": "",
+          "race_record": "4戦0勝［0-0-0-4］",
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14516",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_07/1.jpg",
           "disease_tags": "なし",
           "weight": 436
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 436
     },
     {
@@ -263,6 +517,24 @@
       "updated_at": "2025-07-26T16:14:25.286663",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "ゴールドエンペラー",
+          "sex": "牡",
+          "age": "3",
+          "seller": "(株) ノルマンディーサラブレッドR",
+          "sold_price": 1100000,
+          "start_price": null,
+          "bid_num": 37,
+          "unsold": false,
+          "comment": "",
+          "race_record": "3戦0勝［0-0-0-3］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14518",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_09/1.jpg",
+          "disease_tags": "なし",
+          "weight": 500
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "ゴールドエンペラー",
           "sex": "牡",
@@ -274,14 +546,32 @@
           "unsold": false,
           "comment": "",
           "race_record": "3戦0勝［0-0-0-3］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14518",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_09/1.jpg",
+          "disease_tags": "なし",
+          "weight": 500
+        },
+        {
+          "auction_date": "2025-07-26",
+          "name": "ゴールドエンペラー",
+          "sex": "牡",
+          "age": "3",
+          "seller": "(株) ノルマンディーサラブレッドR",
+          "sold_price": 1300000,
+          "start_price": null,
+          "bid_num": 37,
+          "unsold": false,
+          "comment": "",
+          "race_record": "3戦0勝［0-0-0-3］",
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14518",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_09/1.jpg",
           "disease_tags": "なし",
           "weight": 500
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 500
     },
     {
@@ -297,6 +587,24 @@
       "updated_at": "2025-07-26T16:14:26.861982",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "スエズマックス",
+          "sex": "牡",
+          "age": "3",
+          "seller": "服部 健太郎",
+          "sold_price": 2000000,
+          "start_price": null,
+          "bid_num": 99,
+          "unsold": false,
+          "comment": "",
+          "race_record": "3戦0勝［0-0-0-3］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14519",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_10/1.JPG",
+          "disease_tags": "なし",
+          "weight": 486
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "スエズマックス",
           "sex": "牡",
@@ -308,14 +616,32 @@
           "unsold": false,
           "comment": "",
           "race_record": "3戦0勝［0-0-0-3］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14519",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_10/1.JPG",
+          "disease_tags": "なし",
+          "weight": 486
+        },
+        {
+          "auction_date": "2025-07-26",
+          "name": "スエズマックス",
+          "sex": "牡",
+          "age": "3",
+          "seller": "服部 健太郎",
+          "sold_price": 2200000,
+          "start_price": null,
+          "bid_num": 99,
+          "unsold": false,
+          "comment": "",
+          "race_record": "3戦0勝［0-0-0-3］",
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14519",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_10/1.JPG",
           "disease_tags": "なし",
           "weight": 486
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 486
     },
     {
@@ -331,6 +657,24 @@
       "updated_at": "2025-07-26T16:14:28.509213",
       "history": [
         {
+          "auction_date": "2025-07-20",
+          "name": "セージブラッシュ",
+          "sex": "牡",
+          "age": "3",
+          "seller": "(有) ビッグレッドファーム",
+          "sold_price": 1380000,
+          "start_price": null,
+          "bid_num": 66,
+          "unsold": false,
+          "comment": "",
+          "race_record": "5戦0勝［0-0-0-5］",
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14520",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_11/1.JPG",
+          "disease_tags": "なし",
+          "weight": 480
+        },
+        {
           "auction_date": "2025-07-23",
           "name": "セージブラッシュ",
           "sex": "牡",
@@ -342,14 +686,32 @@
           "unsold": false,
           "comment": "",
           "race_record": "5戦0勝［0-0-0-5］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
+          "detail_url": "https://auction.keiba.rakuten.co.jp/item/14520",
+          "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_11/1.JPG",
+          "disease_tags": "なし",
+          "weight": 480
+        },
+        {
+          "auction_date": "2025-07-26",
+          "name": "セージブラッシュ",
+          "sex": "牡",
+          "age": "3",
+          "seller": "(有) ビッグレッドファーム",
+          "sold_price": 1580000,
+          "start_price": null,
+          "bid_num": 66,
+          "unsold": false,
+          "comment": "",
+          "race_record": "5戦0勝［0-0-0-5］",
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14520",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_11/1.JPG",
           "disease_tags": "なし",
           "weight": 480
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 480
     },
     {
@@ -376,14 +738,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "4戦0勝［0-0-0-4］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14521",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_12/1.JPG",
           "disease_tags": "なし",
           "weight": 446
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 446
     },
     {
@@ -410,14 +772,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "2戦0勝［0-0-0-2］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14522",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_13/1.JPG",
           "disease_tags": "なし",
           "weight": 400
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 400
     },
     {
@@ -444,14 +806,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "4戦0勝［0-0-0-4］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14523",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_14/1.JPG",
           "disease_tags": "なし",
           "weight": 436
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 436
     },
     {
@@ -478,14 +840,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "9戦0勝［0-0-0-9］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14524",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_15/1.jpg",
           "disease_tags": "なし",
           "weight": 420
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 420
     },
     {
@@ -512,14 +874,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "5戦0勝［0-0-0-5］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14525",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_16/1.jpeg",
           "disease_tags": "なし",
           "weight": 436
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 436
     },
     {
@@ -546,14 +908,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "2戦0勝［0-0-0-2］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14526",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_17/1.JPG",
           "disease_tags": "なし",
           "weight": 508
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 508
     },
     {
@@ -580,14 +942,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "9戦0勝［0-0-0-9］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14527",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_18/1.jpeg",
           "disease_tags": "なし",
           "weight": 410
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 410
     },
     {
@@ -614,14 +976,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "4戦0勝［0-0-0-4］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14528",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_19/1.JPG",
           "disease_tags": "なし",
           "weight": 486
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 486
     },
     {
@@ -648,14 +1010,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "1戦0勝［0-0-0-1］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14529",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_20/1.JPG",
           "disease_tags": "なし",
           "weight": 534
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 534
     },
     {
@@ -682,14 +1044,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "3戦0勝［0-0-0-3］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14530",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_21/image1.jpeg",
           "disease_tags": "なし",
           "weight": 436
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 436
     },
     {
@@ -716,14 +1078,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "2戦0勝［0-0-0-2］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14531",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_22/1.jpeg",
           "disease_tags": "なし",
           "weight": 438
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 438
     },
     {
@@ -750,14 +1112,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "3戦0勝［0-0-0-3］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14532",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_23/1.JPG",
           "disease_tags": "なし",
           "weight": 426
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 426
     },
     {
@@ -784,14 +1146,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "8戦0勝［0-0-0-8］",
-          "total_prize_start": 56,
+          "total_prize_start": 56.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14533",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_24/1.JPG",
           "disease_tags": "なし",
           "weight": 454
         }
       ],
-      "total_prize_latest": 56,
+      "total_prize_latest": 56.0,
       "weight": 454
     },
     {
@@ -852,14 +1214,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "5戦0勝［0-0-0-5］",
-          "total_prize_start": 110,
+          "total_prize_start": 110.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14535",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_26/1.JPG",
           "disease_tags": "なし",
           "weight": 484
         }
       ],
-      "total_prize_latest": 110,
+      "total_prize_latest": 110.0,
       "weight": 484
     },
     {
@@ -886,14 +1248,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "5戦0勝［0-0-0-5］",
-          "total_prize_start": 110,
+          "total_prize_start": 110.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14536",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_27/1.jpg",
           "disease_tags": "なし",
           "weight": 440
         }
       ],
-      "total_prize_latest": 110,
+      "total_prize_latest": 110.0,
       "weight": 440
     },
     {
@@ -920,14 +1282,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "6戦0勝［0-0-0-6］",
-          "total_prize_start": 110,
+          "total_prize_start": 110.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14537",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_28/1.JPG",
           "disease_tags": "なし",
           "weight": 484
         }
       ],
-      "total_prize_latest": 110,
+      "total_prize_latest": 110.0,
       "weight": 484
     },
     {
@@ -954,14 +1316,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "5戦0勝［0-0-1-4］",
-          "total_prize_start": 160,
+          "total_prize_start": 160.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14538",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_29/1.JPG",
           "disease_tags": "なし",
           "weight": 490
         }
       ],
-      "total_prize_latest": 160,
+      "total_prize_latest": 160.0,
       "weight": 490
     },
     {
@@ -988,14 +1350,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "6戦0勝［0-0-0-6］",
-          "total_prize_start": 166,
+          "total_prize_start": 166.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14539",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_30/1.JPG",
           "disease_tags": "なし",
           "weight": 438
         }
       ],
-      "total_prize_latest": 166,
+      "total_prize_latest": 166.0,
       "weight": 438
     },
     {
@@ -1022,14 +1384,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "8戦0勝［0-1-0-7］",
-          "total_prize_start": 276,
+          "total_prize_start": 276.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14540",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_31/1.jpg",
           "disease_tags": "なし",
           "weight": 426
         }
       ],
-      "total_prize_latest": 276,
+      "total_prize_latest": 276.0,
       "weight": 426
     },
     {
@@ -1056,14 +1418,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "5戦0勝［0-1-0-4］",
-          "total_prize_start": 290,
+          "total_prize_start": 290.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14541",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_32/1.JPG",
           "disease_tags": "なし",
           "weight": 424
         }
       ],
-      "total_prize_latest": 290,
+      "total_prize_latest": 290.0,
       "weight": 424
     },
     {
@@ -1090,14 +1452,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "4戦0勝［0-1-0-3］",
-          "total_prize_start": 304,
+          "total_prize_start": 304.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14542",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_33/1.JPG",
           "disease_tags": "なし",
           "weight": 502
         }
       ],
-      "total_prize_latest": 304,
+      "total_prize_latest": 304.0,
       "weight": 502
     },
     {
@@ -1124,14 +1486,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "9戦0勝［0-1-1-7］",
-          "total_prize_start": 360,
+          "total_prize_start": 360.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14543",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_34/1.JPG",
           "disease_tags": "なし",
           "weight": 420
         }
       ],
-      "total_prize_latest": 360,
+      "total_prize_latest": 360.0,
       "weight": 420
     },
     {
@@ -1158,14 +1520,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "10戦0勝［0-0-2-8］",
-          "total_prize_start": 404,
+          "total_prize_start": 404.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14544",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_35/1.JPG",
           "disease_tags": "なし",
           "weight": 482
         }
       ],
-      "total_prize_latest": 404,
+      "total_prize_latest": 404.0,
       "weight": 482
     },
     {
@@ -1192,14 +1554,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "13戦1勝［1-0-1-11］",
-          "total_prize_start": 800,
+          "total_prize_start": 800.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14545",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_36/1.JPG",
           "disease_tags": "なし",
           "weight": 432
         }
       ],
-      "total_prize_latest": 800,
+      "total_prize_latest": 800.0,
       "weight": 432
     },
     {
@@ -1226,14 +1588,14 @@
           "unsold": false,
           "comment": "",
           "race_record": "12戦1勝［1-2-1-8］",
-          "total_prize_start": 1200,
+          "total_prize_start": 1200.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14546",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_37/1.JPG",
           "disease_tags": "なし",
           "weight": 468
         }
       ],
-      "total_prize_latest": 1200,
+      "total_prize_latest": 1200.0,
       "weight": 468
     },
     {
@@ -1328,14 +1690,14 @@
           "unsold": true,
           "comment": "",
           "race_record": "4戦0勝［0-0-0-4］",
-          "total_prize_start": 0,
+          "total_prize_start": 0.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14549",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_40/１.jpeg",
           "disease_tags": "なし",
           "weight": 457
         }
       ],
-      "total_prize_latest": 0,
+      "total_prize_latest": 0.0,
       "weight": 457
     },
     {
@@ -1430,7 +1792,7 @@
           "unsold": false,
           "comment": "",
           "race_record": "18戦1勝［1-0-1-16］",
-          "total_prize_start": 55,
+          "total_prize_start": 55.0,
           "detail_url": "https://auction.keiba.rakuten.co.jp/item/14555",
           "primary_image": "https://keiba.r10s.jp/auction/data/item/1/250724_horse_46/1.jpg",
           "disease_tags": "なし",

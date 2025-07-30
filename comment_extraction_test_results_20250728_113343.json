@@ -1,0 +1,47 @@
+[
+  {
+    "name": "アローロ",
+    "status": "error",
+    "message": "馬の詳細情報の取得に失敗"
+  },
+  {
+    "name": "ウエスタンタマヤ",
+    "status": "error",
+    "message": "馬の詳細情報の取得に失敗"
+  },
+  {
+    "name": "ジャスマン",
+    "status": "error",
+    "message": "馬の詳細情報の取得に失敗"
+  },
+  {
+    "name": "ウインエンデバー",
+    "status": "error",
+    "message": "馬の詳細情報の取得に失敗"
+  },
+  {
+    "name": "ジューンアレグロ",
+    "status": "error",
+    "message": "馬の詳細情報の取得に失敗"
+  },
+  {
+    "name": "ミリオンヒット",
+    "status": "error",
+    "message": "馬の詳細情報の取得に失敗"
+  },
+  {
+    "name": "セレニティ",
+    "status": "error",
+    "message": "馬の詳細情報の取得に失敗"
+  },
+  {
+    "name": "ウィルトゥーウェル",
+    "status": "error",
+    "message": "馬の詳細情報の取得に失敗"
+  },
+  {
+    "name": "スカリーワグ",
+    "status": "error",
+    "message": "馬の詳細情報の取得に失敗"
+  }
+]
