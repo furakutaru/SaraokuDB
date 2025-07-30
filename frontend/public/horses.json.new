@@ -1,0 +1,220 @@
+{
+  "metadata": {
+    "last_updated": "2025-07-13T13:49:40.649475",
+    "total_horses": 8,
+    "average_price": 11160000,
+    "average_growth_rate": 17.03,
+    "horses_with_growth_data": 4,
+    "next_auction_date": "2025-07-13"
+  },
+  "horses": [
+    {
+      "id": 1,
+      "name": "ジンガブリッツ",
+      "sex": "牝",
+      "age": 3,
+      "auction_history": [
+        {
+          "date": null,
+          "price": null,
+          "seller": null
+        }
+      ],
+      "prize_history": [],
+      "sire": "オルフェーヴル",
+      "dam": "ファーレサルティ",
+      "dam_sire": "ダンスインザダーク",
+      "comment_history": [],
+      "weight_history": [],
+      "race_record": "",
+      "images": [],
+      "disease_history": [],
+      "netkeiba_url": "",
+      "created_at": "2025-07-13T13:49:36.616149",
+      "updated_at": "2025-07-13T13:49:36.616152",
+      "unsold_count": null
+    },
+    {
+      "id": 2,
+      "name": "サクラエイコウ",
+      "sex": "牝",
+      "age": 4,
+      "auction_history": [
+        {
+          "date": null,
+          "price": null,
+          "seller": null
+        }
+      ],
+      "prize_history": [],
+      "sire": "ディープインパクト",
+      "dam": "サクラフラワー",
+      "dam_sire": "サクラバクシンオー",
+      "comment_history": [],
+      "weight_history": [],
+      "race_record": "2-1-0-5",
+      "images": [],
+      "disease_history": [],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616153",
+      "updated_at": "2025-07-13T13:49:36.616154",
+      "unsold_count": null
+    },
+    {
+      "id": 3,
+      "name": "ダイワスカーレット",
+      "sex": "牝",
+      "age": 3,
+      "auction_history": [
+        {
+          "date": null,
+          "price": null,
+          "seller": null
+        }
+      ],
+      "prize_history": [],
+      "sire": "ロードカナロア",
+      "dam": "ダイワスカーレット",
+      "dam_sire": "アグネスタキオン",
+      "comment_history": [],
+      "weight_history": [],
+      "race_record": "0-0-0-0",
+      "images": [],
+      "disease_history": [],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616155",
+      "updated_at": "2025-07-13T13:49:36.616156",
+      "unsold_count": null
+    },
+    {
+      "id": 4,
+      "name": "キタサンブラック",
+      "sex": "牡",
+      "age": 4,
+      "auction_history": [
+        {
+          "date": null,
+          "price": null,
+          "seller": null
+        }
+      ],
+      "prize_history": [],
+      "sire": "ブラックタイド",
+      "dam": "キタサンブラック",
+      "dam_sire": "マヤノトップガン",
+      "comment_history": [],
+      "weight_history": [],
+      "race_record": "1-2-1-3",
+      "images": [],
+      "disease_history": [],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616157",
+      "updated_at": "2025-07-13T13:49:36.616158",
+      "unsold_count": null
+    },
+    {
+      "id": 5,
+      "name": "サトノダイヤモンド",
+      "sex": "牡",
+      "age": 3,
+      "auction_history": [
+        {
+          "date": null,
+          "price": null,
+          "seller": null
+        }
+      ],
+      "prize_history": [],
+      "sire": "ディープインパクト",
+      "dam": "サトノダイヤモンド",
+      "dam_sire": "サクラバクシンオー",
+      "comment_history": [],
+      "weight_history": [],
+      "race_record": "0-1-0-1",
+      "images": [],
+      "disease_history": [],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616159",
+      "updated_at": "2025-07-13T13:49:36.616160",
+      "unsold_count": null
+    },
+    {
+      "id": 6,
+      "name": "モズアスコット",
+      "sex": "牝",
+      "age": 4,
+      "auction_history": [
+        {
+          "date": null,
+          "price": null,
+          "seller": null
+        }
+      ],
+      "prize_history": [],
+      "sire": "アスコット",
+      "dam": "モズアスコット",
+      "dam_sire": "サクラバクシンオー",
+      "comment_history": [],
+      "weight_history": [],
+      "race_record": "1-0-1-2",
+      "images": [],
+      "disease_history": [],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616161",
+      "updated_at": "2025-07-13T13:49:36.616161",
+      "unsold_count": null
+    },
+    {
+      "id": 7,
+      "name": "エイシンフラッシュ",
+      "sex": "牡",
+      "age": 3,
+      "auction_history": [
+        {
+          "date": null,
+          "price": null,
+          "seller": null
+        }
+      ],
+      "prize_history": [],
+      "sire": "フラッシュ",
+      "dam": "エイシンフラッシュ",
+      "dam_sire": "サクラバクシンオー",
+      "comment_history": [],
+      "weight_history": [],
+      "race_record": "0-0-0-0",
+      "images": [],
+      "disease_history": [],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616163",
+      "updated_at": "2025-07-13T13:49:36.616163",
+      "unsold_count": null
+    },
+    {
+      "id": 8,
+      "name": "オグリキャップ",
+      "sex": "牡",
+      "age": 4,
+      "auction_history": [
+        {
+          "date": null,
+          "price": null,
+          "seller": null
+        }
+      ],
+      "prize_history": [],
+      "sire": "キャップ",
+      "dam": "オグリキャップ",
+      "dam_sire": "サクラバクシンオー",
+      "comment_history": [],
+      "weight_history": [],
+      "race_record": "1-1-2-2",
+      "images": [],
+      "disease_history": [],
+      "netkeiba_url": "https://db.netkeiba.com/horse/202XXXXXXX",
+      "created_at": "2025-07-13T13:49:36.616164",
+      "updated_at": "2025-07-13T13:49:36.616165",
+      "unsold_count": null
+    }
+  ]
+}

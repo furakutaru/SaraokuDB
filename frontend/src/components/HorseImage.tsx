@@ -1,45 +1,46 @@
-import React from 'react';
+import { useState } from 'react';
+import Image from 'next/image';
 
 interface HorseImageProps {
-  src: string | null;
+  src: string;
   alt: string;
-  width?: number | string;
-  height?: number | string;
   className?: string;
+  width?: number;
+  height?: number;
 }
 
-const HorseImage: React.FC<HorseImageProps> = ({
-  src,
-  alt,
-  width = 200,
-  height = 200,
+export default function HorseImage({ 
+  src, 
+  alt, 
   className = '',
-}) => {
-  if (!src) {
-    return (
-      <div 
-        className={`bg-gray-200 flex items-center justify-center ${className}`}
-        style={{ width, height }}
-      >
-        <span className="text-gray-500">No Image</span>
-      </div>
-    );
-  }
+  width = 300,
+  height = 300 
+}: HorseImageProps) {
+  const [imgSrc, setImgSrc] = useState(src);
+  const [isLoading, setIsLoading] = useState(true);
 
   return (
-    <div className={`${className}`} style={{ width, height, overflow: 'hidden' }}>
-      <img
-        src={src}
+    <div className={`relative ${className}`} style={{ width: '100%', height: '100%' }}>
+      <Image
+        src={imgSrc}
         alt={alt}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
+        width={width}
+        height={height}
+        className={`w-full h-auto transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+        style={{ width: '100%', height: 'auto' }}
+        onLoadingComplete={() => setIsLoading(false)}
+        onError={() => {
+          setImgSrc('/placeholder-horse.jpg');
+          setIsLoading(false);
         }}
         loading="lazy"
+        unoptimized={process.env.NODE_ENV !== 'production'}
       />
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="animate-pulse text-gray-400">読み込み中...</div>
+        </div>
+      )}
     </div>
   );
-};
-
-export default HorseImage;
+}

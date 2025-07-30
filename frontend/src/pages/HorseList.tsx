@@ -21,18 +21,27 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import axios from 'axios';
 
+interface HistoryEntry {
+  auction_date: string;
+  sold_price: number | null;
+  total_prize_start: number;
+  [key: string]: any;
+}
+
 interface Horse {
   id: number;
   name: string;
   sex: string;
-  age: number;
-  sold_price: number;
-  auction_date: string;
-  seller: string;
-  total_prize_start: number;
-  total_prize_latest: number;
+  age: string | number;
   primary_image: string;
+  history: HistoryEntry[];
+  sold_price?: number | null;
   unsold_count?: number;
+  disease_tags?: string[] | string;
+  detail_url?: string;
+  jbis_url?: string;
+  comment?: string;
+  [key: string]: any;
 }
 
 const HorseList: React.FC = () => {
@@ -83,14 +92,8 @@ const HorseList: React.FC = () => {
   };
 
   const filteredHorses = horses.filter(horse =>
-    horse.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    horse.seller.toLowerCase().includes(searchTerm.toLowerCase())
+    horse.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const calculateGrowthRate = (start: number, latest: number) => {
-    if (start === 0) return 0;
-    return ((latest - start) / start * 100).toFixed(1);
-  };
 
   if (loading) {
     return (
@@ -112,10 +115,11 @@ const HorseList: React.FC = () => {
       
       <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
         <TextField
-          label="検索（馬名・販売者）"
+          label="馬名で検索"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           sx={{ minWidth: 300 }}
+          placeholder="馬名を入力"
         />
         <FormControl sx={{ minWidth: 200 }}>
           <InputLabel>開催日</InputLabel>
@@ -143,11 +147,7 @@ const HorseList: React.FC = () => {
               <TableCell>性別</TableCell>
               <TableCell>年齢</TableCell>
               <TableCell>落札価格</TableCell>
-              <TableCell>開催日</TableCell>
-              <TableCell>販売者</TableCell>
-              <TableCell>出品時賞金</TableCell>
-              <TableCell>最新賞金</TableCell>
-              <TableCell>成長率</TableCell>
+              <TableCell>疾病タグ</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -190,25 +190,51 @@ const HorseList: React.FC = () => {
                     {horse.name}
                   </RouterLink>
                 </TableCell>
-                <TableCell>{horse.sex}</TableCell>
-                <TableCell>{horse.age}</TableCell>
+                <TableCell>{horse.sex || '-'}</TableCell>
+                <TableCell>{horse.age || '-'}</TableCell>
                 <TableCell>
-                  {horse.unsold_count !== undefined && horse.unsold_count > 0 && horse.sold_price === 0 ? '¥-' : horse.sold_price}
+                  {horse.history && 
+                   horse.history.length > 0 && 
+                   horse.history[0]?.sold_price !== null && 
+                   horse.history[0]?.sold_price !== undefined && 
+                   horse.history[0]?.sold_price > 0
+                    ? `¥${horse.history[0].sold_price.toLocaleString()}`
+                    : '¥-'}
                 </TableCell>
-                {horse.unsold_count !== undefined && horse.unsold_count > 0 && (
-                  <TableCell style={{ color: '#b71c1c', fontWeight: 'bold' }}>主取り{horse.unsold_count}回</TableCell>
-                )}
-                <TableCell>{horse.auction_date}</TableCell>
-                <TableCell>{horse.seller}</TableCell>
-                <TableCell>{horse.total_prize_start}</TableCell>
-                <TableCell>{horse.total_prize_latest}</TableCell>
                 <TableCell>
-                  {horse.total_prize_start && horse.total_prize_latest ? (
-                    <span style={{ 
-                      color: horse.total_prize_latest > horse.total_prize_start ? 'green' : 'red' 
-                    }}>
-                      {calculateGrowthRate(horse.total_prize_start, horse.total_prize_latest)}%
-                    </span>
+                  {horse.disease_tags ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {Array.isArray(horse.disease_tags) ? (
+                        horse.disease_tags.map((tag, index) => (
+                          <span 
+                            key={index}
+                            style={{
+                              backgroundColor: '#ffebee',
+                              color: '#c62828',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontSize: '0.75rem',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {tag}
+                          </span>
+                        ))
+                      ) : (
+                        <span 
+                          style={{
+                            backgroundColor: '#ffebee',
+                            color: '#c62828',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '0.75rem',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {horse.disease_tags}
+                        </span>
+                      )}
+                    </div>
                   ) : '-'}
                 </TableCell>
               </TableRow>

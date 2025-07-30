@@ -2,6 +2,11 @@
 
 楽天サラブレッドオークションからデータをスクレイピングし、分析用のデータベースを構築するシステムです。
 
+## 重要なお知らせ
+
+- **静的ファイルの使用**: 本システムはAPIを使用せず、静的JSONファイル（`horses_history.json`）からデータを読み込みます。
+- **言語設定**: 本システムのドキュメントとチャットサポートは全て日本語で対応しています。
+
 ## 📚 ドキュメント
 
 - **[プロジェクト仕様書](PROJECT_SPEC.md)** - 詳細な仕様・構成・運用方法
@@ -9,48 +14,80 @@
 
 ## 🚀 クイックスタート
 
-### 1. 依存関係のインストール
+### 1. リポジトリのクローン
 
 ```bash
-# macOS/Linux
-python3 setup.py
-
-# Windows
-python setup.py
+git clone https://github.com/furakutaru/SaraokuDB.git
+cd SaraokuDB
 ```
 
-### 2. 環境変数の設定
+### 2. バックエンドのセットアップ
 
 ```bash
-cp .env.example .env
-# .envファイルを編集して必要な設定を行う
+# バックエンドディレクトリに移動
+cd backend
+
+# 仮想環境の作成と有効化（推奨）
+python -m venv venv
+source venv/bin/activate  # Linux/macOS
+# または
+# .\venv\Scripts\activate  # Windows
+
+# 依存関係のインストール
+pip install -r requirements.txt
 ```
 
-### 3. データベースの初期化
+### 3. フロントエンドのセットアップ
 
 ```bash
-# macOS/Linux
-python3 -m backend.database.init_db
+# フロントエンドディレクトリに移動
+cd ../frontend
 
-# Windows
-python -m backend.database.init_db
-```
-
-### 4. サーバーの起動
-
-```bash
-# バックエンド
-# macOS/Linux
-python3 -m uvicorn backend.main:app --reload
-
-# Windows
-python -m uvicorn backend.main:app --reload
-
-# フロントエンド（別ターミナル）
-cd static-frontend
+# 依存関係のインストール
 npm install
+```
+
+### 4. 環境変数の設定
+
+```bash
+# バックエンドディレクトリに移動
+cd ../backend
+
+# 環境変数ファイルの作成と編集
+cp .env.example .env
+# .envファイルを必要に応じて編集
+```
+
+### 5. データベースの初期化
+
+```bash
+# データベースの初期化
+python -m database.init_db
+```
+
+### 6. アプリケーションの起動
+
+#### バックエンドサーバーの起動
+
+```bash
+# バックエンドディレクトリで実行
+python -m uvicorn main:app --reload
+```
+
+#### フロントエンド開発サーバーの起動（別ターミナル）
+
+```bash
+# フロントエンドディレクトリに移動
+cd ../frontend
+
+# 開発サーバーを起動
 npm run dev
 ```
+
+### 7. ブラウザで確認
+
+- フロントエンド: http://localhost:3000
+- バックエンドAPIドキュメント: http://localhost:8000/docs
 
 ## 📊 現在の機能
 

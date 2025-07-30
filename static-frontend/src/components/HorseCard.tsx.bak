@@ -1,0 +1,161 @@
+import React from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Horse } from '@/types/horse';
+
+interface HorseCardProps {
+  horse: Horse;
+  onClick: () => void;
+}
+
+export default function HorseCard({ horse, onClick }: HorseCardProps) {
+  // 履歴から最新の落札価格を取得（デバッグ用）
+  const getLatestSoldPrice = () => {
+    console.log(`Getting latest sold price for horse: ${horse.id} - ${horse.name}`);
+    
+    if (horse.unsold) {
+      console.log('  Marked as unsold, returning null');
+      return null;
+    }
+    
+    if (!horse.history || horse.history.length === 0) {
+      console.log('  No history available');
+      return null;
+    }
+    
+    // 日付でソートして最新の履歴を取得
+    const sortedHistory = [...horse.history].sort((a, b) => 
+      new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime()
+    );
+    
+    const latest = sortedHistory[0];
+    console.log('  Latest history item:', latest);
+    
+    // 価格を正規化
+    const price = latest.sold_price;
+    if (price === null || price === undefined) {
+      console.log('  No price in latest history');
+      return null;
+    }
+    
+    const priceNum = typeof price === 'number' ? price : Number(price);
+    if (isNaN(priceNum)) {
+      console.log(`  Invalid price format: ${price}`);
+      return null;
+    }
+    
+    console.log(`  Found valid price: ${priceNum}`);
+    return priceNum;
+  };
+
+  const displayPrice = (price: number | null | undefined, unsold: boolean | undefined) => {
+    console.log(`Displaying price for ${horse.name}:`, { 
+      price, 
+      unsold,
+      horseSoldPrice: horse.sold_price,
+      hasHistory: !!horse.history?.length
+    });
+    
+    // 主取りの場合は即座に返す
+    if (unsold === true) {
+      console.log('  Marked as unsold, showing 主取り');
+      return '主取り';
+    }
+    
+    // まず馬オブジェクトのsold_priceを確認（既にマージ済みの値）
+    if (horse.sold_price !== null && horse.sold_price !== undefined) {
+      const priceNum = typeof horse.sold_price === 'number' ? horse.sold_price : Number(horse.sold_price);
+      if (!isNaN(priceNum) && priceNum > 0) {
+        console.log(`  Using horse.sold_price: ${priceNum}`);
+        return '¥' + priceNum.toLocaleString();
+      }
+    }
+    
+    // 履歴から最新の価格を取得（念のため）
+    const latestPrice = getLatestSoldPrice();
+    if (latestPrice !== null) {
+      console.log(`  Using latest history price: ${latestPrice}`);
+      return '¥' + latestPrice.toLocaleString();
+    }
+    
+    // トップレベルの価格を確認
+    if (price !== null && price !== undefined) {
+      const priceNum = typeof price === 'number' ? price : Number(price);
+      if (!isNaN(priceNum) && priceNum > 0) {
+        console.log(`  Using top-level price: ${priceNum}`);
+        return '¥' + priceNum.toLocaleString();
+      }
+    }
+    
+    // 価格が全く見つからない場合
+    console.log('  No valid price found');
+    return '-';
+  };
+
+  // 病歴タグの表示を判定
+  const hasDisease = Array.isArray(horse.disease_tags) 
+    ? horse.disease_tags.length > 0
+    : false;
+
+  return (
+    <div 
+      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+      onClick={onClick}
+    >
+      <div className="p-4">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <h3 className="text-xl font-bold text-gray-900 mb-1">{horse.name || '名前不明'}</h3>
+            <div className="text-sm text-gray-600 space-y-1">
+              <p><span className="font-medium">{horse.sex || '不明'}</span> {horse.age || '?'}歳</p>
+              <p className="text-xs text-gray-500">
+                {horse.sire || '父: 不明'} / {horse.dam || '母: 不明'}<br />
+                {horse.dam_sire ? `母父: ${horse.dam_sire}` : ''}
+              </p>
+            </div>
+          </div>
+          
+          {horse.primary_image && (
+            <div className="w-20 h-20 flex-shrink-0 ml-3">
+              <img
+                src={horse.primary_image}
+                alt={horse.name}
+                className="w-full h-full object-cover rounded-md"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="font-medium text-base text-blue-700">
+            {horse.unsold ? '主取り' : displayPrice(horse.sold_price, horse.unsold)}
+          </div>
+          
+          {hasDisease && (
+            <Badge variant="destructive" className="bg-pink-100 text-pink-800 text-xs">
+              病歴あり
+            </Badge>
+          )}
+
+          {horse.weight && (
+            <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
+              {horse.weight}kg
+            </Badge>
+          )}
+        </div>
+
+        <div className="mt-2 text-xs text-gray-500 space-y-0.5">
+          {horse.seller && (
+            <p>販売者: {horse.seller}</p>
+          )}
+          {horse.auction_date && (
+            <p>オークション: {new Date(horse.auction_date).toLocaleDateString('ja-JP')}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

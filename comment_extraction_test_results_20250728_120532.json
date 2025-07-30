@@ -1,0 +1,47 @@
+[
+  {
+    "name": "アローロ",
+    "status": "error",
+    "message": "Page.wait_for_selector: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator(\"pre\") to be visible\n"
+  },
+  {
+    "name": "ウエスタンタマヤ",
+    "status": "error",
+    "message": "Page.wait_for_selector: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator(\"pre\") to be visible\n"
+  },
+  {
+    "name": "ジャスマン",
+    "status": "error",
+    "message": "Page.wait_for_selector: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator(\"pre\") to be visible\n"
+  },
+  {
+    "name": "ウインエンデバー",
+    "status": "error",
+    "message": "Page.wait_for_selector: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator(\"pre\") to be visible\n"
+  },
+  {
+    "name": "ジューンアレグロ",
+    "status": "error",
+    "message": "Page.wait_for_selector: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator(\"pre\") to be visible\n"
+  },
+  {
+    "name": "ミリオンヒット",
+    "status": "error",
+    "message": "Page.wait_for_selector: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator(\"pre\") to be visible\n"
+  },
+  {
+    "name": "セレニティ",
+    "status": "error",
+    "message": "Page.wait_for_selector: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator(\"pre\") to be visible\n"
+  },
+  {
+    "name": "ウィルトゥーウェル",
+    "status": "error",
+    "message": "Page.wait_for_selector: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator(\"pre\") to be visible\n"
+  },
+  {
+    "name": "スカリーワグ",
+    "status": "error",
+    "message": "Page.wait_for_selector: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator(\"pre\") to be visible\n"
+  }
+]

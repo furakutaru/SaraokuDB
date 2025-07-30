@@ -6,37 +6,35 @@ import Link from 'next/link';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Horse, HorseData, HorseHistory } from '@/types/horse';
+import { Horse, AuctionHistory } from '@/types/horse';
+import { useNormalize } from '@/hooks/useNormalize';
 
-const formatPrice = (price: number | string | null | undefined) => {
-  if (price === null || price === undefined) return '-';
-  const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-  if (isNaN(numPrice)) return '-';
-  return '¥' + numPrice.toLocaleString();
-};
+interface HorseWithAuction extends Horse {
+  latestAuction?: AuctionHistory;
+  total_prize_start?: number;
+  total_prize_latest?: number;
+  sold_price?: number | null;
+  is_unsold?: boolean;
+  auction_date?: string;
+  seller?: string;
+  weight?: number | null;
+}
 
-const formatPrize = (val: number | string | null | undefined) => {
-  if (val === null || val === undefined || val === '') return '-';
-  const numVal = Number(val);
-  if (isNaN(numVal)) return '-';
-  return `${numVal.toFixed(1)}万円`;
-};
+// 正規化関数を使用するため、独自のフォーマット関数を削除
 
-const calcROI = (prize: number | undefined, price: number | string | undefined): string => {
-  if (!prize || !price) return '-';
-  const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-  if (isNaN(numPrice) || numPrice === 0) return '-';
-  return (prize / numPrice).toFixed(2);
-};
-
-type HorseWithLatest = Horse & {
-  total_prize_start: number | undefined;
-  total_prize_latest: number | undefined;
-  sold_price: number | string | undefined;
-  unsold: boolean;
-};
+interface HorseData {
+  horses: Horse[];
+  auction_history: AuctionHistory[];
+  metadata: {
+    total_horses: number;
+    total_auctions: number;
+    average_price: number;
+    last_updated: string;
+  };
+}
 
 export default function AnalysisContent() {
+  const normalize = useNormalize();
   const [data, setData] = useState<HorseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,12 +50,37 @@ export default function AnalysisContent() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/data/horses_history.json');
-      if (!response.ok) throw new Error('データの取得に失敗しました');
-      const d = await response.json();
-      setData(d);
+      // 馬データとオークションデータを並行して取得
+      const [horsesRes, auctionRes] = await Promise.all([
+        fetch('/data/horses.json'),
+        fetch('/data/auction_history.json')
+      ]);
+      
+      if (!horsesRes.ok || !auctionRes.ok) {
+        throw new Error('データの取得に失敗しました');
+      }
+      
+      const [horsesData, auctionData] = await Promise.all([
+        horsesRes.json(),
+        auctionRes.json()
+      ]);
+      
+      // メタデータを作成
+      const metadata = {
+        total_horses: horsesData.horses.length,
+        total_auctions: auctionData.auction_history.length,
+        average_price: 0, // 後で計算
+        last_updated: new Date().toISOString()
+      };
+      
+      setData({
+        horses: horsesData.horses,
+        auction_history: auctionData.auction_history,
+        metadata
+      });
     } catch (e: any) {
-      setError('データの読み込みに失敗しました');
+      console.error('データ取得エラー:', e);
+      setError('データの読み込みに失敗しました: ' + e.message);
     } finally {
       setLoading(false);
     }
@@ -70,69 +93,112 @@ export default function AnalysisContent() {
     return <div className="min-h-screen flex items-center justify-center text-red-600">{error || 'データがありません'}</div>;
   }
 
-  // 最新履歴を抽出
-  const horsesWithLatest: HorseWithLatest[] = data.horses.map(horse => {
-    let latest: Partial<HorseHistory> = {};
-    if (horse.history && horse.history.length > 0) {
-      latest = horse.history[horse.history.length - 1];
-    }
+  // 馬データとオークション履歴をマージ
+  const horsesWithLatest: HorseWithAuction[] = data.horses.map(horse => {
+    // この馬の最新のオークション履歴を取得
+    const latestAuction = [...data.auction_history]
+      .filter(auction => auction.horse_id === horse.id)
+      .sort((a, b) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0];
+    
+    // 馬データと最新のオークション情報をマージ
     return {
       ...horse,
-      ...latest,
-      detail_url: latest.detail_url || horse.detail_url,
-      total_prize_start: latest.total_prize_start ?? horse.total_prize_start,
-      total_prize_latest: latest.total_prize_latest ?? horse.total_prize_latest,
-      sold_price: latest.sold_price ?? horse.sold_price,
-      unsold: horse.unsold_count ? horse.unsold_count > 0 : false
-    } as HorseWithLatest;
+      latestAuction,
+      total_prize_start: latestAuction?.total_prize_start,
+      total_prize_latest: latestAuction?.total_prize_latest,
+      sold_price: latestAuction?.sold_price,
+      is_unsold: latestAuction?.is_unsold || false,
+      auction_date: latestAuction?.auction_date,
+      seller: latestAuction?.seller,
+      weight: latestAuction?.weight
+    };
   });
 
-  // 主取り馬除外
-  let horses = horsesWithLatest.filter((h: HorseWithLatest) => !h.unsold_count || h.unsold_count === 0);
+  // 主取り馬を除外（is_unsoldがtrueでない馬をフィルタリング）
+  let horses = horsesWithLatest.filter(h => !h.is_unsold);
 
   // サマリー
   const avgROI = horses.length > 0 ? (
     horses.reduce((sum, h) => {
-      const soldPrice = typeof h.sold_price === 'number' ? h.sold_price : 0;
+      const soldPrice = h.sold_price !== null && h.sold_price !== undefined ? 
+        (typeof h.sold_price === 'number' ? h.sold_price : 0) : 0;
       const prizeLatest = h.total_prize_latest || 0;
       return sum + (soldPrice > 0 ? prizeLatest / soldPrice : 0);
     }, 0) / horses.length
   ) : 0;
+  
+  // 平均価格を計算してメタデータを更新
+  if (data.metadata) {
+    const validPrices = horses
+      .map(h => h.sold_price)
+      .filter((price): price is number => 
+        price !== null && price !== undefined && price > 0
+      );
+      
+    if (validPrices.length > 0) {
+      const sum = validPrices.reduce((a, b) => a + b, 0);
+      data.metadata.average_price = Math.round(sum / validPrices.length);
+    }
+  }
 
   // 指標ボタン用データ
   const roiRanking = [...horses]
     .filter(h => {
-      const soldPrice = typeof h.sold_price === 'number' ? h.sold_price : 0;
+      const soldPrice = h.sold_price !== null && h.sold_price !== undefined ? 
+        (typeof h.sold_price === 'number' ? h.sold_price : 0) : 0;
       return soldPrice > 0 && h.total_prize_latest;
     })
     .sort((a, b) => {
-      const aSoldPrice = typeof a.sold_price === 'number' ? a.sold_price : 0;
-      const bSoldPrice = typeof b.sold_price === 'number' ? b.sold_price : 0;
-      const aROI = a.total_prize_latest ? a.total_prize_latest / aSoldPrice : 0;
-      const bROI = b.total_prize_latest ? b.total_prize_latest / bSoldPrice : 0;
+      const aSoldPrice = a.sold_price !== null && a.sold_price !== undefined ? 
+        (typeof a.sold_price === 'number' ? a.sold_price : 0) : 0;
+      const bSoldPrice = b.sold_price !== null && b.sold_price !== undefined ? 
+        (typeof b.sold_price === 'number' ? b.sold_price : 0) : 0;
+      const aROI = a.total_prize_latest ? a.total_prize_latest / (aSoldPrice || 1) : 0;
+      const bROI = b.total_prize_latest ? b.total_prize_latest / (bSoldPrice || 1) : 0;
       return bROI - aROI;
     })
     .slice(0, 10);
 
   const valueHorses = horses.filter(h => {
-    const soldPrice = typeof h.sold_price === 'number' ? h.sold_price : 0;
+    const soldPrice = h.sold_price !== null && h.sold_price !== undefined ? 
+      (typeof h.sold_price === 'number' ? h.sold_price : 0) : 0;
     const roi = h.total_prize_latest && soldPrice > 0 ? h.total_prize_latest / soldPrice : 0;
-    return soldPrice > 0 && roi > avgROI && soldPrice < data.metadata.average_price;
+    return soldPrice > 0 && roi > avgROI && soldPrice < (data.metadata?.average_price || 0);
   });
 
   // 表示切替
-  let tableHorses: (Horse & HorseWithLatest)[] = [...horses];
-  if (showType === 'roi') tableHorses = [...roiRanking] as (Horse & HorseWithLatest)[];
-  if (showType === 'value') tableHorses = [...valueHorses] as (Horse & HorseWithLatest)[];
+  let tableHorses: HorseWithAuction[] = [...horses];
+  if (showType === 'roi') tableHorses = [...roiRanking];
+  if (showType === 'value') tableHorses = [...valueHorses];
 
-  // 年齢を表示するヘルパー関数（スクレイピングデータをそのまま表示）
+  // 年齢を表示するヘルパー関数（null/undefined/空文字の場合は'-'を表示）
   const displayAge = (age: string | number | null | undefined): string => {
     if (age === null || age === undefined || age === '') return '-';
     return `${age}歳`;
   };
 
-  // ソート関数
-  const sortFunctions: { [key: string]: (a: Horse & HorseWithLatest, b: Horse & HorseWithLatest) => number } = {
+  // 落札価格を表示するヘルパー関数
+  const displayPrice = (price: number | string | null | undefined, isUnsold: boolean = false): string => {
+    return normalize.formatSoldPrice(price, isUnsold);
+  };
+
+  // 賞金を表示するヘルパー関数
+  const displayPrize = (prize: number | string | null | undefined): string => {
+    return normalize.formatPrize(prize);
+  };
+
+  // ROIを計算するヘルパー関数
+  const calcROI = (prize: number | undefined, price: number | string | null | undefined): string => {
+    if (!prize || !price) return '-';
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+    if (isNaN(numPrice) || numPrice <= 0) return '-';
+    const roi = ((prize * 10000) / numPrice - 1) * 100;
+    return roi.toFixed(1) + '%';
+  };
+
+  // ソート関数の型定義
+  type SortFunction = (a: HorseWithAuction, b: HorseWithAuction) => number;
+  const sortFunctions: Record<string, SortFunction> = {
     name: (a, b) => (a.name || '').localeCompare(b.name || '', 'ja'),
     sex: (a, b) => (a.sex || '').localeCompare(b.sex || '', 'ja'),
     weight: (a, b) => (a.weight || 0) - (b.weight || 0),
@@ -143,8 +209,10 @@ export default function AnalysisContent() {
     },
     sire: (a, b) => (a.sire || '').localeCompare(b.sire || '', 'ja'),
     sold_price: (a, b) => {
-      const aPrice = typeof a.sold_price === 'number' ? a.sold_price : 0;
-      const bPrice = typeof b.sold_price === 'number' ? b.sold_price : 0;
+      const aPrice = a.sold_price !== null && a.sold_price !== undefined ? 
+        (typeof a.sold_price === 'number' ? a.sold_price : 0) : 0;
+      const bPrice = b.sold_price !== null && b.sold_price !== undefined ? 
+        (typeof b.sold_price === 'number' ? b.sold_price : 0) : 0;
       return aPrice - bPrice;
     },
     total_prize_start: (a, b) => (a.total_prize_start || 0) - (b.total_prize_start || 0),
@@ -181,21 +249,9 @@ export default function AnalysisContent() {
     return sortOrder === 'asc' ? <FaSortUp className="inline ml-1 text-blue-600" /> : <FaSortDown className="inline ml-1 text-blue-600" />;
   };
 
-  const displayPrice = (price: number | string | null | undefined, unsold: boolean | undefined = false) => {
-    if (unsold === true) return '主取り';
-    if (price === null || price === undefined || price === '') return '-';
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    if (isNaN(numPrice)) return '-';
-    return '¥' + numPrice.toLocaleString();
-  };
-  
   // Helper function to safely get detail URL
-  const getDetailUrl = (horse: Horse & HorseWithLatest): string | undefined => {
-    if (horse.detail_url) return horse.detail_url;
-    if (horse.history && horse.history.length > 0 && horse.history[0]?.detail_url) {
-      return horse.history[0].detail_url;
-    }
-    return undefined;
+  const getDetailUrl = (horse: HorseWithAuction): string | undefined => {
+    return horse.auction_url || undefined;
   };
 
   return (
@@ -204,8 +260,8 @@ export default function AnalysisContent() {
         {/* サマリー 横並びテキスト */}
         <div className="mb-6 text-lg font-semibold text-gray-700 flex flex-wrap gap-8">
           <span>総馬数: {horses.length}</span>
-          <span>平均落札価格: {formatPrice(data.metadata.average_price)}</span>
-          <span>平均ROI: {avgROI.toFixed(2)}</span>
+          <span>平均落札価格: {normalize.formatCurrency(data.metadata.average_price)}</span>
+          <span>平均ROI: {avgROI.toFixed(2)}%</span>
         </div>
         {/* 指標ボタン（白文字色付き） */}
         <div className="flex gap-4 mb-6">
@@ -237,17 +293,26 @@ export default function AnalysisContent() {
                   <td className="px-3 py-2 font-medium text-gray-900">
                     <Link href={`/horses/${horse.id}`} className="hover:underline text-blue-700">{horse.name}</Link>
                   </td>
-                  <td className="px-3 py-2">{horse.sex}</td>
-                  <td className="px-3 py-2">{displayAge(horse.age)}</td>
-                  <td className="px-3 py-2">{horse.sire}</td>
-                  <td className="px-3 py-2 text-right">{horse.weight ? `${horse.weight} kg` : '-'}</td>
                   <td className="px-3 py-2">
-                    {displayPrice(horse.sold_price, horse.unsold_count ? horse.unsold_count > 0 : undefined)}
+                    {(() => {
+                      const sexInfo = normalize.formatSex(horse.sex);
+                      return (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${sexInfo.color}`}>
+                          {sexInfo.icon} {sexInfo.text}
+                        </span>
+                      );
+                    })()}
                   </td>
-                  <td className="px-3 py-2">{formatPrize(horse.total_prize_start)}</td>
-                  <td className="px-3 py-2">{formatPrize(horse.total_prize_latest)}</td>
+                  <td className="px-3 py-2">{displayAge(horse.age)}</td>
+                  <td className="px-3 py-2">{horse.sire || '-'}</td>
+                  <td className="px-3 py-2 text-right">{horse.latestAuction?.weight ? `${horse.latestAuction.weight} kg` : '-'}</td>
                   <td className="px-3 py-2">
-                    {calcROI(horse.total_prize_latest, horse.sold_price)}
+                    {displayPrice(horse.sold_price, horse.is_unsold)}
+                  </td>
+                  <td className="px-3 py-2">{displayPrize(horse.latestAuction?.total_prize_start)}</td>
+                  <td className="px-3 py-2">{displayPrize(horse.latestAuction?.total_prize_latest)}</td>
+                  <td className="px-3 py-2">
+                    {calcROI(horse.latestAuction?.total_prize_latest, horse.latestAuction?.sold_price)}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-col gap-1 items-center">
