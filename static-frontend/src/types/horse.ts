@@ -48,6 +48,8 @@ export interface AuctionHistory {
   auction_date: string;
   /** 落札価格（未落札の場合はnull） */
   sold_price: number | null;
+  /** 年齢（オプショナル） */
+  age?: number;
   /** オークション時点の総賞金（万円） */
   total_prize_start: number;
   /** 最新の総賞金（万円） */
@@ -85,6 +87,13 @@ export interface Metadata {
 /**
  * 馬データのルートオブジェクト
  */
+export interface AuctionData {
+  /** メタデータ */
+  metadata: Metadata;
+  /** オークション履歴の配列 */
+  auction_history: AuctionHistory[];
+}
+
 export interface HorseData {
   metadata: Metadata;
   horses: Horse[];
