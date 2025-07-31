@@ -72,14 +72,37 @@ class RakutenAuctionScraper:
             print(f"URLの検証中にエラーが発生しました: {e}")
             return False
             
-    def get_auction_date(self) -> str:
-        """ページから開催日を取得"""
+    def get_auction_date(self, soup: Optional[BeautifulSoup] = None) -> str:
+        """
+        ページから開催日を取得
+        
+        Args:
+            soup: BeautifulSoupオブジェクト（省略時は現在日を返す）
+            
+        Returns:
+            str: YYYY-MM-DD形式の日付文字列
+        """
         try:
-            # 実際のページから日付を取得するロジックに置き換える
-            # 例: date_elem = soup.find('div', class_='auction-date')
-            #     if date_elem:
-            #         return date_elem.text.strip()
+            if soup is None:
+                return datetime.now().strftime("%Y-%m-%d")
+            
+            # 「開始時間」ラベルを検索
+            start_time_label = soup.find('span', class_='subData__label', string=lambda text: text and '開始時間' in text)
+            if start_time_label:
+                # 次の兄弟要素（subData__valueクラス）を取得
+                value_elem = start_time_label.find_next_sibling('span', class_='subData__value')
+                if value_elem:
+                    date_text = value_elem.get_text(strip=True)
+                    # 「2016年09月08日 12:00」形式をパース
+                    match = re.search(r'(\d{4})年(\d{1,2})月(\d{1,2})日', date_text)
+                    if match:
+                        year, month, day = match.groups()
+                        # YYYY-MM-DD形式に変換
+                        return f"{year}-{int(month):02d}-{int(day):02d}"
+                    
+            print("オークション日をページから取得できませんでした。現在日付を使用します。")
             return datetime.now().strftime("%Y-%m-%d")
+            
         except Exception as e:
             print(f"開催日の取得に失敗: {e}")
             return datetime.now().strftime("%Y-%m-%d")
@@ -134,9 +157,9 @@ class RakutenAuctionScraper:
             'disease_tags': []
         }
         
-        # オークション情報
+        # オークション情報（auction_dateは後でsoupが利用可能になったら設定）
         auction_data = {
-            'auction_date': self.get_auction_date(),
+            'auction_date': '',  # 後で設定
             'sold_price': None,
             'total_prize_start': 0.0,
             'total_prize_latest': 0.0,
