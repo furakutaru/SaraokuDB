@@ -34,6 +34,24 @@ export interface Horse {
   updated_at: string;
   /** オークション履歴 */
   history?: AuctionHistory[];
+  /** 最新のオークション情報 */
+  latest_auction?: AuctionHistory;
+  /** 落札価格（オプショナル） */
+  sold_price?: number | null;
+  /** オークション日付 */
+  auction_date?: string;
+  /** 売主 */
+  seller?: string;
+  /** コメント */
+  comment?: string;
+  /** 主取りフラグ */
+  is_unsold?: boolean;
+  /** オークション開始時の総賞金（万円） */
+  total_prize_start?: number;
+  /** 最新の総賞金（万円） */
+  total_prize_latest?: number;
+  /** 馬体重（kg、オプショナル） */
+  weight?: number | null;
 }
 
 /**

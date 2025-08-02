@@ -48,9 +48,9 @@ export const formatPrize = (value: number | string | null | undefined): string =
   
   const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
   
-  if (isNaN(num) || num === 0) return '-';
+  if (isNaN(num)) return '-';
   
-  return `${num.toLocaleString('ja-JP')}万円`;
+  return num === 0 ? '0万円' : `${num.toLocaleString('ja-JP')}万円`;
 };
 
 /**
@@ -62,11 +62,11 @@ export const formatSex = (sex: string | null | undefined): { text: string; color
   if (!sex) return { text: '-', color: 'bg-gray-200', icon: '' };
   
   const sexMap: Record<string, { text: string; color: string; icon: string }> = {
-    '牡': { text: '牡', color: 'bg-blue-600', icon: '♂' },
-    '牝': { text: '牝', color: 'bg-pink-500', icon: '♀' },
-    'セ': { text: 'セ', color: 'bg-green-600', icon: '⚥' },
-    'せん': { text: 'セ', color: 'bg-green-600', icon: '⚥' },
-    'セン': { text: 'セ', color: 'bg-green-600', icon: '⚥' },
+    '牡': { text: '牡', color: 'bg-blue-600', icon: '' },
+    '牝': { text: '牝', color: 'bg-pink-500', icon: '' },
+    'セ': { text: 'セ', color: 'bg-green-600', icon: '' },
+    'せん': { text: 'セ', color: 'bg-green-600', icon: '' },
+    'セン': { text: 'セ', color: 'bg-green-600', icon: '' },
   };
   
   return sexMap[sex] || { text: sex, color: 'bg-gray-200', icon: '' };

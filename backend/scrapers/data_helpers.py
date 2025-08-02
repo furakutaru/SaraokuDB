@@ -7,18 +7,34 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Union
 import uuid
 
-def load_json_file(file_path: str) -> List[Dict[str, Any]]:
-    """JSONファイルを読み込む"""
+def load_json_file(file_path: str) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+    """JSONファイルを読み込む
+    
+    Returns:
+        Union[Dict[str, Any], List[Dict[str, Any]]]: 
+            - 新しい形式の場合は辞書 {'metadata': ..., 'horses': [...]}
+            - 古い形式の場合は馬のリスト [...]
+            - エラーの場合は空のリスト []
+    """
     try:
         if os.path.exists(file_path):
             with open(file_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        pass
+                data = json.load(f)
+                # 新しい形式かどうかをチェック
+                if isinstance(data, dict) and 'horses' in data:
+                    return data
+                return data  # 古い形式の場合はそのまま返す
+    except (json.JSONDecodeError, FileNotFoundError) as e:
+        print(f"Error loading {file_path}: {e}")
     return []
 
-def save_json_file(file_path: str, data: List[Dict[str, Any]]) -> None:
-    """JSONファイルにデータを保存する"""
+def save_json_file(file_path: str, data: Any) -> None:
+    """JSONファイルにデータを保存する
+    
+    Args:
+        file_path: 保存先のファイルパス
+        data: 保存するデータ（リストまたは辞書）
+    """
     # ディレクトリが存在しない場合は作成
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     
@@ -48,15 +64,40 @@ def merge_disease_tags(existing_tags: List[str], new_tags: List[str]) -> List[st
     return list(set(existing_tags + new_tags))
 
 def save_horse(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/public/data') -> str:
-    """馬情報を保存し、馬IDを返す"""
+    """馬情報を保存し、馬IDを返す
+    
+    Args:
+        horse_data: 保存する馬情報の辞書
+        data_dir: データディレクトリのパス
+        
+    Returns:
+        str: 馬の一意識別子（UUID）
+        
+    Raises:
+        ValueError: 必須フィールドが不足している場合
+    """
     horses_file = os.path.join(data_dir, 'horses.json')
-    horses = load_json_file(horses_file)
+    data = load_json_file(horses_file)
+    
+    # 古い形式の場合は新しい形式に変換
+    if isinstance(data, list):
+        data = {
+            "metadata": {
+                "last_updated": datetime.now().isoformat(),
+                "total_horses": len(data),
+                "version": "1.0.0"
+            },
+            "horses": data
+        }
+    
+    horses = data.get('horses', [])
     
     # 必須フィールドのバリデーション
-    required_fields = ['name', 'age']
+    required_fields = ['name', 'age', 'sex', 'sire', 'dam', 'damsire']
     for field in required_fields:
-        if field not in horse_data:
-            raise ValueError(f"Missing required field: {field}")
+        if field not in horse_data or not horse_data[field]:
+            print(f"警告: 必須フィールドが不足しています: {field} (馬名: {horse_data.get('name', '不明')})")
+            horse_data[field] = ''  # 空文字で初期化
     
     # 既存の馬を検索
     existing_horse = find_horse_by_name_and_age(
@@ -64,11 +105,17 @@ def save_horse(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/publ
     )
     
     now = datetime.now().isoformat()
+    horse_id = None
     
     if existing_horse:
         # 既存の馬情報を更新
+        if 'id' not in existing_horse:
+            existing_horse['id'] = str(uuid.uuid4())
+            
         horse_id = existing_horse['id']
-        existing_horse.update({
+        
+        # 更新するフィールドをマージ
+        update_fields = {
             'sire': horse_data.get('sire', existing_horse.get('sire', '')),
             'dam': horse_data.get('dam', existing_horse.get('dam', '')),
             'damsire': horse_data.get('damsire', existing_horse.get('damsire', '')),
@@ -80,35 +127,81 @@ def save_horse(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/publ
                 existing_horse.get('disease_tags', []),
                 horse_data.get('disease_tags', [])
             ),
-            'updated_at': now
-        })
+            'updated_at': now,
+            # 賞金情報を明示的にマージ（0の場合も含む）
+            'total_prize_start': horse_data.get('total_prize_start', existing_horse.get('total_prize_start', 0)),
+            'total_prize_latest': horse_data.get('total_prize_latest', existing_horse.get('total_prize_latest', 0))
+        }
+        
+        # その他の重要なフィールドもマージ
+        for key in ['comment', 'race_record', 'weight', 'seller', 'auction_date']:
+            if key in horse_data:
+                update_fields[key] = horse_data[key]
+        
+        # 既存の馬情報を更新
+        existing_horse.update(update_fields)
     else:
         # 新規の馬を追加
         horse_id = str(uuid.uuid4())
-        horse_data.update({
+        # 必要なフィールドを確実に含める
+        new_horse = {
             'id': horse_id,
+            'name': horse_data['name'],
+            'age': horse_data['age'],
+            'total_prize_start': float(horse_data.get('total_prize_start', 0.0)),
+            'total_prize_latest': float(horse_data.get('total_prize_latest', 0.0)),
+            'sex': horse_data.get('sex', ''),
+            'sire': horse_data.get('sire', ''),
+            'dam': horse_data.get('dam', ''),
+            'damsire': horse_data.get('damsire', ''),
+            'image_url': horse_data.get('image_url', ''),
+            'jbis_url': horse_data.get('jbis_url', ''),
+            'auction_url': horse_data.get('auction_url', ''),
+            'disease_tags': horse_data.get('disease_tags', []),
+            'total_prize_start': horse_data.get('total_prize_start', 0),
+            'total_prize_latest': horse_data.get('total_prize_latest', 0),
+            'comment': horse_data.get('comment', ''),
+            'race_record': horse_data.get('race_record', ''),
+            'weight': horse_data.get('weight', ''),
+            'seller': horse_data.get('seller', ''),
+            'auction_date': horse_data.get('auction_date', ''),
             'created_at': now,
             'updated_at': now
-        })
-        # 空の配列をデフォルト値として設定
-        if 'disease_tags' not in horse_data:
-            horse_data['disease_tags'] = []
-        horses.append(horse_data)
+        }
+        horses.append(new_horse)
+    
+    # メタデータを更新
+    data['metadata'] = {
+        'last_updated': now,
+        'total_horses': len(horses),
+        'version': data.get('metadata', {}).get('version', '1.1.0')  # バージョンを更新
+    }
     
     # ファイルに保存
-    save_json_file(horses_file, horses)
+    save_json_file(horses_file, data)
     return horse_id
 
 def save_auction_history(history_data: Dict[str, Any], data_dir: str = 'static-frontend/public/data') -> bool:
-    """オークション履歴を保存し、成功可否を返す"""
+    """オークション履歴を保存し、成功可否を返す
+    
+    Args:
+        history_data: 保存するオークション履歴データ
+        data_dir: データディレクトリのパス
+        
+    Returns:
+        bool: 保存が成功したかどうか
+        
+    Raises:
+        ValueError: 必須フィールドが不足している場合
+    """
     history_file = os.path.join(data_dir, 'auction_history.json')
     history = load_json_file(history_file)
     
     # 必須フィールドのバリデーション
     required_fields = ['horse_id', 'auction_date']
-    for field in required_fields:
-        if field not in history_data:
-            raise ValueError(f"Missing required field: {field}")
+    missing_fields = [field for field in required_fields if field not in history_data]
+    if missing_fields:
+        raise ValueError(f"必須フィールドが不足しています: {', '.join(missing_fields)}. 受信データ: {history_data}")
     
     # 重複チェック
     existing_entry = find_auction_history(
