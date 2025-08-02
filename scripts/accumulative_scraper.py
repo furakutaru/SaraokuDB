@@ -22,20 +22,15 @@ sys.path.append(os.path.join(project_root, 'backend/scrapers'))
 
 # 楽天スクレイパーをインポート
 try:
-    from backend.scrapers.rakuten_scraper import RakutenAuctionScraper
-except ImportError:
-    rakuten_scraper_path = os.path.join(project_root, 'backend/scrapers/rakuten_scraper.py')
-    spec = importlib.util.spec_from_file_location('rakuten_scraper', rakuten_scraper_path)
-    if spec is None or spec.loader is None:
-        raise ImportError('rakuten_scraper.pyのロードに失敗しました')
-    rakuten_scraper = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(rakuten_scraper)
-    RakutenAuctionScraper = rakuten_scraper.RakutenAuctionScraper
+    from scripts.improved_scraper import ImprovedRakutenScraper
+except ImportError as e:
+    print(f"Error importing ImprovedRakutenScraper: {e}")
+    raise
 
 
 class AccumulativeScraper:
     def __init__(self, enable_history=None, mode='development'):
-        self.scraper = RakutenAuctionScraper()
+        self.scraper = ImprovedRakutenScraper()
         # プロジェクトルートからの絶対パスを使用
         script_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(script_dir)
