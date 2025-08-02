@@ -48,9 +48,11 @@ export const useDataIntegrityCheck = () => {
         
         const data = await response.json();
         
-        if (!data || !Array.isArray(data)) {
-          throw new Error('無効なデータ形式です');
+        if (!data || typeof data !== 'object' || !Array.isArray(data.horses)) {
+          throw new Error('無効なデータ形式です: horses配列が見つかりません');
         }
+        
+        const horsesData = data.horses;
         
         // 整合性チェックを実行
         const issues: DataIssue[] = [];
@@ -58,10 +60,10 @@ export const useDataIntegrityCheck = () => {
         // 必須フィールドのチェック
         const requiredFields = ['id', 'name', 'sex', 'age', 'sire', 'dam', 'damsire'];
         
-        data.forEach((horse: any) => {
+        horsesData.forEach((horse: any) => {
           const horseIssues: DataIssue['issues'] = [];
           
-          // 必須フィールドのチェック
+          // 必須フィールドのチェック（historyはオプショナル）
           requiredFields.forEach(field => {
             if (!(field in horse) || horse[field] === '' || horse[field] === null || horse[field] === undefined) {
               horseIssues.push({
@@ -73,16 +75,9 @@ export const useDataIntegrityCheck = () => {
             }
           });
           
-          // オークション履歴の存在チェック
-          if (!horse.history || !Array.isArray(horse.history) || horse.history.length === 0) {
-            horseIssues.push({
-              field: 'history',
-              issue: 'オークション履歴が存在しません',
-              value: 'なし',
-              expected: '1件以上のオークション履歴が存在すること'
-            });
-          } else {
-            // オークション履歴の整合性チェック
+          // オークション履歴はオプショナルなため、存在チェックは行わない
+          // 履歴が存在する場合のみ、その整合性をチェック
+          if (horse.history && Array.isArray(horse.history) && horse.history.length > 0) {
             horse.history.forEach((auction: any, index: number) => {
               if (!auction.auction_date) {
                 horseIssues.push({
@@ -114,7 +109,7 @@ export const useDataIntegrityCheck = () => {
         });
         
         // 結果をセット
-        const totalHorses = data.length;
+        const totalHorses = horsesData.length;
         const horsesWithIssues = new Set(issues.map(issue => issue.id)).size;
         const totalIssues = issues.reduce((sum, issue) => sum + issue.issues.length, 0);
         

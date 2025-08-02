@@ -2,6 +2,42 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Horse, AuctionHistory } from '@/types/horse';
 
+// 血統情報から指定された種類の馬名を抽出する関数
+const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsire'): string => {
+  if (!text) return '';
+  
+  // 各タイプに応じた正規表現パターンを定義
+  const patterns = {
+    // 父：の直後の空白以外の文字列（全角スペースを含む）を取得
+    sire: /父[：:]([^\s　]+(?:[ 　][^\s　]+)*)/,
+    // 母：の直後の空白以外の文字列（全角スペースを含む）を取得
+    dam: /母[：:]([^\s　]+(?:[ 　][^\s　]+)*)/,
+    // 母の父：の直後の空白以外の文字列（全角スペースを含む）を取得
+    damsire: /(?:母の?父|母父)[：:]([^\s　]+(?:[ 　][^\s　]+)*)/
+  };
+  
+  // 指定されたタイプのパターンで検索
+  const match = text.match(patterns[type]);
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+  
+  // パターンに一致しない場合は、タイプに応じたデフォルト値を返す
+  if (type === 'sire' && text.includes('父：')) {
+    return text.split('父：')[1].split(/[\s　]/)[0];
+  }
+  if (type === 'dam' && text.includes('母：')) {
+    return text.split('母：')[1].split(/[\s　]/)[0];
+  }
+  if (type === 'damsire' && (text.includes('母の父：') || text.includes('母父：'))) {
+    const delimiter = text.includes('母の父：') ? '母の父：' : '母父：';
+    return text.split(delimiter)[1].split(/[\s　]/)[0];
+  }
+  
+  // いずれにも該当しない場合は空文字を返す
+  return '';
+};
+
 interface HorseCardProps {
   horse: Horse;
   auctionHistory?: AuctionHistory[];
@@ -69,8 +105,8 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
     return '-';
   };
 
-  // 最新のオークション情報を取得
-  const latestAuction = getLatestAuction();
+  // 最新のオークション情報を取得（propsから受け取る）
+  const latestAuction = horse.latest_auction || getLatestAuction();
   const price = latestAuction?.sold_price ?? null;
   const isUnsold = latestAuction?.is_unsold ?? false;
   
@@ -91,8 +127,9 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
           </div>
         )}
       </div>
-      <div className="mt-4 flex justify-between">
-        <div>
+      <div className="mt-4 space-y-3">
+        {/* 1行目: 馬名、年齢、性別、落札価格 */}
+        <div className="flex items-center justify-between">
           <h3 className="text-sm text-gray-700">
             <span className="font-semibold">{horse.name}</span>
             <span className="ml-2 text-gray-500">{horse.age}歳</span>
@@ -100,36 +137,45 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
               <Badge variant="outline">{horse.sex}</Badge>
             </span>
           </h3>
-          <p className="mt-1 text-sm text-gray-500">
-            {horse.sire} - {horse.dam}
+          <p className="text-sm font-medium text-gray-900">
+            {displayPrice(price, isUnsold)}
           </p>
-          <p className="text-xs text-gray-500">母父: {horse.damsire}</p>
-          {horse.disease_tags && horse.disease_tags.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
+        </div>
+        
+        {/* 2行目: 2カラムレイアウト */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* 左カラム: 血統情報 */}
+          <div className="text-sm text-gray-600 space-y-1 overflow-hidden">
+            <p className="whitespace-nowrap overflow-hidden text-ellipsis">父：{horse.sire || '不明'}</p>
+            <p className="whitespace-nowrap overflow-hidden text-ellipsis">母：{horse.dam || '不明'}</p>
+            {(horse.damsire && horse.damsire !== '不明') && (
+              <p className="whitespace-nowrap overflow-hidden text-ellipsis">母父：{horse.damsire}</p>
+            )}
+          </div>
+          
+          {/* 右カラム: 総賞金と馬体重 */}
+          <div className="text-sm text-gray-500 space-y-1">
+            {latestAuction?.total_prize_latest !== undefined && (
+              <p>総賞金: {latestAuction.total_prize_latest.toLocaleString()}万円</p>
+            )}
+            {latestAuction?.weight && latestAuction.weight > 0 && (
+              <p>{latestAuction.weight}kg</p>
+            )}
+          </div>
+        </div>
+        
+        {/* 3行目: 疾病情報 */}
+        {horse.disease_tags && horse.disease_tags.length > 0 && (
+          <div className="pt-1">
+            <div className="flex flex-wrap gap-1">
               {horse.disease_tags.map((tag, index) => (
                 <Badge key={index} variant="secondary" className="text-xs">
                   {tag}
                 </Badge>
               ))}
             </div>
-          )}
-        </div>
-        <div className="text-right">
-          <p className="text-sm font-medium text-gray-900">
-            {displayPrice(price, isUnsold)}
-          </p>
-          {latestAuction?.total_prize_latest && latestAuction.total_prize_latest > 0 && (
-            <p className="text-xs text-gray-500">
-              総賞金: {latestAuction.total_prize_latest.toLocaleString()}万円
-            </p>
-          )}
-          {latestAuction?.weight && latestAuction.weight > 0 && (
-            <p className="text-xs text-gray-500">馬体重: {latestAuction.weight}kg</p>
-          )}
-          {latestAuction?.seller && (
-            <p className="text-xs text-gray-500">売主: {latestAuction.seller}</p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
