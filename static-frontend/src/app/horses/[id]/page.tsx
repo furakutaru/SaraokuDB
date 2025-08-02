@@ -9,14 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-// Using a simpler header implementation to avoid type issues
-const Header = ({ title }: { title: string }) => (
-  <header className="bg-white shadow">
-    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-    </div>
-  </header>
-);
+import { Header } from '@/components/Header';
 
 // 馬の型定義（共通のHorse型を拡張）
 interface Horse extends Omit<import('@/types/horse').Horse, 'comment' | 'disease_tags' | 'health_issues' | 'sold_price'> {
@@ -201,7 +194,7 @@ const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header title="馬詳細" />
+        <Header pageTitle="読み込み中..." />
         <div className="container mx-auto p-4">
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-gray-200 rounded w-1/4"></div>
@@ -212,10 +205,10 @@ const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
     );
   }
 
-  if (error || !horse) {
+  if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header title="エラー" />
+        <Header pageTitle="エラー" />
         <div className="container mx-auto p-4">
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
             <strong className="font-bold">エラー: </strong>
@@ -231,36 +224,31 @@ const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
     );
   }
 
-  if (loading || error || !horse) {
+  if (!horse) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header title="読み込み中..." />
+        <Header pageTitle="馬が見つかりません" />
         <div className="container mx-auto p-4">
-          {loading && <p>読み込み中...</p>}
-          {error && <p className="text-red-500">{error}</p>}
+          <p className="text-red-500">指定された馬の情報が見つかりませんでした</p>
+          <div className="mt-4">
+            <Button variant="outline" onClick={() => router.back()}>
+              一覧に戻る
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto py-8 px-4">
-      <HorseDetailContent horse={horse} auctionHistory={auctionHistory} />
-    </div>
-  );
+  return <HorseDetailContent horse={horse} auctionHistory={auctionHistory} />;
 };
 
 const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse, auctionHistory }) => {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header title={horse.name || '馬詳細'} />
+    <div>
+      <Header pageTitle={`${horse.name} の詳細`} />
       
       <div className="container mx-auto px-4 py-6">
-        <div className="mb-6">
-          <Button variant="outline" onClick={() => window.history.back()}>
-            ← 戻る
-          </Button>
-        </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* メインコンテンツ */}
@@ -268,138 +256,133 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse, auctionH
             {/* 基本情報カード */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">基本情報</CardTitle>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <h1 className="text-2xl font-bold">{horse.name}</h1>
+                    <div className="flex items-center space-x-2">
+                      {horse.sex && <span className="text-gray-600">{horse.sex}</span>}
+                      {horse.age && (
+                        <span className="text-gray-600">{horse.age}歳</span>
+                      )}
+                    </div>
+                  </div>
+                  {horse.disease_tags && (
+                    <div className="flex flex-wrap justify-end gap-1">
+                      {Array.isArray(horse.disease_tags)
+                        ? horse.disease_tags.map((tag, index) => (
+                            <Badge key={index} variant="secondary" className="bg-red-100 text-red-800 text-xs">
+                              {tag.trim()}
+                            </Badge>
+                          ))
+                        : String(horse.disease_tags).split(',').map((tag, index) => (
+                            <Badge key={index} variant="secondary" className="bg-red-100 text-red-800 text-xs">
+                              {tag.trim()}
+                            </Badge>
+                          ))
+                      }
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col md:flex-row gap-6">
-                  {/* 馬画像 */}
-                  <div className="w-full md:w-1/3">
-                    <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-gray-100">
+                <div className="space-y-4">
+                  {/* 馬画像 - カードいっぱいに表示 */}
+                  <div className="w-full">
+                    <div className="relative w-full h-[500px]">
                       {horse.image_url ? (
                         <Image
                           src={horse.image_url}
                           alt={horse.name || '馬の画像'}
                           fill
-                          className="object-cover"
+                          className="object-contain"
+                          style={{ objectFit: 'contain' }}
+                          priority
                           unoptimized
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400">
                           画像なし
                         </div>
                       )}
                     </div>
                   </div>
                   
-                  {/* 基本情報 */}
-                  <div className="w-full md:w-2/3 space-y-4">
-                    <div>
-                      <p className="text-2xl font-bold">{displayPrice(horse, auctionHistory)}</p>
-                      <h1 className="text-2xl font-bold">{horse.name || '名前不明'}</h1>
-                      <div className="flex items-center space-x-4 text-gray-600">
-                        <span>{horse.sex || '不明'} {horse.age || '0'}歳</span>
-                        {horse.color && <span>| {horse.color}</span>}
-                        {horse.birthday && <span>| {formatDate(horse.birthday)}</span>}
+                  {/* レース戦績と血統情報 - 横並び表示 */}
+                  <div className="space-y-4">
+                    {/* レース戦績 */}
+                    <div className="text-sm">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-gray-600 font-medium whitespace-nowrap">レース戦績：</span>
+                        <span>{horse.race_record || '不明'}</span>
                       </div>
                     </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">父:</span>
-                          <span className="font-medium">{horse.sire || '不明'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">母:</span>
-                          <span className="font-medium">{horse.dam || '不明'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">母父:</span>
-                          <span className="font-medium">{horse.damsire || '不明'}</span>
+
+                    {/* 血統情報 - 横並び表示 */}
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-gray-600">父：</span>
+                          <span>{horse.sire || '不明'}</span>
                         </div>
                       </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">販売者:</span>
-                          <span className="font-medium">{horse.seller || '不明'}</span>
+                      <div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-gray-600">母：</span>
+                          <span>{horse.dam || '不明'}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">オークション日:</span>
-                          <span className="font-medium">{formatDate(horse.auction_date)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">レース成績:</span>
-                          <span className="font-medium">{horse.race_record || '不明'}</span>
+                      </div>
+                      <div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-gray-600">母父：</span>
+                          <span>{horse.damsire || '不明'}</span>
                         </div>
                       </div>
                     </div>
                   </div>
+                  
+                  {/* 毛色と生年月日 */}
+                  {horse.color && (
+                    <div className="flex items-center space-x-4 text-gray-600 text-sm">
+                      <span>{horse.color}</span>
+                      {horse.birthday && (
+                        <>
+                          <span>|</span>
+                          <span>{formatDate(horse.birthday)}</span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
-
-            {/* 血統情報 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">血統</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex">
-                    <span className="text-gray-600 w-12">父：</span>
-                    <span className="font-medium text-left">{horse.sire || '-'}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="text-gray-600 w-12">母：</span>
-                    <span className="font-medium text-left">{horse.dam || '-'}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="text-gray-600 w-12">母父：</span>
-                    <span className="font-medium text-left">{horse.damsire || '-'}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 病歴 */}
-            {(horse.disease_tags && (Array.isArray(horse.disease_tags) ? horse.disease_tags.length > 0 : String(horse.disease_tags).trim() !== '')) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">病歴</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {Array.isArray(horse.disease_tags)
-                      ? horse.disease_tags.map((tag, index) => (
-                          <Badge key={index} variant="secondary" className="bg-red-100 text-red-800">
-                            {tag.trim() || '-'}
-                          </Badge>
-                        ))
-                      : String(horse.disease_tags).split(',').map((tag, index) => (
-                          <Badge key={index} variant="secondary" className="bg-red-100 text-red-800">
-                            {tag.trim() || '-'}
-                          </Badge>
-                        ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
 
           {/* サイドバー - 価格・賞金情報 */}
           <div className="lg:col-span-1 space-y-6">
-            {/* 価格情報 */}
+            {/* 落札価格情報 */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">価格情報</CardTitle>
+                <CardTitle className="text-lg">落札価格</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-red-600 mb-1">
+                  <div className="text-2xl font-bold text-red-600">
                     {displayPrice(horse, auctionHistory)}
                   </div>
-                  <div className="text-sm text-gray-600">落札価格</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 販売者情報 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">販売者</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center">
+                  <div className="text-base">
+                    {horse.seller || '不明'}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -472,6 +455,12 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse, auctionH
                 <CardTitle className="text-lg">データ情報</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
+                {auctionHistory?.auction_date && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">オークション日:</span>
+                    <span>{formatDate(auctionHistory.auction_date)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">作成日:</span>
                   <span>{horse.created_at ? formatDate(horse.created_at) : '-'}</span>

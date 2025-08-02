@@ -180,7 +180,7 @@ export default function AnalysisContent() {
         const price = h.sold_price;
         
         // null, undefined, 空文字の場合はスキップ
-        if (price === null || price === undefined || price === '') {
+        if (price === null || price === undefined) {
           return null;
         }
         
