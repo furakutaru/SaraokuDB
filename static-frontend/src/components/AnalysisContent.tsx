@@ -147,8 +147,8 @@ export default function AnalysisContent() {
   // すべての馬を表示（現在は主取り馬のフィルタリングは行わない）
   let horses = horsesWithLatest;
 
-  // サマリー - ROI計算を詳細ページと合わせる
-  const avgROI = horses.length > 0 ? (
+  // サマリー - RIO計算を詳細ページと合わせる
+  const avgRIO = horses.length > 0 ? (
     horses.reduce((sum, h) => {
       let soldPrice = 0;
       const price = h.sold_price;
@@ -164,11 +164,16 @@ export default function AnalysisContent() {
         }
       }
       
+      const prizeStart = h.total_prize_start || 0;
       const prizeLatest = h.total_prize_latest || 0;
       
-      // 詳細ページと同様の計算式を使用
-      const roi = soldPrice > 0 ? ((prizeLatest * 10000) / soldPrice - 1) * 100 : 0;
-      return sum + (isFinite(roi) ? roi : 0);
+      // 落札後に稼いだ賞金総額 = 現在の総賞金 - オークション時の総賞金
+      const earnedPrize = prizeLatest - prizeStart;
+      
+      // RIO = 落札後に稼いだ賞金総額 / 落札価格
+      const rio = soldPrice > 0 ? (earnedPrize * 10000) / soldPrice : 0;
+      
+      return sum + (isFinite(rio) ? rio : 0);
     }, 0) / horses.length
   ) : 0;
   
@@ -231,8 +236,11 @@ export default function AnalysisContent() {
   const valueHorses = horses.filter(h => {
     const soldPrice = h.sold_price !== null && h.sold_price !== undefined ? 
       (typeof h.sold_price === 'number' ? h.sold_price : 0) : 0;
-    const roi = h.total_prize_latest && soldPrice > 0 ? h.total_prize_latest / soldPrice : 0;
-    return soldPrice > 0 && roi > avgROI && soldPrice < (data.metadata?.average_price || 0);
+    const prizeStart = h.total_prize_start || 0;
+    const prizeLatest = h.total_prize_latest || 0;
+    const earnedPrize = prizeLatest - prizeStart;
+    const rio = soldPrice > 0 ? earnedPrize / soldPrice : 0;
+    return soldPrice > 0 && rio > avgRIO && soldPrice < (data.metadata?.average_price || 0);
   });
 
   // 表示切替
@@ -257,12 +265,22 @@ export default function AnalysisContent() {
   };
 
   // ROIを計算するヘルパー関数
-  const calcROI = (prize: number | undefined, price: number | string | null | undefined): string => {
-    if (!prize || !price) return '-';
+  const calcROI = (prizeLatest: number | undefined, prizeStart: number | undefined, price: number | string | null | undefined): string => {
+    if (prizeLatest === undefined || prizeStart === undefined || !price) return '-';
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
     if (isNaN(numPrice) || numPrice <= 0) return '-';
-    const roi = ((prize * 10000) / numPrice - 1) * 100;
-    return roi.toFixed(1) + '%';
+    
+    // 落札後に稼いだ賞金総額 = 現在の総賞金 - オークション時の総賞金
+    const earnedPrize = prizeLatest - prizeStart;
+    
+    // 落札価格が0以下の場合は計算不可
+    if (numPrice <= 0) return '-';
+    
+    // RIO = 落札後に稼いだ賞金総額 / 落札価格
+    const rio = (earnedPrize * 10000) / numPrice;
+    
+    // パーセンテージで返す（例: 0.15 → 15.0%）
+    return (rio * 100).toFixed(1) + '%';
   };
 
   // ソート関数の型定義
@@ -289,8 +307,15 @@ export default function AnalysisContent() {
     roi: (a, b) => {
       const aSoldPrice = typeof a.sold_price === 'number' ? a.sold_price : 0;
       const bSoldPrice = typeof b.sold_price === 'number' ? b.sold_price : 0;
-      const aROI = a.total_prize_latest && aSoldPrice > 0 ? a.total_prize_latest / aSoldPrice : 0;
-      const bROI = b.total_prize_latest && bSoldPrice > 0 ? b.total_prize_latest / bSoldPrice : 0;
+      
+      // 落札後に稼いだ賞金総額 = 現在の総賞金 - オークション時の総賞金
+      const aEarnedPrize = (a.total_prize_latest || 0) - (a.total_prize_start || 0);
+      const bEarnedPrize = (b.total_prize_latest || 0) - (b.total_prize_start || 0);
+      
+      // RIO = 落札後に稼いだ賞金総額 / 落札価格
+      const aROI = aSoldPrice > 0 ? aEarnedPrize / aSoldPrice : 0;
+      const bROI = bSoldPrice > 0 ? bEarnedPrize / bSoldPrice : 0;
+      
       return aROI - bROI;
     },
   };
@@ -330,7 +355,7 @@ export default function AnalysisContent() {
         <div className="mb-6 text-lg font-semibold text-gray-700 flex flex-wrap gap-8">
           <span>総馬数: {horses.length}</span>
           <span>平均落札価格: {normalize.formatCurrency(data.metadata.average_price)}</span>
-          <span>平均ROI: {avgROI.toFixed(2)}%</span>
+          <span>平均ROI: {avgRIO.toFixed(2)}%</span>
         </div>
         {/* 指標ボタン（白文字色付き） */}
         <div className="flex gap-4 mb-6">
@@ -381,7 +406,7 @@ export default function AnalysisContent() {
                   <td className="px-3 py-2">{displayPrize(horse.total_prize_start)}</td>
                   <td className="px-3 py-2">{displayPrize(horse.total_prize_latest)}</td>
                   <td className="px-3 py-2">
-                    {calcROI(horse.total_prize_latest, horse.sold_price)}
+                    {calcROI(horse.total_prize_latest, horse.total_prize_start, horse.sold_price)}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-col gap-1 items-center">
