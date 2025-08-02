@@ -1057,14 +1057,6 @@ class RakutenAuctionScraper:
             return result
 
     def _extract_seller(self, page_text: str) -> str:
-        """ページテキストから販売申込者を抽出する
-        
-        Args:
-            page_text (str): 抽出元のページテキスト
-            
-        Returns:
-            str: 抽出された販売申込者（見つからない場合は空文字列）
-        """
         try:
             # 方法1: 正規表現で直接検索
             seller_match = re.search(r'販売申込者[：:]([^\n\r\t]+)', page_text)
@@ -1083,12 +1075,13 @@ class RakutenAuctionScraper:
                     seller = td.get_text(strip=True)
                     return re.sub(r'（.*$', '', seller).strip()
             
+            # 見つからない場合は空文字列を返す
             return ''
             
         except Exception as e:
-            print(f"販売申込者の抽出中にエラーが発生しました: {str(e)}")
-            return ''
-    
+            print(f"販売者情報の抽出中にエラーが発生しました: {str(e)}")
+            return ''  # エラーが発生した場合も空文字列を返す
+
     def scrape_horse_list(self, max_horses: Optional[int] = None) -> List[Dict]:
         """
         オークションの一覧ページから馬のリストを取得

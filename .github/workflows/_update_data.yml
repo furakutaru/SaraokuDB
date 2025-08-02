@@ -1,0 +1,50 @@
+name: Update Horse Data
+
+on:
+  schedule:
+    - cron: "59 23 * * 4,0"  # 木・日 23:59 JST (UTC+9)
+  workflow_dispatch:          # 手動実行も可能
+
+permissions:
+  contents: write
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install beautifulsoup4 lxml requests tqdm
+
+      # スクリプトの実行権限を付与
+      - name: Add execute permissions
+        run: |
+          chmod +x scripts/run_updates.py
+          chmod +x scripts/improved_scraper.py
+          chmod +x scripts/update_jbis_history_data.py
+
+      # データ更新を実行
+      - name: Run data updates
+        run: |
+          cd scripts
+          python run_updates.py
+
+      # 変更をコミット
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static-frontend/public/data/*.json
+          git commit -m "Update horse data (auto update) - $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+          git push
