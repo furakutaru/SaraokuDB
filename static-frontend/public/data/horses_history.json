@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "last_updated": "2025-08-03T15:39:21.824405",
+    "last_updated": "2025-08-03T15:49:43.311582",
     "total_horses": 38,
     "average_price": 0,
     "auction_date": "2025-08-03",
-    "added_horses": 4,
-    "updated_horses": 0
+    "added_horses": 0,
+    "updated_horses": 4
   },
   "horses": [
     {
@@ -1726,7 +1726,7 @@
       "jbis_url": "https://www.jbis.or.jp/horse/0001358117/",
       "auction_date": "2025-08-03",
       "created_at": "2025-08-03T15:39:21.824116",
-      "updated_at": "2025-08-03T15:39:21.824124",
+      "updated_at": "2025-08-03T15:49:43.311177",
       "history": [
         {
           "name": "メイショウトサンコ",
@@ -1776,7 +1776,7 @@
       "jbis_url": "https://www.jbis.or.jp/horse/0001357689/",
       "auction_date": "2025-08-03",
       "created_at": "2025-08-03T15:39:21.824202",
-      "updated_at": "2025-08-03T15:39:21.824204",
+      "updated_at": "2025-08-03T15:49:43.311316",
       "history": [
         {
           "name": "イダイ",
@@ -1826,7 +1826,7 @@
       "jbis_url": "https://www.jbis.or.jp/horse/0001356396/",
       "auction_date": "2025-08-03",
       "created_at": "2025-08-03T15:39:21.824270",
-      "updated_at": "2025-08-03T15:39:21.824271",
+      "updated_at": "2025-08-03T15:49:43.311419",
       "history": [
         {
           "name": "ベストファンタジー",
@@ -1876,7 +1876,7 @@
       "jbis_url": "https://www.jbis.or.jp/horse/0001372908/",
       "auction_date": "2025-08-03",
       "created_at": "2025-08-03T15:39:21.824369",
-      "updated_at": "2025-08-03T15:39:21.824371",
+      "updated_at": "2025-08-03T15:49:43.311545",
       "history": [
         {
           "name": "サフラナール",
