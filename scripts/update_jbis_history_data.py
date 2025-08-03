@@ -17,25 +17,33 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 sys.path.append(os.path.join(project_root, 'backend'))
 
-try:
-    from backend.scrapers.rakuten_scraper import RakutenAuctionScraper
-except ImportError:
-    # --- フォールバック ---
-    # backend/scrapers/rakuten_scraper.py を動的に読み込む
-    try:
-        from backend.scrapers.rakuten_scraper import RakutenAuctionScraper
-    except ImportError:
-        # フォールバック: 直接インポート
-        import importlib.util
-        scraper_path = os.path.join(project_root, 'backend', 'scrapers', 'rakuten_scraper.py')
-        spec = importlib.util.spec_from_file_location("rakuten_scraper", scraper_path)
-        if spec and spec.loader:
-            rakuten_scraper = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(rakuten_scraper)
-            RakutenAuctionScraper = rakuten_scraper.RakutenAuctionScraper
-        else:
-            print("❌ rakuten_scraper.pyのロードに失敗しました。")
-            sys.exit(1)
+class SimpleScraper:
+    """シンプルなHTTPセッション管理クラス（RakutenAuctionScraperの代替）"""
+    def __init__(self):
+        import requests
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
+        
+        self.session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["GET"]
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+        
+        # ヘッダー設定
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+        })
+
+# RakutenAuctionScraper の代わりに SimpleScraper を使用
+RakutenAuctionScraper = SimpleScraper
 
 
 def normalize_jbis_url(jbis_url: str) -> str:

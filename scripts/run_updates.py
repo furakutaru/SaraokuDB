@@ -61,11 +61,37 @@ def run_auction_scraper() -> bool:
 def run_jbis_updater() -> bool:
     """JBIS賞金情報の更新を実行"""
     try:
+        logger.info("JBIS賞金情報の更新を開始します...")
         from update_jbis_history_data import main as jbis_main
+        
+        # 現在のディレクトリを記録
+        cwd = os.getcwd()
+        logger.info(f"現在の作業ディレクトリ: {cwd}")
+        
+        # スクリプトの存在確認
+        script_path = os.path.join(os.path.dirname(__file__), 'update_jbis_history_data.py')
+        if not os.path.exists(script_path):
+            logger.error(f"スクリプトが見つかりません: {script_path}")
+            return False
+            
+        logger.info(f"スクリプトのパス: {script_path}")
+        
+        # スクリプトを実行
         jbis_main()
+        logger.info("JBIS賞金情報の更新が完了しました")
         return True
+        
     except ImportError as e:
-        logger.error("update_jbis_history_data.py のインポートに失敗しました")
+        logger.error("モジュールのインポートに失敗しました")
+        logger.error(f"Pythonパス: {sys.path}")
+        logger.error(traceback.format_exc())
+        return False
+    except FileNotFoundError as e:
+        logger.error(f"ファイルが見つかりません: {str(e)}")
+        logger.error(traceback.format_exc())
+        return False
+    except Exception as e:
+        logger.error(f"予期せぬエラーが発生しました: {str(e)}")
         logger.error(traceback.format_exc())
         return False
 
