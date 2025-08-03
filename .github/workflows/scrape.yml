@@ -24,10 +24,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests beautifulsoup4 lxml
+          pip install -r requirements.txt
 
       - name: Run accumulative scraper
-        run: python scripts/accumulative_scraper.py
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)
+          python scripts/accumulative_scraper.py
 
       - name: Commit & Push scraped data
         run: |

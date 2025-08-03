@@ -22,10 +22,16 @@ sys.path.append(os.path.join(project_root, 'backend/scrapers'))
 
 # 楽天スクレイパーをインポート
 try:
-    from scripts.improved_scraper import ImprovedRakutenScraper
+    # 相対インポートを使用
+    from .improved_scraper import ImprovedRakutenScraper
 except ImportError as e:
     print(f"Error importing ImprovedRakutenScraper: {e}")
-    raise
+    # 絶対パスでのインポートを試みる
+    try:
+        from improved_scraper import ImprovedRakutenScraper
+    except ImportError as e2:
+        print(f"Error importing with absolute path: {e2}")
+        raise
 
 
 class AccumulativeScraper:
