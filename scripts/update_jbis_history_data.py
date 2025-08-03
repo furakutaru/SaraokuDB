@@ -135,41 +135,95 @@ def get_horse_name(horse_data):
     return '名前不明'
 
 
-def main():
-    print("=== JBISデータ更新スクリプト (履歴ファイル版) ===")
+def load_horses_data():
+    """馬の基本データを読み込む"""
+    horses_path = "static-frontend/public/data/horses.json"
+    if not os.path.exists(horses_path):
+        print(f"❌ 馬データファイルが見つかりません: {horses_path}")
+        return None
     
-    json_path = "static-frontend/public/data/horses_history.json"
-    if not os.path.exists(json_path):
-        print(f"❌ JSONファイルが見つかりません: {json_path}")
+    with open(horses_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def load_auction_history():
+    """オークション履歴データを読み込む"""
+    history_path = "static-frontend/public/data/auction_history.json"
+    if not os.path.exists(history_path):
+        print(f"❌ オークション履歴ファイルが見つかりません: {history_path}")
+        return None
+    
+    with open(history_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def save_data(data, file_path):
+    """データをJSONファイルに保存する"""
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def update_prize_info(horses_data, history_data, horse_id, prize):
+    """馬の賞金情報を更新する"""
+    updated = False
+    current_time = datetime.now().isoformat()
+    
+    # 馬の基本情報を更新
+    for horse in horses_data['horses']:
+        if horse['id'] == horse_id:
+            if horse.get('total_prize_latest') != prize:
+                horse['total_prize_latest'] = prize
+                horse['updated_at'] = current_time
+                updated = True
+            break
+    
+    # オークション履歴を更新（最新の履歴に賞金を設定）
+    for history in history_data['auction_history']:
+        if history['horse_id'] == horse_id:
+            if history.get('total_prize_latest') != prize:
+                history['total_prize_latest'] = prize
+                history['updated_at'] = current_time
+                updated = True
+    
+    return updated
+
+def main():
+    print("=== JBISデータ更新スクリプト ===")
+    
+    # データ読み込み
+    horses_data = load_horses_data()
+    if not horses_data:
         return
     
-    with open(json_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    history_data = load_auction_history()
+    if not history_data:
+        return
     
-    horses = data.get('horses', [])
-    print(f"✅ {len(horses)}頭の馬データを読み込みました")
+    print(f"✅ {len(horses_data['horses'])}頭の馬データを読み込みました")
+    print(f"✅ {len(history_data['auction_history'])}件のオークション履歴を読み込みました")
     
     scraper = RakutenAuctionScraper()
     updated_count = 0
+    processed_count = 0
     
-    for i, horse in enumerate(horses, 1):
+    # 各馬の賞金情報を更新
+    for horse in horses_data['horses']:
         jbis_url = horse.get('jbis_url')
-        horse_name = get_horse_name(horse)
-        print(f"  {i}/{len(horses)}: {horse_name} - JBIS賞金取得中...")
+        horse_name = horse.get('name', '名前不明')
+        horse_id = horse['id']
+        
+        processed_count += 1
+        print(f"  {processed_count}/{len(horses_data['horses'])}: {horse_name} - JBIS賞金取得中...")
         
         if not jbis_url:
             print("  - JBIS URLがありません。スキップします。")
             continue
 
+        # JBISから賞金情報を取得
         prize = get_jbis_prize(scraper.session, jbis_url)
         
         if prize is not None:
-            # 賞金が更新されていればフラグを立てる
-            if horse.get('total_prize_latest') != prize:
-                 horse['total_prize_latest'] = prize
-                 horse['updated_at'] = datetime.now().isoformat()
-                 updated_count += 1
-                 print(f"    -> 賞金を {prize} 万円に更新しました。")
+            # 賞金情報を更新
+            if update_prize_info(horses_data, history_data, horse_id, prize):
+                updated_count += 1
+                print(f"    -> 賞金を {prize} 万円に更新しました。")
         else:
             print("  - 賞金を取得できませんでした。")
 
@@ -177,11 +231,15 @@ def main():
         time.sleep(1.5)
 
     if updated_count > 0:
-        # 更新されたJSONを保存
-        data['metadata']['last_updated'] = datetime.now().isoformat()
-        with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        print(f"\n✅ {updated_count}頭のJBISデータを更新しました: {json_path}")
+        # 更新されたデータを保存
+        current_time = datetime.now().isoformat()
+        horses_data['metadata']['last_updated'] = current_time
+        history_data['metadata']['last_updated'] = current_time
+        
+        save_data(horses_data, "static-frontend/public/data/horses.json")
+        save_data(history_data, "static-frontend/public/data/auction_history.json")
+        
+        print(f"\n✅ {updated_count}頭のJBISデータを更新しました")
     else:
         print("\n✅ 更新が必要な馬はいませんでした。")
 
