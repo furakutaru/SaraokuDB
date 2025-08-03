@@ -70,10 +70,40 @@ jobs:
           cd scripts
           python run_updates.py
           
-      - name: Commit and push all data
+      - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+      - name: Fetch and merge changes
+        run: |
+          # リモートの変更を取得
+          git fetch origin main
+          # リモートの変更をマージ（競合がなければfast-forward）
+          git merge --ff-only origin/main || git merge --strategy-option theirs
+          
+      - name: Commit changes
+        run: |
           git add static-frontend/public/data/*.json
-          git commit -m "Update all horse data" || echo "No changes to commit"
-          git push
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update all horse data [skip ci]"
+          fi
+          
+      - name: Push changes with retry
+        run: |
+          # 最大3回リトライ
+          for i in 1 2 3; do
+            echo "Attempt $i: Pushing changes..."
+            if git push; then
+              echo "Push successful"
+              exit 0
+            else
+              echo "Push failed, retrying..."
+              git pull --rebase origin main
+              sleep 5
+            fi
+          done
+          echo "All push attempts failed"
+          exit 1
