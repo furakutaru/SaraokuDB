@@ -27,7 +27,9 @@ jobs:
           pip install -r requirements.txt
           
       - name: Run accumulative scraper
-        run: python scripts/accumulative_scraper.py
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)
+          python scripts/accumulative_scraper.py
         
       - name: Commit and push auction data
         run: |
