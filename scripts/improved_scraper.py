@@ -296,6 +296,50 @@ class ImprovedRakutenScraper:
         logger.info(f"合計{len(horses)}頭の馬の情報を取得しました")
         return horses
         
+    def _extract_sold_price(self, soup: BeautifulSoup) -> Optional[int]:
+        """落札価格を抽出する
+        
+        Args:
+            soup: BeautifulSoupオブジェクト
+            
+        Returns:
+            Optional[int]: 落札価格（円）。見つからない場合はNone
+        """
+        try:
+            # 落札価格を探す（例: "1,000万円"）
+            price_tag = soup.find(string=re.compile(r'落札価格'))
+            if price_tag:
+                price_text = price_tag.find_next('span', class_='price')
+                if price_text:
+                    price_text = price_text.get_text().strip()
+                    # 数字部分を抽出（例: "1,000万円" -> 10000000）
+                    price_match = re.search(r'(\d[\d,]*\.?\d*)', price_text)
+                    if price_match:
+                        price = int(price_match.group(1).replace(',', ''))
+                        # 万円単位の場合は10000をかける
+                        if '万円' in price_text:
+                            price *= 10000
+                        return price
+            
+            # 見つからなかった場合は現在価格を確認
+            current_price_tag = soup.find(string=re.compile(r'現在価格'))
+            if current_price_tag:
+                price_text = current_price_tag.find_next('span', class_='price')
+                if price_text:
+                    price_text = price_text.get_text().strip()
+                    price_match = re.search(r'(\d[\d,]*\.?\d*)', price_text)
+                    if price_match:
+                        price = int(price_match.group(1).replace(',', ''))
+                        if '万円' in price_text:
+                            price *= 10000
+                        return price
+            
+            return None
+                
+        except Exception as e:
+            logger.error(f"落札価格の抽出中にエラーが発生しました: {e}")
+            return None
+    
     def _extract_name_sex_age(self, page_text: str) -> Dict:
         """馬名、性別、年齢を解析
         
