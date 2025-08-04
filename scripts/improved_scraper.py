@@ -296,6 +296,218 @@ class ImprovedRakutenScraper:
         logger.info(f"合計{len(horses)}頭の馬の情報を取得しました")
         return horses
         
+    def _extract_weight(self, page_text: str) -> Optional[float]:
+        """馬体重を抽出する
+        
+        Args:
+            page_text: ページのテキスト
+            
+        Returns:
+            Optional[float]: 馬体重（kg）。見つからない場合はNone
+        """
+        try:
+            # 馬体重を探す（例: "馬体重: 450kg"）
+            weight_match = re.search(r'馬体重[：:](?:\s*)(\d+)(?:\.\d+)?\s*kg', page_text)
+            if weight_match:
+                return float(weight_match.group(1))
+                
+            # 別のフォーマットを試す（例: "450kg"）
+            weight_match = re.search(r'(\d+)(?:\.\d+)?\s*kg', page_text)
+            if weight_match:
+                return float(weight_match.group(1))
+                
+            return None
+            
+        except Exception as e:
+            logger.error(f"馬体重の抽出中にエラーが発生しました: {e}")
+            return None
+    
+    def _extract_race_record(self, page_text: str) -> Dict[str, Any]:
+        """レース戦績を抽出する
+        
+        Args:
+            page_text: ページのテキスト
+            
+        Returns:
+            Dict[str, Any]: レース戦績情報
+        """
+        # 簡易的な実装（必要に応じて拡張）
+        return {}
+    
+    def _extract_jbis_url(self, soup: BeautifulSoup) -> str:
+        """JBISのURLを抽出する
+        
+        Args:
+            soup: BeautifulSoupオブジェクト
+            
+        Returns:
+            str: JBISのURL。見つからない場合は空文字
+        """
+        try:
+            # JBISリンクを探す
+            for a in soup.find_all('a', href=True):
+                href = a['href']
+                if 'jbis.or.jp/horse/' in href:
+                    return href
+            return ''
+        except Exception as e:
+            logger.error(f"JBIS URLの抽出中にエラーが発生しました: {e}")
+            return ''
+    
+    def _extract_prize_money(self, page_text: str, jbis_url: str = '') -> Dict[str, float]:
+        """賞金情報を抽出する
+        
+        Args:
+            page_text: ページのテキスト
+            jbis_url: JBISのURL（オプション）
+            
+        Returns:
+            Dict[str, float]: 賞金情報
+        """
+        # 簡易的な実装（必要に応じて拡張）
+        return {
+            'total_prize_start': 0.0,
+            'total_prize_latest': 0.0
+        }
+    
+    def _extract_comment(self, page_text: str) -> str:
+        """コメントを抽出する
+        
+        Args:
+            page_text: ページのテキスト
+            
+        Returns:
+            str: コメント
+        """
+        # 簡易的な実装（必要に応じて拡張）
+        return ''
+    
+    def _extract_disease_tags(self, comment: str) -> List[str]:
+        """コメントから疾病タグを抽出する
+        
+        Args:
+            comment: コメントテキスト
+            
+        Returns:
+            List[str]: 疾病タグのリスト
+        """
+        # 簡易的な実装（必要に応じて拡張）
+        return []
+    
+    def _extract_primary_image(self, soup: BeautifulSoup) -> str:
+        """メイン画像のURLを抽出する
+        
+        Args:
+            soup: BeautifulSoupオブジェクト
+            
+        Returns:
+            str: 画像のURL。見つからない場合は空文字
+        """
+        try:
+            img = soup.find('img', {'id': 'mainImage'}) or soup.find('img', class_='main-image')
+            if img and 'src' in img.attrs:
+                return img['src']
+            return ''
+        except Exception as e:
+            logger.error(f"メイン画像の抽出中にエラーが発生しました: {e}")
+            return ''
+    
+    def _extract_seller(self, page_text: str) -> str:
+        """売り主情報を抽出する
+        
+        Args:
+            page_text: ページのテキスト
+            
+        Returns:
+            str: 売り主名
+        """
+        # 簡易的な実装（必要に応じて拡張）
+        return ''
+    
+    def _clean_horse_name(self, name: str) -> str:
+        """馬名をクリーニングする
+        
+        Args:
+            name: クリーニング前の馬名
+            
+        Returns:
+            str: クリーニングされた馬名
+        """
+        if not name:
+            return ''
+        # 不要な空白や改行を削除
+        return ' '.join(name.split())
+    
+    def _normalize_jbis_url(self, url: str) -> str:
+        """JBISのURLを正規化する
+        
+        Args:
+            url: 正規化前のURL
+            
+        Returns:
+            str: 正規化されたURL
+        """
+        if not url:
+            return ''
+        # 相対URLの場合は絶対URLに変換
+        if url.startswith('/'):
+            return f'https://www.jbis.or.jp{url}'
+        return url
+    
+    def _extract_pedigree(self, soup: BeautifulSoup) -> Dict[str, str]:
+        """血統情報を抽出する
+        
+        Args:
+            soup: BeautifulSoupオブジェクト
+            
+        Returns:
+            Dict[str, str]: 血統情報を含む辞書
+                - sire: 父馬名
+                - dam: 母馬名
+                - damsire: 母父名
+        """
+        result = {
+            'sire': '',
+            'dam': '',
+            'damsire': ''
+        }
+        
+        try:
+            # 血統表を探す
+            pedigree_table = soup.find('table', class_='pedigree')
+            if not pedigree_table:
+                logger.warning("血統表が見つかりませんでした")
+                return result
+                
+            # 父馬を取得
+            sire_cell = pedigree_table.find('td', class_='sire')
+            if sire_cell:
+                sire_link = sire_cell.find('a')
+                if sire_link:
+                    result['sire'] = sire_link.get_text(strip=True)
+            
+            # 母馬を取得
+            dam_cell = pedigree_table.find('td', class_='dam')
+            if dam_cell:
+                dam_link = dam_cell.find('a')
+                if dam_link:
+                    result['dam'] = dam_link.get_text(strip=True)
+            
+            # 母父を取得（母の父）
+            if dam_cell:
+                damsire_cell = dam_cell.find_next_sibling('td', class_='sire')
+                if damsire_cell:
+                    damsire_link = damsire_cell.find('a')
+                    if damsire_link:
+                        result['damsire'] = damsire_link.get_text(strip=True)
+            
+            logger.debug(f"血統情報を抽出しました: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"血統情報の抽出中にエラーが発生しました: {e}")
+            return result
+    
     def _extract_sold_price(self, soup: BeautifulSoup) -> Optional[int]:
         """落札価格を抽出する
         
