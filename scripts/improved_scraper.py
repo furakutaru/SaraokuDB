@@ -232,6 +232,70 @@ class ImprovedRakutenScraper:
             print(f"詳細情報の取得に失敗: {e}")
             return None
     
+    def scrape_all_horses(self) -> List[Dict]:
+        """すべての馬の情報をスクレイピングして返す
+        
+        Returns:
+            List[Dict]: スクレイピングした馬の情報のリスト
+        """
+        logger.info("すべての馬の情報を取得します...")
+        horses = []
+        
+        # オークションのメインページにアクセス
+        response = self._make_request(self.base_url)
+        if not response:
+            logger.error("オークションページの取得に失敗しました")
+            return horses
+            
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # 馬のリンクを取得
+        horse_links = []
+        for link in soup.find_all('a', href=True):
+            href = link.get('href')
+            if href and '/item/' in href:
+                link_text = link.get_text(strip=True)
+                # 不要なリンクを除外
+                if (link_text and len(link_text) > 1 and 
+                    '詳細血統表' not in link_text and 
+                    '血統表' not in link_text and
+                    '詳細' not in link_text):
+                    if not href.startswith('http'):
+                        href = self.base_url + href.lstrip('/')
+                    horse_links.append({
+                        'text': link_text,
+                        'url': href
+                    })
+        
+        logger.info(f"馬のリンクを{len(horse_links)}個発見")
+        
+        if not horse_links:
+            logger.warning("馬のリンクが見つかりませんでした")
+            return horses
+            
+        # 進行状況表示用にtqdmを使用
+        for link in tqdm(horse_links, desc="馬の詳細を取得中", unit="頭"):
+            logger.debug(f"処理中: {link['text']} - {link['url']}")
+            
+            try:
+                detail_data = self.scrape_horse_detail(link['url'])
+                if detail_data and detail_data.get('name'):
+                    detail_data['detail_url'] = link['url']
+                    horses.append(detail_data)
+                    logger.debug(f"取得成功: {detail_data['name']}")
+                else:
+                    logger.warning(f"詳細データの取得に失敗: {link['url']}")
+                    
+                # サーバーに優しくするために少し待機
+                time.sleep(1)
+                    
+            except Exception as e:
+                logger.error(f"馬の詳細取得中にエラーが発生しました ({link['text']}): {str(e)}")
+                continue
+                    
+        logger.info(f"合計{len(horses)}頭の馬の情報を取得しました")
+        return horses
+        
     def _extract_name_sex_age(self, page_text: str) -> Dict:
         """馬名、性別、年齢を解析
         
