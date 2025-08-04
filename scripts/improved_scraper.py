@@ -238,55 +238,51 @@ class ImprovedRakutenScraper:
         フォーマット例:
         - "アイドルフェスタ　　牝３歳　　※中央競馬　登録抹消"
         - "馬名　牡5歳　コメント"
+        
+        Args:
+            page_text: ページのテキスト
+            
+        Returns:
+            Dict: 抽出した情報を含む辞書
+                - name: 馬名
+                - sex: 性別（牡・牝・セ）
+                - age: 年齢（数値）
         """
-        result = {}
+        result = {
+            'name': '',
+            'sex': '',
+            'age': None
+        }
         
-    # すべてのリンクをチェック
-    for link in soup.find_all('a', href=True):
-        href = link.get('href')
-        if href and '/item/' in href:
-            link_text = link.get_text(strip=True)
-            # 不要なリンクを除外
-            if (link_text and len(link_text) > 1 and 
-                '詳細血統表' not in link_text and 
-                '血統表' not in link_text and
-                '詳細' not in link_text):
-                if not href.startswith('http'):
-                    href = self.base_url + href.lstrip('/')
-                horse_links.append({
-                    'text': link_text,
-                    'url': href
-                })
-        
-    logger.info(f"馬のリンクを{len(horse_links)}個発見")
-        
-    if not horse_links:
-        logger.warning("馬のリンクが見つかりませんでした")
-        return horses
-            
-    # 進行状況表示用にtqdmを使用
-    for link in tqdm(horse_links, desc="馬の詳細を取得中", unit="頭"):
-        logger.debug(f"処理中: {link['text']} - {link['url']}")
-            
         try:
-            detail_data = self.scrape_horse_detail(link['url'])
-            if detail_data and detail_data.get('name'):
-                # link['text']での上書きをやめ、scrape_horse_detailで取得した名前を使用
-                detail_data['detail_url'] = link['url']
-                horses.append(detail_data)
-                logger.debug(f"取得成功: {detail_data['name']}")
+            # 馬名、性別、年齢が含まれていると思われる部分を抽出
+            # 例: "馬名　　　　　　　　　　　　　　　　　牡３歳"
+            pattern = r'([^\n\r\t]+?)\s+([牡牝セ])(?:\s*)(\d+)\s*歳'
+            match = re.search(pattern, page_text)
+            
+            if match:
+                # マッチした部分を抽出
+                result['name'] = match.group(1).strip()
+                result['sex'] = match.group(2)
+                result['age'] = int(match.group(3))
             else:
-                logger.warning(f"詳細データの取得に失敗: {link['url']}")
+                # 別のフォーマットを試す（例: 性別と年齢が別々のパターン）
+                # 例: "馬名　　　　　　　　　　　　　　　　　牡　　3歳"
+                alt_pattern = r'([^\n\r\t]+?)\s+([牡牝セ])(?:\s*)(\d+)\s*歳'
+                alt_match = re.search(alt_pattern, page_text)
                 
-            # サーバーに優しくするために少し待機
-            time.sleep(1)
-                
+                if alt_match:
+                    result['name'] = alt_match.group(1).strip()
+                    result['sex'] = alt_match.group(2)
+                    result['age'] = int(alt_match.group(3))
+                else:
+                    # デバッグ用にマッチしなかったテキストをログに出力
+                    print(f"[デバッグ] 性別・年齢のパターンにマッチしませんでした: {page_text[:100]}...")
+        
         except Exception as e:
-            logger.error(f"馬の詳細取得中にエラーが発生しました ({link['text']}): {str(e)}")
-            continue
-                
-    logger.info(f"合計{len(horses)}頭の馬の情報を取得しました")
-    return horses
+            print(f"性別・年齢の抽出中にエラーが発生しました: {e}")
+        
+        return result
     
 def scrape_horse_detail(self, detail_url: str) -> Optional[Dict]:
     """個別ページから詳細情報を取得"""
