@@ -57,8 +57,21 @@ backend/
     const latestSoldPrice = horse.history.length > 0 ? horse.history[horse.history.length - 1].sold_price : null;
     ```
 - **賞金（total_prize_*）**: 
-  - 保存形式: 万円単位の浮動小数点数（小数点以下1桁、例: `10.0`）
-  - 表示形式: 数値 + 万円（例: `10.0万円`）
+  - 保存形式: 万円単位の浮動小数点数（例: `9077.9`）
+  - 表示形式: 数値 + 万円（例: `9,077.9万円`）
+  - **total_prize_start**: オークション時点の総賞金（一覧ページから取得）
+  - **total_prize_latest**: 最新の総賞金（JBISから取得）
+  - 初期状態では両方の値は同じ
+  - コード例:
+    ```typescript
+    // 賞金の表示例（カンマ区切り + 万円）
+    const formatPrize = (prize) => {
+      return prize ? new Intl.NumberFormat('ja-JP', { 
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1 
+      }).format(prize) + '万円' : '0.0万円';
+    };
+    ```
 - **RIO（Return on Investment）**:
   - 計算式: `RIO = (落札後に稼いだ賞金総額) ÷ 落札価格`
   - 落札後に稼いだ賞金総額: `現在の総賞金 - オークション時の総賞金`
@@ -82,6 +95,34 @@ backend/
 ### セキュリティ
 - **検索エンジン**: 禁止（noindex, nofollow）
 - **robots.txt**: 全クローラー禁止
+
+## 🧪 テストモードとキャッシュ
+
+### テストモード
+- **有効化**: `--test` フラグを指定して実行
+  ```bash
+  python improved_scraper.py --test
+  ```
+- **動作**:
+  - バリデーションをスキップ（必須フィールドのチェックを行わない）
+  - キャッシュからHTMLを読み込む（`html_cache/` ディレクトリ）
+  - 詳細ページのキャッシュが存在しない馬はスキップ
+  - データベースには保存されない（`--save` フラグを別途指定する必要あり）
+
+### キャッシュの仕組み
+- **キャッシュディレクトリ**: `scripts/html_cache/`
+- **ファイル命名規則**: 
+  - 一覧ページ: `auction_list_YYYYMMDD.html`
+  - 馬詳細ページ: `horse_detail_[馬名].html`
+- **キャッシュの更新**:
+  - 通常モード: キャッシュが存在しない場合のみ新規取得
+  - 強制更新: `--force` フラグで強制的に再取得
+  - 特定のキャッシュファイル: `--cache-file` オプションで指定
+
+### デバッグ情報
+- テストモード時は詳細なデバッグ情報が出力されます
+- 各フィールドの値やバリデーション結果を確認可能
+- キャッシュの読み込み/保存のログが出力されます
 
 ## 🐛 よくある問題
 

@@ -1,0 +1,231 @@
+# スクレイピングガイド
+
+> **重要**: このガイドは、スクレイピングシステムの運用・保守を担当する開発者向けの包括的なドキュメントです。初めての方は最初から最後まで一読することを推奨します。
+
+## 目次
+1. [基本情報](#基本情報)
+2. [キャッシュの仕組み](#キャッシュの仕組み)
+3. [テストモードの使い方](#テストモードの使い方)
+4. [スクレイピングルール](#スクレイピングルール)
+5. [トラブルシューティング](#トラブルシューティング)
+6. [メンテナンス](#メンテナンス)
+
+## 基本情報
+
+### 前提条件
+- Python 3.8+
+- 必要なパッケージ: `requirements.txt` に記載
+  ```bash
+  pip install -r requirements.txt
+  ```
+- 環境変数: `.env` ファイルに設定
+  ```
+  CACHE_DIR=scripts/html_cache
+  DATA_DIR=static-frontend/public/data
+  ```
+
+### スクレイピング対象サイト
+- 楽天サラブレッドオークション: `https://www.rakuten-b.co.jp/farm/auction/`
+- JBIS（日本軽種馬登録協会）: `https://www.jbis.or.jp/`
+
+### スクレイピングの流れ
+1. オークション一覧ページから馬の基本情報を取得
+   - オークション開催日ごとに別々のページとして保存
+   - 各馬の基本情報（名前、性別、年齢など）を抽出
+
+2. 各馬の詳細ページから追加情報を取得
+   - 馬体重、売主、コメント、画像URLなどの詳細情報を抽出
+   - 詳細ページが存在しない場合はスキップ（テストモード時）
+
+3. JBISから賞金情報を取得
+   - 馬名と血統情報からJBISページを検索
+   - 総賞金情報を抽出（`total_prize_start`と`total_prize_latest`）
+
+4. データの正規化と保存
+   - データ型の統一（日付、数値、文字列など）
+   - 必須フィールドのバリデーション（テストモード時はスキップ）
+   - データベース（horses.json, auction_history.json）への保存
+
+## キャッシュの仕組み
+
+### キャッシュの場所
+- 一覧ページ: `scripts/html_cache/auction_list_YYYYMMDD.html`
+- 馬詳細ページ: `scripts/html_cache/horse_detail_馬名.html`
+- JBISページ: `scripts/html_cache/jbis_馬名.html`
+
+### キャッシュの更新ルール
+1. **通常モード** (`python improved_scraper.py`)
+   - キャッシュが存在しない場合のみ取得
+   - データベースに直接保存
+
+2. **テストモード** (`--test` フラグ)
+   - キャッシュが存在する場合のみ使用
+   - データベースには保存されない（`--save` フラグで保存可能）
+   - 詳細なログ出力
+
+3. **強制更新** (`--force` フラグ)
+   - キャッシュの有無に関わらず再取得
+   - 既存のキャッシュは上書き
+
+4. **部分更新** (`--cache-file` オプション)
+   - 特定のキャッシュファイルのみを処理
+   - 例: `--cache-file html_cache/auction_list_20230810.html`
+
+## テストモードの使い方
+
+### テストモードの有効化
+```bash
+# テストモードで実行（キャッシュのみ使用）
+python improved_scraper.py --test
+
+# 特定のキャッシュファイルを指定
+python improved_scraper.py --test --cache-file html_cache/auction_list_20230810.html
+
+# 強制キャッシュ更新（テストモードでもキャッシュを更新）
+python improved_scraper.py --test --force
+```
+
+### テストモードの特徴
+- バリデーションをスキップ
+- キャッシュが存在しない馬はスキップ
+- データベースには保存されない（`--save` フラグで保存可能）
+- 詳細なデバッグ情報を出力
+
+## スクレイピングルール
+
+### 1. オークション一覧ページからの抽出
+- セレクタ: `.horse-list-item`
+- 抽出項目:
+  - 馬名: `.horse-name`
+  - 性別・年齢: `.horse-info`
+  - 父・母: `.pedigree`
+  - 賞金: `.prize-money`
+  - 詳細ページURL: `a.detail-link` の `href` 属性
+
+### 2. 馬詳細ページからの抽出
+- 基本情報:
+  - 馬体重: `.weight`
+  - 売主: `.seller`
+  - コメント: `.comment`
+  - 画像URL: `.horse-image` の `src` 属性
+
+### 3. JBISからの賞金情報取得
+- **URL**: `https://www.jbis.or.jp/horse/[馬ID]/`
+- **セレクタ**: `.db_prof_table` 内の賞金情報
+- **取得データ**:
+  - 総賞金（万円単位）
+  - レース実績（オプション）
+- **注意点**:
+  - レイアウト変更が頻繁に発生するため、定期的な確認が必要
+  - エラーハンドリングを必ず実装（404エラー、タイムアウトなど）
+  - レート制限に注意（1リクエスト/秒以上は避ける）
+  - キャッシュを活用して同じ馬の情報を繰り返し取得しない
+
+### 4. データの正規化
+- 賞金: 万円単位に変換
+- 日付: `YYYY-MM-DD` 形式に統一
+- 性別: 「牡」「牝」「セ」に統一
+
+## トラブルシューティング
+
+### スクレイピングが失敗する場合
+1. サイトのHTML構造が変更されていないか確認
+2. キャッシュを削除して再試行
+   ```bash
+   rm -f scripts/html_cache/*
+   ```
+3. テストモードでデバッグ情報を確認
+   ```bash
+   python improved_scraper.py --test --debug
+   ```
+
+### データが正しく抽出できない場合
+1. セレクタが正しいか確認
+2. テストモードでHTMLをダンプして確認
+   ```python
+   with open('debug.html', 'w', encoding='utf-8') as f:
+       f.write(html_content)
+   ```
+
+## メンテナンス
+
+### 定期的なメンテナンスタスク
+1. **キャッシュ管理**
+   ```bash
+   # 30日以上前のキャッシュを削除
+   find scripts/html_cache -type f -mtime +30 -delete
+   
+   # 空のファイルや壊れたキャッシュを削除
+   find scripts/html_cache -type f -size 0 -delete
+   ```
+
+2. **ログ管理**
+   - ログローテーションの設定（logrotateなど）
+   - エラーログの定期的な確認
+
+3. **データバックアップ**
+   ```bash
+   # データベースのバックアップ
+   cp static-frontend/public/data/horses.json static-frontend/public/data/backup/horses_$(date +%Y%m%d).json
+   cp static-frontend/public/data/auction_history.json static-frontend/public/data/backup/auction_history_$(date +%Y%m%d).json
+   ```
+
+### バージョン管理
+1. バージョン番号は `Semantic Versioning` に従う
+2. 変更内容は `CHANGELOG.md` に記録
+3. スクレイピングロジックを変更した場合は必ずテストモードで動作確認
+
+### 緊急時の対応手順
+1. **問題の特定**
+   - エラーログの確認
+   - テストモードで再現確認
+
+2. **応急処置**
+   - 問題のあるデータを手動で修正
+   - 必要に応じてキャッシュを削除
+
+3. **恒久対策**
+   - コードの修正とテスト
+   - ドキュメントの更新
+
+### 連絡先
+- 開発責任者: [担当者名]
+- 緊急連絡先: [電話番号]
+- メール: [メールアドレス]
+- オンラインドキュメント: [Confluence/Slackチャンネルリンク]
+
+## 付録: よく使うコマンド
+
+### テスト実行
+```bash
+# テストモード（キャッシュのみ）
+python improved_scraper.py --test
+
+# 特定の日付のオークションのみ処理
+python improved_scraper.py --date 2023-08-10
+
+# デバッグモード（詳細ログ）
+python improved_scraper.py --debug
+```
+
+### データベース操作
+```bash
+# データベースの整合性チェック
+python scripts/check_integrity.py
+
+# データのエクスポート（CSV形式）
+python scripts/export_to_csv.py
+```
+
+### メンテナンス
+```bash
+# 古いバックアップを削除（90日以上前）
+find static-frontend/public/data/backup -type f -mtime +90 -delete
+
+# ディスク使用量の確認
+du -sh scripts/html_cache/
+du -sh static-frontend/public/data/
+```
+
+---
+最終更新日: 2025-08-10
