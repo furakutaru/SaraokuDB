@@ -352,6 +352,39 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse, auctionH
                       )}
                     </div>
                   )}
+                  
+                  {/* 外部リンクボタン */}
+                  <div className="flex flex-wrap gap-4 mt-4">
+                    {/* JBISリンクボタン */}
+                    {horse.jbis_url && (
+                      <a 
+                        href={horse.jbis_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        JBISで見る
+                      </a>
+                    )}
+                    
+                    {/* サラブレッドオークションリンクボタン */}
+                    {horse.auction_url && (
+                      <a 
+                        href={horse.auction_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        サラブレッドオークション
+                      </a>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
