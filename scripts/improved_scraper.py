@@ -1,8 +1,83 @@
 #!/usr/bin/env python3
 """
-改善されたスクレイピングスクリプト
-seleniumを使わずにrequestsとBeautifulSoupで実装
-正しいデータ抽出ロジックを含む
+楽天競馬オークションのスクレイピングスクリプト
+
+このスクリプトは、楽天競馬オークションのデータをスクレイピングし、構造化されたデータとして保存します。
+
+## 主な機能
+- オークション一覧ページからの馬情報のスクレイピング
+- 個別馬の詳細情報の取得（JBISサイトから）
+- 賞金情報の取得と処理
+- 取得データのJSON形式での保存
+- オフラインでのテストを可能にするキャッシュ機能
+
+## データ構造
+### 馬データ（horses.json）
+```json
+{
+  "metadata": {
+    "last_updated": "YYYY-MM-DDTHH:MM:SS.ssssss",
+    "total_horses": 0,
+    "version": "1.0.0"
+  },
+  "horses": [
+    {
+      "id": "UUID",
+      "name": "馬名",
+      "age": 年齢,
+      "sex": "性別（牡/牝/セ）",
+      "sire": "父馬名",
+      "dam": "母馬名",
+      "damsire": "母父名",
+      "total_prize_start": 0.0,  // 一覧ページから取得した賞金（万円）
+      "total_prize_latest": 0.0, // JBISから取得した最新の賞金（万円）
+      "jbis_url": "JBISのURL",
+      "auction_url": "オークションページのURL",
+      "image_url": "画像URL",
+      "disease_tags": ["タグ1", "タグ2"],
+      "comment": "コメント",
+      "race_record": "戦績",
+      "weight": 体重,
+      "seller": "出品者",
+      "auction_date": "オークション日（YYYY-MM-DD）",
+      "created_at": "作成日時（ISOフォーマット）",
+      "updated_at": "更新日時（ISOフォーマット）"
+    }
+  ]
+}
+```
+
+## スクレイピングルール
+1. オークション一覧ページから基本情報を取得
+   - 馬名、性別、年齢、JBIS URL、画像URLなど
+   - 一覧ページから取得可能な賞金情報
+
+2. 詳細ページ（JBIS）から追加情報を取得
+   - 血統情報（父馬、母馬、母父）
+   - 最新の賞金情報
+   - レース戦績
+
+3. テストモード（test_mode=True）
+   - キャッシュを使用してオフラインでテスト可能
+   - 詳細ページがない馬はスキップ
+   - バリデーションをスキップしてデータを保存
+
+## キャッシュの仕組み
+- 取得したHTMLは`html_cache`ディレクトリに保存
+- ファイル名は`{タイムスタンプ}_{URLのMD5ハッシュ}.html`
+- テスト時はキャッシュがあればそれを使用し、なければスキップ
+
+## 実行方法
+```bash
+# 通常モード（本番用）
+python improved_scraper.py
+
+# テストモード（キャッシュ使用）
+python improved_scraper.py --test
+
+# キャッシュを強制更新して実行
+python improved_scraper.py --force
+```
 """
 
 import os
@@ -1217,15 +1292,51 @@ class ImprovedRakutenScraper:
         return horses
 
 def save_scraped_data(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/public/data', test_mode: bool = False) -> Tuple[bool, str]:
-    """スクレイピングしたデータをhorses.jsonとauction_history.jsonに保存
+    """スクレイピングしたデータをhorses.jsonとauction_history.jsonに保存します。
+    
+    この関数は以下の処理を行います：
+    1. テストモードでない場合、必須フィールドのバリデーションを実行
+    2. 馬の基本情報を準備し、データベースに保存
+    3. オークション履歴情報を準備し、データベースに保存
+    
+    データ構造（horses.json）:
+    - id: 自動生成されるユニークID
+    - name: 馬名（必須）
+    - sex: 性別（牡・牝・セ）（必須）
+    - age: 年齢（必須）
+    - sire: 父馬名（必須）
+    - dam: 母馬名（必須）
+    - damsire: 母父名（空文字列の場合あり）
+    - image_url: 馬の画像URL
+    - jbis_url: JBISの詳細ページURL
+    - auction_url: オークションの詳細ページURL
+    - disease_tags: 疾病情報のタグ配列
+    - weight: 馬体重（kg）
+    - race_record: レース戦績
+    - comment: コメント
+    - seller: 売り主（必須）
+    - auction_date: オークション日（必須）
+    - total_prize_start: オークション時点の総賞金（万円）
+    - total_prize_latest: 最新の総賞金（万円）
+    - created_at: 作成日時
+    - updated_at: 更新日時
     
     Args:
-        horse_data: スクレイピングした馬のデータ
-        data_dir: データを保存するディレクトリ
+        horse_data: スクレイピングした馬のデータを含む辞書
+        data_dir: データを保存するディレクトリ（デフォルト: 'static-frontend/public/data'）
         test_mode: テストモードの場合はTrue（バリデーションをスキップ）
         
     Returns:
-        Tuple[bool, str]: (成功可否, メッセージ)
+        Tuple[bool, str]: (成功フラグ, 結果メッセージ)
+        
+    Raises:
+        Exception: データの保存中にエラーが発生した場合
+        
+    Note:
+        - テストモードでは必須フィールドのバリデーションがスキップされます
+        - disease_tagsは文字列で渡された場合、カンマ区切りでリストに変換されます
+        - 数値フィールド（age, weight, total_prize_* など）は適切な型に変換されます
+        - damsireが存在しない場合は空文字列が設定されます
     """
     try:
         # テストモードでない場合のみバリデーションを実行
