@@ -35,7 +35,10 @@ except ImportError as e:
 
 class AccumulativeScraper:
     def __init__(self, enable_history=None, mode='development'):
-        self.scraper = ImprovedRakutenScraper()
+        # テストモードの設定（development/testモードの場合はTrue、productionモードの場合はFalse）
+        test_mode = mode in ['development', 'dev', 'test']
+        self.scraper = ImprovedRakutenScraper(test_mode=test_mode)
+        
         # プロジェクトルートからの絶対パスを使用
         script_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(script_dir)

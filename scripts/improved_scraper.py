@@ -195,7 +195,8 @@ class ImprovedRakutenScraper:
             Responseオブジェクト（通常モード）またはHTML文字列（オフラインモード）
         """
         # テストモードまたはオフラインモードの場合はキャッシュを確認
-        if self.test_mode or os.environ.get('SCRAPER_OFFLINE', '').lower() == 'true':
+        if self.test_mode and (self.test_mode or os.environ.get('SCRAPER_OFFLINE', '').lower() == 'true'):
+            logger.info(f"テストモードでリクエストを処理中: {url}")
             # キャッシュファイルが指定されている場合はそれを使用
             if self.cache_file and os.path.exists(self.cache_file):
                 with open(self.cache_file, 'r', encoding='utf-8') as f:
