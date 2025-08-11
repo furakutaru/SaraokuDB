@@ -195,8 +195,8 @@ class ImprovedRakutenScraper:
             Responseオブジェクト（通常モード）またはHTML文字列（オフラインモード）
         """
         # テストモードまたはオフラインモードの場合はキャッシュを確認
-        if self.test_mode and (self.test_mode or os.environ.get('SCRAPER_OFFLINE', '').lower() == 'true'):
-            logger.info(f"テストモードでリクエストを処理中: {url}")
+        if self.test_mode or os.environ.get('SCRAPER_OFFLINE', '').lower() == 'true':
+            logger.info(f"テスト/オフラインモードでリクエストを処理中: {url}")
             # キャッシュファイルが指定されている場合はそれを使用
             if self.cache_file and os.path.exists(self.cache_file):
                 with open(self.cache_file, 'r', encoding='utf-8') as f:
@@ -250,24 +250,36 @@ class ImprovedRakutenScraper:
             
             logger.warning(f"テスト/オフラインモード: キャッシュが見つかりません: {url}")
             return None
+        
+        # 本番モード - 常に新しいリクエストを実行
+        try:
+            logger.info(f"本番モードでリクエストを送信: {url}")
+            response = self.session.request(method, url, timeout=self.timeout, **kwargs)
+            response.raise_for_status()
             
-        # オンラインモード（キャッシュの確認のみ行い、新規キャッシュは作成しない）
-        cache_files = list(CACHE_DIR.glob(f'*_{hashlib.md5(url.encode()).hexdigest()}.html'))
-        if cache_files:
-            # 最新のキャッシュを取得
-            latest_cache = max(cache_files, key=os.path.getmtime)
-            with open(latest_cache, 'r', encoding='utf-8') as f:
-                content = f.read()
-                logger.info(f"既存キャッシュから読み込みました: {latest_cache}")
-                # テスト用のResponseオブジェクトを返す
-                response = requests.Response()
-                response._content = content.encode('utf-8')
-                response.status_code = 200
-                response.headers = {'Content-Type': 'text/html; charset=utf-8'}
-                return response
+            # レスポンスをキャッシュに保存
+            if save_html and response.status_code == 200 and 'text/html' in response.headers.get('content-type', ''):
+                self._save_html_to_cache(url, response.text)
+                
+            return response
             
-        logger.warning(f"キャッシュが見つかりません: {url}")
-        return None
+        except Exception as e:
+            logger.error(f"リクエストエラー: {e}")
+            # エラー時にキャッシュがあればそれを使用
+            cache_files = list(CACHE_DIR.glob(f'*_{hashlib.md5(url.encode()).hexdigest()}.html'))
+            if cache_files:
+                latest_cache = max(cache_files, key=os.path.getmtime)
+                with open(latest_cache, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    logger.warning(f"エラーが発生したため、キャッシュから読み込みます: {latest_cache}")
+                    response = requests.Response()
+                    response._content = content.encode('utf-8')
+                    response.status_code = 200
+                    response.headers = {'Content-Type': 'text/html; charset=utf-8'}
+                    return response
+                    
+            logger.error(f"キャッシュも見つかりません: {url}")
+            raise
 
     def get_auction_date(self) -> str:
         """ページから開催日を取得"""
