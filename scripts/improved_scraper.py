@@ -1066,15 +1066,96 @@ class ImprovedRakutenScraper:
             logger.error(error_msg)
             return ""
 
+    def _normalize_jbis_url(self, jbis_url: str) -> str:
+        """JBISのURLを正規化する
+        
+        血統情報ページ(/pedigree/)や競走成績ページ(/record/)を基本情報ページに変換します。
+        """
+        if not jbis_url or not jbis_url.startswith('http'):
+            return jbis_url
+            
+        # URLの正規化
+        normalized_url = jbis_url
+        
+        # 血統情報ページや競走成績ページを基本情報ページに変換
+        if '/pedigree/' in normalized_url or '/record/' in normalized_url:
+            normalized_url = re.sub(r'(/pedigree/|/record/).*$', '/', normalized_url)
+        
+        # 末尾のスラッシュを確保
+        if not normalized_url.endswith('/'):
+            normalized_url += '/'
+            
+        return normalized_url
+
+    def _extract_jbis_prize_money(self, jbis_url: str) -> float:
+        """JBISのページから総賞金を取得する
+        
+        Args:
+            jbis_url: JBISの馬基本情報ページのURL
+            
+        Returns:
+            賞金額（万円単位）。取得に失敗した場合は0.0
+        """
+        if not jbis_url or not jbis_url.startswith('http'):
+            logger.warning(f"無効なJBIS URL: {jbis_url}")
+            return 0.0
+            
+        try:
+            # URLを正規化
+            normalized_url = self._normalize_jbis_url(jbis_url)
+            if normalized_url != jbis_url:
+                logger.debug(f"JBIS URLを正規化: {jbis_url} -> {normalized_url}")
+            
+            # 最大3回リトライ
+            for attempt in range(3):
+                try:
+                    response = self.session.get(normalized_url, timeout=30)
+                    response.raise_for_status()
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    
+                    # 方法1: dtタグから総賞金を取得（最も確実）
+                    total_prize_dt = soup.find('dt', string=re.compile(r'^\s*総賞金\s*$'))
+                    if total_prize_dt:
+                        dd = total_prize_dt.find_next_sibling('dd')
+                        if dd:
+                            prize_text = dd.get_text(strip=True)
+                            prize_match = re.search(r'([\d,.]+)', prize_text)
+                            if prize_match:
+                                prize_value = float(prize_match.group(1).replace(',', ''))
+                                logger.debug(f"JBISから賞金を取得: {prize_value}万円 (dtタグから)")
+                                return prize_value
+                    
+                    # 方法2: フォールバック - 正規表現で直接検索
+                    prize_match = re.search(r'総賞金[\s:：]*([\d,.]+)', soup.get_text())
+                    if prize_match:
+                        prize_value = float(prize_match.group(1).replace(',', ''))
+                        logger.debug(f"JBISから賞金を取得: {prize_value}万円 (正規表現から)")
+                        return prize_value
+                        
+                except (requests.RequestException, ValueError) as e:
+                    if attempt == 2:  # 最終リトライ
+                        logger.warning(f"JBISからの賞金取得に失敗 (試行 {attempt + 1}/3): {e}")
+                    time.sleep(1)  # 1秒待機してリトライ
+                    continue
+                    
+            logger.warning(f"JBISから賞金を取得できませんでした: {normalized_url}")
+            return 0.0
+            
+        except Exception as e:
+            logger.error(f"JBIS賞金取得中にエラーが発生: {e}")
+            logger.error(traceback.format_exc())
+            return 0.0
+
     def _extract_prize_money(self, page_text: str, jbis_url: Optional[str] = None) -> Dict[str, float]:
-        # 賞金情報を抽出します。
-        # 
-        # Args:
-        #     page_text: 抽出元のHTMLテキスト
-        #     jbis_url: JBISのURL（指定すると最新の賞金情報を取得）
-        #     
-        # Returns:
-        #     賞金情報を含む辞書。キーは'total_prize_start'と'total_prize_latest'。
+        """賞金情報を抽出します。
+        
+        Args:
+            page_text: 抽出元のHTMLテキスト
+            jbis_url: JBISのURL（指定すると最新の賞金情報を取得）
+            
+        Returns:
+            賞金情報を含む辞書。キーは'total_prize_start'と'total_prize_latest'。
+        """
         result = {
             'total_prize_start': 0.0,
             'total_prize_latest': 0.0
@@ -1087,54 +1168,53 @@ class ImprovedRakutenScraper:
         try:
             logger.debug("賞金情報の抽出を開始")
             
-            # 中央・地方・総獲得賞金のパターンを検索（必ず「万円」表記を要求）
-            central_prize_match = re.search(r'中央獲得賞金[：:](?:\s|　)*([\d,.]+)(?:\s|　)*万円', page_text)
-            local_prize_match = re.search(r'地方獲得賞金[：:](?:\s|　)*([\d,.]+)(?:\s|　)*万円', page_text)
-            total_prize_match = re.search(r'総獲得賞金[：:](?:\s|　)*([\d,.]+)(?:\s|　)*万円', page_text)
+            # BeautifulSoupでHTMLをパース
+            soup = BeautifulSoup(page_text, 'html.parser')
             
-            # デバッグ情報
-            debug_info = {
-                '中央賞金': central_prize_match.group(1) if central_prize_match else 'なし',
-                '地方賞金': local_prize_match.group(1) if local_prize_match else 'なし',
-                '総獲得賞金': total_prize_match.group(1) if total_prize_match else 'なし'
-            }
-            logger.debug(f"賞金情報マッチ: {debug_info}")
+            # 方法1: dt/ddタグから取得を試みる
+            total_prize = 0.0
+            dt_tag = soup.find('dt', string=re.compile(r'^\s*総賞金\s*$'))
+            if dt_tag and dt_tag.find_next_sibling('dd'):
+                prize_text = dt_tag.find_next_sibling('dd').get_text(strip=True)
+                prize_match = re.search(r'([\d,.]+)', prize_text)
+                if prize_match:
+                    try:
+                        total_prize = float(prize_match.group(1).replace(',', ''))
+                        result['total_prize_start'] = total_prize
+                        result['total_prize_latest'] = total_prize
+                        logger.debug(f"dt/ddタグから賞金を抽出: {total_prize}万円")
+                        return result
+                    except (ValueError, AttributeError) as e:
+                        logger.warning(f"賞金の数値変換に失敗: {prize_text}, エラー: {e}")
             
-            # 総賞金を設定
+            # 方法2: 正規表現で直接テキストから抽出（フォールバック）
+            text_content = soup.get_text()
+            total_prize_match = re.search(r'総(?:獲得)?賞金[：:\s　]+([\d,.]+)', text_content)
             if total_prize_match:
-                prize_value = total_prize_match.group(1).replace(',', '')
-                result['total_prize_start'] = float(prize_value)
-                logger.debug(f"総賞金を検出: {prize_value}万円")
-            elif central_prize_match or local_prize_match:
-                logger.debug("総賞金のマッチに失敗。中央・地方賞金から計算します。")
-                central = float(central_prize_match.group(1).replace(',', '')) if central_prize_match else 0.0
-                local = float(local_prize_match.group(1).replace(',', '')) if local_prize_match else 0.0
-                result['total_prize_start'] = central + local
-                logger.debug(
-                    f"中央賞金: {central}万円, "
-                    f"地方賞金: {local}万円, "
-                    f"合計: {result['total_prize_start']}万円"
-                )
-            else:
-                logger.warning("有効な賞金情報が見つかりませんでした")
+                try:
+                    total_prize = float(total_prize_match.group(1).replace(',', ''))
+                    result['total_prize_start'] = total_prize
+                    result['total_prize_latest'] = total_prize
+                    logger.debug(f"正規表現から賞金を抽出: {total_prize}万円")
+                    return result
+                except (ValueError, AttributeError) as e:
+                    logger.warning(f"賞金の数値変換に失敗: {total_prize_match.group(1)}, エラー: {e}")
             
             # JBISから最新の賞金情報を取得
             if jbis_url:
                 logger.debug(f"JBISから最新の賞金情報を取得: {jbis_url}")
                 try:
                     latest_prize = self._extract_jbis_prize_money(jbis_url)
-                    result['total_prize_latest'] = latest_prize if latest_prize > 0 else result['total_prize_start']
-                    logger.debug(f"JBISから取得した最新賞金: {latest_prize}万円")
+                    if latest_prize > 0:
+                        result['total_prize_latest'] = latest_prize
+                        logger.debug(f"JBISから取得した最新賞金: {latest_prize}万円")
+                        return result
                 except Exception as e:
                     logger.warning(f"JBISからの賞金取得に失敗: {e}")
-                    result['total_prize_latest'] = result['total_prize_start']
-            else:
-                result['total_prize_latest'] = result['total_prize_start']
             
-            logger.debug(
-                f"賞金情報 - オークション時: {result['total_prize_start']}万円, "
-                f"最新: {result['total_prize_latest']}万円"
-            )
+            # デバッグ用にページの先頭500文字をログに出力
+            logger.debug(f"ページテキストの先頭500文字: {text_content[:500]}")
+            logger.warning("有効な賞金情報が見つかりませんでした")
             
         except Exception as e:
             logger.error(f"賞金情報の抽出に失敗: {e}")
