@@ -1,15 +1,26 @@
 import os
-import json
 import re
+import json
+import time
 import logging
 import requests
+import datetime
 from bs4 import BeautifulSoup
-from datetime import datetime
-from pathlib import Path
-import time
 from urllib.parse import urljoin, urlparse, parse_qs
+from pathlib import Path
 
-# Set up logging
+def get_cache_dir():
+    """日付ベースのキャッシュディレクトリを取得する"""
+    today = datetime.datetime.now().strftime('%Y%m%d')
+    cache_base_dir = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / 'cache'
+    cache_dir = cache_base_dir / today
+    details_dir = cache_dir / 'details'
+    
+    # ディレクトリがなければ作成
+    details_dir.mkdir(parents=True, exist_ok=True)
+    return str(cache_dir), str(details_dir)
+
+# ログ設定
 log_file = Path('horse_extraction.log')
 logging.basicConfig(
     level=logging.INFO,
@@ -20,6 +31,21 @@ logging.basicConfig(
     ]
 )
 
+# グローバル変数の定義
+cache_dir, details_dir = get_cache_dir()
+metadata_file = os.path.join(cache_dir, 'metadata.json')
+
+# メタデータが存在しない場合は初期化
+if not os.path.exists(metadata_file):
+    metadata = {
+        'session_id': f"sess_{int(time.time())}",
+        'created_at': datetime.datetime.now().isoformat(),
+        'updated_at': datetime.datetime.now().isoformat(),
+        'downloaded_pages': []
+    }
+    with open(metadata_file, 'w', encoding='utf-8') as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=2)
+
 # Suppress BeautifulSoup warning
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='bs4')
@@ -27,67 +53,172 @@ warnings.filterwarnings("ignore", category=UserWarning, module='bs4')
 def download_detail_page(detail_url, output_dir, session_id, base_url="https://www.tb-selection.com/"):
     """Download and save detail page for a horse."""
     try:
-        # Create details directory if it doesn't exist
+        # 出力ディレクトリが存在しない場合は作成
         os.makedirs(output_dir, exist_ok=True)
         
-        # Extract horse ID from URL or generate a unique ID
+        # URLから一意の識別子を生成（ファイル名として使用）
         parsed_url = urlparse(detail_url)
-        query_params = parse_qs(parsed_url.query)
-        horse_id = query_params.get('id', [None])[0] or str(int(time.time()))
-        
-        # Generate filename
-        filename = f"{session_id}_horse_{horse_id}.html"
+        url_path = parsed_url.path.strip('/')
+        filename = f"{session_id}_{url_path.replace('/', '_')}.html"
         filepath = os.path.join(output_dir, filename)
         
-        # Check if file already exists
+        # 既存のファイルがあれば削除
         if os.path.exists(filepath):
-            logging.info(f"Detail page already exists: {filepath}")
-            return filename
+            os.remove(filepath)
         
-        # Make the request
+        # リクエストヘッダーを設定
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Referer': base_url,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Cache-Control': 'no-cache'
         }
         
-        # Construct full URL if it's relative
-        if not detail_url.startswith('http'):
-            detail_url = urljoin(base_url, detail_url)
+        # 詳細ページを取得
+        logging.info(f"ダウンロード中: {detail_url}")
         
-        response = requests.get(detail_url, headers=headers, timeout=30)
+        # セッションを使用して接続を維持
+        session = requests.Session()
+        response = session.get(detail_url, headers=headers, timeout=30, allow_redirects=True)
         response.raise_for_status()
         
-        # Save the HTML content
+        # エンコーディングを明示的に指定
+        response.encoding = response.apparent_encoding or 'utf-8'
+        
+        # HTMLをパースしてから再エンコードして保存
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # metaタグでcharsetが指定されていない場合は追加
+        if not soup.find('meta', {'charset': True}) and soup.head:
+            meta = soup.new_tag('meta', charset='utf-8')
+            soup.head.insert(0, meta)
+            
+        # ファイルに保存
         with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(response.text)
+            f.write(str(soup))
         
-        logging.info(f"Downloaded detail page: {filename}")
-        return filename
-        
+        # ファイルが正しく保存されたか確認
+        if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
+            file_size = os.path.getsize(filepath)
+            logging.info(f"ファイルを正常に保存しました: {filepath} ({file_size} バイト)")
+            
+            # メタデータを更新
+            metadata_file = os.path.join(os.path.dirname(output_dir), 'metadata.json')
+            metadata = {}
+            if os.path.exists(metadata_file):
+                try:
+                    with open(metadata_file, 'r', encoding='utf-8') as f:
+                        metadata = json.load(f)
+                except Exception as e:
+                    logging.warning(f"メタデータの読み込みに失敗しました: {e}")
+            
+            # URLとファイル名のマッピングを保存
+            if 'detail_pages' not in metadata:
+                metadata['detail_pages'] = {}
+            metadata['detail_pages'][detail_url] = os.path.basename(filepath)
+            
+            try:
+                with open(metadata_file, 'w', encoding='utf-8') as f:
+                    json.dump(metadata, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                logging.error(f"メタデータの保存に失敗しました: {e}")
+            
+            return filepath, True
+        else:
+            logging.error(f"ファイルの保存に失敗しました: {filepath}")
+            return None, False
+            
     except Exception as e:
-        logging.error(f"Error downloading detail page {detail_url}: {str(e)}")
-        return None
+        logging.error(f"ダウンロード中にエラーが発生しました: {detail_url}")
+        logging.error(f"エラータイプ: {type(e).__name__}")
+        logging.error(f"エラーメッセージ: {str(e)}")
+        logging.error(f"出力先ディレクトリ: {output_dir}")
+        if 'filepath' in locals() and os.path.exists(filepath):
+            os.remove(filepath)  # エラーが発生した場合は不完全なファイルを削除
+        return None, False
 
-def extract_detail_links(html_file):
-    """Extract detail page links from the list page."""
+def extract_detail_links(html_file, base_url):
+    """HTMLファイルから詳細ページのリンクを抽出し、ローカルキャッシュへのリンクに変換する"""
     try:
-        with open(html_file, 'r', encoding='utf-8') as f:
-            content = f.read()
+        # ファイルをバイナリモードで読み込み
+        with open(html_file, 'rb') as f:
+            raw_data = f.read()
+            
+        # エンコーディングを推測してデコード
+        encodings = ['utf-8', 'shift_jis', 'euc-jp', 'cp932']
+        content = None
         
+        for enc in encodings:
+            try:
+                content = raw_data.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+                
+        if content is None:
+            logging.error("ファイルのデコードに失敗しました。サポートされていないエンコーディングの可能性があります。")
+            return []
+            
         soup = BeautifulSoup(content, 'html.parser')
-        links = []
+        links = set()
         
-        # Find all links that point to detail pages
-        # This selector needs to be adjusted based on the actual HTML structure
-        for link in soup.find_all('a', href=True):
-            href = link['href']
-            # Adjust this condition based on how detail page URLs are structured
-            if 'detail' in href or 'horse' in href:
-                links.append(href)
+        # メタデータから既存のリンクを読み込む
+        cache_dir = os.path.dirname(html_file)
+        details_dir = os.path.join(cache_dir, 'details')
+        url_to_filename = {}  # URLからファイル名へのマッピング
         
-        return list(set(links))  # Remove duplicates
+        # キャッシュディレクトリから直接ファイルを検索
+        if os.path.exists(details_dir):
+            for filename in os.listdir(details_dir):
+                if filename.startswith('sess_') and filename.endswith('.html'):
+                    # ファイル名からURLを推測（実際のURLは分からないので、ファイル名をそのまま使用）
+                    filepath = os.path.join('details', filename)
+                    url = f"https://auction.keiba.rakuten.co.jp/item/{filename.split('_')[-1].split('.')[0]}"
+                    url_to_filename[url] = filepath
         
+        # 詳細ページへのリンクを抽出（楽天競馬のURLパターンに基づく）
+        for a in soup.find_all('a', href=True):
+            original_href = a['href'].strip()
+            # 相対URLを絶対URLに変換
+            if not original_href.startswith(('http://', 'https://')):
+                absolute_url = urljoin(base_url, original_href)
+            else:
+                absolute_url = original_href
+            
+            # 詳細ページのURLパターンに一致するか確認
+            if any(x in absolute_url for x in ['/item/', 'auction.keiba.rakuten.co.jp/item/', 'keiba.rakuten.co.jp/auction/item/']):
+                # 不要なリンクを除外
+                if not any(x in absolute_url.lower() for x in ['facebook', 'twitter', 'instagram', 'youtube', 'mailto:', 'tel:']):
+                    # ファイル名からURLを推測してマッチング
+                    item_id = absolute_url.split('/')[-1]
+                    matched = False
+                    
+                    # キャッシュディレクトリから該当するファイルを検索
+                    if os.path.exists(details_dir):
+                        for filename in os.listdir(details_dir):
+                            if f'_item_{item_id}.' in filename and filename.endswith('.html'):
+                                relative_path = os.path.join('details', filename)
+                                a['href'] = relative_path
+                                links.add(absolute_url)
+                                matched = True
+                                break
+                    
+                    # マッチしなかった場合は元のURLを保持
+                    if not matched:
+                        a['href'] = absolute_url
+        
+        # 更新されたHTMLを保存
+        with open(html_file, 'w', encoding='utf-8') as f:
+            f.write(str(soup))
+        
+        logging.info(f"{len(links)}件の詳細ページリンクをローカルキャッシュに変換しました")
+        return list(links)
     except Exception as e:
-        logging.error(f"Error extracting detail links: {str(e)}")
+        logging.error(f'リンクの抽出中にエラーが発生しました: {e}', exc_info=True)
         return []
 
 def extract_horse_info(html_file):
@@ -95,16 +226,30 @@ def extract_horse_info(html_file):
     logging.info(f"Starting extraction from {html_file}")
     
     try:
-        with open(html_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-    except Exception as e:
-        logging.error(f"Error reading file {html_file}: {str(e)}")
-        return []
-    
-    try:
+        # バイナリモードでファイルを読み込み、適切なエンコーディングを推測
+        with open(html_file, 'rb') as f:
+            raw_data = f.read()
+        
+        # エンコーディングを推測
+        encodings = ['utf-8', 'shift_jis', 'euc-jp', 'cp932']
+        content = None
+        
+        for enc in encodings:
+            try:
+                content = raw_data.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        
+        if content is None:
+            # どのエンコーディングでもデコードできない場合
+            content = raw_data.decode('utf-8', errors='replace')
+        
+        # HTMLをパース
         soup = BeautifulSoup(content, 'html.parser')
+        
     except Exception as e:
-        logging.error(f"Error parsing HTML: {str(e)}")
+        logging.error(f"Error processing file {html_file}: {str(e)}", exc_info=True)
         return []
     
     horses = []
@@ -190,94 +335,99 @@ def extract_horse_info(html_file):
     logging.info(f"Successfully extracted {len(horses)} horses")
     return horses
 
+def load_config():
+    """設定を読み込む"""
+    return {
+        'base_url': 'https://keiba.rakuten.co.jp/auction/',  # 実際のURLに置き換えてください
+        'request_headers': {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+            'Referer': 'https://keiba.rakuten.co.jp/'
+        },
+        'request_timeout': 30,
+        'delay_between_requests': 2,  # リクエスト間の遅延（秒）
+        'max_retries': 3  # リトライ回数
+    }
+
 def main():
     try:
-        # Set up paths
-        cache_dir = "/Users/yum.ishii/SaraokuDB/cache/202508161516"
-        list_file = os.path.join(cache_dir, "list.html")
-        output_file = os.path.join(cache_dir, "extracted_horses.json")
-        details_dir = os.path.join(cache_dir, "details")
-        metadata_file = os.path.join(cache_dir, "metadata.json")
+        # キャッシュディレクトリを取得
+        cache_dir, details_dir = get_cache_dir()
         
-        # Load or create metadata
+        # メタデータファイルのパス
+        metadata_file = os.path.join(cache_dir, 'metadata.json')
+        
+        # メタデータを読み込む（存在しない場合は新規作成）
         if os.path.exists(metadata_file):
             with open(metadata_file, 'r', encoding='utf-8') as f:
                 metadata = json.load(f)
         else:
             metadata = {
-                "session_id": os.path.basename(cache_dir),
-                "start_time": datetime.now().isoformat(),
-                "list_page": "list.html",
-                "details": [],
-                "last_updated": datetime.now().isoformat()
+                'session_id': datetime.datetime.now().strftime('%Y%m%d'),
+                'created_at': datetime.datetime.now().isoformat(),
+                'updated_at': datetime.datetime.now().isoformat(),
+                'downloaded_pages': []
             }
         
-        # Check if input file exists
-        if not os.path.exists(list_file):
-            logging.error(f"Input file not found: {list_file}")
-            return
+        # メタデータを更新
+        metadata['updated_at'] = datetime.datetime.now().isoformat()
         
-        # Clear previous log file if it exists
-        if os.path.exists('horse_extraction.log'):
-            os.remove('horse_extraction.log')
-        
-        # Create details directory if it doesn't exist
-        os.makedirs(details_dir, exist_ok=True)
-        
-        # Extract detail page links and download them
-        logging.info("Extracting detail page links...")
-        detail_links = extract_detail_links(list_file)
-        logging.info(f"Found {len(detail_links)} detail page links")
-        
-        # Download detail pages
-        downloaded_files = []
-        for i, link in enumerate(detail_links, 1):
-            logging.info(f"Downloading detail page {i}/{len(detail_links)}: {link}")
-            filename = download_detail_page(link, details_dir, metadata["session_id"])
-            if filename:
-                downloaded_files.append(filename)
-                
-                # Update metadata
-                if filename not in metadata["details"]:
-                    metadata["details"].append(filename)
-                
-                # Update metadata file after each download
-                metadata["last_updated"] = datetime.now().isoformat()
-                with open(metadata_file, 'w', encoding='utf-8') as f:
-                    json.dump(metadata, f, ensure_ascii=False, indent=2)
-                
-                # Be nice to the server
-                time.sleep(1)
-        
-        # Extract horse information
-        logging.info(f"Starting extraction from {list_file}")
-        horses = extract_horse_info(list_file)
-        
-        # Save the extracted data
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(horses, f, ensure_ascii=False, indent=2)
-            
-        # Update metadata with final information
-        metadata["last_updated"] = datetime.now().isoformat()
+        # メタデータを保存
         with open(metadata_file, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
         
-        # Print summary
-        print("\n=== 抽出結果のサマリー ===")
-        print(f"抽出された馬の数: {len(horses)}")
-        print(f"出力ファイル: {output_file}")
+        logging.info(f"キャッシュディレクトリ: {cache_dir}")
+        logging.info(f"セッションID: {metadata['session_id']}")
         
-        if horses:
-            print("\n最初の数頭の情報:")
-            for i, horse in enumerate(horses[:3], 1):
-                print(f"\n{i}. 馬名: {horse.get('name', 'N/A')}")
-                print(f"   父: {horse.get('sire', 'N/A')}")
-                print(f"   母: {horse.get('dam', 'N/A')}")
-                print(f"   母の父: {horse.get('damsire', 'N/A')}")
-                if 'prize_money' in horse:
-                    print(f"   獲得賞金: {horse['prize_money']:,.1f}万円")
+        # 設定を読み込む
+        config = load_config()
         
-        print(f"\n詳細なログは 'horse_extraction.log' を確認してください。")
+        # リストページのパスを取得（コマンドライン引数から取得するか、デフォルトのパスを使用）
+        list_file = os.path.join(cache_dir, 'list.html')
+        
+        # リストページが存在するか確認
+        if not os.path.exists(list_file):
+            logging.error(f"リストページが見つかりません: {list_file}")
+            print(f"エラー: リストページが見つかりません。{list_file} にリストページを配置してください。")
+            return
+        
+        # 詳細ページのリンクを抽出
+        detail_links = extract_detail_links(list_file, config['base_url'])
+        
+        if not detail_links:
+            logging.warning("詳細ページのリンクが見つかりませんでした。")
+            print("警告: 詳細ページのリンクが見つかりませんでした。")
+            return
+        
+        # 詳細ページをダウンロード
+        downloaded_files = []
+        for i, link in enumerate(detail_links, 1):
+            logging.info(f"ダウンロード中 ({i}/{len(detail_links)}): {link}")
+            filepath, success = download_detail_page(
+                link, 
+                details_dir, 
+                metadata['session_id'], 
+                config['base_url']
+            )
+            
+            if success:
+                downloaded_files.append(filepath)
+                # メタデータを更新
+                if filepath not in metadata['downloaded_pages']:
+                    metadata['downloaded_pages'].append(filepath)
+                
+                # メタデータを定期的に保存
+                if i % 5 == 0:
+                    with open(metadata_file, 'w', encoding='utf-8') as f:
+                        json.dump(metadata, f, ensure_ascii=False, indent=2)
+        
+        # 最終的なメタデータを保存
+        with open(metadata_file, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=2)
+        
+        logging.info(f"完了: {len(downloaded_files)}/{len(detail_links)} 件の詳細ページをダウンロードしました。")
+        print(f"\n完了: {len(downloaded_files)}/{len(detail_links)} 件の詳細ページをダウンロードしました。")
+        print(f"ログファイル: {os.path.abspath('horse_extraction.log')}")
         
     except Exception as e:
         logging.error(f"エラーが発生しました: {str(e)}", exc_info=True)
@@ -285,4 +435,57 @@ def main():
         raise
 
 if __name__ == "__main__":
+    # メタデータを読み込む
+    with open(metadata_file, 'r', encoding='utf-8') as f:
+        metadata = json.load(f)
+    
+    # リストページのURL
+    LIST_PAGE_URL = "https://auction.keiba.rakuten.co.jp/"
+    list_page = os.path.join(cache_dir, 'list.html')
+    
+    # 詳細ページの保存先ディレクトリ
+    details_dir = os.path.join(cache_dir, 'details')
+    os.makedirs(details_dir, exist_ok=True)
+    
+    if not os.path.exists(list_page):
+        logging.error(f"リストページが見つかりません: {list_page}")
+        exit(1)
+    
+    # 詳細ページのリンクを抽出
+    detail_links = extract_detail_links(list_page, LIST_PAGE_URL)
+    logging.info(f"抽出された詳細ページリンク: {len(detail_links)}件")
+    
+    # 詳細ページをダウンロード
+    downloaded_count = 0
+    for link in detail_links:
+        filepath, success = download_detail_page(link, details_dir, metadata['session_id'])
+        if success:
+            downloaded_count += 1
+            # メタデータを更新
+            metadata['downloaded_pages'].append({
+                'url': link,
+                'filepath': os.path.relpath(filepath, cache_dir),
+                'downloaded_at': datetime.datetime.now().isoformat()
+            })
+            # 5件ごとにメタデータを保存
+            if downloaded_count % 5 == 0:
+                metadata['updated_at'] = datetime.datetime.now().isoformat()
+                with open(metadata_file, 'w', encoding='utf-8') as f:
+                    json.dump(metadata, f, ensure_ascii=False, indent=2)
+    
+    # 最終的なメタデータを保存
+    metadata['updated_at'] = datetime.datetime.now().isoformat()
+    with open(metadata_file, 'w', encoding='utf-8') as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=2)
+    
+    logging.info(f"処理が完了しました。{downloaded_count}件の詳細ページをダウンロードしました。")
+    
+    # メタデータを保存
+    with open(metadata_file, 'w', encoding='utf-8') as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=2)
+    
+    logging.info(f"キャッシュディレクトリ: {cache_dir}")
+    logging.info(f"セッションID: {metadata['session_id']}")
+    
+    # メイン処理を実行
     main()
