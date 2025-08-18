@@ -106,17 +106,20 @@ def download_detail_page(detail_url, output_dir, session_id, base_url="https://w
             file_size = os.path.getsize(filepath)
             logging.info(f"ファイルを正常に保存しました: {filepath} ({file_size} バイト)")
             
-            # メタデータを更新
-            metadata_file = os.path.join(os.path.dirname(output_dir), 'metadata.json')
+            # メタデータを読み込む
+            metadata_file = os.path.join(cache_dir, 'metadata.json')
             metadata = {}
             if os.path.exists(metadata_file):
                 try:
                     with open(metadata_file, 'r', encoding='utf-8') as f:
                         metadata = json.load(f)
                 except Exception as e:
-                    logging.warning(f"メタデータの読み込みに失敗しました: {e}")
+                    logging.warning(f'メタデータの読み込みに失敗しました: {e}')
+                    print(f'警告: メタデータの読み込みに失敗しました: {e}')
             
-            # URLとファイル名のマッピングを保存
+            # 必要なキーが存在しない場合は初期化
+            if 'downloaded_pages' not in metadata:
+                metadata['downloaded_pages'] = []
             if 'detail_pages' not in metadata:
                 metadata['detail_pages'] = {}
             metadata['detail_pages'][detail_url] = os.path.basename(filepath)
@@ -163,62 +166,45 @@ def extract_detail_links(html_file, base_url):
             logging.error("ファイルのデコードに失敗しました。サポートされていないエンコーディングの可能性があります。")
             return []
             
-        soup = BeautifulSoup(content, 'html.parser')
         links = set()
-        
-        # メタデータから既存のリンクを読み込む
         cache_dir = os.path.dirname(html_file)
         details_dir = os.path.join(cache_dir, 'details')
-        url_to_filename = {}  # URLからファイル名へのマッピング
         
-        # キャッシュディレクトリから直接ファイルを検索
-        if os.path.exists(details_dir):
-            for filename in os.listdir(details_dir):
-                if filename.startswith('sess_') and filename.endswith('.html'):
-                    # ファイル名からURLを推測（実際のURLは分からないので、ファイル名をそのまま使用）
-                    filepath = os.path.join('details', filename)
-                    url = f"https://auction.keiba.rakuten.co.jp/item/{filename.split('_')[-1].split('.')[0]}"
-                    url_to_filename[url] = filepath
+        # 正規表現でリンクを抽出
+        import re
         
-        # 詳細ページへのリンクを抽出（楽天競馬のURLパターンに基づく）
-        for a in soup.find_all('a', href=True):
-            original_href = a['href'].strip()
-            # 相対URLを絶対URLに変換
-            if not original_href.startswith(('http://', 'https://')):
-                absolute_url = urljoin(base_url, original_href)
-            else:
-                absolute_url = original_href
+        # 相対パスのリンクを抽出（例: "details/sess_14705.html"）
+        pattern = r'href=["\'](details/sess_\d+\.html)["\']'
+        matches = re.findall(pattern, content)
+        
+        for match in matches:
+            # ファイル名からitem_idを抽出
+            item_id = match.split('_')[-1].split('.')[0]
+            if not item_id.isdigit():
+                continue
+                
+            full_url = f'https://auction.keiba.rakuten.co.jp/item/{item_id}'
+            links.add(full_url)
             
-            # 詳細ページのURLパターンに一致するか確認
-            if any(x in absolute_url for x in ['/item/', 'auction.keiba.rakuten.co.jp/item/', 'keiba.rakuten.co.jp/auction/item/']):
-                # 不要なリンクを除外
-                if not any(x in absolute_url.lower() for x in ['facebook', 'twitter', 'instagram', 'youtube', 'mailto:', 'tel:']):
-                    # ファイル名からURLを推測してマッチング
-                    item_id = absolute_url.split('/')[-1]
-                    matched = False
-                    
-                    # キャッシュディレクトリから該当するファイルを検索
-                    if os.path.exists(details_dir):
-                        for filename in os.listdir(details_dir):
-                            if f'_item_{item_id}.' in filename and filename.endswith('.html'):
-                                relative_path = os.path.join('details', filename)
-                                a['href'] = relative_path
-                                links.add(absolute_url)
-                                matched = True
-                                break
-                    
-                    # マッチしなかった場合は元のURLを保持
-                    if not matched:
-                        a['href'] = absolute_url
-        
-        # 更新されたHTMLを保存
+        # 変更したHTMLを保存
         with open(html_file, 'w', encoding='utf-8') as f:
-            f.write(str(soup))
+            f.write(content)
+            
+        logging.info(f'抽出した詳細ページリンク: {len(links)}件')
+        return list(links)
         
-        logging.info(f"{len(links)}件の詳細ページリンクをローカルキャッシュに変換しました")
+        # 変更したHTMLを保存
+        with open(html_file, 'w', encoding='utf-8') as f:
+            f.write(content)
+            
+        logging.info(f"抽出した詳細ページリンク: {len(links)}件")
         return list(links)
     except Exception as e:
+        logging.error(f"詳細ページリンクの抽出中にエラーが発生しました: {str(e)}")
+        return []
+    except Exception as e:
         logging.error(f'リンクの抽出中にエラーが発生しました: {e}', exc_info=True)
+        return []
         return []
 
 def extract_horse_info(html_file):
@@ -261,23 +247,81 @@ def extract_horse_info(html_file):
     tables = soup.find_all('table')
     logging.info(f"Found {len(tables)} tables in the document")
     
-    # The horse information is in tables with specific attributes
+    # 馬情報を含むテーブルを検索（クラス名で検索）
     for table in tables:
-        # Look for tables with horse information
-        if table.find('b') and table.find('pre'):
+        # 馬名を含む要素を検索
+        name_elem = table.select_one('.auctionTableCard__name')
+        if name_elem:
             horse_sections.append(table)
     
     logging.info(f"Found {len(horse_sections)} potential horse sections")
     
     for section in horse_sections:
         try:
-            # Extract horse name (in bold)
-            name_tag = section.find('b')
-            if not name_tag:
+            # 馬名を抽出（複数のクラス名で検索）
+            name_elem = (section.select_one('.auctionTableCard__name') or 
+                        section.select_one('.horse-name') or
+                        section.select_one('h1, h2, h3, strong'))
+                        
+            if not name_elem:
+                logging.warning(f"馬名要素が見つかりません: {section}")
                 continue
                 
-            name = name_tag.get_text(strip=True)
-            if not name or len(name) < 2:  # Skip if name is too short
+            name = ' '.join(name_elem.get_text().split())
+            
+            # 馬名が省略されているかどうかをチェック（...が含まれるか、短すぎる場合）
+            is_name_truncated = ('...' in name or len(name) < 2)
+            
+            # 詳細ページのリンクを取得
+            detail_link = None
+            for a in section.find_all('a', href=True):
+                if 'item' in a['href']:
+                    detail_link = a['href']
+                    if not detail_link.startswith(('http://', 'https://')):
+                        detail_link = urljoin('https://auction.keiba.rakuten.co.jp', detail_link)
+                    break
+            
+            # 馬名が省略されているか、短すぎる場合は詳細ページから取得を試みる
+            if is_name_truncated and detail_link:
+                try:
+                    # 詳細ページのキャッシュを確認
+                    cache_dir = os.path.dirname(html_file)
+                    details_dir = os.path.join(cache_dir, 'details')
+                    item_id = re.search(r'item[_-]?(\d+)', detail_link)
+                    
+                    if item_id:
+                        item_id = item_id.group(1)
+                        detail_file = os.path.join(details_dir, f"sess_*_item_{item_id}.html")
+                        import glob
+                        matching_files = glob.glob(detail_file)
+                        
+                        if matching_files:
+                            with open(matching_files[0], 'r', encoding='utf-8') as f:
+                                detail_content = f.read()
+                                detail_soup = BeautifulSoup(detail_content, 'html.parser')
+                                # 詳細ページから馬名を抽出（複数のパターンに対応）
+                                full_name_elem = (
+                                    detail_soup.select_one('h1.horse-name, h2.horse-name, h3.horse-name') or
+                                    detail_soup.select_one('div.horse-name') or
+                                    detail_soup.select_one('span.horse-name') or
+                                    detail_soup.select_one('.auctionTableCard__name') or
+                                    detail_soup.select_one('h1, h2, h3, strong')
+                                )
+                                
+                                if full_name_elem:
+                                    full_name = ' '.join(full_name_elem.get_text().split())
+                                    if full_name and len(full_name) > len(name):
+                                        name = full_name
+                                        logging.info(f"詳細ページから完全な馬名を取得: {name}")
+                                    else:
+                                        logging.info(f"詳細ページから取得した馬名が現在のものより短いか同じです: {full_name} <= {name}")
+                                else:
+                                    logging.warning(f"詳細ページから馬名要素を見つけられませんでした: {detail_link}")
+                                logging.info(f"Updated horse name from detail page: {name}")
+                except Exception as e:
+                    logging.warning(f"Failed to get full name from detail page: {e}")
+            
+            if not name or len(name) < 2:  # Skip if name is still too short
                 continue
             
             # Extract all text from the section
@@ -402,19 +446,46 @@ def main():
         # 詳細ページをダウンロード
         downloaded_files = []
         for i, link in enumerate(detail_links, 1):
-            logging.info(f"ダウンロード中 ({i}/{len(detail_links)}): {link}")
-            filepath, success = download_detail_page(
-                link, 
-                details_dir, 
-                metadata['session_id'], 
-                config['base_url']
-            )
+            logging.info(f"ダウンロード中 ({i+1}/{len(detail_links)}): {link}")
+            item_id = link.split('/')[-1]
+            filepath = os.path.join(details_dir, f"sess_{item_id}.html")
             
-            if success:
+            # 既にファイルが存在する場合はスキップ
+            if os.path.exists(filepath):
+                logging.info(f'既に存在します: {filepath}')
                 downloaded_files.append(filepath)
-                # メタデータを更新
                 if filepath not in metadata['downloaded_pages']:
                     metadata['downloaded_pages'].append(filepath)
+                continue
+                
+            # ファイルをダウンロード
+            success = False
+            try:
+                # URLからitem_idを抽出
+                item_id = link.split('/')[-1]
+                filename = f"sess_{item_id}.html"
+                filepath = os.path.join(details_dir, filename)
+                
+                # 既にファイルが存在する場合はスキップ
+                if os.path.exists(filepath):
+                    logging.info(f'既に存在します: {filepath}')
+                    downloaded_files.append(filepath)
+                    if filepath not in metadata['downloaded_pages']:
+                        metadata['downloaded_pages'].append(filepath)
+                    continue
+                
+                # ファイルをダウンロード
+                downloaded_file, success = download_detail_page(link, details_dir, metadata['session_id'])
+                
+                if success and downloaded_file:
+                    # ダウンロード成功時はファイルパスを返す
+                    downloaded_files.append(downloaded_file)
+                    # メタデータを更新
+                    if downloaded_file not in metadata['downloaded_pages']:
+                        metadata['downloaded_pages'].append(downloaded_file)
+            except Exception as e:
+                logging.error(f'詳細ページの処理中にエラーが発生しました: {link}')
+                logging.error(f'エラー: {str(e)}')
                 
                 # メタデータを定期的に保存
                 if i % 5 == 0:
@@ -434,10 +505,86 @@ def main():
         print(f"\nエラーが発生しました。詳細はログファイルを確認してください: {os.path.abspath('horse_extraction.log')}")
         raise
 
+def download_all_detail_pages(html_file, base_url):
+    """リストページからすべての詳細ページをダウンロードする"""
+    try:
+        # ファイルをバイナリモードで読み込み
+        with open(html_file, 'rb') as f:
+            raw_data = f.read()
+            
+        # エンコーディングを推測してデコード
+        encodings = ['utf-8', 'shift_jis', 'euc-jp', 'cp932']
+        content = None
+        
+        for enc in encodings:
+            try:
+                content = raw_data.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+                
+        if content is None:
+            logging.error("ファイルのデコードに失敗しました。サポートされていないエンコーディングの可能性があります。")
+            return []
+            
+        # 詳細ページのURLを抽出
+        import re
+        base_url_pattern = re.escape('https://auction.keiba.rakuten.co.jp')
+        patterns = [
+            f'({base_url_pattern}/item/\d+)',  # フルURL
+            '(/item/\d+)'                     # 相対URL
+        ]
+        
+        urls = set()
+        for pattern in patterns:
+            matches = re.findall(pattern, content)
+            for match in matches:
+                if match.startswith('/'):
+                    urls.add(f'https://auction.keiba.rakuten.co.jp{match}')
+                else:
+                    urls.add(match)
+        
+        # 詳細ページをダウンロード
+        cache_dir = os.path.dirname(html_file)
+        details_dir = os.path.join(cache_dir, 'details')
+        os.makedirs(details_dir, exist_ok=True)
+        
+        session = requests.Session()
+        success_count = 0
+        
+        for url in urls:
+            if download_detail_page(url, details_dir, session):
+                success_count += 1
+                
+        logging.info(f'合計 {len(urls)} 件中 {success_count} 件の詳細ページをダウンロードしました')
+        return list(urls)
+        
+    except Exception as e:
+        logging.error(f'詳細ページのダウンロード中にエラーが発生しました: {str(e)}')
+        return []
+
 if __name__ == "__main__":
-    # メタデータを読み込む
-    with open(metadata_file, 'r', encoding='utf-8') as f:
-        metadata = json.load(f)
+    # メタデータを読み込む（存在しない場合は初期化）
+    if not os.path.exists(metadata_file):
+        metadata = {
+            'session_id': f"sess_{int(time.time())}",
+            'created_at': datetime.datetime.now().isoformat(),
+            'updated_at': datetime.datetime.now().isoformat(),
+            'downloaded_pages': []
+        }
+        with open(metadata_file, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=2)
+    else:
+        with open(metadata_file, 'r', encoding='utf-8') as f:
+            metadata = json.load(f)
+            
+    # 必要なキーを初期化
+    if 'session_id' not in metadata:
+        metadata['session_id'] = f"sess_{int(time.time())}"
+    if 'downloaded_pages' not in metadata:
+        metadata['downloaded_pages'] = []
+    if 'detail_pages' not in metadata:
+        metadata['detail_pages'] = {}
     
     # リストページのURL
     LIST_PAGE_URL = "https://auction.keiba.rakuten.co.jp/"
@@ -485,7 +632,21 @@ if __name__ == "__main__":
         json.dump(metadata, f, ensure_ascii=False, indent=2)
     
     logging.info(f"キャッシュディレクトリ: {cache_dir}")
-    logging.info(f"セッションID: {metadata['session_id']}")
+    if 'session_id' in metadata:
+        logging.info(f"セッションID: {metadata['session_id']}")
     
     # メイン処理を実行
-    main()
+    # まず詳細ページをダウンロード
+    list_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cache', '20250818', 'list.html')
+    if os.path.exists(list_file):
+        print("詳細ページのダウンロードを開始します...")
+        download_all_detail_pages(list_file, 'https://auction.keiba.rakuten.co.jp/')
+    else:
+        print(f"リストファイルが見つかりません: {list_file}")
+    
+    # メイン処理を実行
+    try:
+        main()
+    except Exception as e:
+        logging.error(f"メイン処理の実行中にエラーが発生しました: {e}", exc_info=True)
+        raise
