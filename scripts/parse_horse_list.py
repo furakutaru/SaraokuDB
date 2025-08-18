@@ -399,6 +399,17 @@ def extract_horse_info(html_file):
                 except (ValueError, TypeError):
                     pass
             
+            # オークション価格を抽出（例: 落札価格：250.0万円）
+            auction_price_match = re.search(r'落札価格[：:]*\s*([\d,.]+)\s*万円', details_text)
+            if auction_price_match:
+                try:
+                    horse_info['auction_price'] = float(auction_price_match.group(1).replace(',', ''))
+                    logging.debug(f"Extracted auction price: {horse_info['auction_price']}万円")
+                except (ValueError, TypeError) as e:
+                    logging.warning(f"Failed to parse auction price: {e}")
+            else:
+                logging.debug("No auction price found in list page")
+            
             # Extract auction date if available
             auction_match = re.search(r'※(\d{4}年\d{1,2}月\d{1,2}日)落札', details_text)
             if auction_match:
