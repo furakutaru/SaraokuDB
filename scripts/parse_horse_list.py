@@ -269,8 +269,10 @@ def extract_horse_info(html_file):
                 
             name = ' '.join(name_elem.get_text().split())
             
-            # 馬名が省略されているかどうかをチェック（...が含まれるか、短すぎる場合）
-            is_name_truncated = ('...' in name or len(name) < 2)
+            # 馬名が省略されているかどうかをチェック（...が含まれるか、短すぎる場合、またはカタカナで終わっている場合）
+            # カタカナで終わる名前は省略されている可能性が高い
+            is_name_truncated = ('...' in name or len(name) < 2 or 
+                              (re.search(r'[\u30A1-\u30FF]+$', name) and not re.search(r'[\u30A1-\u30FF]{2,}[^\u30A1-\u30FF]*$', name)))
             
             # 詳細ページのリンクを取得
             detail_link = None
@@ -281,8 +283,8 @@ def extract_horse_info(html_file):
                         detail_link = urljoin('https://auction.keiba.rakuten.co.jp', detail_link)
                     break
             
-            # 馬名が省略されているか、短すぎる場合は詳細ページから取得を試みる
-            if is_name_truncated and detail_link:
+            # 常に詳細ページから馬名を取得するように変更（より正確な情報を得るため）
+            if detail_link:
                 try:
                     # 詳細ページのキャッシュを確認
                     cache_dir = os.path.dirname(html_file)
@@ -300,29 +302,67 @@ def extract_horse_info(html_file):
                                 detail_content = f.read()
                                 detail_soup = BeautifulSoup(detail_content, 'html.parser')
                                 # 詳細ページから馬名を抽出（複数のパターンに対応）
-                                full_name_elem = (
-                                    detail_soup.select_one('h1.horse-name, h2.horse-name, h3.horse-name') or
-                                    detail_soup.select_one('div.horse-name') or
-                                    detail_soup.select_one('span.horse-name') or
-                                    detail_soup.select_one('.auctionTableCard__name') or
-                                    detail_soup.select_one('h1, h2, h3, strong')
-                                )
+                                # まずはより具体的なセレクタから試す
+                                full_name_elem = None
+                                
+                                # 1. 馬名が含まれている可能性の高い要素を優先的に探す
+                                name_selectors = [
+                                    'h1.horse-name', 'h2.horse-name', 'h3.horse-name',
+                                    'div.horse-name', 'span.horse-name',
+                                    '.auctionTableCard__name',
+                                    'div.auctionTableCard__name',
+                                    'h1.auctionTableCard__name',
+                                    'h1', 'h2', 'h3', 'strong',
+                                    'div.horseName', 'span.horseName',
+                                    'div.horse_name', 'span.horse_name',
+                                    'div.horseName', 'span.horseName',
+                                    'div.horse-name', 'span.horse-name',
+                                    'div.horse__name', 'span.horse__name'
+                                ]
+                                
+                                for selector in name_selectors:
+                                    elem = detail_soup.select_one(selector)
+                                    if elem and elem.get_text(strip=True):
+                                        full_name_elem = elem
+                                        break
+                                        
+                                # 2. テキストノードから馬名らしきものを探す（最終手段）
+                                if not full_name_elem:
+                                    text_nodes = detail_soup.find_all(string=True)
+                                    for node in text_nodes:
+                                        text = node.strip()
+                                        # 適当な長さの日本語テキストを探す
+                                        if len(text) >= 2 and len(text) <= 20 and re.search(r'[\u3040-\u309F\u30A0-\u30FF]', text):
+                                            full_name_elem = node.parent
+                                            break
                                 
                                 if full_name_elem:
                                     full_name = ' '.join(full_name_elem.get_text().split())
-                                    if full_name and len(full_name) > len(name):
+                                    
+                                    # 現在の名前が詳細ページの名前に完全に含まれている場合は、詳細ページの名前を優先
+                                    # 例: 現在の名前が「ウィットビーアビ」で詳細ページが「ウィットビーアビー」の場合
+                                    if full_name and (len(full_name) > len(name) or name in full_name):
                                         name = full_name
                                         logging.info(f"詳細ページから完全な馬名を取得: {name}")
                                     else:
                                         logging.info(f"詳細ページから取得した馬名が現在のものより短いか同じです: {full_name} <= {name}")
                                 else:
                                     logging.warning(f"詳細ページから馬名要素を見つけられませんでした: {detail_link}")
+                                    
+                                # 馬名の前後の不要な文字を削除
+                                name = re.sub(r'^[\s\d.、。・]+|[\s\d.、。・]+$', '', name)
                                 logging.info(f"Updated horse name from detail page: {name}")
                 except Exception as e:
                     logging.warning(f"Failed to get full name from detail page: {e}")
             
-            if not name or len(name) < 2:  # Skip if name is still too short
+            # 馬名が短すぎる場合はスキップ
+            if not name or len(name) < 2:
+                logging.warning(f"Skipping horse with invalid name: {name}")
                 continue
+                
+            # 馬名がカタカナで終わっていて、短い場合は警告を出力（デバッグ用）
+            if re.search(r'[\u30A1-\u30FF]+$', name) and len(name) < 5:
+                logging.warning(f"Horse name might be truncated: {name}")
             
             # Extract all text from the section
             details_text = section.get_text(separator='\n', strip=True)

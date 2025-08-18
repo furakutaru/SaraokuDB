@@ -2,7 +2,7 @@
   "downloaded_at": "2025-08-18T13:42:14.623213",
   "url": "https://auction.keiba.rakuten.co.jp/",
   "status": "success",
-  "updated_at": "2025-08-18T14:11:28.233742",
+  "updated_at": "2025-08-18T14:31:23.881115",
   "session_id": "sess_1755492270",
   "detail_pages": {
     "https://auction.keiba.rakuten.co.jp/item/14709": "sess_1755492270_item_14709.html",
@@ -104,6 +104,166 @@
     "/Users/yum.ishii/SaraokuDB/cache/20250818/details/sess_14713.html",
     "/Users/yum.ishii/SaraokuDB/cache/20250818/details/sess_14719.html",
     "/Users/yum.ishii/SaraokuDB/cache/20250818/details/sess_14721.html",
-    "/Users/yum.ishii/SaraokuDB/cache/20250818/details/sess_14720.html"
+    "/Users/yum.ishii/SaraokuDB/cache/20250818/details/sess_14720.html",
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14719",
+      "filepath": "details/sess_1755492270_item_14719.html",
+      "downloaded_at": "2025-08-18T14:30:34.725579"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14708",
+      "filepath": "details/sess_1755492270_item_14708.html",
+      "downloaded_at": "2025-08-18T14:30:35.039670"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14709",
+      "filepath": "details/sess_1755492270_item_14709.html",
+      "downloaded_at": "2025-08-18T14:30:35.259359"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14713",
+      "filepath": "details/sess_1755492270_item_14713.html",
+      "downloaded_at": "2025-08-18T14:30:35.520665"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14707",
+      "filepath": "details/sess_1755492270_item_14707.html",
+      "downloaded_at": "2025-08-18T14:30:36.091319"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14711",
+      "filepath": "details/sess_1755492270_item_14711.html",
+      "downloaded_at": "2025-08-18T14:30:36.355610"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14718",
+      "filepath": "details/sess_1755492270_item_14718.html",
+      "downloaded_at": "2025-08-18T14:30:36.630848"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14715",
+      "filepath": "details/sess_1755492270_item_14715.html",
+      "downloaded_at": "2025-08-18T14:30:36.967035"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14714",
+      "filepath": "details/sess_1755492270_item_14714.html",
+      "downloaded_at": "2025-08-18T14:30:37.430357"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14705",
+      "filepath": "details/sess_1755492270_item_14705.html",
+      "downloaded_at": "2025-08-18T14:30:37.778629"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14706",
+      "filepath": "details/sess_1755492270_item_14706.html",
+      "downloaded_at": "2025-08-18T14:30:38.468416"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14717",
+      "filepath": "details/sess_1755492270_item_14717.html",
+      "downloaded_at": "2025-08-18T14:30:39.064633"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14710",
+      "filepath": "details/sess_1755492270_item_14710.html",
+      "downloaded_at": "2025-08-18T14:30:40.078143"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14720",
+      "filepath": "details/sess_1755492270_item_14720.html",
+      "downloaded_at": "2025-08-18T14:30:41.266253"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14721",
+      "filepath": "details/sess_1755492270_item_14721.html",
+      "downloaded_at": "2025-08-18T14:30:41.638995"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14712",
+      "filepath": "details/sess_1755492270_item_14712.html",
+      "downloaded_at": "2025-08-18T14:30:41.909611"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14719",
+      "filepath": "details/sess_1755492270_item_14719.html",
+      "downloaded_at": "2025-08-18T14:31:20.162483"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14707",
+      "filepath": "details/sess_1755492270_item_14707.html",
+      "downloaded_at": "2025-08-18T14:31:20.432725"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14715",
+      "filepath": "details/sess_1755492270_item_14715.html",
+      "downloaded_at": "2025-08-18T14:31:20.734573"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14711",
+      "filepath": "details/sess_1755492270_item_14711.html",
+      "downloaded_at": "2025-08-18T14:31:20.984204"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14713",
+      "filepath": "details/sess_1755492270_item_14713.html",
+      "downloaded_at": "2025-08-18T14:31:21.260800"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14712",
+      "filepath": "details/sess_1755492270_item_14712.html",
+      "downloaded_at": "2025-08-18T14:31:21.523469"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14709",
+      "filepath": "details/sess_1755492270_item_14709.html",
+      "downloaded_at": "2025-08-18T14:31:21.732652"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14705",
+      "filepath": "details/sess_1755492270_item_14705.html",
+      "downloaded_at": "2025-08-18T14:31:21.948115"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14708",
+      "filepath": "details/sess_1755492270_item_14708.html",
+      "downloaded_at": "2025-08-18T14:31:22.211785"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14721",
+      "filepath": "details/sess_1755492270_item_14721.html",
+      "downloaded_at": "2025-08-18T14:31:22.469235"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14718",
+      "filepath": "details/sess_1755492270_item_14718.html",
+      "downloaded_at": "2025-08-18T14:31:22.747495"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14710",
+      "filepath": "details/sess_1755492270_item_14710.html",
+      "downloaded_at": "2025-08-18T14:31:22.958849"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14720",
+      "filepath": "details/sess_1755492270_item_14720.html",
+      "downloaded_at": "2025-08-18T14:31:23.192367"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14714",
+      "filepath": "details/sess_1755492270_item_14714.html",
+      "downloaded_at": "2025-08-18T14:31:23.451469"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14706",
+      "filepath": "details/sess_1755492270_item_14706.html",
+      "downloaded_at": "2025-08-18T14:31:23.656145"
+    },
+    {
+      "url": "https://auction.keiba.rakuten.co.jp/item/14717",
+      "filepath": "details/sess_1755492270_item_14717.html",
+      "downloaded_at": "2025-08-18T14:31:23.879026"
+    }
   ]
 }
