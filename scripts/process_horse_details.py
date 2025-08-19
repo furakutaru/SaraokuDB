@@ -268,8 +268,8 @@ def extract_horse_info(detail_file):
         horse_info = {
             'source_file': os.path.basename(detail_file),
             'extracted_at': datetime.now().isoformat(),
-            'auction_price': 0.0,  # デフォルト値
-            'total_prize': 0.0     # 総賞金のデフォルト値
+            'total_prize_start': 0.0,     # オークション時の賞金
+            'total_prize_latest': 0.0     # JBISからの最新の賞金
         }
 
         # 1. 馬名を抽出
