@@ -13,6 +13,9 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from bs4.dammit import EncodingDetector
 
+# カスタムモジュールのインポート
+from extract_race_record import extract_race_record
+
 # スクリプトのディレクトリをパスに追加
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -228,6 +231,9 @@ def extract_horse_info(detail_file):
                 logging.error(f"Failed to decode file with any encoding: {detail_file}")
                 return None
                 
+            # 戦績情報を抽出
+            race_record = extract_race_record(html_content)
+            
             # HTMLをパース
             soup = BeautifulSoup(html_content, 'html.parser')
             
@@ -502,12 +508,64 @@ def extract_horse_info(detail_file):
                 # デフォルト値は設定しない（Noneのまま）
         
         # 7. 戦績情報を抽出（本番環境と同じロジック）
-        record_match = re.search(r'通算成績[：:]*\s*([^\n\[\]]+)(?:\[([^\]]+)\])?', html_content)
+        # まず繁殖牝馬かどうかをチェック
+        title_match = re.search(r'<title>(.*?)</title>', html_content, re.DOTALL)
+        if title_match:
+            title = title_match.group(1)
+            if '繁殖牝馬' in title or '※繁殖牝馬' in title or '空胎' in title:
+                horse_info['race_record'] = '繁殖牝馬'
+                logging.info(f"繁殖牝馬を検出しました: {title}")
+                return horse_info
+        
+        # 繁殖牝馬でない場合は通常の戦績情報を抽出
+        race_record = None
+        
+        # パターン1: 通算成績：3戦0勝［0-0-0-3］形式
+        record_match = re.search(r'通算成績[：:]*\s*([^\n\[\]\s]+(?:\s*[^\n\[\]]+)*?)(?:\s*\[([^\]]+)\])?', html_content)
         if record_match:
             race_record = record_match.group(1).strip()
             if record_match.group(2):
                 race_record += f" [{record_match.group(2).strip()}]"
+            # 余分な改行や空白を削除
+            race_record = ' '.join(race_record.split())
+            logging.info(f"戦績を抽出しました: {race_record}")
+        else:
+            # パターン2: 表形式の場合
+            for tr in soup.find_all('tr'):
+                if '通算成績' in tr.text:
+                    record_text = tr.get_text()
+                    record_match = re.search(r'通算成績[：:]*\s*([^\n\[\]\s]+(?:\s*[^\n\[\]]+)*?)(?:\s*\[([^\]]+)\])?', record_text)
+                    if record_match:
+                        race_record = record_match.group(1).strip()
+                        if record_match.group(2):
+                            race_record += f" [{record_match.group(2).strip()}]"
+                        # 余分な改行や空白を削除
+                        race_record = ' '.join(race_record.split())
+                        logging.info(f"表形式から戦績を抽出: {race_record}")
+                        break
+            
+            # パターン3: コメント欄を確認
+            if not race_record and 'comment' in horse_info:
+                comment = horse_info['comment']
+                record_match = re.search(r'通算成績[：:]*\s*([^\n\[\]\s]+(?:\s*[^\n\[\]]+)*?)(?:\s*\[([^\]]+)\])?', comment)
+                if record_match:
+                    race_record = record_match.group(1).strip()
+                    if record_match.group(2):
+                        race_record += f" [{record_match.group(2).strip()}]"
+                    # 余分な改行や空白を削除
+                    race_record = ' '.join(race_record.split())
+                    logging.info(f"コメント欄から戦績を抽出: {race_record}")
+        
+        # 戦績が見つかった場合にのみ設定
+        if race_record:
             horse_info['race_record'] = race_record
+        else:
+            logging.warning("戦績情報が見つかりませんでした")
+            # デバッグ用にHTMLを保存
+            debug_file = f"debug_record_not_found_{os.path.basename(detail_file)}"
+            with open(debug_file, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+                logging.warning(f"戦績情報が見つかりませんでした。デバッグ用にHTMLを保存: {debug_file}")
         
         # 8. 賞金情報を抽出（本番環境と同じロジック）
         def extract_prize(text):
