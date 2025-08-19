@@ -21,36 +21,124 @@ logging.basicConfig(
     ]
 )
 
-def extract_prize_from_text(text: str) -> float:
-    """テキストから賞金を抽出するヘルパー関数"""
-    if not text:
+def extract_prize_from_jbis(jbis_url: str) -> float:
+    """
+    JBISの馬基本情報ページから総賞金を抽出する
+    
+    Args:
+        jbis_url (str): JBISの馬基本情報ページURL
+        
+    Returns:
+        float: 総賞金（万円単位）。見つからない場合は0.0
+    """
+    import re
+    import time
+    from bs4 import BeautifulSoup
+    import requests
+    import os
+    from datetime import datetime
+    from urllib.parse import urljoin, urlparse
+    
+    def parse_prize_text(prize_text):
+        """賞金テキストから数値を抽出するヘルパー関数"""
+        if not prize_text or prize_text.strip() in ('-', '0', '0.0'):
+            return 0.0
+            
+        # 数値部分を抽出（「145455.1万円」や「1,234.5」のような形式に対応）
+        prize_text = prize_text.replace(' ', '').replace('\u3000', '').replace('万円', '')
+        match = re.search(r'([\d,]+(?:\.[\d,]+)?)', prize_text)
+        if match:
+            try:
+                return float(match.group(1).replace(',', ''))
+            except (ValueError, TypeError):
+                return 0.0
         return 0.0
 
-    # パターン1: 「447.2万円」形式
-    match = re.search(r'([\d,.]+)\s*万円', text)
-    if match:
-        try:
-            return float(match.group(1).replace(',', ''))
-        except (ValueError, AttributeError):
-            pass
+    if not jbis_url or not jbis_url.startswith('http'):
+        logging.warning("無効なURLが指定されました")
+        return 0.0
 
-    # パターン2: 「総賞金 447.2万円」形式
-    match = re.search(r'総賞金\s*([\d,.]+)\s*万円', text)
-    if match:
-        try:
-            return float(match.group(1).replace(',', ''))
-        except (ValueError, AttributeError):
-            pass
-
-    # パターン3: オークション価格（落札価格）を検索
-    match = re.search(r'落札価格[^\d]*([\d,]+)[^\d]*万円', text)
-    if match:
-        try:
-            return float(match.group(1).replace(',', ''))
-        except (ValueError, AttributeError):
-            pass
-
-    return 0.0
+    try:
+        # リトライ設定
+        max_retries = 3
+        retry_delay = 2  # 秒
+        
+        for attempt in range(max_retries):
+            try:
+                # リクエストヘッダー
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept-Language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Referer': 'https://www.jbis.or.jp/'
+                }
+                
+                # リクエスト送信
+                logging.info(f"JBISにリクエストを送信中... (試行 {attempt + 1}/{max_retries})")
+                response = requests.get(jbis_url, headers=headers, timeout=30)
+                response.encoding = 'utf-8'  # エンコーディングをUTF-8に設定
+                
+                # ステータスコードを確認
+                if response.status_code != 200:
+                    logging.warning(f"ステータスコード {response.status_code} が返されました")
+                    response.raise_for_status()
+                
+                # レスポンスをパース
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # 方法1: data-4__item-2クラスから総賞金を検索
+                prize_div = soup.find('div', class_='data-4__item-2')
+                if prize_div:
+                    dt_elem = prize_div.find('dt', string=re.compile(r'^\s*総賞金\s*$'))
+                    if dt_elem:
+                        dd_elem = dt_elem.find_next_sibling('dd')
+                        if dd_elem:
+                            prize_text = dd_elem.get_text(strip=True)
+                            total_prize = parse_prize_text(prize_text)
+                            if total_prize > 0 or prize_text.strip() == '0.0':
+                                logging.info(f"方法1で総賞金を取得: {total_prize}万円")
+                                return total_prize
+                
+                # 方法2: すべてのdt要素から総賞金を検索
+                for dt in soup.find_all('dt'):
+                    if dt.get_text(strip=True) == '総賞金':
+                        dd = dt.find_next_sibling('dd')
+                        if dd:
+                            prize_text = dd.get_text(strip=True)
+                            total_prize = parse_prize_text(prize_text)
+                            if total_prize > 0 or prize_text.strip() == '0.0':
+                                logging.info(f"方法2で総賞金を取得: {total_prize}万円")
+                                return total_prize
+                
+                # 方法3: 正規表現で直接検索（フォールバック）
+                prize_patterns = [
+                    r'総賞金[^\d>]*([\d,]+(?:\.[\d,]+)?)',
+                    r'総賞金[^<]*?<dd[^>]*>([^<]+)',
+                    r'<dt[^>]*>\s*総賞金\s*</dt>\s*<dd[^>]*>([^<]+)'
+                ]
+                
+                for pattern in prize_patterns:
+                    matches = re.search(pattern, response.text, re.DOTALL)
+                    if matches:
+                        prize_text = matches.group(1).strip()
+                        total_prize = parse_prize_text(prize_text)
+                        if total_prize > 0 or prize_text.strip() == '0.0':
+                            logging.info(f"方法3で総賞金を取得: {total_prize}万円")
+                            return total_prize
+                
+                # 見つからなかった場合は0.0を返す
+                logging.info("総賞金情報が見つかりませんでした")
+                return 0.0
+                
+            except requests.exceptions.RequestException as e:
+                if attempt == max_retries - 1:
+                    raise
+                logging.warning(f"リクエストエラー: {str(e)}。{retry_delay}秒後に再試行します...")
+                time.sleep(retry_delay)
+                
+    except Exception as e:
+        logging.error(f"賞金情報の取得中にエラーが発生: {str(e)}")
+        return 0.0
 
 def extract_horse_info(detail_file):
     """詳細ページのHTMLから馬情報を抽出する"""
@@ -93,7 +181,8 @@ def extract_horse_info(detail_file):
         horse_info = {
             'source_file': os.path.basename(detail_file),
             'extracted_at': datetime.now().isoformat(),
-            'auction_price': 0.0  # デフォルト値
+            'auction_price': 0.0,  # デフォルト値
+            'total_prize': 0.0     # 総賞金のデフォルト値
         }
 
         # 1. 馬名を抽出
@@ -105,6 +194,32 @@ def extract_horse_info(detail_file):
         logging.debug(f"Processing file: {detail_file}")
         logging.debug(f"Title: {title}")
         logging.debug(f"First 200 chars of HTML: {html_content}...")
+        
+        # JBIS URLを抽出
+        jbis_url = None
+        jbis_links = soup.find_all('a', href=True, string='JBIS')
+        if not jbis_links:
+            jbis_links = soup.find_all('a', href=True, string=re.compile(r'JBIS', re.IGNORECASE))
+            
+        for link in jbis_links:
+            href = link.get('href')
+            if href and 'jbis.or.jp' in href:
+                jbis_url = href
+                # 相対URLの場合は絶対URLに変換
+                if not jbis_url.startswith('http'):
+                    jbis_url = f"https:{jbis_url}" if jbis_url.startswith('//') else f"https://www.jbis.or.jp{jbis_url if jbis_url.startswith('/') else '/' + jbis_url}"
+                break
+                
+        # JBIS URLから賞金情報を取得
+        if jbis_url:
+            logging.info(f"JBIS URLを発見: {jbis_url}")
+            try:
+                horse_info['total_prize'] = extract_prize_from_jbis(jbis_url)
+                logging.info(f"賞金情報を取得しました: {horse_info['total_prize']}万円")
+            except Exception as e:
+                logging.error(f"賞金情報の取得中にエラーが発生: {str(e)}")
+        else:
+            logging.warning("JBIS URLが見つかりませんでした")
         
         if title:
             # タイトルから「 | サラブレッドオークション」の前の部分を抽出

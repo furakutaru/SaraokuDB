@@ -8,6 +8,7 @@ import datetime
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, parse_qs
 from pathlib import Path
+import traceback
 
 def get_cache_dir():
     """日付ベースのキャッシュディレクトリを取得する"""
@@ -207,6 +208,69 @@ def extract_detail_links(html_file, base_url):
         return []
         return []
 
+def extract_prize_from_text(text: str) -> float:
+    """テキストから賞金を抽出するヘルパー関数"""
+    if not text:
+        return 0.0
+
+    # パターン1: 「447.2万円」形式
+    match = re.search(r'([\d,.]+)\s*万円', text)
+    if match:
+        try:
+            return float(match.group(1).replace(',', ''))
+        except (ValueError, AttributeError):
+            pass
+
+    # パターン2: 「総賞金 447.2万円」形式
+    match = re.search(r'総賞金\s*([\d,.]+)\s*万円', text)
+    if match:
+        try:
+            return float(match.group(1).replace(',', ''))
+        except (ValueError, AttributeError):
+            pass
+
+    # パターン3: オークション価格（落札価格）を検索
+    match = re.search(r'落札価格[^\d]*([\d,]+)[^\d]*万円', text)
+    if match:
+        try:
+            return float(match.group(1).replace(',', ''))
+        except (ValueError, AttributeError):
+            pass
+
+    return 0.0
+
+def extract_prize_from_list_page(section) -> float:
+    """リストページのセクションから賞金情報を抽出する"""
+    try:
+        # 賞金情報を含む可能性のある要素を検索
+        prize_text = ''
+        
+        # 1. テーブルの行から賞金情報を検索
+        rows = section.find_all('tr')
+        for row in rows:
+            th = row.find('th')
+            td = row.find('td')
+            if th and '賞金' in th.get_text() and td:
+                prize_text = td.get_text(strip=True)
+                break
+        
+        # 2. 賞金情報が見つからない場合は、テーブル内の数値を検索
+        if not prize_text:
+            for td in section.find_all('td'):
+                if '万円' in td.get_text() and any(c.isdigit() for c in td.get_text()):
+                    prize_text = td.get_text(strip=True)
+                    break
+        
+        # 3. 賞金情報を抽出
+        if prize_text:
+            return extract_prize_from_text(prize_text)
+            
+    except Exception as e:
+        logging.error(f"賞金情報の抽出中にエラーが発生: {str(e)}")
+        logging.error(traceback.format_exc())
+    
+    return 0.0
+
 def extract_horse_info(html_file):
     """Extract horse information from the list page HTML."""
     logging.info(f"Starting extraction from {html_file}")
@@ -367,11 +431,41 @@ def extract_horse_info(html_file):
             # Extract all text from the section
             details_text = section.get_text(separator='\n', strip=True)
             
-            # Extract basic information using regex patterns
+            # Extract basic information
+            # リストページから賞金情報を抽出
+            list_prize = extract_prize_from_list_page(section)
+            jbis_prize = 0.0
+            jbis_url = None
+            
+            # JBISリンクを検索
+            for a in section.find_all('a', href=True):
+                if 'jbis.or.jp' in a['href']:
+                    jbis_url = a['href']
+                    if not jbis_url.startswith(('http://', 'https://')):
+                        jbis_url = f"https:{jbis_url}" if jbis_url.startswith('//') else f"https://www.jbis.or.jp{jbis_url if jbis_url.startswith('/') else '/' + jbis_url}
+                    break
+            
+            # JBISから賞金情報を取得
+            if jbis_url:
+                try:
+                    from process_horse_details import extract_prize_from_jbis
+                    jbis_prize = extract_prize_from_jbis(jbis_url)
+                except Exception as e:
+                    logging.warning(f"JBISからの賞金取得に失敗: {str(e)}")
+            
+            # より信頼性の高い賞金情報を優先（JBIS > リストページ）
+            prize_money = jbis_prize if jbis_prize > 0 else list_prize
+            
+            # 馬の情報を辞書に格納
             horse_info = {
                 'name': name,
-                'extracted_at': datetime.now().isoformat(),
-                'source_file': os.path.basename(html_file)
+                'is_name_truncated': is_name_truncated,
+                'detail_link': detail_link,
+                'jbis_url': jbis_url,
+                'source_file': os.path.basename(html_file),
+                'extracted_at': datetime.datetime.now().isoformat(),
+                'prize_money': prize_money,
+                'prize_source': 'jbis' if jbis_prize > 0 else ('list' if list_prize > 0 else 'none')
             }
             
             # Extract pedigree information
