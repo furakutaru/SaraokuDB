@@ -6,10 +6,15 @@ import re
 import json
 import glob
 import logging
+import traceback
+import sys
 from datetime import datetime
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from bs4.dammit import EncodingDetector
+
+# スクリプトのディレクトリをパスに追加
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # ロギングの設定
 logging.basicConfig(
@@ -117,6 +122,59 @@ def extract_prize_from_jbis(jbis_url: str) -> float:
                     r'<dt[^>]*>\s*総賞金\s*</dt>\s*<dd[^>]*>([^<]+)'
                 ]
                 
+                weight_patterns = [
+                    # 基本的なパターン
+                    r'馬体重[：:](?:\s*)(\d+)kg',  # 「馬体重：416kg」
+                    r'馬体重[は](?:\s*)(\d+)kg',    # 「馬体重は416kg」
+                    r'体重[：:](?:\s*)(\d+)kg',     # 「体重：416kg」
+                    r'馬体重(?:\s*)(\d+)kg',        # 「馬体重 416kg」
+                    
+                    # テーブル関連のパターン
+                    r'馬体重.*?<td[^>]*>(\d+)kg</td>',  # テーブル内の馬体重
+                    r'<td[^>]*>馬体重</td>\s*<td[^>]*>(\d+)kg</td>',  # テーブルの行
+                    r'<th[^>]*>馬体重</th>\s*<td[^>]*>(\d+)kg</td>',  # テーブルヘッダー付き
+                    r'<td[^>]*>.*?馬体重.*?</td>\s*<td[^>]*>(\d+)kg</td>',  # テーブルセル内の複雑なパターン
+                    r'<tr[^>]*>\s*<[^>]*>馬体重</[^>]*>\s*<[^>]*>(\d+)kg</[^>]*>',  # テーブル行内の複雑なパターン
+                    
+                    # div/spanタグ関連のパターン
+                    r'<div[^>]*>馬体重</div>\s*<div[^>]*>(\d+)kg</div>',  # divタグ内の馬体重
+                    r'<span[^>]*>馬体重</span>\s*<span[^>]*>(\d+)kg</span>',  # spanタグ内の馬体重
+                    r'<div[^>]*>.*?馬体重.*?<div[^>]*>(\d+)kg</div>',  # 入れ子のdivタグ
+                    r'<div[^>]*class=["\']horseInfo["\'][^>]*>.*?馬体重.*?<div[^>]*>(\d+)kg</div>',  # horseInfoクラス内の馬体重
+                    
+                    # 定義リスト関連のパターン
+                    r'<dt[^>]*>馬体重</dt>\s*<dd[^>]*>(\d+)kg</dd>',  # 定義リスト形式
+                    r'<dt[^>]*>.*?馬体重.*?</dt>\s*<dd[^>]*>(\d+)kg</dd>',  # 定義リスト（複雑）
+                    
+                    # その他の一般的なパターン
+                    r'馬体重.*?<strong[^>]*>(\d+)kg</strong>',  # 太字タグ内の馬体重
+                    r'<strong[^>]*>馬体重</strong>.*?(\d+)kg',  # 太字タグの後の馬体重
+                    
+                    # カスタムクラスやIDを含むパターン
+                    r'<div[^>]*class=["\']horse-data["\'][^>]*>.*?馬体重.*?(\d+)kg',  # horse-dataクラス内の馬体重
+                    r'<div[^>]*id=["\']horseDetail["\'][^>]*>.*?馬体重.*?(\d+)kg',  # horseDetail ID内の馬体重
+                    
+                    # 記述文内の体重表記（例：「480kg台でレースに出走していた」）
+                    r'(\d{3})kg(?:台|代|前後|程度|くらい|ほど|程|前|後|強|弱|半|超|未満|以上|以下)',
+                    r'(?:約|およそ|約|概ね|おおよそ|大体|約)(\d{3})kg',
+                    r'(?:体重|馬体重|レース時体重|出走時体重|現役時体重)[はが]?(?:約|およそ|約|概ね|おおよそ|大体|約)?(\d{3})kg',
+                    
+                    # 緩やかなマッチングパターン（最終手段）
+                    r'(?:馬体重|体重)[^\d]*(\d{3})\s*kg',  # 馬体重の後に数値が続くパターン
+                    r'<[^>]*>(?:馬体重|体重)[^<]*(\d{3})\s*kg',  # タグ内の馬体重（数値3桁）
+                    r'馬体重.*?(\d+)\s*kg',  # 緩やかなマッチング
+                    r'<[^>]*馬体重[^>]*>.*?(\d+)\s*kg',  # タグ内の馬体重（緩やか）
+                    r'<[^>]*>\s*馬体重[^<]*(\d+)\s*kg',  # タグ内のテキスト（緩やか）
+                    r'(?:<[^>]+>)*\s*馬体重[^<]*(?:<[^>]+>)*\s*(\d+)\s*kg',  # タグが混在する場合
+                    r'(?:<[^>]+>)*\s*(?:馬体重|体重)[^<]*(?:<[^>]+>)*\s*(\d+)\s*kg',  # 最も緩やかなマッチング
+                    r'(?:<[^>]+>)*\s*(?:馬体重|体重)[^<]*?(\d{3})\s*kg',  # 数値3桁にマッチ
+                    r'(?:<[^>]+>)*\s*(?:馬体重|体重).*?(\d{3})\s*kg',  # 最も緩やかなマッチング（数値3桁）
+                    
+                    # 記述文内の数値のみのパターン（最終手段）
+                    r'(\d{3})kg(?!.*\d{3}kg)',  # 最後に現れる3桁の数値+kg
+                    r'(?<!\d)(\d{3})\s*kg(?!.*\d{3}\s*kg)'  # 最後に現れる3桁の数値 + スペース + kg
+                ]
+                
                 for pattern in prize_patterns:
                     matches = re.search(pattern, response.text, re.DOTALL)
                     if matches:
@@ -197,18 +255,45 @@ def extract_horse_info(detail_file):
         
         # JBIS URLを抽出
         jbis_url = None
-        jbis_links = soup.find_all('a', href=True, string='JBIS')
+        
+        # パターン1: 直接のJBISリンク
+        jbis_links = soup.find_all('a', href=True, string=re.compile(r'JBIS|血統|JBIS-Serve', re.IGNORECASE))
+        
+        # パターン2: 画像内のJBISリンク
         if not jbis_links:
-            jbis_links = soup.find_all('a', href=True, string=re.compile(r'JBIS', re.IGNORECASE))
-            
+            jbis_imgs = soup.find_all('img', src=re.compile(r'jbis', re.IGNORECASE))
+            for img in jbis_imgs:
+                parent_link = img.find_parent('a', href=True)
+                if parent_link:
+                    jbis_links.append(parent_link)
+        
+        # パターン3: テキスト内のURL
+        if not jbis_links:
+            text_links = soup.find_all('a', href=re.compile(r'jbis\.or\.jp', re.IGNORECASE))
+            jbis_links.extend(text_links)
+        
+        # 見つかったリンクを処理
         for link in jbis_links:
-            href = link.get('href')
-            if href and 'jbis.or.jp' in href:
+            href = link.get('href', '').strip()
+            if not href:
+                continue
+                
+            # URLを正規化
+            if 'jbis.or.jp' in href:
                 jbis_url = href
                 # 相対URLの場合は絶対URLに変換
-                if not jbis_url.startswith('http'):
+                if not jbis_url.startswith(('http://', 'https://')):
                     jbis_url = f"https:{jbis_url}" if jbis_url.startswith('//') else f"https://www.jbis.or.jp{jbis_url if jbis_url.startswith('/') else '/' + jbis_url}"
                 break
+                
+        # デバッグ用にHTMLを保存
+        if not jbis_url:
+            debug_file = f"debug_jbis_not_found_{os.path.basename(detail_file)}"
+            with open(debug_file, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            logging.warning(f"JBIS URLが見つかりませんでした。デバッグ用にHTMLを保存: {debug_file}")
+        else:
+            logging.info(f"JBIS URLを発見: {jbis_url}")
                 
         # JBIS URLから賞金情報を取得
         if jbis_url:
@@ -342,24 +427,79 @@ def extract_horse_info(detail_file):
             day = date_match.group(3).zfill(2)
             horse_info['auction_date'] = f"{year}-{month}-{day}"
         
-        # 6. 馬体重を抽出（本番環境と同じロジック）
-        weight = 0.0
-        try:
-            # まずは明示的な体重表記を検索
-            weight_matches = re.findall(r'馬体重\s*[：:]*\s*([\d.]+)[\s㎏kg]?', html_content, re.IGNORECASE)
-            if weight_matches:
-                weight = float(weight_matches[-1].replace(',', ''))
+        # 6. 馬体重を抽出（直接HTMLから抽出を試みる）
+        weight = None
+        
+        # パターン1: 馬体重：416kg 形式
+        weight_match = re.search(r'馬体重[：:](\d+)kg', html_content, re.IGNORECASE)
+        
+        # パターン2: 馬体重は416kg 形式
+        if not weight_match:
+            weight_match = re.search(r'馬体重[は:](\d+)', html_content, re.IGNORECASE)
             
-            # 戦績欄からも検索
-            if weight == 0 and 'race_record' in horse_info:
-                weight_matches = re.findall(r'([\d.]+)㎏', horse_info['race_record'])
-                if weight_matches:
-                    weight = float(weight_matches[-1])
+        # パターン3: 体重：416kg 形式
+        if not weight_match:
+            weight_match = re.search(r'体重[：:](\d+)kg', html_content, re.IGNORECASE)
             
-            if 200 <= weight <= 600:  # 妥当な範囲のみ保存
-                horse_info['weight'] = weight
-        except (ValueError, TypeError):
-            pass
+        # パターン4: 馬体重 416kg 形式（スペース区切り）
+        if not weight_match:
+            weight_match = re.search(r'馬体重[\s　]+(\d+)\s*(?:kg|キロ|KG)', html_content, re.IGNORECASE)
+            
+        # パターン5: 馬体重が表形式で記載されている場合
+        if not weight_match:
+            # テーブル内の「馬体重」を含む行を検索
+            for tr in soup.find_all('tr'):
+                if '馬体重' in tr.text and 'kg' in tr.text:
+                    weight_match = re.search(r'(\d+)\s*kg', tr.text)
+                    if weight_match:
+                        break
+                        
+        # パターン6: コメント欄に記載されている場合
+        if not weight_match and 'comment' in horse_info:
+            weight_match = re.search(r'(?:馬体重|体重)[：: 　]*(\d+)\s*(?:kg|キロ|KG)', horse_info['comment'], re.IGNORECASE)
+        
+        # パターン7: HTML内のどこかに数値+kgのパターンがある場合
+        if not weight_match:
+            weight_match = re.search(r'(\d+)\s*kg', html_content, re.IGNORECASE)
+        
+        if weight_match:
+            try:
+                weight = int(weight_match.group(1))
+                # 馬体重の妥当性チェック（100kg 〜 600kgの範囲）
+                if 100 <= weight <= 600:
+                    horse_info['weight'] = weight
+                    logging.info(f"馬体重を抽出しました: {weight}kg")
+                else:
+                    logging.warning(f"馬体重の値が不自然です: {weight}kg")
+            except (ValueError, IndexError) as e:
+                logging.warning(f"馬体重の数値変換に失敗: {e}")
+        
+        # それでも見つからない場合はhorse_weight_extractorを使用
+        if 'weight' not in horse_info or not horse_info['weight']:
+            try:
+                from horse_weight_extractor import add_horse_weight
+                horse_info = add_horse_weight(horse_info, str(soup))
+                if 'weight' in horse_info and horse_info['weight']:
+                    logging.info(f"horse_weight_extractor から馬体重を抽出: {horse_info['weight']}kg")
+            except Exception as e:
+                logging.warning(f"馬体重抽出中にエラーが発生: {e}")
+        
+        # 繁殖牝馬かどうかをチェック
+        is_broodmare = '繁殖牝馬' in html_content or (horse_info.get('sex') == '牝' and '繁殖' in html_content)
+        
+        # 最終的に馬体重が見つからなかった場合
+        if 'weight' not in horse_info or not horse_info['weight']:
+            # 繁殖牝馬の場合は'-'を設定
+            if is_broodmare:
+                horse_info['weight'] = '-'
+                logging.info(f"繁殖牝馬のため、馬体重を'-'に設定しました")
+            else:
+                # デバッグ用にHTMLを保存
+                debug_file = f"debug_weight_not_found_{os.path.basename(detail_file)}"
+                with open(debug_file, 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+                logging.warning(f"馬体重が見つかりませんでした。デバッグ用にHTMLを保存: {debug_file}")
+                # デフォルト値は設定しない（Noneのまま）
         
         # 7. 戦績情報を抽出（本番環境と同じロジック）
         record_match = re.search(r'通算成績[：:]*\s*([^\n\[\]]+)(?:\[([^\]]+)\])?', html_content)
@@ -455,54 +595,86 @@ def extract_horse_info(detail_file):
         return None
 
 def main():
-    # 最新のキャッシュディレクトリを取得
-    cache_base = '/Users/yum.ishii/SaraokuDB/cache'
-    cache_dirs = sorted([d for d in os.listdir(cache_base) if os.path.isdir(os.path.join(cache_base, d))])
+    import argparse
     
-    if not cache_dirs:
-        logging.error("No cache directories found")
-        return
+    # コマンドライン引数のパース
+    parser = argparse.ArgumentParser(description='馬の詳細情報を抽出するスクリプト')
+    parser.add_argument('--input-dir', '-i', default=None,
+                       help='処理するHTMLファイルが含まれるディレクトリを指定')
+    parser.add_argument('--output', '-o', default=None,
+                       help='出力先のJSONファイルパスを指定（指定がない場合は入力ディレクトリに保存）')
+    parser.add_argument('--pattern', '-p', default='sess_*.html',
+                       help='処理するファイルのパターン（デフォルト: sess_*.html）')
+    parser.add_argument('--stdout', action='store_true',
+                       help='結果を標準出力に表示')
+    args = parser.parse_args()
     
-    latest_cache = os.path.join(cache_base, cache_dirs[-1])
-    details_dir = os.path.join(latest_cache, 'details')
+    # 入力ディレクトリの決定
+    details_dir = None
+    if args.input_dir:
+        details_dir = os.path.abspath(args.input_dir)
+    else:
+        # デフォルトのキャッシュディレクトリを使用
+        cache_base = '/Users/yum.ishii/SaraokuDB/cache'
+        if not os.path.exists(cache_base):
+            logging.error(f"キャッシュディレクトリが見つかりません: {cache_base}")
+            return
+            
+        cache_dirs = sorted([d for d in os.listdir(cache_base) 
+                           if os.path.isdir(os.path.join(cache_base, d))])
+        
+        if not cache_dirs:
+            logging.error("キャッシュディレクトリが見つかりません")
+            return
+        
+        latest_cache = os.path.join(cache_base, cache_dirs[-1])
+        details_dir = os.path.join(latest_cache, 'details')
     
-    if not os.path.exists(details_dir):
-        logging.error(f"Details directory not found: {details_dir}")
-        return
+    # ファイル一覧を取得
+    detail_files = glob.glob(os.path.join(details_dir, args.pattern))
     
-    # 詳細ページのHTMLファイルを取得（sess_*_item_*.html パターンに一致するファイル）
-    detail_files = glob.glob(os.path.join(details_dir, 'sess_*_item_*.html'))
-    
+    # ディレクトリの存在確認
     if not detail_files:
-        logging.error(f"No detail files found in {details_dir}")
+        logging.error(f'HTMLファイルが見つかりません: {details_dir}')
         return
-    
-    logging.info(f"Found {len(detail_files)} detail files to process")
-    
-    # 馬情報を抽出
+
+    # Process each file
+    logging.info(f'Found {len(detail_files)} HTML files to process')
+
+    # Extract horse info
     horses = []
     for detail_file in detail_files:
         horse_info = extract_horse_info(detail_file)
         if horse_info:
             horses.append(horse_info)
-    
-    # 結果を保存（エンコーディングを明示的に指定）
-    output_file = os.path.join(latest_cache, 'processed_horses.json')
-    try:
-        with open(output_file, 'w', encoding='utf-8', errors='replace') as f:
-            json.dump(horses, f, ensure_ascii=False, indent=2, sort_keys=True)
-    except Exception as e:
-        logging.error(f"Failed to save {output_file}: {str(e)}")
-        # エラーが発生した場合の代替保存方法
+
+    # Output results
+    json_output = json.dumps(horses, ensure_ascii=False, indent=2, sort_keys=True)
+
+    if args.stdout:
+        # Output to stdout
+        print(json_output)
+        logging.info(f'Processed {len(horses)} horses and output to stdout')
+    else:
+        # Save to file
         try:
-            import codecs
-            with codecs.open(output_file, 'w', encoding='utf-8', errors='replace') as f:
-                json.dump(horses, f, ensure_ascii=False, indent=2, sort_keys=True)
-        except Exception as e2:
-            logging.error(f"Alternative save also failed: {str(e2)}")
+            with open(args.output, 'w', encoding='utf-8', errors='replace') as f:
+                f.write(json_output)
+            logging.info(f'Processed {len(horses)} horses and saved to {args.output}')
+        except Exception as e:
+            logging.error(f'Failed to save {args.output}: {str(e)}')
+            # Fallback saving method
+            try:
+                import codecs
+                with codecs.open(args.output, 'w', encoding='utf-8', errors='replace') as f:
+                    f.write(json_output)
+                logging.info(f'Saved using alternative method to {args.output}')
+            except Exception as e2:
+                logging.error(f'Alternative save method also failed: {str(e2)}')
+                # As a last resort, print to stderr
+                print(json_output, file=sys.stderr)
+                logging.info('JSON data has been printed to stderr as a fallback')
             return
-    
-    logging.info(f"Processed {len(horses)} horses and saved to {output_file}")
 
 if __name__ == "__main__":
     main()
