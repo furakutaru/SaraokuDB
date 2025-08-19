@@ -15,19 +15,39 @@ from bs4.dammit import EncodingDetector
 
 # カスタムモジュールのインポート
 from extract_race_record import extract_race_record
+from extract_sold_price import extract_sold_price
 
 # スクリプトのディレクトリをパスに追加
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+# 健康関連のキーワード
+health_keywords = [
+    '骨折', '屈腱炎', 'ソエ', '跛行', '跛行あり', '跛行歴あり', '跛行歴',
+    '屈腱', '靭帯', '靭帯炎', '骨瘤', '骨膜炎', '骨腫', '骨棘', '骨端症',
+    '関節炎', '関節症', '関節軟骨', '関節内骨折', '関節ねんざ', '関節水腫',
+    '脱臼', '亜脱臼', '捻挫', '捻転', '捻転症', '捻転性', '捻転性疾患'
+]
+
 # ロギングの設定
-logging.basicConfig(
-    level=logging.DEBUG,  # DEBUGレベルでログを出力
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('process_horse_details.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
+logger = logging.getLogger('process_horse_details')
+logger.setLevel(logging.DEBUG)
+
+# コンソールハンドラの設定
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+console_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(console_formatter)
+
+# ファイルハンドラの設定
+file_handler = logging.FileHandler('process_horse_details.log', encoding='utf-8')
+file_handler.setLevel(logging.DEBUG)
+file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(file_formatter)
+
+# 既存のハンドラをクリアしてから追加
+logger.handlers = []
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
 
 def extract_prize_from_jbis(jbis_url: str) -> float:
     """
@@ -237,6 +257,9 @@ def extract_horse_info(detail_file):
             # HTMLをパース
             soup = BeautifulSoup(html_content, 'html.parser')
             
+            # 健康問題を格納するリストを初期化
+            health_issues = []
+            
         except Exception as e:
             logging.error(f"Error reading file {detail_file}: {str(e)}")
             return None
@@ -254,10 +277,10 @@ def extract_horse_info(detail_file):
         title = soup.title.string if soup.title else ''
         
         # デバッグ用にHTMLの最初の200文字をログに出力
-        html_content = str(soup)[:200]
+        html_preview = str(soup)[:200]
         logging.debug(f"Processing file: {detail_file}")
         logging.debug(f"Title: {title}")
-        logging.debug(f"First 200 chars of HTML: {html_content}...")
+        logging.debug(f"First 200 chars of HTML: {html_preview}...")
         
         # JBIS URLを抽出
         jbis_url = None
@@ -580,21 +603,46 @@ def extract_horse_info(detail_file):
             # パターン2: 1,234.5万円 形式
             match = re.search(r'([\d,.]+)\s*万円', text)
             if match:
-                try:
-                    return float(match.group(1).replace(',', ''))
-                except (ValueError, TypeError):
-                    pass
-            return prize
+        try:
+            return float(match.group(1).replace(',', ''))
+        except (ValueError, TypeError):
+            pass
+    # パターン2: 1,234.5万円 形式
+    match = re.search(r'([\d,.]+)\s*万円', text)
+    if match:
+        try:
+            return float(match.group(1).replace(',', ''))
+        except (ValueError, TypeError):
+            pass
+    return prize
         
-        horse_info['auction_prize'] = extract_prize(html_content)
-        horse_info['current_prize'] = extract_prize(html_content)
-        
-        # 9. 疾病情報を抽出（本番環境と同じロジック）
-        health_issues = []
-        health_keywords = ['疾病', '怪我', '治療', '異常', '手術', '骨折', '屈腱炎', '跛行', '喘鳴']
-        
-        # コメント欄からも検索
-        comment_text = ''
+# 落札価格を抽出
+logger.info(f"Extracting sold price from {detail_file}")
+try:
+    # デバッグ用にHTMLの一部をログに出力
+    logger.debug(f"HTML content sample (first 500 chars): {html_content[:500]}...")
+            
+    sold_price = extract_sold_price(html_content)
+            
+    if sold_price is not None:
+        if isinstance(sold_price, str):
+            logger.info(f"主取りを検出: {sold_price}")
+        else:
+            logger.info(f"落札価格を抽出: {sold_price}円")
+    else:
+        logger.warning(f"Could not extract sold price from {detail_file}")
+                
+    # デバッグ用にHTMLを保存
+    debug_file = f"debug_sold_price_{os.path.basename(detail_file)}"
+    with open(debug_file, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+    logger.info(f"Saved debug HTML to {debug_file}")
+            
+    # 主取りの場合は文字列のまま、それ以外は数値として格納
+    horse_info['sold_price'] = sold_price
+except Exception as e:
+    logger.error(f"Error extracting sold price: {str(e)}", exc_info=True)
+    horse_info['sold_price'] = None
         comment_match = re.search(r'コメント[\s\n]*(.*?)(?=\n\s*[\u30A1-\u30FF]{2,}|$)', html_content, re.DOTALL)
         if comment_match:
             comment_text = comment_match.group(1).strip()
