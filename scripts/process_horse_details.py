@@ -234,6 +234,99 @@ def extract_prize_from_jbis(jbis_url: str) -> float:
         logging.error("賞金情報の取得中にエラーが発生: %s" % str(e))
         return 0.0
 
+def _extract_disease_tags(comment: str) -> str:
+    """
+    コメントから病気タグを抽出する
+    
+    Args:
+        comment (str): 抽出元のコメントテキスト
+        
+    Returns:
+        str: カンマ区切りの病気タグ。見つからない場合は「なし」を返します。
+    """
+    if not comment:
+        return "なし"
+
+    try:
+        # 病気キーワードとその文脈パターン
+        disease_patterns = {
+            '喉頭片麻痺': r'喉頭片麻痺',
+            '喘鳴症': r'喘鳴症',
+            '脚部不安': r'脚部不安',
+            '関節炎': r'関節炎',
+            '腱炎': r'(?<!屈)腱炎(?!\w)',  # 「屈腱炎」を除く
+            '屈腱炎': r'屈腱炎',
+            '骨折': r'骨折(?!\w)',
+            '脱臼': r'脱臼(?!\w)',
+            '球節炎': r'球節炎',
+            'さく癖': r'さく癖',
+            # 筋肉痛は削除（一般的な症状のため）
+        }
+
+        import re
+        found_diseases = set()  # 重複を防ぐためセットを使用
+        
+        for disease, pattern in disease_patterns.items():
+            # 病気としての文脈を考慮した検索
+            if re.search(rf'(?:[、。]|^|の|に|が|を|は)\s*{pattern}(?:[、。]|$|の|に|が|を|は)', comment):
+                found_diseases.add(disease)
+
+        return '、'.join(sorted(found_diseases)) if found_diseases else "なし"
+    except Exception as e:
+        logger.error(f"病気タグの抽出中にエラーが発生しました: {e}")
+        logger.error(traceback.format_exc())
+        return "なし"
+
+def _extract_comment(html_content):
+    """
+    馬の詳細ページからコメントを抽出する
+    
+    Args:
+        html_content (str): 馬の詳細ページのHTML
+        
+    Returns:
+        str: 抽出されたコメントテキスト。見つからない場合は空文字列。
+    """
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # 1. 「本馬について」のセクションを探す
+        section = None
+        for elem in soup.find_all(['div', 'section', 'article']):
+            if '本馬について' in elem.get_text():
+                section = elem
+                break
+                
+        if section:
+            # 2. <hr>タグを探して、その後のテキストを取得
+            hr_tag = section.find('hr')
+            if hr_tag:
+                comment_parts = []
+                for sibling in hr_tag.next_siblings:
+                    if hasattr(sibling, 'get_text'):
+                        text = sibling.get_text(separator=' ', strip=True)
+                        if text:
+                            comment_parts.append(text)
+                
+                if comment_parts:
+                    comment = ' '.join(comment_parts)
+                    # 連続する空白を1つに正規化
+                    return ' '.join(comment.split())
+        
+        # 3. 上記で見つからない場合は<pre>タグを探す
+        pre_tag = soup.find('pre')
+        if pre_tag:
+            comment = pre_tag.get_text(separator='\n', strip=True)
+            # 連続する空白を1つに正規化
+            return ' '.join(comment.split())
+            
+        return ""
+        
+    except Exception as e:
+        logger.error(f"コメントの抽出中にエラーが発生: {e}")
+        logger.error(traceback.format_exc())
+        return ""
+
 def extract_horse_info(detail_file):
     """詳細ページのHTMLから馬情報を抽出する"""
     logging.info("Processing detail file: %s" % detail_file)
@@ -272,6 +365,9 @@ def extract_horse_info(detail_file):
         # 健康問題を格納するリストを初期化
         health_issues = []
         
+        # コメントを抽出
+        comment = _extract_comment(html_content)
+        
         # 基本情報を格納する辞書
         horse_info = {
             'source_file': os.path.basename(detail_file),
@@ -279,8 +375,12 @@ def extract_horse_info(detail_file):
             'seller': "",                  # 販売者名
             'auction_date': "",            # オークション日
             'total_prize_start': 0.0,      # オークション時点の総賞金
-            'total_prize_latest': 0.0      # 最新の総賞金（初期値はオークション時点と同じ）
+            'total_prize_latest': 0.0,     # 最新の総賞金（初期値はオークション時点と同じ）
+            'comment': comment             # 馬のコメント
         }
+        
+        # 病気タグを抽出
+        horse_info['disease_tags'] = _extract_disease_tags(comment)
         
         # ここから処理を続行
         return _process_horse_info(soup, horse_info, health_issues, race_record, detail_file, html_content)
