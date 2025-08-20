@@ -8,7 +8,6 @@ import glob
 import logging
 import traceback
 import sys
-import uuid
 from datetime import datetime
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
@@ -369,14 +368,14 @@ def extract_horse_info(detail_file):
         # コメントを抽出
         comment = _extract_comment(html_content)
         
-        # 馬情報を初期化（必須フィールドを含む）
-        current_time = datetime.now().isoformat()
+        # 基本情報を格納する辞書
         horse_info = {
-            'id': str(uuid.uuid4()),
-            'created_at': current_time,
-            'updated_at': current_time,
-            'history': [],
-            'disease_tags': 'なし',  # デフォルト値
+            'source_file': os.path.basename(detail_file),
+            'extracted_at': datetime.now().isoformat(),
+            'seller': "",                  # 販売者名
+            'auction_date': "",            # オークション日
+            'total_prize_start': 0.0,      # オークション時点の総賞金
+            'total_prize_latest': 0.0,     # 最新の総賞金（初期値はオークション時点と同じ）
             'comment': comment             # 馬のコメント
         }
         
@@ -852,7 +851,7 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
                     img_sources.append(src)
         
             if img_sources:
-                horse_info['primary_image'] = img_sources[0]  # 最初の画像をメイン画像として使用
+                horse_info['image_url'] = img_sources[0]  # 最初の画像をメイン画像として使用
         except Exception as e:
             logger.error(f"Error extracting image URL: {str(e)}", exc_info=True)
     
@@ -868,65 +867,14 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
                     jbis_links.add(href)
             
             if jbis_links:
-                # トップレベルにjbis_linksを設定
                 horse_info['jbis_links'] = list(jbis_links)
-                
-                # historyにも追加
-                if 'history' not in horse_info:
-                    horse_info['history'] = []
-                
-                # 既存のhistoryエントリにjbis_linksがない場合は追加
-                jbis_links_added = False
-                for entry in horse_info['history']:
-                    if 'jbis_links' in entry:
-                        entry['jbis_links'] = list(jbis_links)
-                        jbis_links_added = True
-                        break
-                
-                # 既存のエントリにjbis_linksがなければ新しいエントリを追加
-                if not jbis_links_added:
-                    horse_info['history'].append({
-                        'jbis_links': list(jbis_links),
-                        'updated_at': datetime.now().isoformat()
-                    })
         except Exception as e:
             logger.error(f"Error extracting JBIS link: {str(e)}", exc_info=True)
             
-        # 12. その他のメタデータと必須フィールドの設定
+        # 12. その他のメタデータ
         try:
-            # 既存のメタデータを保持
             horse_info['extracted_at'] = datetime.now().isoformat()
             horse_info['data_source'] = 'rakuten_auction'
-            
-            # 必須フィールドを追加
-            if 'id' not in horse_info:
-                import uuid
-                horse_info['id'] = str(uuid.uuid4())
-            
-            current_time = datetime.now().isoformat()
-            horse_info['created_at'] = horse_info.get('created_at', current_time)
-            horse_info['updated_at'] = current_time
-            
-            # history フィールドを追加
-            if 'history' not in horse_info:
-                horse_info['history'] = []
-                
-            # jbis_links を history に移動
-            if 'jbis_links' in horse_info and horse_info['jbis_links']:
-                history_entry = {
-                    'jbis_links': horse_info['jbis_links'],
-                    'updated_at': current_time
-                }
-                horse_info['history'].append(history_entry)
-            
-            # disease_tags のデフォルト値を設定
-            if 'disease_tags' not in horse_info or not horse_info['disease_tags']:
-                horse_info['disease_tags'] = 'なし'
-                
-            # 不要なフィールドを削除
-            for field in ['auction_prize', 'current_prize']:
-                if field in horse_info:
-                    del horse_info[field]
         except Exception as e:
             logger.error(f"Error setting metadata: {str(e)}", exc_info=True)
         
