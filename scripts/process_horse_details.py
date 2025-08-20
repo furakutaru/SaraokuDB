@@ -494,18 +494,21 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
                 logging.info(f"販売者情報を取得: {seller}")
     
     # 販売者情報が取得できなかった場合はデフォルトの抽出方法を試す
-    if 'seller' not in horse_info:
+    if 'seller' not in horse_info or not horse_info['seller']:
         try:
+            logging.info("extract_seller関数を呼び出して販売者情報を抽出します")
             seller = extract_seller(soup)
             if seller:
                 horse_info['seller'] = seller
-                logging.info(f"extract_seller関数から販売者情報を取得: {seller}")
+                logging.info(f"extract_sellerから販売者情報を取得: {seller}")
             else:
-                logging.warning("販売者情報を取得できませんでした")
+                logging.warning("extract_sellerから販売者情報を取得できませんでした")
                 horse_info['seller'] = None
         except Exception as e:
-            logging.error(f"販売者情報の抽出中にエラーが発生: {str(e)}")
+            logging.error(f"販売者情報の抽出中にエラーが発生: {str(e)}", exc_info=True)
             horse_info['seller'] = None
+    else:
+        logging.info(f"既存の販売者情報を使用: {horse_info['seller']}")
     
     # 血統情報を抽出
     page_text = soup.get_text(' ', strip=True)
@@ -523,64 +526,7 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
     if damsire_match:
         horse_info['damsire'] = damsire_match.group(1).strip()
     
-    # オークション価格を抽出
-    price_text = soup.get_text()
-    
-    # オークション価格（落札価格）を抽出 - 複数のパターンに対応
-    price_match = None
-    
-    # パターン1: 「落札価格 1,234万円」形式
-    if not price_match:
-        price_match = re.search(r'落札価格\s*[：:]*\s*(\d[\d,]*)', price_text)
-    
-    # パターン2: 「落札価格: 1,234万円」形式
-    if not price_match:
-        price_match = re.search(r'落札価格[^\d]*(\d[\d,]*)', price_text)
-    
-    # パターン3: 「1,234万円（落札価格）」形式
-    if not price_match:
-        price_match = re.search(r'(\d[\d,]*)\s*万円\s*[（(]落札価格[)）]', price_text)
-    
-    if price_match:
-        try:
-            # カンマを削除して数値に変換
-            price_str = price_match.group(1).replace(',', '')
-            horse_info['auction_prize'] = float(price_str)
-            logging.info(f"オークション価格を抽出: {horse_info['auction_prize']}万円")
-        except (ValueError, TypeError) as e:
-            logging.warning(f"オークション価格のパースに失敗: {e}")
-            horse_info['auction_prize'] = 0.0
-    else:
-        horse_info['auction_prize'] = 0.0
-        logging.warning("オークション価格が見つかりませんでした")
-    
-    # 現在の賞金を抽出 - 複数のパターンに対応
-    prize_match = None
-    
-    # パターン1: 「総賞金 1,234.5万円」形式
-    if not prize_match:
-        prize_match = re.search(r'総賞金[^\d]*([\d,.]+)[^\d]*万円', price_text)
-    
-    # パターン2: 「賞金: 1,234.5万円」形式
-    if not prize_match:
-        prize_match = re.search(r'賞金[：:][^\d]*([\d,.]+)[^\d]*万円', price_text)
-    
-    # パターン3: 単純な賞金表記「1,234.5万円」形式
-    if not prize_match:
-        prize_match = re.search(r'([\d,]+(?:\.[\d,]+)?)[^\d]*万円', price_text)
-    
-    if prize_match:
-        try:
-            # カンマを削除して数値に変換
-            prize_str = prize_match.group(1).replace(',', '')
-            horse_info['current_prize'] = float(prize_str)
-            logging.info(f"現在の賞金を抽出: {horse_info['current_prize']}万円")
-        except (ValueError, TypeError) as e:
-            logging.warning(f"賞金のパースに失敗: {e}")
-            horse_info['current_prize'] = 0.0
-    else:
-        horse_info['current_prize'] = 0.0
-        logging.warning("賞金情報が見つかりませんでした")
+    # 賞金情報はJBISから取得するため、ここでは処理しない
     
     try:
         # オークション日を抽出
@@ -659,43 +605,7 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
             horse_info['damsire'] = damsire_match.group(1).strip()
             logging.debug("Extracted damsire: %s" % horse_info['damsire'])
         
-        # オークション価格（落札価格）を抽出
-        price_text = soup.get_text()
-        price_match = re.search(r'落札価格[^\d]*([\d,]+)[^\d]*万円', price_text)
-        if price_match:
-            try:
-                horse_info['auction_prize'] = float(price_match.group(1).replace(',', ''))
-                logging.debug("Extracted auction price: %s万円" % horse_info['auction_prize'])
-            except (ValueError, TypeError) as e:
-                logging.warning("Failed to parse auction price: %s" % str(e))
-                horse_info['auction_prize'] = 0.0
-        else:
-            horse_info['auction_prize'] = 0.0
-            logging.debug("No auction price found")
-            
-        # 4. 現在の賞金を抽出
-        # パターン1: 総賞金 1,234.5万円 形式
-        prize_match = re.search(r'総賞金[^\d]*([\d,.]+)[^\d]*万円', price_text)
-        if prize_match:
-            try:
-                horse_info['current_prize'] = float(prize_match.group(1).replace(',', ''))
-                logging.debug(f"Extracted current prize: {horse_info['current_prize']}万円")
-            except (ValueError, TypeError) as e:
-                logging.warning(f"Failed to parse current prize: {e}")
-                horse_info['current_prize'] = 0.0
-        else:
-            # パターン2: 単純な賞金表記 1,234.5万円 形式
-            prize_match = re.search(r'([\d,.]+)[^\d]*万円', price_text)
-            if prize_match:
-                try:
-                    horse_info['current_prize'] = float(prize_match.group(1).replace(',', ''))
-                    logging.debug(f"Extracted current prize (alt pattern): {horse_info['current_prize']}万円")
-                except (ValueError, TypeError) as e:
-                    logging.warning(f"Failed to parse current prize (alt pattern): {e}")
-                    horse_info['current_prize'] = 0.0
-            else:
-                horse_info['current_prize'] = 0.0
-                logging.debug("No current prize found")
+        # 賞金情報はJBISから取得するため、ここでは処理しない
         
         # 5. オークション日を抽出してYYYY-MM-DD形式に変換
         date_match = re.search(r'(\d{4})[年/](\d{1,2})[月/](\d{1,2})日?', html_content)
@@ -765,8 +675,12 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
             except Exception as e:
                 logging.warning(f"馬体重抽出中にエラーが発生: {e}")
         
-        # 繁殖牝馬かどうかをチェック
-        is_broodmare = '繁殖牝馬' in html_content or (horse_info.get('sex') == '牝' and '繁殖' in html_content)
+        # 7. 戦績情報を抽出（本番環境と同じロジック）
+        # まず繁殖牝馬かどうかをチェック
+        title_match = re.search(r'<title>(.*?)</title>', html_content, re.DOTALL)
+        title = title_match.group(1) if title_match else ''
+        is_broodmare = ('繁殖牝馬' in title or '※繁殖牝馬' in title or '空胎' in title or 
+                      '繁殖牝馬' in html_content or (horse_info.get('sex') == '牝' and '繁殖' in html_content))
         
         # 最終的に馬体重が見つからなかった場合
         if 'weight' not in horse_info or not horse_info['weight']:
@@ -782,15 +696,10 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
                 logging.warning(f"馬体重が見つかりませんでした。デバッグ用にHTMLを保存: {debug_file}")
                 # デフォルト値は設定しない（Noneのまま）
         
-        # 7. 戦績情報を抽出（本番環境と同じロジック）
-        # まず繁殖牝馬かどうかをチェック
-        title_match = re.search(r'<title>(.*?)</title>', html_content, re.DOTALL)
-        if title_match:
-            title = title_match.group(1)
-            if '繁殖牝馬' in title or '※繁殖牝馬' in title or '空胎' in title:
-                horse_info['race_record'] = '繁殖牝馬'
-                logging.info(f"繁殖牝馬を検出しました: {title}")
-                return horse_info
+        # 繁殖牝馬の場合はrace_recordを設定して続行（早期リターンしない）
+        if is_broodmare:
+            horse_info['race_record'] = '繁殖牝馬'
+            logging.info(f"繁殖牝馬を検出しました: {title}")
         
         # 繁殖牝馬でない場合は通常の戦績情報を抽出
         race_record = None

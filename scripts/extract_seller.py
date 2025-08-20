@@ -46,10 +46,11 @@ def extract_seller(soup: BeautifulSoup) -> str:
     """売主情報を抽出する。
     
     複数の方法で売主情報を抽出し、最初に一致したものを返します。
-    1. テーブルから販売者情報を抽出
-    2. フッターやコピーライトから販売者情報を抽出
-    3. キーワード（売主、販売者、出品者、セラー）を元に検索
-    4. 生のHTMLテキストから正規表現で検索
+    1. 販売申込者パターンのチェック
+    2. テーブルから販売者情報を抽出
+    3. フッターやコピーライトから販売者情報を抽出
+    4. キーワード（売主、販売者、出品者、セラー）を元に検索
+    5. 生のHTMLテキストから正規表現で検索
     
     Args:
         soup: BeautifulSoupオブジェクト
@@ -61,7 +62,27 @@ def extract_seller(soup: BeautifulSoup) -> str:
         logger.warning("BeautifulSoupオブジェクトが無効です")
         return ""
 
-    logger.debug("販売者情報の抽出を開始します")
+    logger.info("販売者情報の抽出を開始します")
+    html_text = str(soup)
+    
+    # 0. 販売申込者パターンを最初にチェック
+    try:
+        logger.info("販売申込者パターンで検索を開始")
+        seller_match = re.search(r'販売申込者[：:]([^<\n（]+)', html_text)
+        if seller_match:
+            raw_seller = seller_match.group(1).strip()
+            logger.info(f"抽出した生の販売者情報: '{raw_seller}'")
+            seller = clean_seller_name(raw_seller)
+            logger.info(f"クリーニング後の販売者情報: '{seller}'")
+            if seller:
+                logger.info(f"販売申込者から販売者を抽出: {seller}")
+                return seller
+            else:
+                logger.warning("クリーニング後の販売者情報が空です")
+        else:
+            logger.info("販売申込者パターンに一致する情報が見つかりませんでした")
+    except Exception as e:
+        logger.error(f"販売申込者からの抽出でエラー: {e}", exc_info=True)
 
     # 1. テーブルから販売者情報を抽出
     try:
@@ -80,7 +101,21 @@ def extract_seller(soup: BeautifulSoup) -> str:
     except Exception as e:
         logger.debug(f"テーブルからの販売者抽出でエラー: {e}")
 
-    # 2. フッターやコピーライトから抽出
+    # 2. フッターやコピーライトから抽出（コメントアウト）
+    """
+    # ユーザーの要望によりフッター検索は無効化
+    try:
+        footer = soup.find('footer') or soup.find('div', class_=lambda x: x and 'footer' in x.lower())
+        if footer:
+            seller_match = re.search(r'売主[：:]([^\n<]+)', footer.get_text())
+            if seller_match:
+                seller = clean_seller_name(seller_match.group(1))
+                if seller:
+                    logger.info(f"フッターから販売者を抽出: {seller}")
+                    return seller
+    except Exception as e:
+        logger.debug(f"フッターからの販売者抽出でエラー: {e}")
+    """
     try:
         footer = soup.find('footer') or soup.find('div', class_=lambda x: x and 'footer' in x.lower())
         if footer:
@@ -93,7 +128,8 @@ def extract_seller(soup: BeautifulSoup) -> str:
     except Exception as e:
         logger.debug(f"フッターからの販売者抽出でエラー: {e}")
 
-    # 3. キーワードを元に検索
+    # 3. キーワードを元に検索（販売申込者も含める）
+    keywords = ['売主', '販売者', '出品者', 'セラー', '販売申込者']
     keywords = ['売主', '販売者', '出品者', 'セラー']
     for keyword in keywords:
         try:
