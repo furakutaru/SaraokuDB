@@ -13,9 +13,76 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from bs4.dammit import EncodingDetector
 
+# ロガーの設定
+logger = logging.getLogger(__name__)
+
 # カスタムモジュールのインポート
 from extract_race_record import extract_race_record
 from extract_sold_price import extract_sold_price
+from extract_seller import extract_seller
+
+def extract_prize_from_auction(html_content, horse_name):
+    """
+    オークションリストページから賞金情報を抽出する
+    
+    Args:
+        html_content (str): オークションリストページのHTML
+        horse_name (str): 馬名（デバッグ用）
+        
+    Returns:
+        str or float: 総賞金（万円単位）。見つからない場合は0.0、繁殖牝馬の場合は'-'を返す
+    """
+    try:
+        from bs4 import BeautifulSoup
+        import re
+        
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # 繁殖牝馬の場合は'-'を返す
+        if any(text in html_content for text in ['繁殖牝馬', '受胎種牡馬']):
+            logging.info(f"馬名 '{horse_name}' は繁殖牝馬のため、賞金は'-'を返します")
+            return '-'
+        
+        # 未出走馬の場合は0を返す
+        if '未出走' in html_content:
+            logging.info(f"馬名 '{horse_name}' は未出走のため賞金は0円です")
+            return 0.0
+        
+        # 賞金情報を含む要素を探す
+        prize_div = soup.find('div', class_='auctionTableCard__price')
+        if not prize_div:
+            logging.warning(f"馬名 '{horse_name}': 賞金要素が見つかりませんでした")
+            return 0.0
+        
+        # ラベルが「総賞金」であることを確認
+        label_div = prize_div.find('div', class_='label')
+        if not label_div or '総賞金' not in label_div.get_text():
+            logging.warning(f"馬名 '{horse_name}': 総賞金のラベルが見つかりませんでした")
+            return 0.0
+        
+        # 賞金の値を取得
+        value_div = prize_div.find('div', class_='value')
+        if not value_div:
+            logging.warning(f"馬名 '{horse_name}': 賞金の値が見つかりませんでした")
+            return 0.0
+        
+        prize_text = value_div.get_text(strip=True)
+        
+        # 数値部分を抽出（「1,234.0万円」→ 1,234.0）
+        match = re.search(r'([\d,]+\.[\d]+)', prize_text)
+        if match:
+            total_prize = match.group(1)
+            logging.info(f"馬名 '{horse_name}' の賞金を抽出: {total_prize}万円")
+            return total_prize
+        
+        logging.warning(f"馬名 '{horse_name}' の賞金情報を抽出できませんでした")
+        return 0.0
+        
+    except Exception as e:
+        logging.error(f"賞金情報の抽出中にエラーが発生しました（馬名: {horse_name}）: {str(e)}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return 0.0
 
 # スクリプトのディレクトリをパスに追加
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -29,25 +96,15 @@ health_keywords = [
 ]
 
 # ロギングの設定
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('process_horse_details.log', encoding='utf-8')
+    ]
+)
 logger = logging.getLogger('process_horse_details')
-logger.setLevel(logging.DEBUG)
-
-# コンソールハンドラの設定
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
-console_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-console_handler.setFormatter(console_formatter)
-
-# ファイルハンドラの設定
-file_handler = logging.FileHandler('process_horse_details.log', encoding='utf-8')
-file_handler.setLevel(logging.DEBUG)
-file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(file_formatter)
-
-# 既存のハンドラをクリアしてから追加
-logger.handlers = []
-logger.addHandler(console_handler)
-logger.addHandler(file_handler)
 
 def extract_prize_from_jbis(jbis_url: str) -> float:
     """
@@ -87,28 +144,37 @@ def extract_prize_from_jbis(jbis_url: str) -> float:
         return 0.0
 
     try:
-        # リトライ設定
-        max_retries = 3
-        retry_delay = 2  # 秒
+        # リトライ設定（1回のみ実行）
+        max_retries = 1
+        retry_delay = 0  # 遅延なし
         
         for attempt in range(max_retries):
             try:
-                # リクエストヘッダー
+                # より自然なユーザーエージェントに更新
                 headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Accept-Language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Referer': 'https://www.jbis.or.jp/'
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                    'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                    'Referer': 'https://www.google.com/',
+                    'Sec-Ch-Ua': '"Google Chrome";v="125", "Chromium";v="125"',
+                    'Sec-Ch-Ua-Mobile': '?0',
+                    'Sec-Ch-Ua-Platform': '"macOS"',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Dnt': '1'
                 }
                 
                 # リクエスト送信
-                logging.info(f"JBISにリクエストを送信中... (試行 {attempt + 1}/{max_retries})")
                 response = requests.get(jbis_url, headers=headers, timeout=30)
                 response.encoding = 'utf-8'  # エンコーディングをUTF-8に設定
                 
                 # ステータスコードを確認
                 if response.status_code != 200:
-                    logging.warning(f"ステータスコード {response.status_code} が返されました")
+                    if response.status_code >= 400:  # エラーのみログ出力
+                        logging.warning("HTTPエラー: ステータスコード %d" % response.status_code)
                     response.raise_for_status()
                 
                 # レスポンスをパース
@@ -124,7 +190,7 @@ def extract_prize_from_jbis(jbis_url: str) -> float:
                             prize_text = dd_elem.get_text(strip=True)
                             total_prize = parse_prize_text(prize_text)
                             if total_prize > 0 or prize_text.strip() == '0.0':
-                                logging.info(f"方法1で総賞金を取得: {total_prize}万円")
+                                logging.info("方法1で総賞金を取得: %s万円" % total_prize)
                                 return total_prize
                 
                 # 方法2: すべてのdt要素から総賞金を検索
@@ -135,7 +201,7 @@ def extract_prize_from_jbis(jbis_url: str) -> float:
                             prize_text = dd.get_text(strip=True)
                             total_prize = parse_prize_text(prize_text)
                             if total_prize > 0 or prize_text.strip() == '0.0':
-                                logging.info(f"方法2で総賞金を取得: {total_prize}万円")
+                                logging.info("方法2で総賞金を取得: %s万円" % total_prize)
                                 return total_prize
                 
                 # 方法3: 正規表現で直接検索（フォールバック）
@@ -145,66 +211,13 @@ def extract_prize_from_jbis(jbis_url: str) -> float:
                     r'<dt[^>]*>\s*総賞金\s*</dt>\s*<dd[^>]*>([^<]+)'
                 ]
                 
-                weight_patterns = [
-                    # 基本的なパターン
-                    r'馬体重[：:](?:\s*)(\d+)kg',  # 「馬体重：416kg」
-                    r'馬体重[は](?:\s*)(\d+)kg',    # 「馬体重は416kg」
-                    r'体重[：:](?:\s*)(\d+)kg',     # 「体重：416kg」
-                    r'馬体重(?:\s*)(\d+)kg',        # 「馬体重 416kg」
-                    
-                    # テーブル関連のパターン
-                    r'馬体重.*?<td[^>]*>(\d+)kg</td>',  # テーブル内の馬体重
-                    r'<td[^>]*>馬体重</td>\s*<td[^>]*>(\d+)kg</td>',  # テーブルの行
-                    r'<th[^>]*>馬体重</th>\s*<td[^>]*>(\d+)kg</td>',  # テーブルヘッダー付き
-                    r'<td[^>]*>.*?馬体重.*?</td>\s*<td[^>]*>(\d+)kg</td>',  # テーブルセル内の複雑なパターン
-                    r'<tr[^>]*>\s*<[^>]*>馬体重</[^>]*>\s*<[^>]*>(\d+)kg</[^>]*>',  # テーブル行内の複雑なパターン
-                    
-                    # div/spanタグ関連のパターン
-                    r'<div[^>]*>馬体重</div>\s*<div[^>]*>(\d+)kg</div>',  # divタグ内の馬体重
-                    r'<span[^>]*>馬体重</span>\s*<span[^>]*>(\d+)kg</span>',  # spanタグ内の馬体重
-                    r'<div[^>]*>.*?馬体重.*?<div[^>]*>(\d+)kg</div>',  # 入れ子のdivタグ
-                    r'<div[^>]*class=["\']horseInfo["\'][^>]*>.*?馬体重.*?<div[^>]*>(\d+)kg</div>',  # horseInfoクラス内の馬体重
-                    
-                    # 定義リスト関連のパターン
-                    r'<dt[^>]*>馬体重</dt>\s*<dd[^>]*>(\d+)kg</dd>',  # 定義リスト形式
-                    r'<dt[^>]*>.*?馬体重.*?</dt>\s*<dd[^>]*>(\d+)kg</dd>',  # 定義リスト（複雑）
-                    
-                    # その他の一般的なパターン
-                    r'馬体重.*?<strong[^>]*>(\d+)kg</strong>',  # 太字タグ内の馬体重
-                    r'<strong[^>]*>馬体重</strong>.*?(\d+)kg',  # 太字タグの後の馬体重
-                    
-                    # カスタムクラスやIDを含むパターン
-                    r'<div[^>]*class=["\']horse-data["\'][^>]*>.*?馬体重.*?(\d+)kg',  # horse-dataクラス内の馬体重
-                    r'<div[^>]*id=["\']horseDetail["\'][^>]*>.*?馬体重.*?(\d+)kg',  # horseDetail ID内の馬体重
-                    
-                    # 記述文内の体重表記（例：「480kg台でレースに出走していた」）
-                    r'(\d{3})kg(?:台|代|前後|程度|くらい|ほど|程|前|後|強|弱|半|超|未満|以上|以下)',
-                    r'(?:約|およそ|約|概ね|おおよそ|大体|約)(\d{3})kg',
-                    r'(?:体重|馬体重|レース時体重|出走時体重|現役時体重)[はが]?(?:約|およそ|約|概ね|おおよそ|大体|約)?(\d{3})kg',
-                    
-                    # 緩やかなマッチングパターン（最終手段）
-                    r'(?:馬体重|体重)[^\d]*(\d{3})\s*kg',  # 馬体重の後に数値が続くパターン
-                    r'<[^>]*>(?:馬体重|体重)[^<]*(\d{3})\s*kg',  # タグ内の馬体重（数値3桁）
-                    r'馬体重.*?(\d+)\s*kg',  # 緩やかなマッチング
-                    r'<[^>]*馬体重[^>]*>.*?(\d+)\s*kg',  # タグ内の馬体重（緩やか）
-                    r'<[^>]*>\s*馬体重[^<]*(\d+)\s*kg',  # タグ内のテキスト（緩やか）
-                    r'(?:<[^>]+>)*\s*馬体重[^<]*(?:<[^>]+>)*\s*(\d+)\s*kg',  # タグが混在する場合
-                    r'(?:<[^>]+>)*\s*(?:馬体重|体重)[^<]*(?:<[^>]+>)*\s*(\d+)\s*kg',  # 最も緩やかなマッチング
-                    r'(?:<[^>]+>)*\s*(?:馬体重|体重)[^<]*?(\d{3})\s*kg',  # 数値3桁にマッチ
-                    r'(?:<[^>]+>)*\s*(?:馬体重|体重).*?(\d{3})\s*kg',  # 最も緩やかなマッチング（数値3桁）
-                    
-                    # 記述文内の数値のみのパターン（最終手段）
-                    r'(\d{3})kg(?!.*\d{3}kg)',  # 最後に現れる3桁の数値+kg
-                    r'(?<!\d)(\d{3})\s*kg(?!.*\d{3}\s*kg)'  # 最後に現れる3桁の数値 + スペース + kg
-                ]
-                
                 for pattern in prize_patterns:
                     matches = re.search(pattern, response.text, re.DOTALL)
                     if matches:
                         prize_text = matches.group(1).strip()
                         total_prize = parse_prize_text(prize_text)
                         if total_prize > 0 or prize_text.strip() == '0.0':
-                            logging.info(f"方法3で総賞金を取得: {total_prize}万円")
+                            logging.info("方法3で総賞金を取得: %s万円" % total_prize)
                             return total_prize
                 
                 # 見つからなかった場合は0.0を返す
@@ -214,211 +227,347 @@ def extract_prize_from_jbis(jbis_url: str) -> float:
             except requests.exceptions.RequestException as e:
                 if attempt == max_retries - 1:
                     raise
-                logging.warning(f"リクエストエラー: {str(e)}。{retry_delay}秒後に再試行します...")
-                time.sleep(retry_delay)
+                logging.warning("リクエストエラー: %s。%d秒後に再試行します..." % (str(e), 0))
+                time.sleep(0)
                 
     except Exception as e:
-        logging.error(f"賞金情報の取得中にエラーが発生: {str(e)}")
+        logging.error("賞金情報の取得中にエラーが発生: %s" % str(e))
         return 0.0
 
 def extract_horse_info(detail_file):
     """詳細ページのHTMLから馬情報を抽出する"""
-    logging.info(f"Processing detail file: {detail_file}")
+    logging.info("Processing detail file: %s" % detail_file)
     
+    # ファイルをバイナリモードで読み込み、エンコーディングを自動検出
     try:
-        # ファイルをバイナリモードで読み込み、エンコーディングを自動検出
-        try:
-            with open(detail_file, 'rb') as f:
-                raw_content = f.read()
-                
-            file_size = len(raw_content)
-            logging.debug(f"Processing file: {detail_file} (Size: {file_size} bytes)")
+        with open(detail_file, 'rb') as f:
+            raw_content = f.read()
             
-            if file_size == 0:
-                logging.error(f"File is empty: {detail_file}")
-                return None
-                
-            # エンコーディングを推測してデコード
-            html_content = None
-            for encoding in ['utf-8', 'shift_jis', 'euc_jisx0213', 'euc_jp', 'cp932']:
-                try:
-                    html_content = raw_content.decode(encoding)
-                    break
-                except UnicodeDecodeError:
-                    continue
-                    
-            if not html_content:
-                logging.error(f"Failed to decode file with any encoding: {detail_file}")
-                return None
-                
-            # 戦績情報を抽出
-            race_record = extract_race_record(html_content)
-            
-            # HTMLをパース
-            soup = BeautifulSoup(html_content, 'html.parser')
-            
-            # 健康問題を格納するリストを初期化
-            health_issues = []
-            
-        except Exception as e:
-            logging.error(f"Error reading file {detail_file}: {str(e)}")
+        file_size = len(raw_content)
+        logging.debug("Processing file: %s (Size: %d bytes)" % (detail_file, file_size))
+        
+        if file_size == 0:
+            logging.error("File is empty: %s" % detail_file)
             return None
+            
+        # エンコーディングを推測してデコード
+        html_content = None
+        for encoding in ['utf-8', 'shift_jis', 'euc_jisx0213', 'euc_jp', 'cp932']:
+            try:
+                html_content = raw_content.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+                
+        if not html_content:
+            logging.error("Failed to decode file with any encoding: %s" % detail_file)
+            return None
+            
+        # 戦績情報を抽出
+        race_record = extract_race_record(html_content)
+        
+        # HTMLをパース
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # 健康問題を格納するリストを初期化
+        health_issues = []
         
         # 基本情報を格納する辞書
         horse_info = {
             'source_file': os.path.basename(detail_file),
             'extracted_at': datetime.now().isoformat(),
-            'total_prize_start': 0.0,     # オークション時の賞金
-            'total_prize_latest': 0.0     # JBISからの最新の賞金
+            'seller': "",                  # 販売者名
+            'auction_date': "",            # オークション日
+            'total_prize_start': 0.0,      # オークション時点の総賞金
+            'total_prize_latest': 0.0      # 最新の総賞金（初期値はオークション時点と同じ）
         }
+        
+        # ここから処理を続行
+        return _process_horse_info(soup, horse_info, health_issues, race_record, detail_file, html_content)
+        
+    except Exception as e:
+        logging.error("Error processing file %s: %s" % (detail_file, str(e)))
+        logging.error(traceback.format_exc())
+        return None
 
-        # 1. 馬名を抽出
-        name = None
-        title = soup.title.string if soup.title else ''
-        
-        # デバッグ用にHTMLの最初の200文字をログに出力
-        html_preview = str(soup)[:200]
-        logging.debug(f"Processing file: {detail_file}")
-        logging.debug(f"Title: {title}")
-        logging.debug(f"First 200 chars of HTML: {html_preview}...")
-        
-        # JBIS URLを抽出
-        jbis_url = None
-        
-        # パターン1: 直接のJBISリンク
-        jbis_links = soup.find_all('a', href=True, string=re.compile(r'JBIS|血統|JBIS-Serve', re.IGNORECASE))
-        
-        # パターン2: 画像内のJBISリンク
-        if not jbis_links:
-            jbis_imgs = soup.find_all('img', src=re.compile(r'jbis', re.IGNORECASE))
-            for img in jbis_imgs:
-                parent_link = img.find_parent('a', href=True)
-                if parent_link:
-                    jbis_links.append(parent_link)
-        
-        # パターン3: テキスト内のURL
-        if not jbis_links:
-            text_links = soup.find_all('a', href=re.compile(r'jbis\.or\.jp', re.IGNORECASE))
-            jbis_links.extend(text_links)
-        
-        # 見つかったリンクを処理
-        for link in jbis_links:
-            href = link.get('href', '').strip()
-            if not href:
-                continue
-                
-            # URLを正規化
-            if 'jbis.or.jp' in href:
-                jbis_url = href
-                # 相対URLの場合は絶対URLに変換
-                if not jbis_url.startswith(('http://', 'https://')):
-                    jbis_url = f"https:{jbis_url}" if jbis_url.startswith('//') else f"https://www.jbis.or.jp{jbis_url if jbis_url.startswith('/') else '/' + jbis_url}"
-                break
-                
-        # デバッグ用にHTMLを保存
-        if not jbis_url:
-            debug_file = f"debug_jbis_not_found_{os.path.basename(detail_file)}"
-            with open(debug_file, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-            logging.warning(f"JBIS URLが見つかりませんでした。デバッグ用にHTMLを保存: {debug_file}")
-        else:
-            logging.info(f"JBIS URLを発見: {jbis_url}")
-                
-        # JBIS URLから賞金情報を取得
-        if jbis_url:
-            logging.info(f"JBIS URLを発見: {jbis_url}")
-            try:
-                horse_info['total_prize'] = extract_prize_from_jbis(jbis_url)
-                logging.info(f"賞金情報を取得しました: {horse_info['total_prize']}万円")
-            except Exception as e:
-                logging.error(f"賞金情報の取得中にエラーが発生: {str(e)}")
-        else:
-            logging.warning("JBIS URLが見つかりませんでした")
-        
-        if title:
-            # タイトルから「 | サラブレッドオークション」の前の部分を抽出
-            name = title.split('|')[0].strip()
+def _process_horse_info(soup, horse_info, health_issues, race_record, detail_file, html_content):
+    """馬情報の処理を実行するヘルパー関数"""
+    # 1. 馬名を抽出
+    name = None
+    title = soup.title.string if soup.title else ''
+    
+    # デバッグ用にHTMLの最初の200文字をログに出力
+    html_preview = str(soup)[:200]
+    logging.debug("Processing file: %s" % detail_file)
+    logging.debug("Title: %s" % title)
+    logging.debug("First 200 chars of HTML: %s..." % html_preview)
+    
+    # JBIS URLを抽出
+    jbis_url = None
+    
+    # パターン1: 直接のJBISリンク
+    jbis_links = soup.find_all('a', href=True, string=re.compile(r'JBIS|血統|JBIS-Serve', re.IGNORECASE))
+    
+    # パターン2: 画像内のJBISリンク
+    if not jbis_links:
+        jbis_imgs = soup.find_all('img', src=re.compile(r'jbis', re.IGNORECASE))
+        for img in jbis_imgs:
+            parent_link = img.find_parent('a', href=True)
+            if parent_link:
+                jbis_links.append(parent_link)
+    
+    # パターン3: テキスト内のURL
+    if not jbis_links:
+        text_links = soup.find_all('a', href=re.compile(r'jbis\.or\.jp', re.IGNORECASE))
+        jbis_links.extend(text_links)
+    
+    # 見つかったリンクを処理
+    for link in jbis_links:
+        href = link.get('href', '').strip()
+        if not href:
+            continue
             
-            # デバッグ用に抽出前の名前をログに出力
-            logging.debug(f"Name before processing: {name}")
+        # URLを正規化
+        if 'jbis.or.jp' in href:
+            jbis_url = href
+            # 相対URLの場合は絶対URLに変換
+            if not jbis_url.startswith(('http://', 'https://')):
+                if jbis_url.startswith('//'):
+                    jbis_url = "https:%s" % jbis_url
+                else:
+                    jbis_url = "https://www.jbis.or.jp%s" % (jbis_url if jbis_url.startswith('/') else '/' + jbis_url)
+            break
+    
+    if not jbis_url:
+        debug_file = "debug_jbis_not_found_%s" % os.path.basename(detail_file)
+        with open(debug_file, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        logging.warning("JBIS URLが見つかりませんでした。デバッグ用にHTMLを保存: %s" % debug_file)
+    else:
+        logging.info("JBIS URLを発見: %s" % jbis_url)
+    
+    # 馬名を設定
+    if title:
+        # タイトルから「 | サラブレッドオークション」の前の部分を抽出
+        name = title.split('|')[0].strip()
+        
+        # デバッグ用に抽出前の名前をログに出力
+        logging.debug("Name before processing: %s" % name)
+        
+        # 馬名から性別、年齢、コメントなどを削除
+        name = re.sub(r'\s*[牡牝セ]\s*\d+\s*[歳年].*$', '', name).strip()
+        # 「セン２歳 ※地方競馬 在籍」のようなテキストを削除
+        name = re.sub(r'\s*セ[ンン]\s*\d+\s*[歳年].*$', '', name).strip()
+        # 余分なスペースを削除
+        name = ' '.join(name.split())
+        
+        # デバッグ用に処理後の名前をログに出力
+        logging.debug("Name after processing: %s" % name)
+    
+    if not name:
+        logging.warning("Could not find horse name in %s" % detail_file)
+        return None
+    
+    horse_info['name'] = name
+    
+    # 性別と年齢を抽出
+    sex_match = re.search(r'([牡牝セ])\s*\d+\s*[歳年]', title or '')
+    if sex_match:
+        horse_info['sex'] = sex_match.group(1)
+    
+    # 年齢を抽出
+    age_match = re.search(r'(\d+)\s*[歳年]', title or '')
+    if age_match:
+        try:
+            horse_info['age'] = int(age_match.group(1))
+        except (ValueError, IndexError):
+            pass
+    
+    # リストページから販売者情報を取得
+    seller_div = soup.find('div', class_='auctionTableCard__seller')
+    if seller_div:
+        seller_span = seller_div.find('span', class_='value')
+        if seller_span:
+            seller = seller_span.get_text(strip=True)
+            if seller:
+                horse_info['seller'] = seller
+                logging.info(f"販売者情報を取得: {seller}")
+    
+    # 販売者情報が取得できなかった場合はデフォルトの抽出方法を試す
+    if 'seller' not in horse_info:
+        try:
+            seller = extract_seller(soup)
+            if seller:
+                horse_info['seller'] = seller
+                logging.info(f"extract_seller関数から販売者情報を取得: {seller}")
+            else:
+                logging.warning("販売者情報を取得できませんでした")
+                horse_info['seller'] = None
+        except Exception as e:
+            logging.error(f"販売者情報の抽出中にエラーが発生: {str(e)}")
+            horse_info['seller'] = None
+    
+    # 血統情報を抽出
+    page_text = soup.get_text(' ', strip=True)
+    
+    # 父、母、母の父を抽出
+    sire_match = re.search(r'父[：:]([^\s]+)', page_text)
+    if sire_match:
+        horse_info['sire'] = sire_match.group(1).strip()
+        
+    dam_match = re.search(r'母[：:]([^\s]+)', page_text)
+    if dam_match:
+        horse_info['dam'] = dam_match.group(1).strip()
+        
+    damsire_match = re.search(r'母の父[：:]([^\s]+)', page_text)
+    if damsire_match:
+        horse_info['damsire'] = damsire_match.group(1).strip()
+    
+    # オークション価格を抽出
+    price_text = soup.get_text()
+    
+    # オークション価格（落札価格）を抽出 - 複数のパターンに対応
+    price_match = None
+    
+    # パターン1: 「落札価格 1,234万円」形式
+    if not price_match:
+        price_match = re.search(r'落札価格\s*[：:]*\s*(\d[\d,]*)', price_text)
+    
+    # パターン2: 「落札価格: 1,234万円」形式
+    if not price_match:
+        price_match = re.search(r'落札価格[^\d]*(\d[\d,]*)', price_text)
+    
+    # パターン3: 「1,234万円（落札価格）」形式
+    if not price_match:
+        price_match = re.search(r'(\d[\d,]*)\s*万円\s*[（(]落札価格[)）]', price_text)
+    
+    if price_match:
+        try:
+            # カンマを削除して数値に変換
+            price_str = price_match.group(1).replace(',', '')
+            horse_info['auction_prize'] = float(price_str)
+            logging.info(f"オークション価格を抽出: {horse_info['auction_prize']}万円")
+        except (ValueError, TypeError) as e:
+            logging.warning(f"オークション価格のパースに失敗: {e}")
+            horse_info['auction_prize'] = 0.0
+    else:
+        horse_info['auction_prize'] = 0.0
+        logging.warning("オークション価格が見つかりませんでした")
+    
+    # 現在の賞金を抽出 - 複数のパターンに対応
+    prize_match = None
+    
+    # パターン1: 「総賞金 1,234.5万円」形式
+    if not prize_match:
+        prize_match = re.search(r'総賞金[^\d]*([\d,.]+)[^\d]*万円', price_text)
+    
+    # パターン2: 「賞金: 1,234.5万円」形式
+    if not prize_match:
+        prize_match = re.search(r'賞金[：:][^\d]*([\d,.]+)[^\d]*万円', price_text)
+    
+    # パターン3: 単純な賞金表記「1,234.5万円」形式
+    if not prize_match:
+        prize_match = re.search(r'([\d,]+(?:\.[\d,]+)?)[^\d]*万円', price_text)
+    
+    if prize_match:
+        try:
+            # カンマを削除して数値に変換
+            prize_str = prize_match.group(1).replace(',', '')
+            horse_info['current_prize'] = float(prize_str)
+            logging.info(f"現在の賞金を抽出: {horse_info['current_prize']}万円")
+        except (ValueError, TypeError) as e:
+            logging.warning(f"賞金のパースに失敗: {e}")
+            horse_info['current_prize'] = 0.0
+    else:
+        horse_info['current_prize'] = 0.0
+        logging.warning("賞金情報が見つかりませんでした")
+    
+    try:
+        # オークション日を抽出
+        date_match = re.search(r'(\d{4})年(\d{1,2})月(\d{1,2})日', html_content)
+        if date_match:
+            year = date_match.group(1)
+            month = date_match.group(2).zfill(2)
+            day = date_match.group(3).zfill(2)
+            horse_info['auction_date'] = f"{year}-{month}-{day}"
+            logging.info(f"オークション日を抽出: {horse_info['auction_date']}")
+    except Exception as e:
+        logging.error("Error extracting auction date: %s" % str(e))
+    
+    # JBIS URLから最新の総賞金を取得
+    if jbis_url:
+        logging.info("JBIS URLから最新の総賞金を取得中: %s" % jbis_url)
+        try:
+            latest_prize = extract_prize_from_jbis(jbis_url)
+            if latest_prize > 0:
+                horse_info['total_prize_latest'] = latest_prize
+                logging.info("最新の総賞金を更新: %s 万円" % latest_prize)
+            else:
+                logging.warning("JBISから総賞金を取得できませんでした")
+        except Exception as e:
+                logging.error("JBISからの賞金取得中にエラーが発生: %s" % str(e))
+        
+        # 性別を抽出（「牡」「牝」「セ」のいずれか）
+        if 'sex' not in horse_info:
+            # パターン1: 「性別 数字歳」の形式（例: 牡 3歳）
+            sex_match = re.search(r'([牡牝セ])\s*\d+\s*[歳年]', title or '')
             
-            # 馬名から性別、年齢、コメントなどを削除
-            name = re.sub(r'\s*[牡牝セ]\s*\d+\s*[歳年].*$', '', name).strip()
-            # 「セン２歳 ※地方競馬 在籍」のようなテキストを削除
-            name = re.sub(r'\s*セ[ンン]\s*\d+\s*[歳年].*$', '', name).strip()
-            # 余分なスペースを削除
-            name = ' '.join(name.split())
-            
-            # デバッグ用に処理後の名前をログに出力
-            logging.debug(f"Name after processing: {name}")
-        
-        if not name:
-            logging.warning(f"Could not find horse name in {detail_file}")
-            return None
-        
-        horse_info['name'] = name
-        
-        # 2. 性別と年齢を抽出
-        # 性別は「牡」「牝」「セ」のいずれか
-        # パターン1: 「性別 数字歳」の形式（例: 牡 3歳）
-        sex_match = re.search(r'([牡牝セ])\s*\d+\s*[歳年]', title or '')
-        
-        # パターン2: 「センナンサイ」の形式（例: セン2歳）
-        if not sex_match:
-            sex_match = re.search(r'([セ]ン\s*\d+\s*[歳年])', title or '')
-            if sex_match:
-                horse_info['sex'] = 'セ'  # セに正規化
-                logging.debug(f"Extracted sex (pattern 2): {horse_info['sex']}")
-        
-        # パターン3: 単純に「性別」のみ
-        if not sex_match:
-            sex_match = re.search(r'([牡牝セ])', title or '')
             if sex_match:
                 horse_info['sex'] = sex_match.group(1)
-                logging.debug(f"Extracted sex (fallback): {horse_info['sex']}")
+                logging.debug("Extracted sex (pattern 1): %s" % horse_info['sex'])
+            else:
+                # パターン2: 「センナンサイ」の形式（例: セン2歳）
+                sex_match = re.search(r'([セ]ン\s*\d+\s*[歳年])', title or '')
+                if sex_match:
+                    horse_info['sex'] = 'セ'  # セに正規化
+                    logging.debug("Extracted sex (pattern 2): %s" % horse_info['sex'])
+                else:
+                    # パターン3: 単純に「性別」のみ
+                    sex_match = re.search(r'([牡牝セ])', title or '')
+                    if sex_match:
+                        horse_info['sex'] = sex_match.group(1)
+                        logging.debug("Extracted sex (fallback): %s" % horse_info['sex'])
+                    else:
+                        logging.warning("Could not extract sex from title: %s" % title)
         
-        if not sex_match:
-            logging.warning(f"Could not extract sex from title: {title}")
-        elif 'sex' not in horse_info:  # パターン1でマッチした場合
-            horse_info['sex'] = sex_match.group(1)
-            logging.debug(f"Extracted sex: {horse_info['sex']}")
+        # 年齢を抽出（まだ抽出されていない場合）
+        if 'age' not in horse_info:
+            age_match = re.search(r'(\d+)\s*[歳年]', title or '')
+            if age_match:
+                try:
+                    horse_info['age'] = int(age_match.group(1))
+                    logging.debug("Extracted age: %s" % horse_info['age'])
+                except (ValueError, IndexError) as e:
+                    logging.warning("Failed to parse age: %s" % str(e))
         
-        # 年齢を抽出
-        age_match = re.search(r'(\d+)\s*[歳年]', title or '')
-        if age_match:
-            try:
-                horse_info['age'] = int(age_match.group(1))
-            except (ValueError, IndexError):
-                pass
-        
-        # 3. 血統情報を抽出
-        # ページ全体のテキストを取得
+        # 血統情報を抽出
         page_text = soup.get_text(' ', strip=True)
-            
+        
         # 父、母、母の父を抽出
         sire_match = re.search(r'父[：:]([^\s]+)', page_text)
         if sire_match:
             horse_info['sire'] = sire_match.group(1).strip()
-                
+            logging.debug("Extracted sire: %s" % horse_info['sire'])
+        
         dam_match = re.search(r'母[：:]([^\s]+)', page_text)
         if dam_match:
             horse_info['dam'] = dam_match.group(1).strip()
-                
+            logging.debug("Extracted dam: %s" % horse_info['dam'])
+        
         damsire_match = re.search(r'母の父[：:]([^\s]+)', page_text)
         if damsire_match:
             horse_info['damsire'] = damsire_match.group(1).strip()
-                
-        # 3. オークション価格を抽出
-        price_text = soup.get_text()
+            logging.debug("Extracted damsire: %s" % horse_info['damsire'])
         
         # オークション価格（落札価格）を抽出
+        price_text = soup.get_text()
         price_match = re.search(r'落札価格[^\d]*([\d,]+)[^\d]*万円', price_text)
         if price_match:
             try:
                 horse_info['auction_prize'] = float(price_match.group(1).replace(',', ''))
-                logging.debug(f"Extracted auction price: {horse_info['auction_prize']}万円")
+                logging.debug("Extracted auction price: %s万円" % horse_info['auction_prize'])
             except (ValueError, TypeError) as e:
-                logging.warning(f"Failed to parse auction price: {e}")
+                logging.warning("Failed to parse auction price: %s" % str(e))
                 horse_info['auction_prize'] = 0.0
         else:
             horse_info['auction_prize'] = 0.0
@@ -449,12 +598,15 @@ def extract_horse_info(detail_file):
                 logging.debug("No current prize found")
         
         # 5. オークション日を抽出してYYYY-MM-DD形式に変換
-        date_match = re.search(r'(\d{4})年(\d{1,2})月(\d{1,2})日', html_content)
+        date_match = re.search(r'(\d{4})[年/](\d{1,2})[月/](\d{1,2})日?', html_content)
         if date_match:
             year = date_match.group(1)
             month = date_match.group(2).zfill(2)
             day = date_match.group(3).zfill(2)
             horse_info['auction_date'] = f"{year}-{month}-{day}"
+            logging.info(f"オークション日を抽出: {horse_info['auction_date']}")
+        else:
+            logging.warning("オークション日が見つかりませんでした")
         
         # 6. 馬体重を抽出（直接HTMLから抽出を試みる）
         weight = None
@@ -584,135 +736,169 @@ def extract_horse_info(detail_file):
             horse_info['race_record'] = race_record
         else:
             logging.warning("戦績情報が見つかりませんでした")
-            # デバッグ用にHTMLを保存
-            debug_file = f"debug_record_not_found_{os.path.basename(detail_file)}"
-            with open(debug_file, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-                logging.warning(f"戦績情報が見つかりませんでした。デバッグ用にHTMLを保存: {debug_file}")
-        
-        # 8. 賞金情報を抽出（本番環境と同じロジック）
+
+        # 8. 賞金情報を抽出（改良版）
         def extract_prize(text):
-            prize = 0.0
-            # パターン1: 総賞金 1,234.5万円 形式
-            match = re.search(r'総賞金\s*[：:]*\s*([\d,.]+)\s*万円', text)
-            if match:
-                try:
-                    return float(match.group(1).replace(',', ''))
-                except (ValueError, TypeError):
-                    pass
-            # パターン2: 1,234.5万円 形式
-            match = re.search(r'([\d,.]+)\s*万円', text)
-            if match:
-        try:
-            return float(match.group(1).replace(',', ''))
-        except (ValueError, TypeError):
-            pass
-    # パターン2: 1,234.5万円 形式
-    match = re.search(r'([\d,.]+)\s*万円', text)
-    if match:
-        try:
-            return float(match.group(1).replace(',', ''))
-        except (ValueError, TypeError):
-            pass
-    return prize
-        
-# 落札価格を抽出
-logger.info(f"Extracting sold price from {detail_file}")
-try:
-    # デバッグ用にHTMLの一部をログに出力
-    logger.debug(f"HTML content sample (first 500 chars): {html_content[:500]}...")
+            # パターン1: 総賞金 1,234.5万円 形式（全角スペース・半角スペース対応）
+            patterns = [
+                r'総賞金[\s\u3000]*[：:][\s\u3000]*([\d,.]+)[\s\u3000]*万円',  # 総賞金：1,234.5万円
+                r'総賞金[\s\u3000]*[：:][\s\u3000]*([\d,.]+)[\s\u3000]*万',    # 総賞金：1,234.5万
+                r'総賞金[\s\u3000]*[：:][\s\u3000]*([\d,.]+)',                   # 総賞金：1,234.5
+                r'賞金[\s\u3000]*[：:][\s\u3000]*([\d,.]+)[\s\u3000]*万円',    # 賞金：1,234.5万円
+                r'([\d,]+(?:\.[\d,]+)?)[\s\u3000]*万円',                         # 1,234.5万円
+                r'([\d,]+(?:\.[\d,]+)?)[\s\u3000]*万',                           # 1,234.5万
+                r'([\d,]+(?:\.[\d,]+)?)[\s\u3000]*円',                           # 1,234.5円（万単位に変換）
+                r'([\d,]+(?:\.[\d,]+)?)'                                          # 1,234.5
+            ]
             
-    sold_price = extract_sold_price(html_content)
+            for pattern in patterns:
+                match = re.search(pattern, text)
+                if match:
+                    try:
+                        prize = float(match.group(1).replace(',', ''))
+                        # 円単位の場合は万円に変換
+                        if '円' in pattern and '万円' not in pattern:
+                            prize = prize / 10000
+                        logging.info(f"賞金情報を抽出: {prize}万円 (パターン: {pattern})")
+                        return prize
+                    except (ValueError, TypeError) as e:
+                        logging.warning(f"賞金のパースエラー: {e}, パターン: {pattern}")
+                        continue
             
-    if sold_price is not None:
-        if isinstance(sold_price, str):
-            logger.info(f"主取りを検出: {sold_price}")
-        else:
-            logger.info(f"落札価格を抽出: {sold_price}円")
-    else:
-        logger.warning(f"Could not extract sold price from {detail_file}")
+            logging.warning("賞金情報が見つかりませんでした")
+            return None
+
+        try:
+            # 賞金情報の抽出を実行
+            prize = extract_prize(html_content)
+            if prize is not None:
+                horse_info['total_prize_start'] = prize
+                horse_info['total_prize_latest'] = prize  # 初期値は同じ値で設定
+
+            # 落札価格を抽出
+            logger.info("Extracting sold price from %s" % detail_file)
+            # デバッグ用にHTMLの一部をログに出力
+            logger.debug("HTML content sample (first 500 chars): %s..." % html_content[:500])
+            
+            sold_price = extract_sold_price(html_content)
+            
+            if sold_price is not None:
+                if isinstance(sold_price, str):
+                    logger.info(f"主取りを検出: {sold_price}")
+                else:
+                    logger.info(f"落札価格を抽出: {sold_price}円")
                 
-    # デバッグ用にHTMLを保存
-    debug_file = f"debug_sold_price_{os.path.basename(detail_file)}"
-    with open(debug_file, 'w', encoding='utf-8') as f:
-        f.write(html_content)
-    logger.info(f"Saved debug HTML to {debug_file}")
-            
-    # 主取りの場合は文字列のまま、それ以外は数値として格納
-    horse_info['sold_price'] = sold_price
-except Exception as e:
-    logger.error(f"Error extracting sold price: {str(e)}", exc_info=True)
-    horse_info['sold_price'] = None
-        comment_match = re.search(r'コメント[\s\n]*(.*?)(?=\n\s*[\u30A1-\u30FF]{2,}|$)', html_content, re.DOTALL)
-        if comment_match:
-            comment_text = comment_match.group(1).strip()
-            horse_info['comment'] = comment_text
+                # 主取りの場合は文字列のまま、それ以外は数値として格納
+                horse_info['sold_price'] = sold_price
+            else:
+                logger.warning(f"Could not extract sold price from {detail_file}")
+                horse_info['sold_price'] = None
+                
+        except Exception as e:
+            logger.error(f"Error processing horse info: {str(e)}", exc_info=True)
+            if 'sold_price' not in horse_info:
+                horse_info['sold_price'] = None
+    
+        # デバッグ用のHTML保存はパフォーマンス向上のため削除
         
+        # コメントを抽出
+        try:
+            comment_text = ""
+            comment_match = re.search(r'コメント[\s\n]*(.*?)(?=\n\s*[\u30A1-\u30FF]{2,}|$)', html_content, re.DOTALL)
+            if comment_match:
+                comment_text = comment_match.group(1).strip()
+                horse_info['comment'] = comment_text
+        except Exception as e:
+            logger.error(f"Error extracting comment: {str(e)}", exc_info=True)
+    
         # 疾病情報を検索
-        for keyword in health_keywords:
-            if keyword in html_content or (comment_text and keyword in comment_text):
-                # 前後50文字を取得
-                for match in re.finditer(re.escape(keyword), html_content):
-                    start = max(0, match.start() - 50)
-                    end = min(len(html_content), match.end() + 50)
-                    context = html_content[start:end].strip()
-                    if context and len(context) > 10:  # 短いテキストは無視
-                        health_issues.append(context)
+        try:
+            health_issues = []
+            for keyword in health_keywords:
+                if keyword in html_content or (comment_text and keyword in comment_text):
+                    # 前後50文字を取得
+                    for match in re.finditer(re.escape(keyword), html_content):
+                        start = max(0, match.start() - 50)
+                        end = min(len(html_content), match.end() + 50)
+                        context = html_content[start:end].strip()
+                        if context and len(context) > 10:  # 短いテキストは無視
+                            health_issues.append(context)
         
-        if health_issues:
-            horse_info['health_issues'] = list(set(health_issues))  # 重複を削除
-        
+            if health_issues:
+                horse_info['health_issues'] = list(set(health_issues))  # 重複を削除
+        except Exception as e:
+            logger.error(f"Error searching health issues: {str(e)}", exc_info=True)
+    
         # 10. 画像URLを抽出（本番環境と同じロジック）
-        img_sources = []
-        for img in soup.find_all('img', src=True):
-            src = img['src'].strip()
-            if src and ('horse' in src.lower() or 'photo' in src.lower() or 'image' in src.lower()):
-                if not src.startswith(('http://', 'https://')):
-                    # 相対URLを絶対URLに変換
-                    base_url = 'https://www.rakuten.co.jp/'
-                    src = urljoin(base_url, src)
-                img_sources.append(src)
+        try:
+            img_sources = []
+            for img in soup.find_all('img', src=True):
+                src = img['src'].strip()
+                if src and ('horse' in src.lower() or 'photo' in src.lower() or 'image' in src.lower()):
+                    if not src.startswith(('http://', 'https://')):
+                        # 相対URLを絶対URLに変換
+                        base_url = 'https://www.rakuten.co.jp/'
+                        src = urljoin(base_url, src)
+                    img_sources.append(src)
         
-        if img_sources:
-            horse_info['image_url'] = img_sources[0]  # 最初の画像をメイン画像として使用
-        
+            if img_sources:
+                horse_info['image_url'] = img_sources[0]  # 最初の画像をメイン画像として使用
+        except Exception as e:
+            logger.error(f"Error extracting image URL: {str(e)}", exc_info=True)
+    
         # 11. JBISリンクを抽出（本番環境と同じロジック）
-        jbis_links = set()
-        for a in soup.find_all('a', href=True):
-            href = a['href'].strip()
-            if 'jbis.or.jp' in href and 'horse' in href:
-                # URLを正規化
-                if not href.startswith(('http://', 'https://')):
-                    href = 'https:' + href if href.startswith('//') else 'https://www.jbis.or.jp' + href
-                jbis_links.add(href)
-        
-        if jbis_links:
-            horse_info['jbis_links'] = list(jbis_links)
-        
+        try:
+            jbis_links = set()
+            for a in soup.find_all('a', href=True):
+                href = a['href'].strip()
+                if 'jbis.or.jp' in href and 'horse' in href:
+                    # URLを正規化
+                    if not href.startswith(('http://', 'https://')):
+                        href = 'https:' + href if href.startswith('//') else 'https://www.jbis.or.jp' + (href if href.startswith('/') else '/' + href)
+                    jbis_links.add(href)
+            
+            if jbis_links:
+                horse_info['jbis_links'] = list(jbis_links)
+        except Exception as e:
+            logger.error(f"Error extracting JBIS link: {str(e)}", exc_info=True)
+            
         # 12. その他のメタデータ
-        horse_info['extracted_at'] = datetime.now().isoformat()
-        horse_info['data_source'] = 'rakuten_auction'
+        try:
+            horse_info['extracted_at'] = datetime.now().isoformat()
+            horse_info['data_source'] = 'rakuten_auction'
+        except Exception as e:
+            logger.error(f"Error setting metadata: {str(e)}", exc_info=True)
         
-        logging.info(f"Extracted info for horse: {name}")
-        return horse_info
-        
+    logging.info(f"Extracted info for horse: {horse_info.get('name', 'unknown')}")
+    return horse_info
+
+def process_single_file(detail_file):
+    """1つのファイルを処理するヘルパー関数"""
+    try:
+        return extract_horse_info(detail_file)
     except Exception as e:
-        logging.error(f"Error processing {detail_file}: {str(e)}", exc_info=True)
+        logging.error(f"Error processing {detail_file}: {str(e)}")
         return None
 
 def main():
     import argparse
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     
     # コマンドライン引数のパース
     parser = argparse.ArgumentParser(description='馬の詳細情報を抽出するスクリプト')
     parser.add_argument('--input-dir', '-i', default=None,
-                       help='処理するHTMLファイルが含まれるディレクトリを指定')
+                      help='処理するHTMLファイルが含まれるディレクトリを指定')
     parser.add_argument('--output', '-o', default=None,
-                       help='出力先のJSONファイルパスを指定（指定がない場合は入力ディレクトリに保存）')
+                      help='出力先のJSONファイルパスを指定（指定がない場合は入力ディレクトリに保存）')
     parser.add_argument('--pattern', '-p', default='sess_*.html',
-                       help='処理するファイルのパターン（デフォルト: sess_*.html）')
+                      help='処理するファイルのパターン（デフォルト: sess_*.html）')
     parser.add_argument('--stdout', action='store_true',
-                       help='結果を標準出力に表示')
+                      help='結果を標準出力に表示')
+    parser.add_argument('--workers', '-w', type=int, default=4,
+                      help='並列処理のワーカー数（デフォルト: 4）')
+    parser.add_argument('--log-level', '-l', default='INFO',
+                      choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                      help='ログレベルを設定（デフォルト: INFO）')
     args = parser.parse_args()
     
     # 入力ディレクトリの決定
@@ -744,15 +930,32 @@ def main():
         logging.error(f'HTMLファイルが見つかりません: {details_dir}')
         return
 
-    # Process each file
-    logging.info(f'Found {len(detail_files)} HTML files to process')
-
-    # Extract horse info
+    # ログレベルの設定
+    logging.getLogger().setLevel(getattr(logging, args.log_level))
+    
+    # ファイル処理の並列実行
+    logging.info(f'Found {len(detail_files)} HTML files to process with {args.workers} workers')
+    
     horses = []
-    for detail_file in detail_files:
-        horse_info = extract_horse_info(detail_file)
-        if horse_info:
-            horses.append(horse_info)
+    processed = 0
+    total_files = len(detail_files)
+    
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        # 全ファイルの処理をスケジューリング
+        future_to_file = {executor.submit(process_single_file, file): file for file in detail_files}
+        
+        # 完了したタスクから順に処理
+        for future in as_completed(future_to_file):
+            file = future_to_file[future]
+            try:
+                horse_info = future.result()
+                if horse_info:
+                    horses.append(horse_info)
+                processed += 1
+                if processed % 10 == 0 or processed == total_files:
+                    logging.info(f'Processed {processed}/{total_files} files ({processed/total_files*100:.1f}%)')
+            except Exception as e:
+                logging.error(f'Error processing {file}: {str(e)}')
 
     # Output results
     json_output = json.dumps(horses, ensure_ascii=False, indent=2, sort_keys=True)
