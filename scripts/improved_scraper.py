@@ -106,6 +106,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)  # デバッグ用にログレベルをDEBUGに設定
 
 # キャッシュディレクトリの設定
 CACHE_DIR = Path('html_cache')
@@ -1132,9 +1133,9 @@ class ImprovedRakutenScraper:
         """売主情報を抽出する。
 
         複数の方法で売主情報を抽出し、最初に一致したものを返します。
-        1. テーブルから販売者情報を抽出
-        2. フッターやコピーライトから販売者情報を抽出
-        3. キーワード（売主、販売者、出品者、セラー）を元に検索
+        1. 販売申込者パターンのチェック
+        2. テーブルから販売者情報を抽出
+        3. キーワード（売主、販売者、出品者、セラー、販売申込者）を元に検索
         4. 生のHTMLテキストから正規表現で検索
 
         Args:
@@ -1147,12 +1148,33 @@ class ImprovedRakutenScraper:
             logger.warning("BeautifulSoupオブジェクトが無効です")
             return ""
 
-        logger.debug("販売者情報の抽出を開始します")
+        logger.info("販売者情報の抽出を開始します")
+        html_text = str(soup)
+        logger.debug(f"HTMLテキストの先頭500文字: {html_text[:500]}")
+
+        # 0. 販売申込者パターンを最初にチェック（新しいフォーマット）
+        try:
+            logger.info("販売申込者パターンで検索を開始")
+            seller_match = re.search(r'販売申込者[：:]([^<\n（]+)', html_text)
+            if seller_match:
+                raw_seller = seller_match.group(1).strip()
+                logger.info(f"抽出した生の販売者情報: '{raw_seller}'")
+                seller = self._clean_seller_name(raw_seller)
+                logger.info(f"クリーニング後の販売者情報: '{seller}'")
+                if seller:
+                    logger.info(f"販売申込者から販売者を抽出: {seller}")
+                    return seller
+                else:
+                    logger.warning("クリーニング後の販売者情報が空です")
+            else:
+                logger.info("販売申込者パターンに一致する情報が見つかりませんでした")
+        except Exception as e:
+            logger.error(f"販売申込者からの抽出でエラー: {e}", exc_info=True)
 
         # 1. テーブルから販売者情報を抽出
         try:
             # テーブル内のセラー情報を検索
-            seller_tables = soup.find_all('table', class_=lambda x: x and 'seller' in x.lower())
+            seller_tables = soup.find_all('table', class_=lambda x: x and 'seller' in str(x).lower())
             for table in seller_tables:
                 rows = table.find_all('tr')
                 for row in rows:
@@ -1166,28 +1188,15 @@ class ImprovedRakutenScraper:
         except Exception as e:
             logger.debug(f"テーブルからの販売者抽出でエラー: {e}")
 
-        # 2. フッターやコピーライトから抽出
-        try:
-            footer = soup.find('footer') or soup.find('div', class_=lambda x: x and 'footer' in x.lower())
-            if footer:
-                seller_match = re.search(r'売主[：:]([^\n<]+)', footer.get_text())
-                if seller_match:
-                    seller = self._clean_seller_name(seller_match.group(1))
-                    if seller:
-                        logger.info(f"フッターから販売者を抽出: {seller}")
-                        return seller
-        except Exception as e:
-            logger.debug(f"フッターからの販売者抽出でエラー: {e}")
-
-        # 3. キーワードを元に検索
-        keywords = ['売主', '販売者', '出品者', 'セラー']
+        # 2. キーワードを元に検索
+        keywords = ['売主', '販売者', '出品者', 'セラー', '販売申込者']
         for keyword in keywords:
             try:
                 elements = soup.find_all(string=re.compile(keyword))
                 for elem in elements:
                     text = elem.get_text().strip()
                     if keyword in text:
-                        seller_match = re.search(f'{keyword}[：:]([^\n<]+)', text)
+                        seller_match = re.search(f'{keyword}[：:]([^\n<（]+)', text)
                         if seller_match:
                             seller = self._clean_seller_name(seller_match.group(1))
                             if seller:
@@ -1196,10 +1205,9 @@ class ImprovedRakutenScraper:
             except Exception as e:
                 logger.debug(f"キーワード「{keyword}」からの販売者抽出でエラー: {e}")
 
-        # 4. 生のHTMLテキストから正規表現で検索（最後の手段）
+        # 3. 生のHTMLテキストから正規表現で検索（最後の手段）
         try:
-            html_text = str(soup)
-            seller_match = re.search(r'(?:売主|販売者|出品者|セラー)[：:]([^<\n]+)', html_text)
+            seller_match = re.search(r'(?:売主|販売者|出品者|セラー|販売申込者)[：:]([^<\n（]+)', html_text)
             if seller_match:
                 seller = self._clean_seller_name(seller_match.group(1))
                 if seller:
