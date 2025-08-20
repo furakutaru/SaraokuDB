@@ -52,21 +52,33 @@ if not os.path.exists(metadata_file):
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='bs4')
 
-def download_detail_page(detail_url, output_dir, session_id, base_url="https://www.tb-selection.com/", save_cache=False):
+def download_detail_page(detail_url, output_dir, session_id, base_url="https://www.tb-selection.com/", save_cache=True):
     """
     馬の詳細ページをダウンロードする
     
     Args:
         detail_url (str): 詳細ページのURL
         output_dir (str): 出力ディレクトリのパス
-        session_id (str): セッションID
+        session_id (str): セッションID (例: 'sess_1755492270')
         base_url (str): ベースURL
-        save_cache (bool): キャッシュを保存するかどうか（デフォルト: False）
+        save_cache (bool): キャッシュを保存するかどうか（デフォルト: True）
         
     Returns:
-        str: HTMLコンテンツ（キャッシュを保存する場合はファイルパス、保存しない場合はHTMLテキスト）
+        tuple: (ファイルパス, 成功フラグ)
     """
     try:
+        # 出力ディレクトリが存在しない場合は作成
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # ファイル名を生成（例: sess_1755492270_item_14705.html）
+        item_id = detail_url.split('item=')[-1] if 'item=' in detail_url else str(int(time.time()))
+        filename = f"{session_id}_item_{item_id}.html"
+        filepath = os.path.join(output_dir, filename)
+        
+        # 既存のファイルがあれば削除
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        
         # リクエストヘッダーを設定
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -79,7 +91,6 @@ def download_detail_page(detail_url, output_dir, session_id, base_url="https://w
             'Cache-Control': 'no-cache'
         }
         
-        # 詳細ページを取得
         logging.info(f"ダウンロード中: {detail_url}")
         
         # セッションを使用して接続を維持
@@ -90,46 +101,41 @@ def download_detail_page(detail_url, output_dir, session_id, base_url="https://w
         # エンコーディングを明示的に指定
         response.encoding = response.apparent_encoding or 'utf-8'
         
+        # レスポンスをそのまま保存（デバッグ用）
+        debug_filepath = os.path.join(output_dir, f"debug_{filename}.txt")
+        with open(debug_filepath, 'w', encoding='utf-8') as f:
+            f.write(response.text)
+        
         # HTMLをパース
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # キャッシュを保存する場合のみファイルに書き込む
-        if save_cache:
-            # 出力ディレクトリが存在しない場合は作成
-            os.makedirs(output_dir, exist_ok=True)
-            
-            # URLから一意の識別子を生成（ファイル名として使用）
-            parsed_url = urlparse(detail_url)
-            url_path = parsed_url.path.strip('/')
-            filename = f"{session_id}_{url_path.replace('/', '_')}.html"
-            filepath = os.path.join(output_dir, filename)
-            
-            # 既存のファイルがあれば削除
-            if os.path.exists(filepath):
-                os.remove(filepath)
-            
-            # metaタグでcharsetが指定されていない場合は追加
-            if not soup.find('meta', {'charset': True}) and soup.head:
-                meta = soup.new_tag('meta', charset='utf-8')
-                soup.head.insert(0, meta)
-                
-            # ファイルに保存
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(str(soup))
-                
-            logging.info(f"キャッシュを保存しました: {filepath}")
-            return filepath
+        # metaタグでcharsetが指定されていない場合は追加
+        if soup.head and not soup.find('meta', {'charset': True}):
+            meta = soup.new_tag('meta', charset='utf-8')
+            soup.head.insert(0, meta)
         
-        # キャッシュを保存しない場合はHTMLテキストを返す
-        return response.text
-            
+        # ファイルに保存
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(str(soup))
+        
+        logging.info(f"詳細ページを保存しました: {filepath}")
+        return filepath, True
+        
     except requests.exceptions.RequestException as e:
         logging.error(f"リクエストエラー: {e}")
-        return None
+        return None, False
     except Exception as e:
         logging.error(f"エラーが発生しました: {e}")
         logging.error(traceback.format_exc())
-        return None
+        return None, False
+            
+    except requests.exceptions.RequestException as e:
+        logging.error(f"リクエストエラー: {e}")
+        return None, False
+    except Exception as e:
+        logging.error(f"エラーが発生しました: {e}")
+        logging.error(traceback.format_exc())
+        return None, False
 
 def extract_detail_links(html_file, base_url):
     """HTMLファイルから詳細ページのリンクを抽出し、ローカルキャッシュへのリンクに変換する"""
@@ -226,28 +232,72 @@ def extract_prize_from_text(text: str) -> float:
     return 0.0
 
 def extract_prize_from_list_page(section) -> float:
-    """リストページのセクションから賞金情報を抽出する"""
-    try:
-        # テキストを取得
-        text = section.get_text(separator=' ', strip=True)
+    """リストページのセクションから賞金情報を抽出する
+    
+    Args:
+        section: BeautifulSoupオブジェクト（馬情報のセクション）
         
-        # 賞金情報を抽出
-        prize_match = re.search(r'(総賞金|賞金総額|獲得賞金)[:：\s]*([\d,]+)', text)
+    Returns:
+        float: 抽出した賞金額（万円単位）。見つからない場合は0.0
+    """
+    try:
+        # 1. auctionTableCard__priceクラスを持つ要素を直接検索
+        prize_div = section.find('div', class_='auctionTableCard__price')
+        if prize_div:
+            value_div = prize_div.find('div', class_='value')
+            if value_div:
+                prize_text = value_div.get_text(strip=True)
+                # 数値部分を抽出（例: "123.4万円" -> 123.4）
+                match = re.search(r'([\d,]+(?:\.[\d,]+)?)', prize_text)
+                if match:
+                    try:
+                        return float(match.group(1).replace(',', ''))
+                    except (ValueError, TypeError):
+                        pass
+        
+        # 2. 従来の方法で賞金情報を検索（フォールバック）
+        prize_elements = section.find_all(['div', 'span'], class_=re.compile(r'(prize|money|award|reward|total)', re.IGNORECASE))
+        
+        for elem in prize_elements:
+            text = elem.get_text(separator=' ', strip=True)
+            patterns = [
+                r'(総賞金|賞金総額|獲得賞金|賞金)[:：\s]*([\d,]+(?:\.[\d,]+)?)',
+                r'([\d,]+(?:\.\d+)?)\s*万円',
+                r'¥\s*([\d,]+(?:\.[\d,]+)?)'
+            ]
+            
+            for pattern in patterns:
+                matches = re.findall(pattern, text)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        prize_str = match[1] if len(match) > 1 else match[0]
+                    else:
+                        prize_str = match
+                    
+                    try:
+                        prize = float(prize_str.replace(',', ''))
+                        if prize > 10000:
+                            prize = prize / 10000
+                        return prize
+                    except (ValueError, TypeError):
+                        continue
+        
+        # 3. セクション全体からも探す（最終手段）
+        text = section.get_text(separator=' ', strip=True)
+        prize_match = re.search(r'(総賞金|賞金総額|獲得賞金|賞金)[:：\s]*([\d,]+(?:\.[\d,]+)?)', text)
         if prize_match:
-            prize_str = prize_match.group(2).replace(',', '')
             try:
-                return float(prize_str)
+                return float(prize_match.group(2).replace(',', ''))
             except (ValueError, TypeError):
                 pass
                 
-        # テキストから直接賞金を抽出
+        # 4. ヘルパー関数で抽出を試みる
         return extract_prize_from_text(text)
             
     except Exception as e:
         logging.error(f"賞金情報の抽出中にエラーが発生: {str(e)}")
         logging.error(traceback.format_exc())
-    
-    return 0.0
+        return 0.0
 
 
 def extract_weight_from_detail(html_content: str) -> int:
@@ -282,15 +332,22 @@ def extract_weight_from_detail(html_content: str) -> int:
     return None
 
 def extract_horse_info(html_file):
-    """Extract horse information from the list page HTML."""
-    logging.info(f"Starting extraction from {html_file}")
+    """リストページのHTMLから馬情報を抽出する
+    
+    Args:
+        html_file (str): リストページのHTMLファイルパス
+        
+    Returns:
+        list: 抽出した馬情報のリスト
+    """
+    logging.info(f"リストページからの情報抽出を開始: {html_file}")
     
     try:
         # バイナリモードでファイルを読み込み、適切なエンコーディングを推測
         with open(html_file, 'rb') as f:
             raw_data = f.read()
         
-        # エンコーディングを推測
+        # エンコーディングを推測してデコード
         encodings = ['utf-8', 'shift_jis', 'euc-jp', 'cp932']
         content = None
         
@@ -302,68 +359,94 @@ def extract_horse_info(html_file):
                 continue
         
         if content is None:
-            # どのエンコーディングでもデコードできない場合
             content = raw_data.decode('utf-8', errors='replace')
         
         # HTMLをパース
         soup = BeautifulSoup(content, 'html.parser')
         
-        # JavaScriptから直接データを抽出
-        import re
-        import json
-        
-        # __NUXT_DATA__ 変数からデータを抽出
-        nuxt_data = None
-        script_tags = soup.find_all('script')
-        for script in script_tags:
-            if script.string and '__NUXT_DATA__' in script.string:
-                match = re.search(r'__NUXT_DATA__\s*=\s*({.*?});', script.string, re.DOTALL)
-                if match:
-                    try:
-                        nuxt_data = json.loads(match.group(1))
-                        break
-                    except json.JSONDecodeError as e:
-                        logging.warning(f'Failed to parse __NUXT_DATA__: {e}')
-                        continue
-        
-        if not nuxt_data:
-            logging.error('Could not find __NUXT_DATA__ in the HTML')
-            return []
-            
-        # 馬のリストを取得
-        horses_data = nuxt_data.get('state', {}).get('horses', [])
-        if not horses_data:
-            logging.error('No horse data found in __NUXT_DATA__')
-            return []
-            
-        logging.info(f'Found {len(horses_data)} horses in __NUXT_DATA__')
-        
+        # 馬情報を格納するリスト
         horses = []
         
-        for horse_data in horses_data:
+        # 各馬のカードを取得
+        horse_cards = soup.find_all('div', class_='auctionTableCard')
+        
+        for card in horse_cards:
             try:
+                # 販売者情報を抽出
+                seller = ''
+                seller_elem = card.find('div', class_='auctionTableCard__seller')
+                if seller_elem:
+                    seller_span = seller_elem.find('span', class_='value')
+                    if seller_span:
+                        seller = seller_span.get_text(strip=True)
+                
+                # 馬名を抽出
+                name_elem = card.find('h3', class_='auctionTableCard__name')
+                name = name_elem.get_text(strip=True) if name_elem else 'Unknown'
+
+                # 馬名が短すぎる場合はスキップ
+                if not name or len(name) < 2:
+                    logging.warning(f"スキップされた馬: 名前が短すぎます - {name}")
+                    continue
+
+                # 賞金情報を抽出
+                prize = 0.0
+                prize_container = card.find('div', class_='auctionTableCard__price')
+                if prize_container:
+                    prize_elem = prize_container.find('div', class_='value')
+                    if prize_elem:
+                        prize_text = prize_elem.get_text(strip=True)
+                        prize = extract_prize_from_text(prize_text)
+                
+                # 性別・年齢を抽出
+                sex_age_elem = card.find('span', class_='auctionTableCard__sexAge')
+                sex = ''
+                age = ''
+                if sex_age_elem:
+                    sex_age = sex_age_elem.get_text(strip=True)
+                    if sex_age:
+                        sex = sex_age[0]  # 性別（牡・牝・セ）
+                        age_match = re.search(r'(\d+)', sex_age)
+                        if age_match:
+                            age = age_match.group(1)
+                
+                # 血統情報を抽出
+                sire_elem = card.find('div', class_='auctionTableCard__sire')
+                dam_elem = card.find('div', class_='auctionTableCard__dam')
+                dam_sire_elem = card.find('div', class_='auctionTableCard__damsire')
+                
+                sire = sire_elem.get_text(strip=True).replace('父:', '') if sire_elem else ''
+                dam = dam_elem.get_text(strip=True).replace('母:', '') if dam_elem else ''
+                dam_sire = dam_sire_elem.get_text(strip=True).replace('母父:', '') if dam_sire_elem else ''
+                
+                # 価格情報を抽出
+                price_elem = card.find('div', class_='auctionTableCard__price')
+                price = price_elem.get_text(strip=True) if price_elem else ''
+                
+                # アイテムIDを抽出
+                item_id = ''
+                item_id_elem = card.find('a', href=re.compile(r'/item/\d+'))
+                if item_id_elem and 'href' in item_id_elem.attrs:
+                    item_id = item_id_elem['href'].split('/')[-1]
+                
+                # 馬情報を辞書に格納
                 horse_info = {
-                    'name': horse_data.get('name', '').strip(),
-                    'item_id': horse_data.get('item_id', ''),
-                    'sex': horse_data.get('sex', ''),
-                    'age': horse_data.get('age', ''),
-                    'color': horse_data.get('color', ''),
-                    'sire': horse_data.get('sire', ''),
-                    'dam': horse_data.get('dam', ''),
-                    'dam_sire': horse_data.get('dam_sire', ''),
-                    'breeder': horse_data.get('breeder', ''),
-                    'owner': horse_data.get('owner', ''),
-                    'trainer': horse_data.get('trainer', ''),
-                    'record': horse_data.get('record', ''),
-                    'earnings': horse_data.get('earnings', 0),
-                    'weight': horse_data.get('weight'),
-                    'detail_url': f"https://auction.keiba.rakuten.co.jp/item/{horse_data.get('item_id', '')}",
-                    'auction_date': horse_data.get('auction_date', '')
+                    'name': name,
+                    'item_id': item_id,
+                    'seller': seller,
+                    'sex': sex,
+                    'age': age,
+                    'total_prize': prize,  # 賞金情報を追加
+                    'sire': sire,
+                    'dam': dam,
+                    'dam_sire': dam_sire,
+                    'price': price,
+                    'detail_url': f"https://auction.keiba.rakuten.co.jp/item/{item_id}" if item_id else ''
                 }
                 
                 # 詳細ページから追加情報を取得
                 detail_file = os.path.join(os.path.dirname(html_file), 'details', 
-                                        f"sess_*_item_{horse_info['item_id']}.html")
+                                        f"sess_*_item_{item_id}.html")
                 import glob
                 matching_files = glob.glob(detail_file)
                 
@@ -382,138 +465,30 @@ def extract_horse_info(html_file):
                                     horse_info['weight'] = int(weight_match.group(1))
                     
                     except Exception as e:
-                        logging.warning(f'Error processing detail page {matching_files[0]}: {str(e)}')
+                        logging.warning(f'詳細ページの処理中にエラーが発生しました {matching_files[0]}: {str(e)}')
                 
                 horses.append(horse_info)
                 
             except Exception as e:
-                logging.error(f'Error processing horse data: {str(e)}')
+                logging.error(f'馬情報の処理中にエラーが発生しました: {str(e)}')
+                logging.error(traceback.format_exc())
                 continue
                 
+        logging.info(f"{len(horses)}頭の馬情報を抽出しました")
         return horses
         
     except Exception as e:
+        logging.error(f"リストページからの情報抽出中にエラーが発生しました: {str(e)}", exc_info=True)
         logging.error(f"Error processing file {html_file}: {str(e)}", exc_info=True)
         return []
 
-    # 馬名が短すぎる場合はスキップ
-    if not name or len(name) < 2:
-        logging.warning(f"Skipping horse with invalid name: {name}")
-        continue
-            
-    # 馬名がカタカナで終わっていて、短い場合は警告を出力（デバッグ用）
-    if re.search(r'[\u30A1-\u30FF]+$', name) and len(name) < 5:
-        logging.warning(f"Horse name might be truncated: {name}")
-    
-    # Extract all text from the section
-            details_text = section.get_text(separator='\n', strip=True)
-            
-            # Extract basic information
-            # リストページから賞金情報を抽出
-            list_prize = extract_prize_from_list_page(section)
-            jbis_prize = 0.0
-            jbis_url = None
-            
-            # JBISリンクを検索
-            for a in section.find_all('a', href=True):
-                if 'jbis.or.jp' in a['href']:
-                    jbis_url = a['href']
-                    if not jbis_url.startswith(('http://', 'https://')):
-                        jbis_url = f"https:{jbis_url}" if jbis_url.startswith('//') else f"https://www.jbis.or.jp{jbis_url if jbis_url.startswith('/') else '/' + jbis_url}"
-                    break
-            
-            # JBISから賞金情報を取得
-            if jbis_url:
-                try:
-                    from process_horse_details import extract_prize_from_jbis
-                    jbis_prize = extract_prize_from_jbis(jbis_url)
-                except Exception as e:
-                    logging.warning(f"JBISからの賞金取得に失敗: {str(e)}")
-            
-            # より信頼性の高い賞金情報を優先（JBIS > リストページ）
-            prize_money = jbis_prize if jbis_prize > 0 else list_prize
-            
-            # 馬の情報を辞書に格納
-            # 詳細ページから体重情報を再取得（既に取得済みの場合は再利用）
-            weight = None
-            if detail_link and 'weight' not in locals():
-                try:
-                    cache_dir = os.path.dirname(html_file)
-                    details_dir = os.path.join(cache_dir, 'details')
-                    item_id = re.search(r'item[_-]?(\d+)', detail_link)
-                    
-                    if item_id:
-                        item_id = item_id.group(1)
-                        detail_file = os.path.join(details_dir, f"sess_*_item_{item_id}.html")
-                        import glob
-                        matching_files = glob.glob(detail_file)
-                        
-                        if matching_files:
-                            with open(matching_files[0], 'r', encoding='utf-8') as f:
-                                detail_content = f.read()
-                                weight = extract_weight_from_detail(detail_content)
-                                if weight is not None:
-                                    logging.info(f"Extracted weight for {name}: {weight}kg")
-                except Exception as e:
-                    logging.warning(f"体重情報の取得中にエラーが発生しました: {str(e)}")
-            
-            horse_info = {
-                'name': name,
-                'is_name_truncated': is_name_truncated,
-                'detail_link': detail_link,
-                'jbis_url': jbis_url,
-                'source_file': os.path.basename(html_file),
-                'extracted_at': datetime.datetime.now().isoformat(),
-                'prize_money': prize_money,
-                'prize_source': 'jbis' if jbis_prize > 0 else ('list' if list_prize > 0 else 'none'),
-                'weight': weight  # 体重情報を追加
-            }
-            
-            # Extract pedigree information
-            pedigree_match = re.search(r'父：([^\s]+)\s*母：([^\s]+)\s*母の父：([^\n]+)', details_text)
-            if pedigree_match:
-                horse_info.update({
-                    'sire': pedigree_match.group(1).strip(),
-                    'dam': pedigree_match.group(2).strip(),
-                    'damsire': pedigree_match.group(3).strip()
-                })
-            
-            # Extract race record if available
-            record_match = re.search(r'通算成績：([^\[]+)\[([^\]]+)\]', details_text)
-            if record_match:
-                horse_info['race_record'] = {
-                    'summary': record_match.group(1).strip(),
-                    'record': record_match.group(2).strip()
-                }
-            
-            # Extract prize money
-            prize_match = re.search(r'中央獲得賞金：([\d,.]+)万円', details_text)
-            if prize_match:
-                try:
-                    horse_info['total_prize_start'] = float(prize_match.group(1).replace(',', ''))
-                except (ValueError, TypeError):
-                    pass
-            
-            # オークション価格の抽出はsold_priceで行うため削除
-            
-            # Extract auction date if available
-            auction_match = re.search(r'※(\d{4}年\d{1,2}月\d{1,2}日)落札', details_text)
-            if auction_match:
-                horse_info['auction_date'] = auction_match.group(1)
-            
-            # Extract comments about the horse
-            comment_section = re.search(r'本馬について[^\n]*\n(.*?)(?=\n\s*※|$)', details_text, re.DOTALL)
-            if comment_section:
-                horse_info['comments'] = comment_section.group(1).strip()
-            
-            logging.info(f"Extracted info for horse: {name}")
-            horses.append(horse_info)
-            
-        except Exception as e:
-            logging.error(f"Error processing horse section: {str(e)}", exc_info=True)
-    
-    logging.info(f"Successfully extracted {len(horses)} horses")
-    return horses
+    # リストページから賞金情報を抽出するヘルパー関数
+    def extract_prize_from_list_page(section):
+        # 既存のextract_prize_from_list_page関数の実装を使用
+        # この関数は別途定義されているはずです
+        return 0.0  # デフォルト値
+        
+    return horses  # Return the list of extracted horses
 
 def load_config():
     """設定を読み込む"""
