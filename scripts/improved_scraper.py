@@ -92,6 +92,124 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from tqdm import tqdm
 from pathlib import Path
+import re
+import logging
+import traceback
+from typing import Optional, List, Dict, Any, Tuple, Union
+from datetime import datetime
+
+# 健康関連のキーワード
+HEALTH_KEYWORDS = [
+    '骨折', '屈腱炎', 'ソエ', '跛行', '跛行あり', '跛行歴あり', '跛行歴',
+    '屈腱', '靭帯', '靭帯炎', '骨瘤', '骨膜炎', '骨腫', '骨棘', '骨端症',
+    '関節炎', '関節症', '関節軟骨', '関節内骨折', '関節ねんざ', '関節水腫',
+    '脱臼', '亜脱臼', '捻挫', '捻転', '捻転症', '捻転性', '捻転性疾患'
+]
+
+def extract_prize_from_auction(html_content: str, horse_name: str) -> Union[str, float]:
+    """
+    オークションリストページから賞金情報を抽出する
+    
+    Args:
+        html_content (str): オークションリストページのHTML
+        horse_name (str): 馬名（デバッグ用）
+        
+    Returns:
+        Union[str, float]: 総賞金（万円単位）。見つからない場合は0.0、繁殖牝馬の場合は'-'を返す
+    """
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # 繁殖牝馬の場合は'-'を返す
+        if any(text in html_content for text in ['繁殖牝馬', '受胎種牡馬']):
+            logger.info(f"馬名 '{horse_name}' は繁殖牝馬のため、賞金は'-'を返します")
+            return '-'
+        
+        # 未出走馬の場合は0を返す
+        if '未出走' in html_content:
+            logger.info(f"馬名 '{horse_name}' は未出走のため賞金は0円です")
+            return 0.0
+        
+        # 賞金情報を含む要素を探す
+        prize_div = soup.find('div', class_='auctionTableCard__price')
+        if not prize_div:
+            logger.warning(f"馬名 '{horse_name}': 賞金要素が見つかりませんでした")
+            return 0.0
+        
+        # ラベルが「総賞金」であることを確認
+        label_div = prize_div.find('div', class_='label')
+        if not label_div or '総賞金' not in label_div.get_text():
+            logger.warning(f"馬名 '{horse_name}': 総賞金のラベルが見つかりませんでした")
+            return 0.0
+        
+        # 賞金の値を取得
+        value_div = prize_div.find('div', class_='value')
+        if not value_div:
+            logger.warning(f"馬名 '{horse_name}': 賞金の値が見つかりませんでした")
+            return 0.0
+        
+        prize_text = value_div.get_text(strip=True)
+        
+        # 数値部分を抽出（「1,234.0万円」→ 1,234.0）
+        match = re.search(r'([\d,]+\.?\d*)', prize_text)
+        if match:
+            total_prize = match.group(1).replace(',', '')
+            logger.info(f"馬名 '{horse_name}' の賞金を抽出: {total_prize}万円")
+            return float(total_prize)
+        
+        logger.warning(f"馬名 '{horse_name}' の賞金情報を抽出できませんでした")
+        return 0.0
+        
+    except Exception as e:
+        logger.error(f"賞金情報の抽出中にエラーが発生しました（馬名: {horse_name}）: {str(e)}")
+        logger.error(traceback.format_exc())
+        return 0.0
+
+def _extract_disease_tags(comment: str) -> str:
+    """
+    コメントから病気タグを抽出する
+    
+    Args:
+        comment (str): 抽出元のコメントテキスト
+        
+    Returns:
+        str: カンマ区切りの病気タグ。見つからない場合は「なし」を返します。
+    """
+    if not comment:
+        return "なし"
+    
+    found_tags = [kw for kw in HEALTH_KEYWORDS if kw in comment]
+    return ",".join(dict.fromkeys(found_tags)) if found_tags else "なし"
+
+def _extract_comment(html_content: str) -> str:
+    """
+    馬の詳細ページからコメントを抽出する
+    
+    Args:
+        html_content (str): 馬の詳細ページのHTML
+        
+    Returns:
+        str: 抽出されたコメントテキスト。見つからない場合は空文字列。
+    """
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # コメントを含む可能性のある要素を探す
+        comment_div = soup.find('div', class_='comment')
+        if not comment_div:
+            return ""
+            
+        # コメントテキストを取得
+        comment_text = comment_div.get_text(strip=True)
+        
+        # 不要な空白や改行を削除
+        comment_text = ' '.join(comment_text.split())
+        
+        return comment_text
+        
+    except Exception as e:
+        logger.error(f"コメントの抽出中にエラーが発生しました: {str(e)}")
+        return ""
 
 # キャッシュ管理用モジュール
 from cache_manager import CacheManager
@@ -1059,23 +1177,167 @@ class ImprovedRakutenScraper:
             logger.error(f"追加情報の抽出中にエラーが発生しました: {str(e)}")
             logger.debug(traceback.format_exc())
 
-    def _process_horse_info(self, row):
+    def extract_prize_from_jbis(self, jbis_url: str) -> float:
+        """
+        JBISの馬詳細ページから総賞金を抽出する
+        
+        Args:
+            jbis_url (str): JBISの馬詳細ページURL
+            
+        Returns:
+            float: 総賞金（万円単位）。見つからない場合は0.0
+        """
+        if not jbis_url:
+            return 0.0
+            
+        try:
+            # 正規化されたURLを取得
+            normalized_url = self._normalize_jbis_url(jbis_url)
+            
+            # キャッシュを確認
+            cache_key = f"jbis_prize_{hashlib.md5(normalized_url.encode()).hexdigest()}"
+            cached_data = self.cache_manager.get(cache_key)
+            if cached_data is not None:
+                return float(cached_data)
+            
+            # ページを取得
+            response = self.session.get(normalized_url, timeout=10)
+            response.raise_for_status()
+            
+            # キャッシュに保存
+            self.cache_manager.set(cache_key, response.text, expire=86400)  # 1日キャッシュ
+            
+            # 総賞金を抽出
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # 方法1: dtタグから探す
+            prize_dt = soup.find('dt', string=re.compile(r'^\s*総賞金\s*$'))
+            if prize_dt and prize_dt.find_next_sibling('dd'):
+                prize_text = prize_dt.find_next_sibling('dd').get_text(strip=True)
+                match = re.search(r'([\d,]+)', prize_text)
+                if match:
+                    prize = float(match.group(1).replace(',', '') or 0) / 10000  # 円→万円に変換
+                    logger.info(f"JBISから賞金を抽出: {prize}万円 (URL: {normalized_url})")
+                    return prize
+            
+            # 方法2: 正規表現で直接探す（フォールバック）
+            prize_match = re.search(r'総賞金\s*([\d,]+)\s*万円', response.text)
+            if prize_match:
+                prize = float(prize_match.group(1).replace(',', ''))
+                logger.info(f"JBISから賞金を抽出（フォールバック）: {prize}万円 (URL: {normalized_url})")
+                return prize
+                
+            logger.warning(f"JBISから賞金情報を抽出できませんでした: {normalized_url}")
+            return 0.0
+            
+        except Exception as e:
+            logger.error(f"JBISからの賞金取得中にエラーが発生しました ({jbis_url}): {str(e)}")
+            return 0.0
+    
+    def _normalize_jbis_url(self, url: str) -> str:
+        """
+        JBISのURLを正規化する（血統情報ページから基本情報ページに変換）
+        
+        Args:
+            url (str): 元のURL
+            
+        Returns:
+            str: 正規化されたURL
+        """
+        if not url:
+            return ""
+            
+        # 血統情報ページやレコードページを基本情報ページに変換
+        url = re.sub(r'(/pedigree/|/record/)', '/horse/', url)
+        
+        # パラメータを削除
+        url = url.split('?')[0]
+        
+        return url
+
+    def _process_horse_info(self, row, list_page_html: str = "") -> Dict[str, Any]:
         """
         馬の行から情報を抽出して辞書を返すヘルパーメソッド
 
         Args:
             row: BeautifulSoupオブジェクト（馬1頭分の行）
+            list_page_html: オークションリストページのHTML（賞金抽出用）
 
         Returns:
             dict: 抽出した馬の情報
         """
+        horse_info = {}
+        
         try:
-            # 馬の情報を抽出
-            horse_info = self._extract_horse_info_from_row(row)
-
+            # 基本情報の抽出
+            horse_info['name'] = self._extract_text(row, '.name')
+            horse_info['sire'] = self._extract_text(row, '.sire')
+            horse_info['dam'] = self._extract_text(row, '.dam')
+            horse_info['damsire'] = self._extract_text(row, '.damsire')
+            horse_info['sex'] = self._extract_text(row, '.sex')
+            horse_info['age'] = self._extract_text(row, '.age')
+            
+            # オークション情報の抽出
+            horse_info['auction_date'] = self._extract_auction_date(row)
+            horse_info['sold_price'] = self._extract_sold_price(row)
+            horse_info['is_unsold'] = self._is_unsold(row)
+            horse_info['seller'] = self._extract_seller(row)
+            
+            # 詳細ページのURLを取得
+            detail_url = self._extract_detail_url(row)
+            horse_info['detail_url'] = detail_url
+            
+            # 詳細ページから追加情報を取得
+            if detail_url:
+                detail_html = self._fetch_with_retry(detail_url)
+                if detail_html:
+                    # コメントを抽出
+                    comment = _extract_comment(detail_html)
+                    horse_info['comment'] = comment
+                    
+                    # 病気タグを抽出
+                    disease_tags = _extract_disease_tags(comment)
+                    horse_info['disease_tags'] = disease_tags
+                    
+                    # 詳細ページから追加情報を抽出
+                    self._extract_additional_info(horse_info, detail_html)
+            
+            # オークションリストページから賞金情報を抽出
+            if list_page_html and horse_info.get('name'):
+                prize = extract_prize_from_auction(list_page_html, horse_info['name'])
+                if prize != '-':  # 繁殖牝馬でない場合のみ数値として保存
+                    horse_info['total_prize_start'] = float(prize) if prize else 0.0
+            
+            # JBISから賞金情報を取得
+            jbis_url = horse_info.get('jbis_url')
+            if jbis_url and horse_info.get('name'):
+                jbis_prize = self.extract_prize_from_jbis(jbis_url)
+                if jbis_prize > 0:
+                    horse_info['total_prize_latest'] = jbis_prize
+            
+            # タイムスタンプを追加
+            now = datetime.now().isoformat()
+            if 'created_at' not in horse_info:
+                horse_info['created_at'] = now
+            horse_info['updated_at'] = now
+            
+            return horse_info
+            
+        except Exception as e:
+            logger.error(f"馬情報の処理中にエラーが発生しました: {str(e)}")
+            logger.error(traceback.format_exc())
+            return horse_info
+        try:
+            # 馬の情報を抽出（リストページのHTMLも渡す）
+            horse_info = self._process_horse_info(row, response.text)
             if not horse_info:
-                logger.warning("馬の情報を抽出できませんでした")
-                return None
+                continue
+                
+            # 馬の情報をリストに追加
+            horse_list.append(horse_info)
+            
+            # 進捗をログに出力
+            logger.info(f"処理済み: {horse_info.get('name', '不明')} - {len(horse_list)}/{total_horses}頭")
 
             # デバッグ用に抽出した情報をログ出力
             logger.debug(f"抽出した馬情報: {horse_info}")
