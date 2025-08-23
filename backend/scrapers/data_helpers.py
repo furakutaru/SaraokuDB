@@ -35,11 +35,27 @@ def save_json_file(file_path: str, data: Any) -> None:
         file_path: 保存先のファイルパス
         data: 保存するデータ（リストまたは辞書）
     """
-    # ディレクトリが存在しない場合は作成
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    
-    with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    try:
+        # ディレクトリが存在しない場合は作成
+        dir_path = os.path.dirname(file_path)
+        print(f"[DEBUG] ディレクトリを作成: {dir_path}")
+        os.makedirs(dir_path, exist_ok=True)
+        
+        print(f"[DEBUG] ファイルにデータを保存中: {file_path}")
+        print(f"[DEBUG] データタイプ: {type(data)}")
+        print(f"[DEBUG] データ内容の一部: {str(data)[:200]}...")
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            
+        print(f"[DEBUG] ファイル保存完了: {file_path}")
+        print(f"[DEBUG] ファイルの存在確認: {os.path.exists(file_path)}")
+        print(f"[DEBUG] ファイルサイズ: {os.path.getsize(file_path) if os.path.exists(file_path) else 0} バイト")
+    except Exception as e:
+        print(f"[ERROR] ファイル保存中にエラーが発生しました: {str(e)}")
+        print(f"[ERROR] ファイルパス: {file_path}")
+        print(f"[ERROR] データタイプ: {type(data)}")
+        raise
 
 def find_horse_by_name_and_age(horses: List[Dict[str, Any]], name: str, age: int) -> Optional[Dict[str, Any]]:
     """名前と年齢で馬を検索"""
@@ -55,13 +71,38 @@ def find_auction_history(history: List[Dict[str, Any]], horse_id: str, auction_d
             return entry
     return None
 
-def merge_disease_tags(existing_tags: List[str], new_tags: List[str]) -> List[str]:
-    """疾病タグをマージ（重複を削除）"""
+def merge_disease_tags(existing_tags: Union[List[str], str, None], new_tags: Union[List[str], str, None]) -> List[str]:
+    """疾病タグをマージ（重複を削除）
+    
+    Args:
+        existing_tags: 既存のタグ（リストまたは文字列）
+        new_tags: 新しいタグ（リストまたは文字列）
+        
+    Returns:
+        List[str]: マージされたユニークなタグのリスト
+    """
+    # 既存のタグをリストに変換
     if not existing_tags:
-        return list(set(new_tags))
+        existing_list = []
+    elif isinstance(existing_tags, str):
+        existing_list = [tag.strip() for tag in existing_tags.split(',') if tag.strip()]
+    elif isinstance(existing_tags, list):
+        existing_list = [tag for tag in existing_tags if tag and str(tag).strip()]
+    else:
+        existing_list = []
+    
+    # 新しいタグをリストに変換
     if not new_tags:
-        return existing_tags
-    return list(set(existing_tags + new_tags))
+        new_list = []
+    elif isinstance(new_tags, str):
+        new_list = [tag.strip() for tag in new_tags.split(',') if tag.strip()]
+    elif isinstance(new_tags, list):
+        new_list = [tag for tag in new_tags if tag and str(tag).strip()]
+    else:
+        new_list = []
+    
+    # マージして重複を削除
+    return list(set(existing_list + new_list))
 
 def save_horse(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/public/data') -> str:
     """馬情報を保存し、馬IDを返す
@@ -76,7 +117,16 @@ def save_horse(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/publ
     Raises:
         ValueError: 必須フィールドが不足している場合
     """
-    horses_file = os.path.join(data_dir, 'horses.json')
+    # 絶対パスに変換
+    abs_data_dir = os.path.abspath(os.path.join(os.getcwd(), data_dir))
+    os.makedirs(abs_data_dir, exist_ok=True)
+    horses_file = os.path.join(abs_data_dir, 'horses.json')
+    
+    print(f"[DEBUG] データ保存先: {horses_file}")
+    print(f"[DEBUG] 現在の作業ディレクトリ: {os.getcwd()}")
+    print(f"[DEBUG] 相対データディレクトリ: {data_dir}")
+    print(f"[DEBUG] 絶対データディレクトリ: {abs_data_dir}")
+    
     data = load_json_file(horses_file)
     
     # 古い形式の場合は新しい形式に変換
@@ -114,6 +164,10 @@ def save_horse(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/publ
             
         horse_id = existing_horse['id']
         
+        # 疾病タグを安全にマージ
+        existing_disease_tags = existing_horse.get('disease_tags', [])
+        new_disease_tags = horse_data.get('disease_tags', [])
+        
         # 更新するフィールドをマージ
         update_fields = {
             'sire': horse_data.get('sire', existing_horse.get('sire', '')),
@@ -123,17 +177,14 @@ def save_horse(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/publ
             'image_url': horse_data.get('image_url', existing_horse.get('image_url', '')),
             'jbis_url': horse_data.get('jbis_url', existing_horse.get('jbis_url', '')),
             'auction_url': horse_data.get('auction_url', existing_horse.get('auction_url', '')),
-            'disease_tags': merge_disease_tags(
-                existing_horse.get('disease_tags', []),
-                horse_data.get('disease_tags', [])
-            ),
+            'disease_tags': merge_disease_tags(existing_disease_tags, new_disease_tags),
             'updated_at': now,
             # 賞金情報を明示的にマージ（0の場合も含む）
             'total_prize_start': horse_data.get('total_prize_start', existing_horse.get('total_prize_start', 0)),
             'total_prize_latest': horse_data.get('total_prize_latest', existing_horse.get('total_prize_latest', 0))
         }
         
-        # その他の重要なフィールドもマージ
+        # その他のフィールドをマージ
         for key in ['comment', 'race_record', 'weight', 'seller', 'auction_date']:
             if key in horse_data:
                 update_fields[key] = horse_data[key]
@@ -143,32 +194,21 @@ def save_horse(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/publ
     else:
         # 新規の馬を追加
         horse_id = str(uuid.uuid4())
-        # 必要なフィールドを確実に含める
-        new_horse = {
-            'id': horse_id,
-            'name': horse_data['name'],
-            'age': horse_data['age'],
-            'total_prize_start': float(horse_data.get('total_prize_start', 0.0)),
-            'total_prize_latest': float(horse_data.get('total_prize_latest', 0.0)),
-            'sex': horse_data.get('sex', ''),
-            'sire': horse_data.get('sire', ''),
-            'dam': horse_data.get('dam', ''),
-            'damsire': horse_data.get('damsire', ''),
-            'image_url': horse_data.get('image_url', ''),
-            'jbis_url': horse_data.get('jbis_url', ''),
-            'auction_url': horse_data.get('auction_url', ''),
-            'disease_tags': horse_data.get('disease_tags', []),
-            'total_prize_start': horse_data.get('total_prize_start', 0),
-            'total_prize_latest': horse_data.get('total_prize_latest', 0),
-            'comment': horse_data.get('comment', ''),
-            'race_record': horse_data.get('race_record', ''),
-            'weight': horse_data.get('weight', ''),
-            'seller': horse_data.get('seller', ''),
-            'auction_date': horse_data.get('auction_date', ''),
-            'created_at': now,
-            'updated_at': now
-        }
-        horses.append(new_horse)
+        horse_data['id'] = horse_id
+        horse_data['created_at'] = now
+        horse_data['updated_at'] = now
+        
+        # 疾病タグを初期化
+        if 'disease_tags' not in horse_data:
+            horse_data['disease_tags'] = []
+        elif not isinstance(horse_data['disease_tags'], list):
+            # 文字列の場合はリストに変換
+            if isinstance(horse_data['disease_tags'], str):
+                horse_data['disease_tags'] = [tag.strip() for tag in horse_data['disease_tags'].split(',') if tag.strip()]
+            else:
+                horse_data['disease_tags'] = []
+        
+        horses.append(horse_data)
     
     # メタデータを更新
     data['metadata'] = {
