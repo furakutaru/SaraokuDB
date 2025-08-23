@@ -981,118 +981,125 @@ class ImprovedRakutenScraper:
                 # 方法2: テーブルから総賞金を取得
                 prize_table = soup.find('table', class_='tbl-data-01')
                 if prize_table:
-                    for row in prize_table.find_all('tr'):
-                        cols = row.find_all('td')
-                        if len(cols) >= 2 and '総賞金' in cols[0].get_text():
-                            prize_text = cols[1].get_text(strip=True)
-                            prize_match = re.search(r'([\d,.]+)', prize_text)
-                            if prize_match:
-                                return float(prize_match.group(1).replace(',', ''))
-                
-                # 方法3: ページ内のテキストから直接検索（最終手段）
-                prize_match = re.search(r'総賞金[^\d]*([\d,.]+)', soup.get_text())
-                if prize_match:
-                    return float(prize_match.group(1).replace(',', ''))
+                    # テーブルから総賞金を抽出する処理を追加
+                    pass
                 
                 return None
                 
             except Exception as e:
-                if attempt == retries - 1:  # 最終リトライでエラー
-                    self.logger.error(f"JBISからの賞金情報取得中にエラーが発生しました: {e}", exc_info=True)
+                self.logger.warning(f"JBIS賞金取得に失敗しました (試行 {attempt + 1}/{retries}): {e}")
+                if attempt == retries - 1:
+                    self.logger.error(f"JBIS賞金の取得に失敗しました: {e}", exc_info=True)
                     return None
-                time.sleep(1)  # リトライ前に少し待機
+                time.sleep(1)  # 少し待ってからリトライ
+    
+    def _extract_price_info(self, element) -> Dict[str, Any]:
+        """価格情報を抽出する
+        
+        Returns:
+            Dict[str, Any]: 価格情報を含む辞書
+            {
+                'starting_price': int,      # スタート価格（円）
+                'sold_price': int or None,  # 落札価格（円、主取り時はNone）
+                'is_unsold': bool          # 主取りフラグ（入札数0の場合にTrue）
+            }
+        """
+        from .components.price_extractor import PriceExtractor
+        
+        try:
+            # PriceExtractorを使用して価格情報を抽出
+            if hasattr(element, 'prettify'):
+                html_content = str(element.prettify())
+            else:
+                html_content = str(element)
+                
+            price_info = PriceExtractor.extract_price(html_content)
+            
+            # 古い形式との互換性のため、priceフィールドも設定
+            price_info['price'] = price_info['sold_price'] if not price_info.get('is_unsold', False) else None
+            
+            return price_info
+            
+        except Exception as e:
+            self.logger.error(f"価格情報の抽出中にエラーが発生しました: {e}", exc_info=True)
+            return {
+                'starting_price': None,
+                'sold_price': None,
+                'is_unsold': False,
+                'price': None  # 互換性のため
+            }
     
     def _extract_horse_info(self, horse_element, index: int, total: int) -> Optional[Dict[str, Any]]:
         """馬の基本情報を抽出するメソッド"""
         try:
-            # 基本情報の取得
-            horse_info = {
-                'id': str(uuid.uuid4()),
-                'created_at': datetime.now().isoformat(),
-                'updated_at': datetime.now().isoformat()
-            }
+            horse_info = {}
             
-            # 詳細ページURLの取得
-            detail_link = horse_element.find('a', href=True)
-            detail_url = urljoin(self.base_url, detail_link['href']) if detail_link else None
+            # 通算成績を抽出
+            record_info = self.race_record_extractor.extract(horse_element)
+            if record_info:
+                horse_info['record'] = record_info.get('record', '')
             
-            try:
-                # 基本情報を抽出
-                basic_info = self.horse_info_extractor.extract(horse_element)
-                if basic_info:
-                    horse_info.update(basic_info)
-                    success = True
-                else:
-                    success = False
-                    self.logger.warning(f"基本情報の抽出に失敗しました")
+            # 価格情報を初期化（詳細ページから取得するため、ここではデフォルト値）
+            horse_info.update({
+                'starting_price': None,
+                'sold_price': None,
+                'is_unsold': False
+            })
+            
+            # 賞金情報を抽出
+            prize_info = self.prize_extractor.extract(horse_element)
+            if prize_info and 'prize_money' in prize_info:
+                horse_info['prize_money'] = prize_info['prize_money']
+            
+            # 画像URLを抽出
+            img_elem = horse_element.select_one('img[src*="/horse/"]')
+            if img_elem and 'src' in img_elem.attrs:
+                horse_info['image_url'] = urljoin(self.base_url, img_elem['src'])
+            
+            # 詳細ページURLを抽出
+            detail_link = horse_element.select_one('a[href*="/horse/"]')
+            if detail_link and 'href' in detail_link.attrs:
+                detail_url = urljoin(self.base_url, detail_link['href'])
+                horse_info['auction_url'] = detail_url
                 
-                # 血統情報を抽出
-                pedigree_info = self.pedigree_extractor.extract(horse_element)
-                if pedigree_info:
-                    horse_info.update(pedigree_info)
-                
-                # 通算成績を抽出
-                record_info = self.race_record_extractor.extract(horse_element)
-                if record_info:
-                    horse_info['record'] = record_info.get('record', '')
-                
-                # 賞金情報を抽出
-                prize_info = self.prize_extractor.extract(horse_element)
-                if prize_info and 'prize_money' in prize_info:
-                    horse_info['prize_money'] = prize_info['prize_money']
-                
-                # 画像URLを抽出
-                img_elem = horse_element.select_one('img[src*="/horse/"]')
-                if img_elem and 'src' in img_elem.attrs:
-                    horse_info['image_url'] = urljoin(self.base_url, img_elem['src'])
-                
-                # 詳細ページURLを設定
-                if detail_url:
-                    horse_info['auction_url'] = detail_url
-                    
-                    # JBIS URLがまだ取得できていない場合は、詳細ページから取得を試みる
-                    if 'jbis_url' not in horse_info or not horse_info['jbis_url']:
-                        jbis_url = self.jbis_link_extractor.extract(horse_element)
-                        if jbis_url:
-                            horse_info['jbis_url'] = jbis_url
-                
-                # JBISから賞金情報を取得（フォールバック）
-                if 'jbis_url' in horse_info and horse_info['jbis_url'] and 'prize_money' not in horse_info:
-                    prize_money = self.get_jbis_prize(horse_info['jbis_url'])
-                    if prize_money is not None:
-                        horse_info['prize_money'] = prize_money
-                
-                # コメントを抽出
-                comment_info = self.comment_extractor.extract(horse_element)
-                if comment_info and 'comment' in comment_info:
-                    horse_info['comment'] = comment_info['comment']
-                    horse_info['disease_tags'] = self._extract_disease_tags(comment_info['comment'])
-                
-                # 落札価格を抽出
-                price_info = self.price_extractor.extract(horse_element)
-                if price_info and 'sold_price' in price_info:
-                    horse_info['sold_price'] = price_info['sold_price']
-                
-                # オークション日付を抽出（例として実装）
-                # 実際の実装では、適切なセレクタを使用して日付を抽出してください
-                # date_elem = horse_element.select_one('.auction-date')
-                # if date_elem:
-                #     horse_info['auction_date'] = date_elem.get_text(strip=True)
-                
-                # 販売者情報を抽出
-                seller_info, _ = self._extract_seller_info(horse_element)
-                if seller_info and 'seller' in seller_info:
-                    horse_info['seller'] = seller_info['seller']
-                
-            except Exception as e:
-                self.logger.error(f"馬情報の抽出中にエラーが発生しました: {e}", exc_info=True)
-                return None
-                
+                # JBIS URLがまだ取得できていない場合は、詳細ページから取得を試みる
+                if 'jbis_url' not in horse_info or not horse_info['jbis_url']:
+                    jbis_url = self.jbis_link_extractor.extract(horse_element)
+                    if jbis_url:
+                        horse_info['jbis_url'] = jbis_url
+            
+            # JBISから賞金情報を取得（フォールバック）
+            if 'jbis_url' in horse_info and horse_info['jbis_url'] and 'prize_money' not in horse_info:
+                prize_money = self.get_jbis_prize(horse_info['jbis_url'])
+                if prize_money is not None:
+                    horse_info['prize_money'] = prize_money
+            
+            # コメントを抽出
+            comment_info = self.comment_extractor.extract(horse_element)
+            if comment_info and 'comment' in comment_info:
+                horse_info['comment'] = comment_info['comment']
+                horse_info['disease_tags'] = self._extract_disease_tags(comment_info['comment'])
+            
+            # 落札価格を抽出
+            price_info = self.price_extractor.extract(horse_element)
+            if price_info and 'sold_price' in price_info:
+                horse_info['sold_price'] = price_info['sold_price']
+            
+            # オークション日付を抽出（例として実装）
+            # 実際の実装では、適切なセレクタを使用して日付を抽出してください
+            # date_elem = horse_element.select_one('.auction-date')
+            # if date_elem:
+            #     horse_info['auction_date'] = date_elem.get_text(strip=True)
+            
+            # 販売者情報を抽出
+            seller_info, _ = self._extract_seller_info(horse_element)
+            if seller_info and 'seller' in seller_info:
+                horse_info['seller'] = seller_info['seller']
+            
             return horse_info
             
         except Exception as e:
-            self.logger.error(f"馬情報の抽出中に予期せぬエラーが発生しました: {e}", exc_info=True)
-            return None
+            self.logger.error(f"馬情報の抽出中にエラーが発生しました: {e}", exc_info=True)
             return None
 
     def scrape_horses(self) -> List[Dict[str, Any]]:
