@@ -49,15 +49,91 @@ export default function AnalysisContent() {
     fetchData();
   }, []);
 
+  const transformHorseData = (horses: any[]): Horse[] => {
+    return horses.map((horse, index) => {
+      // Extract ID from detail_url if available (e.g., .../item/14722)
+      const idFromUrl = horse.detail_url ? 
+        parseInt(horse.detail_url.split('/').pop() || '') || index + 1 : 
+        index + 1;
+      
+      // Create a default history entry with all required fields
+      const historyEntry = {
+        auction_date: horse.auction_date || new Date().toISOString().split('T')[0],
+        name: horse.name || '不明',
+        sex: horse.sex || '不明',
+        age: horse.age || 0,
+        seller: horse.seller || '不明',
+        race_record: horse.race_record || '未出走',
+        comment: horse.comment || 'コメントはありません',
+        sold_price: horse.sold_price || null,
+        total_prize_start: horse.total_prize_start || 0,
+        total_prize_latest: horse.total_prize_latest || 0,
+        detail_url: horse.detail_url || '',
+        weight: horse.weight || null,
+        unsold: horse.unsold || false,
+        unsold_count: horse.unsold_count || 0,
+        primary_image: horse.primary_image || ''
+      };
+
+      return {
+        id: idFromUrl,
+        name: horse.name || '不明',
+        sex: horse.sex || '不明',
+        age: horse.age || 0,
+        color: '不明',
+        birthday: horse.birthday || '不明',
+        history: [historyEntry],
+        sire: horse.sire || '不明',
+        dam: horse.dam || '不明',
+        dam_sire: horse.damsire || '不明',
+        primary_image: horse.primary_image || '',
+        disease_tags: horse.disease_tags ? 
+          (Array.isArray(horse.disease_tags) ? horse.disease_tags : 
+            (horse.disease_tags === 'なし' ? [] : [horse.disease_tags])) : [],
+        weight: horse.weight || null,
+        unsold_count: horse.unsold_count || 0,
+        total_prize_latest: horse.total_prize_latest || 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        detail_url: horse.detail_url || '',
+        jbis_url: horse.jbis_url || '',
+        auction_date: horse.auction_date,
+        seller: horse.seller,
+        sold_price: horse.sold_price
+      };
+    });
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
       const response = await fetch('/data/horses_history.json');
       if (!response.ok) throw new Error('データの取得に失敗しました');
-      const d = await response.json();
-      setData(d);
+      const rawHorses = await response.json();
+      
+      // Transform the data to match the expected structure
+      const horses = transformHorseData(rawHorses);
+      
+      // Calculate statistics for metadata
+      const total_prize = horses.reduce((sum, horse) => 
+        sum + (horse.history?.[0]?.total_prize_latest || 0), 0);
+      
+      const horseData = {
+        horses,
+        metadata: {
+          last_updated: new Date().toISOString(),
+          total_horses: horses.length,
+          average_price: horses.length > 0 ? 
+            Math.round(horses.reduce((sum, h) => sum + (h.history?.[0]?.sold_price || 0), 0) / horses.length) : 0,
+          total_prize,
+          total_horses_with_prize: horses.filter(h => (h.history?.[0]?.total_prize_latest || 0) > 0).length
+        }
+      };
+      
+      setData(horseData);
     } catch (e: any) {
-      setError('データの読み込みに失敗しました');
+      console.error('Error fetching data:', e);
+      setError('データの読み込みに失敗しました: ' + e.message);
     } finally {
       setLoading(false);
     }

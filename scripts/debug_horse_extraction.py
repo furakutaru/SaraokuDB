@@ -359,17 +359,7 @@ class DebugHorseExtractor:
         if damsire_match:
             horse_info['damsire'] = damsire_match.group(1).strip()
         
-        # 馬主の抽出
-        owner_match = re.search(r'馬主[：:]([^\n<]+)', content)
-        if owner_match:
-            horse_info['owner'] = owner_match.group(1).strip()
-        
-        # 生産者の抽出
-        breeder_match = re.search(r'生産者[：:]([^\n<]+)', content)
-        if breeder_match:
-            horse_info['breeder'] = breeder_match.group(1).strip()
-        
-        # テーブルからも抽出を試みる
+        # テーブルから情報を抽出
         table_rows = soup.select('table tr')
         for row in table_rows:
             cols = row.find_all('td')
@@ -383,10 +373,6 @@ class DebugHorseExtractor:
                     horse_info['dam'] = value
                 elif ('母の父' in key or '母父' in key) and 'damsire' not in horse_info:
                     horse_info['damsire'] = value
-                elif '馬主' in key and 'owner' not in horse_info:
-                    horse_info['owner'] = value
-                elif '生産者' in key and 'breeder' not in horse_info:
-                    horse_info['breeder'] = value
     
     def _extract_weight_and_price(self, soup, horse_info):
         """馬体重と落札価格を抽出する"""

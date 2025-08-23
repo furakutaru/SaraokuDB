@@ -26,7 +26,7 @@ interface HorseHistory {
   seller: string;
   race_record: string;
   comment: string;
-  sold_price: number;
+  sold_price: number | null;
   total_prize_start: number;
   unsold?: boolean;
   detail_url?: string; // サラオク公式ページへのリンク
@@ -49,8 +49,8 @@ interface Horse {
   primary_image: string; // メイン画像URL
   disease_tags: string; // 病歴タグ
   jbis_url: string; // JBIS URL
-  weight: number | null; // 体重（またはnull）
-  unsold_count: number | null; // 主取り回数
+  weight?: number; // 体重（またはnull）
+  unsold_count?: number; // 主取り回数
   total_prize_latest: number; // 最新賞金
   created_at: string;
   updated_at: string;
@@ -159,14 +159,66 @@ async function getHorseData(horseId: number): Promise<{ horse: Horse | null; err
       throw new Error(`データの取得に失敗しました (${response.status} ${response.statusText})`);
     }
     
-    const data: HorseData = await response.json();
+    const rawHorses = await response.json();
     
-    // 指定されたIDの馬を検索
-    const horse = data.horses.find(h => h.id === horseId);
+    // データを変換してから検索
+    const horseData = rawHorses.find((h: any) => {
+      // IDはURLから抽出するか、配列のインデックス+1
+      if (h.detail_url) {
+        const idFromUrl = parseInt(h.detail_url.split('/').pop() || '');
+        return idFromUrl === horseId;
+      }
+      return false;
+    });
     
-    if (!horse) {
+    if (!horseData) {
       throw new Error('指定された馬のデータが見つかりません');
     }
+    
+      // デバッグ用に元データをログ出力
+    console.log('元の馬データ:', horseData);
+    
+    // データをHorse型に変換
+    const horse: Horse = {
+      id: horseId,
+      name: horseData.name || '不明',
+      sex: horseData.sex || '不明',
+      age: horseData.age?.toString() || '0',
+      color: '不明',
+      birthday: horseData.birthday || '不明',
+      history: [{
+        auction_date: horseData.auction_date || new Date().toISOString().split('T')[0],
+        name: horseData.name || '不明',
+        sex: horseData.sex || '不明',
+        age: horseData.age?.toString() || '0',
+        seller: horseData.seller || '不明',
+        race_record: horseData.race_record || '未出走',
+        comment: horseData.comment || 'コメントはありません',
+        sold_price: horseData.sold_price !== undefined ? Number(horseData.sold_price) : null,
+        total_prize_start: horseData.total_prize_start || 0,
+        unsold: horseData.unsold || false,
+        detail_url: horseData.detail_url || '',
+        primary_image: horseData.primary_image || '',
+        disease_tags: horseData.disease_tags || '',
+        weight: horseData.weight !== undefined ? Number(horseData.weight) : undefined
+      }],
+      sire: horseData.sire || '不明',
+      dam: horseData.dam || '不明',
+      dam_sire: horseData.damsire || '不明',
+      primary_image: horseData.primary_image || '',
+      disease_tags: horseData.disease_tags || '',
+      jbis_url: horseData.jbis_url || '',
+      // 馬体重が存在しない場合はundefinedのまま
+      weight: horseData.weight !== undefined ? Number(horseData.weight) : undefined,
+      unsold_count: horseData.unsold_count || 0,
+      total_prize_latest: horseData.total_prize_latest || 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      unsold: horseData.unsold || false
+    };
+    
+    // デバッグ用に変換後のデータをログ出力
+    console.log('変換後の馬データ:', horse);
     
     return { horse, error: null };
   } catch (error) {
@@ -519,10 +571,12 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                     <div>
                       <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>基本情報</Typography>
                       <div className="space-y-2 text-sm">
-                        {/* 体重履歴 */}
+                        {/* 体重表示 */}
                         <div className="flex justify-between">
                           <span className="text-gray-600">体重:</span>
-                          <span className="font-medium">{horse.weight !== null ? horse.weight : '-'}kg</span>
+                          <span className="font-medium">
+                            {horse.weight ? `${horse.weight}kg` : '-'}
+                          </span>
                         </div>
                         {/* 販売者履歴 */}
                         <div className="flex justify-between">
@@ -538,6 +592,13 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                         <div className="flex justify-between">
                           <span className="text-gray-600">レース成績:</span>
                           <span className="font-medium">{toArray(latestHistory.race_record).join(' / ')}</span>
+                        </div>
+                        {/* 落札価格 */}
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">落札価格:</span>
+                          <span className="font-medium">
+                            {displayPrice(horse.history[0]?.sold_price, horse.history[0]?.unsold)}
+                          </span>
                         </div>
                         {/* オークションページリンク */}
                         {latestHistory.detail_url && (
