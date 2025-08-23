@@ -12,8 +12,8 @@ class PriceExtractor:
     """落札価格の抽出を行うクラス"""
     
     @staticmethod
-    def extract_price(html_content: str, horse_name: str = '') -> Dict[str, Union[float, bool, None]]:
-        """HTMLから落札価格と主取りフラグを抽出する
+    def extract_price(html_content: str, horse_name: str = '') -> Dict[str, Union[int, bool, None]]:
+        """HTMLから価格情報を抽出する
         
         Args:
             html_content: 抽出元のHTMLコンテンツ
@@ -22,42 +22,86 @@ class PriceExtractor:
         Returns:
             抽出した価格情報を含む辞書
             {
-                'sold_price': float or None,  # 落札価格（万円）
-                'is_unsold': bool            # 主取りフラグ
+                'starting_price': int,      # スタート価格（円）
+                'sold_price': int or None,  # 落札価格（円、主取り時はNone）
+                'is_unsold': bool          # 主取りフラグ（入札数0の場合にTrue）
             }
         """
         result = {
+            'starting_price': 0,
             'sold_price': None,
             'is_unsold': False
         }
         
         try:
+            # 1. スタート価格を抽出
+            start_price_match = re.search(r'開始価格[：:](?:\s*)([\d,]+)(?:\s*)円', html_content)
+            if start_price_match:
+                try:
+                    result['starting_price'] = int(start_price_match.group(1).replace(',', ''))
+                except (ValueError, IndexError) as e:
+                    logger.warning(f"馬名 '{horse_name}': 開始価格の抽出に失敗しました: {e}")
+            
+            # 2. 入札数が0の場合は主取りと判定
+            bid_count_match = re.search(r'入札数\s*:\s*(\d+)', html_content)
+            if bid_count_match:
+                bid_count = int(bid_count_match.group(1))
+                if bid_count == 0:
+                    result['is_unsold'] = True
+                    return result
+            
+            # 2. JavaScriptのデータから価格を抽出（最も信頼性が高い）
+            bid_history_match = re.search(r'var\s+bid_history\s*=\s*(\[.*?\]);', html_content, re.DOTALL)
+            if bid_history_match:
+                import json
+                try:
+                    bid_history = json.loads(bid_history_match.group(1))
+                    if bid_history and len(bid_history) > 0:
+                        # 最終入札価格を取得
+                        last_bid = bid_history[-1]
+                        if 'price' in last_bid:
+                            result['sold_price'] = int(last_bid['price'])
+                            return result
+                except (json.JSONDecodeError, KeyError) as e:
+                    logger.warning(f"馬名 '{horse_name}': 入札履歴の解析に失敗しました: {e}")
+            
+            # 3. 価格パターンマッチング
+            price_patterns = [
+                r'落札価格[：:](?:\s*)([\d,]+)(?:\s*)円',
+                r'現在価格[：:](?:\s*)([\d,]+)(?:\s*)円',
+                r'"current_price"\s*:\s*"?([\d,]+)"?'
+            ]
+            
+            for pattern in price_patterns:
+                match = re.search(pattern, html_content)
+                if match:
+                    try:
+                        price_str = match.group(1).replace(',', '')
+                        result['sold_price'] = int(price_str)
+                        return result
+                    except (ValueError, IndexError) as e:
+                        continue
+            
+            # 4. HTML要素から価格を抽出（最終手段）
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # 主取りチェック
-            unsold_elem = soup.find('div', class_='unsold')
-            if unsold_elem and '主取り' in unsold_elem.get_text():
-                result['is_unsold'] = True
-                return result
+            # 価格を含む可能性のある要素を検索
+            price_elements = soup.find_all(['div', 'span', 'td', 'p'], class_=re.compile(r'(price|sold|bid|amount|value)', re.I))
             
-            # 落札価格の抽出
-            price_elem = soup.find('div', class_='sold-price')
-            if not price_elem:
-                return result
-                
-            price_text = price_elem.get_text(strip=True)
+            for elem in price_elements:
+                price_text = elem.get_text(strip=True)
+                # 数値のみの抽出を試みる
+                match = re.search(r'([\d,]+)(?:\s*)円', price_text)
+                if match:
+                    try:
+                        result['sold_price'] = int(match.group(1).replace(',', ''))
+                        return result
+                    except (ValueError, IndexError):
+                        continue
             
-            # 価格の数値部分を抽出（「1,234万円」→ 1234.0）
-            price_match = re.search(r'[\d,]+', price_text.replace('\u3000', '').replace(' ', ''))
-            if price_match:
-                price_str = price_match.group().replace(',', '')
-                try:
-                    result['sold_price'] = float(price_str) / 10000  # 万円に変換
-                except (ValueError, TypeError) as e:
-                    logger.warning(f"馬名 '{horse_name}': 価格の数値変換に失敗しました: {price_text}")
-            
+            logger.warning(f"馬名 '{horse_name}': 価格要素が見つかりませんでした")
             return result
             
         except Exception as e:
-            logger.error(f"馬名 '{horse_name}': 落札価格の抽出中にエラーが発生しました: {e}")
+            logger.error(f"馬名 '{horse_name}': 落札価格の抽出中にエラーが発生しました: {e}", exc_info=True)
             return result
