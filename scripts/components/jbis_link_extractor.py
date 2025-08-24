@@ -42,6 +42,18 @@ class JbisLinkExtractor:
                     # 相対URLの場合はベースURLと結合
                     if not href.startswith(('http://', 'https://')) and base_url:
                         href = urljoin(base_url, href)
+                    
+                    # URLを正規化（/record/ や /pedigree/ を削除）
+                    if '/record/' in href or '/pedigree/' in href:
+                        # 基本情報ページに正規化
+                        parts = href.split('/')
+                        # 馬番号が含まれる部分を取得（例: /horse/0001368944/）
+                        horse_parts = [p for p in parts if p.startswith('0') and p.isdigit()]
+                        if horse_parts:
+                            horse_id = horse_parts[0]
+                            # 基本情報ページのURLを構築
+                            href = f'https://www.jbis.or.jp/horse/{horse_id}/'
+                    
                     result['jbis_url'] = href
                     break
             
