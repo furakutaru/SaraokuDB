@@ -956,8 +956,18 @@ class ImprovedRakutenScraper:
         Returns:
             Optional[float]: 賞金（万円単位）、取得できない場合はNone
         """
-        if not jbis_url or not jbis_url.startswith('http'):
+        if not jbis_url or not isinstance(jbis_url, str) or not jbis_url.startswith('http'):
             return None
+            
+        # URLを正規化（/record/ や /pedigree/ を削除）
+        if '/record/' in jbis_url or '/pedigree/' in jbis_url:
+            # 基本情報ページにリダイレクト
+            jbis_url = jbis_url.split('/')
+            jbis_url = '/'.join(jbis_url[:5]) + '/'
+            
+        # URLが / で終わっていない場合は追加
+        if not jbis_url.endswith('/'):
+            jbis_url += '/'
         
         retries = 3
         for attempt in range(retries):
@@ -1029,6 +1039,44 @@ class ImprovedRakutenScraper:
                 'price': None  # 互換性のため
             }
     
+    def _extract_disease_tags(self, comment: str) -> list:
+        """コメントから病気タグを抽出する
+        
+        Args:
+            comment: 抽出元のコメントテキスト
+            
+        Returns:
+            list: 抽出された病気タグのリスト
+        """
+        if not comment:
+            return []
+            
+        disease_keywords = [
+            '骨折', '屈腱炎', '屈腱', '骨瘤', '骨膜炎', '骨挫傷', '骨端症', '骨変形',
+            '関節炎', '関節症', '関節内骨折', '関節軟骨損傷', '関節ねんざ',
+            '靭帯損傷', '靭帯炎', '靭帯断裂', '靭帯弛緩',
+            '筋炎', '筋肉痛', '筋肉損傷', '筋挫傷', '筋断裂',
+            '腱炎', '腱鞘炎', '腱断裂', '腱損傷',
+            '蹄葉炎', '蹄壁裂', '蹄底血腫', '蹄叉腐爛',
+            '鼻出血', '喘鳴症', '心房細動', '心雑音', '貧血',
+            '疝痛', '胃潰瘍', '腸炎', '下痢', '便秘',
+            '皮膚病', '脱毛', 'アレルギー', '蕁麻疹',
+            '熱発', '発熱', '感染症', 'ウィルス', '細菌',
+            '腫瘍', '癌', '肉腫', 'リンパ腫',
+            '神経炎', '神経麻痺', '神経障害',
+            '眼病', '白内障', 'ぶどう膜炎', '角膜炎',
+            '歯牙疾患', '歯周病', '不正咬合',
+            '手術歴', '去勢', '避妊手術', '骨折手術',
+            '跛行', '歩様異常', '運動失調'
+        ]
+        
+        found_tags = []
+        for keyword in disease_keywords:
+            if keyword in comment:
+                found_tags.append(keyword)
+                
+        return found_tags
+
     def _extract_horse_info(self, horse_element, index: int, total: int) -> Optional[Dict[str, Any]]:
         """馬の基本情報を抽出するメソッド"""
         try:
@@ -1046,13 +1094,8 @@ class ImprovedRakutenScraper:
                 'is_unsold': False
             })
             
-            # 賞金情報を抽出
-            prize_info = self.prize_extractor.extract(horse_element)
-            if prize_info and 'prize_money' in prize_info:
-                horse_info['prize_money'] = prize_info['prize_money']
-            
             # 画像URLを抽出
-            img_elem = horse_element.select_one('img[src*="/horse/"]')
+            img_elem = horse_element.select_one('img')
             if img_elem and 'src' in img_elem.attrs:
                 horse_info['image_url'] = urljoin(self.base_url, img_elem['src'])
             
@@ -1064,9 +1107,9 @@ class ImprovedRakutenScraper:
                 
                 # JBIS URLがまだ取得できていない場合は、詳細ページから取得を試みる
                 if 'jbis_url' not in horse_info or not horse_info['jbis_url']:
-                    jbis_url = self.jbis_link_extractor.extract(horse_element)
-                    if jbis_url:
-                        horse_info['jbis_url'] = jbis_url
+                    jbis_result = self.jbis_link_extractor.extract(horse_element, self.base_url)
+                    if jbis_result and 'jbis_url' in jbis_result and jbis_result['jbis_url']:
+                        horse_info['jbis_url'] = jbis_result['jbis_url']
             
             # JBISから賞金情報を取得（フォールバック）
             if 'jbis_url' in horse_info and horse_info['jbis_url'] and 'prize_money' not in horse_info:
@@ -1081,7 +1124,7 @@ class ImprovedRakutenScraper:
                 horse_info['disease_tags'] = self._extract_disease_tags(comment_info['comment'])
             
             # 落札価格を抽出
-            price_info = self.price_extractor.extract(horse_element)
+            price_info = self.price_extractor.extract_price(str(horse_element), horse_info.get('name', ''))
             if price_info and 'sold_price' in price_info:
                 horse_info['sold_price'] = price_info['sold_price']
             
