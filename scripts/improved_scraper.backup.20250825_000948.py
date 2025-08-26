@@ -25,40 +25,31 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union, Callable
 from urllib.parse import urljoin, urlparse, parse_qs, urlunparse
-from core.utils.html_saver import HTMLSaver
 
-import logging
+import os
 import re
 import time
 import json
+import logging
 import random
-import functools
 import traceback
-import urllib.parse
-import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
-from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union, Callable
-from urllib.parse import urljoin, urlparse, parse_qs, urlunparse
+from typing import Dict, List, Optional, Any, Tuple, Union
+from datetime import datetime, timedelta
+from urllib.parse import urljoin, urlparse
+
+# パス操作のためのPathをインポート
+from pathlib import Path
 
 import requests
-from bs4 import BeautifulSoup, Tag
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+from bs4 import BeautifulSoup
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ローカルインポート
-from core.utils.html_saver import HTMLSaver
-from cache_manager import CacheManager
 from components.jbis_link_extractor import JbisLinkExtractor
 from components.comment_extractor import CommentExtractor
 from components.race_record_extractor import RaceRecordExtractor
 from components.price_extractor import PriceExtractor
-from components.horse_info_extractor import HorseInfoExtractor
-from components.seller_info_extractor import SellerInfoExtractor
-from .components.prize_info_extractor import PrizeInfoExtractor
-from .components.price_info_extractor import PriceInfoExtractor
 
 # ダミーのBaseExtractorクラスを定義（実際の実装に合わせて修正が必要）
 class BaseExtractor:
@@ -88,7 +79,6 @@ from scripts.components.prize_extractor import PrizeExtractor
 from scripts.components.comment_extractor import CommentExtractor
 from scripts.components.prize_money import CurrentPrizeExtractor, AuctionPrizeExtractor
 from scripts.components.price_extractor import PriceExtractor
-from scripts.core.utils.html_saver import HTMLSaver
 
 # バックエンドモジュールのインポート
 try:
@@ -508,36 +498,37 @@ class ImprovedRakutenScraper:
         Returns:
             logging.Logger: 設定済みのロガーインスタンス
         """
-        # ロガーを取得
-        logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        # ログディレクトリが存在するか確認し、なければ作成
+        log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'debug_logs')
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # ログファイル名をタイムスタンプ付きで生成
+        log_file = os.path.join(log_dir, f'scraper_debug_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
+        
+        # ロガーの設定
+        logger = logging.getLogger('rakuten_scraper')
         logger.setLevel(logging.DEBUG)
         
         # 既存のハンドラをクリア
         for handler in logger.handlers[:]:
             logger.removeHandler(handler)
         
-        # コンソールハンドラ（INFOレベル）
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        
-        # ファイルハンドラ（DEBUGレベル）
-        log_dir = Path('debug_logs')
-        log_dir.mkdir(exist_ok=True)
-        log_file = log_dir / f"scraper_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        # ファイルハンドラの設定
         file_handler = logging.FileHandler(log_file, encoding='utf-8')
         file_handler.setLevel(logging.DEBUG)
         
-        # フォーマッタ
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        console_handler.setFormatter(formatter)
+        # コンソールハンドラの設定
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        
+        # フォーマッタの設定
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
         
         # ハンドラを追加
-        logger.addHandler(console_handler)
         logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
         
         return logger
         
@@ -572,13 +563,9 @@ class ImprovedRakutenScraper:
                 config = ScraperConfig()
         
         # 設定を適用
-        self.config = config
         self.use_cache = config.use_cache
         self.max_workers = config.max_workers
-        self.base_url = "https://auction.keiba.rakuten.co.jp/"
-        
-        # テストモードの設定
-        self.test_mode = isinstance(config, TestConfig)
+        self.base_url = "https://auction.keiba.rakuten.co.jp/"  # ベースURLを追加
         
         # ロガーを設定
         self.logger = self._setup_logger()
@@ -586,25 +573,16 @@ class ImprovedRakutenScraper:
         # 失敗した馬を記録するためのリスト
         self.failed_horses = []
         
-        self.logger.info(f"スクレイパーを初期化します (use_cache={self.use_cache}, max_workers={self.max_workers}")
+        self.logger.info(f"スクレイパーを初期化します (use_cache={self.use_cache}, max_workers={self.max_workers})")
         
-        # キャッシュマネージャーの初期化（デフォルトでは無効）
-        self.cache_manager = None
-        self.use_cache = False  # デフォルトでキャッシュを無効化
-        self.logger.warning("デフォルトでキャッシュは無効化されています")
-        
-        # 明示的に有効化が指定された場合のみキャッシュを使用
-        if hasattr(self.config, 'use_cache') and self.config.use_cache:
-            # cache_dirがPathオブジェクトでない場合はPathオブジェクトに変換
-            cache_dir = Path(self.config.cache_dir) if not isinstance(self.config.cache_dir, Path) else self.config.cache_dir
-            self.cache_manager = CacheManager(base_dir=cache_dir)
-            # 新しいキャッシュセッションを開始
-            self.start_cache_session()
-            self.use_cache = True
-            self.logger.info(f"キャッシュを有効化: {cache_dir}")
+        # キャッシュマネージャーの初期化
+        self.cache_manager = CacheManager(config.cache_dir) if self.use_cache else None
+        if self.use_cache:
+            self.logger.info(f"キャッシュを有効化: {config.cache_dir}")
+        else:
+            self.logger.warning("キャッシュが無効化されています")
             
         # セッションの初期化
-        self.timeout = config.timeout  # timeoutをインスタンス変数として設定
         self.session = self._create_session(
             timeout=config.timeout,
             max_retries=config.max_retries,
@@ -612,108 +590,7 @@ class ImprovedRakutenScraper:
         )
         
         # 抽出コンポーネントの初期化
-        self.horse_info_extractor = HorseInfoExtractor(logger=self.logger)
-        self.seller_info_extractor = SellerInfoExtractor(logger=self.logger)
-        self.comment_extractor = CommentExtractor(logger=self.logger)
-        self.prize_info_extractor = PrizeInfoExtractor(logger=self.logger)
-        self.price_info_extractor = PriceInfoExtractor(logger=self.logger)
-        self.race_record_extractor = RaceRecordExtractor(logger=self.logger)
-        
-        # HTML保存用の初期化
-        self.html_saver = None
-        # デフォルトでHTML保存を有効化
-        self.enable_html_saving(Path('html_dump'))
-    
-    def enable_html_saving(self, base_dir: Union[str, Path]) -> None:
-        """HTML保存機能を有効化する
-        
-        Args:
-            base_dir: HTMLを保存するベースディレクトリ（文字列またはPathオブジェクト）
-        """
-        if isinstance(base_dir, str):
-            base_dir = Path(base_dir)
-        base_dir.mkdir(parents=True, exist_ok=True)
-        self.html_saver = HTMLSaver(base_dir)
-        self.logger.info(f"HTML保存が有効化されました: {base_dir.absolute()}")
-        self.logger.info(f"詳細ページは {base_dir.absolute()}/details/ に保存されます")
-    
-    def _fetch_html(self, url: str, use_cache: bool = True) -> Optional[str]:
-        """HTMLを取得する
-            
-        Args:
-            url: 取得するURL
-            use_cache: キャッシュを使用するかどうか
-                
-        Returns:
-            HTMLコンテンツ（取得失敗時はNone）
-        """
-        try:
-            # キャッシュから取得を試みる
-            if use_cache and self.cache_manager:
-                cached_content = self.cache_manager.get(url)
-                if cached_content:
-                    self.logger.debug(f'キャッシュから取得: {url}')
-                    return cached_content
-            
-            # ウェブから取得
-            self.logger.debug(f'ウェブから取得: {url}')
-            response = self.session.get(url, timeout=30)
-            response.raise_for_status()
-            
-            # エンコーディングを設定
-            response.encoding = 'utf-8'
-            html_content = response.text
-            
-            # HTMLを保存（デバッグ用）
-            if self.html_saver is not None:
-                self.html_saver.save(url, html_content)
-            
-            # キャッシュに保存
-            if use_cache and self.cache_manager:
-                self.cache_manager.set(url, html_content)
-                
-            return html_content
-                
-        except requests.RequestException as e:
-            self.logger.error(f'リクエストエラー: {e}')
-            return None
-        except Exception as e:
-            self.logger.error(f'HTMLの取得中にエラーが発生しました: {e}')
-            return None
-        
-    def _setup_html_dirs(self, base_dir: Optional[Union[str, Path]] = None) -> Tuple[Path, Path]:
-        """HTML保存用のディレクトリ構造をセットアップする
-        
-        注意: このメソッドは互換性のために残されていますが、HTMLSaverクラスを使用することを推奨します。
-        
-        Args:
-            base_dir: ベースディレクトリ（Noneの場合はスクリプトディレクトリの親ディレクトリを使用）
-            
-        Returns:
-            Tuple[Path, Path]: (日付ディレクトリのパス, 詳細ページ用ディレクトリのパス)
-        """
-        if base_dir is None:
-            base_dir = Path(__file__).parent.parent
-        else:
-            base_dir = Path(base_dir)
-            
-        # 日付ベースのディレクトリを作成 (例: 20230825)
-        date_str = datetime.now().strftime("%Y%m%d")
-        date_dir = base_dir / 'html_dump' / date_str
-        detail_dir = date_dir / 'detail'
-        
-        # ディレクトリが存在しない場合は作成
-        date_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-        detail_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-        
-        # HTMLSaverを有効化
-        self.enable_html_saving(date_dir)
-        
-        self.logger.info(f"HTML保存先: {date_dir}")
-        return date_dir, detail_dir
-        
-        # 抽出コンポーネントの初期化
-        self.horse_info_extractor = HorseInfoExtractor()
+        self.horse_info_extractor = HorseBasicInfoExtractor()
         self.jbis_link_extractor = JbisLinkExtractor()
         self.pedigree_extractor = PedigreeExtractor()
         self.race_record_extractor = RaceRecordExtractor()
@@ -727,39 +604,29 @@ class ImprovedRakutenScraper:
         self.output_dir = Path(OUTPUT_DIR)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.logger.info(f"出力先ディレクトリ: {self.output_dir}")
-        
-        # HTML保存機能の初期化（デフォルトでは無効）
-        self.html_saver = None
-        self.logger.info(f"出力先ディレクトリ: {self.output_dir}")
-        
-        # HTML保存用ディレクトリの設定
-        self.date_dir, self.detail_dir = self._setup_html_dirs()
-        
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.output_file = self.output_dir / f'scraped_horses_{self.session_id}.json'
             
     def start_cache_session(self):
-        """キャッシュセッションを開始する
-        
-        Returns:
-            bool: セッションの開始に成功した場合はTrue、失敗した場合はFalse
-        """
+        """キャッシュセッションを開始する"""
         try:
             if not self.use_cache:
                 logger.debug("キャッシュが無効化されています")
                 return False
                 
-            if hasattr(self, 'cache_session') and self.cache_session is not None:
+            if self.cache_session is not None:
                 logger.debug("既にキャッシュセッションが開始されています")
                 return True
                 
             logger.debug("キャッシュセッションを開始します")
-            self.cache_session = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.cache_session = self.cache_manager.start_session()
             return True
+            
         except Exception as e:
-            logger.error(f"キャッシュセッションの開始中にエラーが発生しました: {e}")
+            logger.error(f"キャッシュセッションの開始に失敗: {e}")
+            logger.error(traceback.format_exc())
             return False
-    
+
     def _create_session(self, timeout: int = None, max_retries: int = None, backoff_factor: float = None) -> requests.Session:
         """HTTPセッションを作成します。
         
@@ -772,9 +639,9 @@ class ImprovedRakutenScraper:
             requests.Session: 設定済みのセッションオブジェクト
         """
         # デフォルト値の設定
-        timeout = timeout if timeout is not None else self.config.timeout
-        max_retries = max_retries if max_retries is not None else self.config.max_retries
-        backoff_factor = backoff_factor if backoff_factor is not None else self.config.backoff_factor
+        timeout = timeout if timeout is not None else config.scraper.timeout
+        max_retries = max_retries if max_retries is not None else config.scraper.max_retries
+        backoff_factor = backoff_factor if backoff_factor is not None else config.scraper.backoff_factor
         
         self.logger.debug(f"セッションを作成します (timeout={timeout}, max_retries={max_retries}, backoff_factor={backoff_factor})")
         
@@ -818,215 +685,164 @@ class ImprovedRakutenScraper:
         })
         
         # セッションのタイムアウト設定
-        session.request = functools.partial(session.request, timeout=timeout)
-        
-        # リトライ設定
-        if max_retries is not None:
-            retry_strategy = requests.adapters.HTTPAdapter(
-                max_retries=max_retries,
-                backoff_factor=backoff_factor or 0.1
-            )
-            session.mount('http://', retry_strategy)
-            session.mount('https://', retry_strategy)
             
-        return session
-        
-    def _create_session(self, timeout: int = None, max_retries: int = None, backoff_factor: float = None) -> requests.Session:
-        """HTTPセッションを作成します。
-        
-        Args:
-            timeout: リクエストのタイムアウト（秒）
-            max_retries: 最大リトライ回数
-            backoff_factor: リトライ間の待機時間の係数
-        
-        Returns:
-            requests.Session: 設定済みのセッションオブジェクト
-        """
-        # デフォルト値の設定
-        timeout = timeout if timeout is not None else config.scraper.timeout
-        max_retries = max_retries if max_retries is not None else config.scraper.max_retries
-        backoff_factor = backoff_factor if backoff_factor is not None else config.scraper.backoff_factor
-        
-        self.logger.debug(f"セッションを作成します (timeout={timeout}, max_retries={max_retries}, backoff_factor={backoff_factor})")
-        
-        session = requests.Session()
-        
-        # リトライ設定
-        retry_strategy = Retry(
-            total=max_retries,
-            backoff_factor=backoff_factor,
-            status_forcelist=[500, 502, 503, 504, 429],
-            allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
-            respect_retry_after_header=True
-        )
-    
-        # アダプターの設定
-        adapter = HTTPAdapter(
-            max_retries=retry_strategy,
-            pool_connections=config.scraper.max_workers * 2,
-            pool_maxsize=config.scraper.max_workers * 2,
-            pool_block=False
-        )
-        
-        # セッションにアダプターをマウント
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        
-        # ヘッダー設定
-        session.headers.update({
-            'User-Agent': config.scraper.user_agent,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'DNT': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'same-origin',
-            'Cache-Control': 'max-age=0'
-        })
-        
-        # セッションのタイムアウト設定
-        session.request = functools.partial(session.request, timeout=timeout)
-        
-        return session
-        
-    def scrape_horse_list(self, url: str = None, use_cache: bool = False) -> List[Dict[str, Any]]:
-        """馬の一覧をスクレイピングする
-        
-        Args:
-            url: スクレイピング対象のURL（Noneの場合はベースURLを使用）
-        """
-        try:
-            if self.test_mode:
-                logger.info("テストモード: サンプルデータを返します")
-                return [
-                    {
-                        "id": "test1",
-                        "name": "テスト馬1",
-                        "sire": "テスト父",
-                        "dam": "テスト母",
-                        "damsire": "テスト母父",
-                        "sex": "牡",
-                        "age": 3,
-                        "seller": "テスト牧場",
-                        "auction_date": datetime.now().strftime("%Y-%m-%d"),
-                        "detail_url": f"{self.base_url}detail/1"
-                    },
-                    {
-                        "id": "test2",
-                        "name": "テスト馬2",
-                        "sire": "テスト父2",
-                        "dam": "テスト母2",
-                        "damsire": "テスト母父2",
-                        "sex": "牝",
-                        "age": 2,
-                        "seller": "テスト牧場2",
-                        "auction_date": datetime.now().strftime("%Y-%m-%d"),
-                        "detail_url": f"{self.base_url}detail/2"
-                    },
-                    {
-                        "id": "test3",
-                        "name": "テスト馬3",
-                        "sire": "テスト父3",
-                        "dam": "テスト母3",
-                        "damsire": "テスト母父3",
-                        "sex": "セ",
-                        "age": 4,
-                        "seller": "テスト牧場3",
-                        "auction_date": datetime.now().strftime("%Y-%m-%d"),
-                        "detail_url": f"{self.base_url}detail/3"
-                    }
-                ]
-
-            if url is None:
-                url = self.base_url
-
-            html_content = None
-            if use_cache and hasattr(self, 'cache_manager'):
-                logger.debug(f"キャッシュから読み込みを試みます: {url}")
-                html_content = self.cache_manager.load_html(url)
-                if html_content:
-                    logger.debug(f"キャッシュヒット: {url}")
-                else:
-                    logger.debug(f"キャッシュミス: {url}")
-
-            if not html_content:
-                try:
-                    logger.debug(f"ウェブからデータを取得します: {url}")
-                    response = self.session.get(url, timeout=self.config.timeout)
-                    response.raise_for_status()
-                    
-                    # エンコーディングを設定
-                    response.encoding = 'utf-8'
-                    html_content = response.text
-                    
-                    # HTMLを保存（デバッグ用）
-                    if self.html_saver is not None:
-                        self.html_saver.save(url, html_content)
-                    
-                    # キャッシュに保存（既に_cache_manager.set()で処理されているため不要）
-                    pass
-                except requests.exceptions.RequestException as e:
-                    logger.error(f"リクエストに失敗しました: {e}")
-                    return []
-                        
-            # HTMLをパース
-            soup = BeautifulSoup(html_content, 'html.parser')
-                
-            # 馬の行を取得
-            horse_rows = []
-            # 馬のカードを取得
-            horse_cards = soup.select('.auctionTableCard')
-            total_horses = len(horse_cards)
-            
-            if not horse_cards:
-                # デバッグ用HTML保存処理
-                debug_html = "debug_horse_list.html"
-                with open(debug_html, 'w', encoding='utf-8') as f:
-                    f.write(html_content)
-                logger.warning(f"馬のカードが見つかりませんでした。デバッグ用にHTMLを保存しました: {debug_html}")
-                return []
-                
-            logger.info(f"{total_horses}頭の馬を検出しました")
-
-            # 馬の情報を抽出
-            horses = []
-            failed_count = 0
-            
-            for i, card in enumerate(horse_cards, 1):
-                try:
-                    horse_info = self._extract_horse_info(card, i, total_horses)
-                    if horse_info:
-                        # 詳細ページへのURLを設定
-                        detail_link = card.select_one('a[href*="detail"]')
-                        if detail_link:
-                            horse_info['detail_url'] = urljoin(self.base_url, detail_link.get('href', '').strip())
-                        horses.append(horse_info)
-                    else:
-                        failed_count += 1
-                except Exception as e:
-                    logger.error(f"[{i}/{total_horses}] 馬情報の抽出中にエラーが発生しました: {e}", exc_info=True)
-                    failed_count += 1
-                            
-            # 成功・失敗の集計
-            success_count = len(horses)
-            
-            logger.info("\n=== スクレイピング結果 ===")
-            logger.info(f"総数: {total_horses}頭")
-            logger.info(f"成功: {success_count}頭")
-            logger.info(f"失敗: {failed_count}頭")
-            
-            if failed_count > 0:
-                logger.warning(f"{failed_count}頭の馬情報の抽出に失敗しました")
-            
-            return horses
+        logger.debug("キャッシュセッションを開始します")
+            self.cache_session = self.cache_manager.start_session()
+            return True
                 
         except Exception as e:
-            logger.error(f"馬の一覧のスクレイピング中にエラーが発生しました: {e}", exc_info=True)
-            if self.test_mode:
-                raise  # テストモードの場合は例外を再スロー
+            logger.error(f"キャッシュセッションの開始に失敗: {e}")
+            logger.error(traceback.format_exc())
+            return False
+
+    def _create_session(self, timeout: int = None, max_retries: int = None, backoff_factor: float = None) -> requests.Session:
+    """HTTPセッションを作成します。
+    
+    Args:
+        timeout: リクエストのタイムアウト（秒）
+        max_retries: 最大リトライ回数
+        backoff_factor: リトライ間の待機時間の係数
+        
+    Returns:
+        requests.Session: 設定済みのセッションオブジェクト
+    """
+    # デフォルト値の設定
+    timeout = timeout if timeout is not None else config.scraper.timeout
+    max_retries = max_retries if max_retries is not None else config.scraper.max_retries
+    backoff_factor = backoff_factor if backoff_factor is not None else config.scraper.backoff_factor
+    
+    self.logger.debug(f"セッションを作成します (timeout={timeout}, max_retries={max_retries}, backoff_factor={backoff_factor})")
+    
+    session = requests.Session()
+    
+    # リトライ設定
+    retry_strategy = Retry(
+        total=max_retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=[500, 502, 503, 504, 429],
+        allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
+        respect_retry_after_header=True
+    )
+    
+    # アダプターの設定
+    adapter = HTTPAdapter(
+        max_retries=retry_strategy,
+        pool_connections=config.scraper.max_workers * 2,
+        pool_maxsize=config.scraper.max_workers * 2,
+        pool_block=False
+    )
+    
+    # セッションにアダプターをマウント
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    
+    # ヘッダー設定
+    session.headers.update({
+        'User-Agent': config.scraper.user_agent,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'DNT': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'same-origin',
+        'Cache-Control': 'max-age=0',
+        'Accept-Encoding': 'gzip, deflate, br'
+    })
+    
+    # セッションのタイムアウト設定
+    session.request = functools.partial(session.request, timeout=timeout)
+    
+    return session
+        
+def scrape_horse_list(self, url: str = None, use_cache: bool = None) -> List[Dict[str, Any]]:
+    """
+    馬の一覧をスクレイピングする
+    
+    Args:
+        url: スクレイピング対象のURL（Noneの場合はベースURLを使用）
+        use_cache: キャッシュを使用するかどうか（Noneの場合は設定ファイルの値を使用）
+        
+    Returns:
+        List[Dict[str, Any]]: 馬の情報のリスト
+    """
+    # 設定の取得
+    use_cache = use_cache if use_cache is not None else config.scraper.use_cache
+    max_retries = config.scraper.max_retries
+    backoff_factor = config.scraper.backoff_factor
+    
+    # URLの設定
+    target_url = url if url else self.base_url
+    self.logger.debug(f"スクレイピングを開始します: {target_url}")
+    
+    # キャッシュから読み込み
+    html_content = None
+    if use_cache and hasattr(self, 'cache_manager'):
+        self.logger.debug("キャッシュから読み込みを試みます")
+        html_content = self.cache_manager.load_html(target_url)
+        if html_content:
+            self.logger.debug("キャッシュからHTMLを読み込みました")
+    
+    # キャッシュがない、またはキャッシュを使用しない場合はリクエストを実行
+    if not html_content:
+        self.logger.debug("キャッシュがありません。リクエストを実行します")
+        for attempt in range(max_retries + 1):
+            try:
+                response = self.session.get(
+                    target_url, 
+                    timeout=config.scraper.timeout
+                )
+                response.raise_for_status()
+                html_content = response.text
+                
+                # キャッシュに保存
+                if use_cache and hasattr(self, 'cache_manager'):
+                    self.cache_manager.save_html(target_url, html_content)
+                    self.logger.debug("HTMLをキャッシュに保存しました")
+                break
+            except requests.exceptions.RequestException as e:
+                if attempt == max_retries:
+                    self.logger.error(f"リクエストが{max_retries}回連続で失敗しました: {e}")
+                    return []
+                wait_time = backoff_factor * (2 ** attempt)
+                self.logger.warning(
+                    f"リクエストに失敗しました。{wait_time:.1f}秒後に再試行します... "
+                    f"({attempt + 1}/{max_retries})"
+                )
+                time.sleep(wait_time)
+        
+        # HTMLをパース
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # 馬のカード要素を取得
+            horse_cards = soup.select('.auctionTableCard, .horse-card, [data-testid="horse-card"]')
+            
+            if not horse_cards:
+                self.logger.warning("馬のカード要素が見つかりませんでした")
+                return []
+                
+            self.logger.info(f"{len(horse_cards)}件の馬のカードを検出しました")
+            
+            # 馬の情報を格納するリスト
+            horses = []
+            
+            # 各馬の情報を抽出
+            for i, card in enumerate(horse_cards, 1):
+                try:
+                    horse_info = self._extract_horse_info(card, i, len(horse_cards))
+                    if horse_info:
+                        horses.append(horse_info)
+                except Exception as e:
+                    self.logger.error(f"馬の情報抽出中にエラーが発生しました (馬 {i}/{len(horse_cards)}): {e}", exc_info=True)
+            
+            self.logger.info(f"{len(horses)}件の馬の情報を抽出しました")
+            return horses
+            
+        except Exception as e:
+            self.logger.error(f"HTMLの解析中にエラーが発生しました: {e}", exc_info=True)
             return []
 
     def _clean_horse_name(self, name_elem) -> str:
@@ -1104,113 +920,311 @@ class ImprovedRakutenScraper:
         
         return None
 
-    def _extract_horse_info(self, horse_element, index: int = 0, total: int = 0) -> Tuple[Dict[str, any], List[str]]:
-        """
-        馬の情報を抽出する
+    def _extract_seller_info(self, card) -> Tuple[Optional[Dict[str, str]], bool]:
+        """馬のカードから販売者情報を抽出する
         
         Args:
-            horse_element: 馬情報を含むBeautifulSoup要素
-            index: 処理中のインデックス（ログ出力用）
-            total: 総数（ログ出力用）
+            card: 馬のカード要素 (BeautifulSoupオブジェクト)
             
         Returns:
-            Tuple[Dict[str, any], List[str]]: (馬情報を含む辞書, 不足している必須フィールドのリスト)
+            Tuple[Optional[Dict[str, str]], bool]: (販売者情報を含む辞書, 成功したかどうか)
         """
         try:
-            # 馬名を取得（ログ出力用）
-            horse_name = '不明な馬'
-            name_elem = horse_element.select_one('.horse-name')
-            if name_elem:
-                horse_name = name_elem.get_text(strip=True)
+            # 販売者情報を含む要素を探す
+            # 実際のセレクタはHTMLの構造に合わせて調整が必要
+            seller_elem = card.select_one('.seller-info, .owner-info, .trader')
+            if not seller_elem:
+                return {}, True  # 販売者情報がなくてもエラーとはしない
+                
+            # 販売者名を抽出
+            seller_name = seller_elem.get_text(strip=True)
+            if not seller_name:
+                return {}, True
+                
+            # 販売者名をクリーンアップ
+            seller_name = self._clean_seller_name(seller_name)
             
+            # 販売者URLがあれば取得
+            seller_url = None
+            seller_link = seller_elem.find('a', href=True)
+            if seller_link:
+                seller_url = urljoin(self.base_url, seller_link['href'])
+            
+            # 結果を返す
+            result = {
+                'seller': seller_name
+            }
+            
+            if seller_url:
+                result['seller_url'] = seller_url
+                
+            return result, True
+            
+        except Exception as e:
+            self.logger.error(f"販売者情報の抽出中にエラーが発生しました: {e}", exc_info=True)
+            return None, False
+    
+    def _clean_seller_name(self, seller: str) -> str:
+        """販売者名をクリーンアップする
+        
+        Args:
+            seller: クリーンアップ前の販売者名
+            
+        Returns:
+            str: クリーンアップされた販売者名
+        """
+        if not seller:
+            return ""
+            
+        try:
+            # 不要な空白と改行を削除
+            seller = ' '.join(seller.split())
+            
+            # 不要な接頭辞・接尾辞を削除
+            seller = re.sub(r'^[\s\-\*\+=\~_…]+', '', seller)  # 先頭の記号
+            seller = re.sub(r'[\s\-\*\+=\~_…]+$', '', seller)  # 末尾の記号
+            
+            # 括弧内の不要な情報を削除
+            seller = re.sub(r'\s*\([^)]*\)', '', seller)
+            seller = re.sub(r'\s*\[[^]]*\]', '', seller)
+            seller = re.sub(r'\s*\{[^}]*\}', '', seller)
+            
+            # 連続するスペースを1つに
+            seller = ' '.join(seller.split())
+            
+            return seller.strip()
+            
+        except Exception as e:
+            self.logger.error(f"販売者名のクリーンアップ中にエラーが発生しました: {e}", exc_info=True)
+            return seller  # エラーが発生した場合は元の値を返す
+
+    def get_jbis_prize(self, jbis_url: str) -> Optional[float]:
+        """JBISのページから総賞金を取得する
+        
+        Args:
+            jbis_url (str): JBISの馬詳細ページURL
+            
+        Returns:
+            Optional[float]: 賞金（万円単位）、取得できない場合はNone
+        """
+        if not jbis_url or not isinstance(jbis_url, str) or not jbis_url.startswith('http'):
+            return None
+            
+        # URLを正規化（/record/ や /pedigree/ を削除）
+        if '/record/' in jbis_url or '/pedigree/' in jbis_url:
+            # 基本情報ページにリダイレクト
+            jbis_url = jbis_url.split('/')
+            jbis_url = '/'.join(jbis_url[:5]) + '/'
+            
+        # URLが / で終わっていない場合は追加
+        if not jbis_url.endswith('/'):
+            jbis_url += '/'
+        
+        retries = 3
+        for attempt in range(retries):
+            try:
+                response = self.session.get(jbis_url, timeout=30)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.content, 'html.parser')
+
+                # 方法1: dtタグから総賞金を取得（最も確実）
+                total_prize_dt = soup.find('dt', string=re.compile(r'^\s*総賞金\s*$'))
+                if total_prize_dt:
+                    dd = total_prize_dt.find_next_sibling('dd')
+                    if dd:
+                        prize_text = dd.get_text(strip=True)
+                        # 数値を抽出（例: "9077.9万円" -> 9077.9）
+                        import re
+                        prize_match = re.search(r'([\d,.]+)', prize_text)
+                        if prize_match:
+                            return float(prize_match.group(1).replace(',', ''))
+                
+                # 方法2: テーブルから総賞金を取得
+                prize_table = soup.find('table', class_='tbl-data-01')
+                if prize_table:
+                    # テーブルから総賞金を抽出する処理を追加
+                    pass
+                
+                return None
+                
+            except Exception as e:
+                self.logger.warning(f"JBIS賞金取得に失敗しました (試行 {attempt + 1}/{retries}): {e}")
+                if attempt == retries - 1:
+                    self.logger.error(f"JBIS賞金の取得に失敗しました: {e}", exc_info=True)
+                    return None
+                time.sleep(1)  # 少し待ってからリトライ
+    
+    def _extract_price_info(self, element) -> Dict[str, Any]:
+        """価格情報を抽出する
+        
+        Returns:
+            Dict[str, Any]: 価格情報を含む辞書
+            {
+                'starting_price': int,      # スタート価格（円）
+                'sold_price': int or None,  # 落札価格（円、主取り時はNone）
+                'is_unsold': bool          # 主取りフラグ（入札数0の場合にTrue）
+            }
+        """
+        from .components.price_extractor import PriceExtractor
+        
+        try:
+            # PriceExtractorを使用して価格情報を抽出
+            if hasattr(element, 'prettify'):
+                html_content = str(element.prettify())
+            else:
+                html_content = str(element)
+                
+            price_info = PriceExtractor.extract_price(html_content)
+            
+            # 古い形式との互換性のため、priceフィールドも設定
+            price_info['price'] = price_info['sold_price'] if not price_info.get('is_unsold', False) else None
+            
+            return price_info
+            
+        except Exception as e:
+            self.logger.error(f"価格情報の抽出中にエラーが発生しました: {e}", exc_info=True)
+            return {
+                'starting_price': None,
+                'sold_price': None,
+                'is_unsold': False,
+                'price': None  # 互換性のため
+            }
+    
+    def _extract_disease_tags(self, comment: str) -> list:
+        """コメントから病気タグを抽出する
+        
+        Args:
+            comment: 抽出元のコメントテキスト
+            
+        Returns:
+            list: 抽出された病気タグのリスト
+        """
+        if not comment:
+            return []
+            
+        disease_keywords = [
+            '骨折', '屈腱炎', '屈腱', '骨瘤', '骨膜炎', '骨挫傷', '骨端症', '骨変形',
+            '関節炎', '関節症', '関節内骨折', '関節軟骨損傷', '関節ねんざ',
+            '靭帯損傷', '靭帯炎', '靭帯断裂', '靭帯弛緩',
+            '筋炎', '筋肉痛', '筋肉損傷', '筋挫傷', '筋断裂',
+            '腱炎', '腱鞘炎', '腱断裂', '腱損傷',
+            '蹄葉炎', '蹄壁裂', '蹄底血腫', '蹄叉腐爛',
+            '鼻出血', '喘鳴症', '心房細動', '心雑音', '貧血',
+            '疝痛', '胃潰瘍', '腸炎', '下痢', '便秘',
+            '皮膚病', '脱毛', 'アレルギー', '蕁麻疹',
+            '熱発', '発熱', '感染症', 'ウィルス', '細菌',
+            '腫瘍', '癌', '肉腫', 'リンパ腫',
+            '神経炎', '神経麻痺', '神経障害',
+            '眼病', '白内障', 'ぶどう膜炎', '角膜炎',
+            '歯牙疾患', '歯周病', '不正咬合',
+            '手術歴', '去勢', '避妊手術', '骨折手術',
+            '跛行', '歩様異常', '運動失調'
+        ]
+        
+        found_tags = []
+        for keyword in disease_keywords:
+            if keyword in comment:
+                found_tags.append(keyword)
+                
+        return found_tags
+
+    def _extract_horse_info(self, horse_element, index: int, total: int) -> Optional[Dict[str, Any]]:
+        """馬の基本情報を抽出するメソッド
+        
+        Args:
+            horse_element: 馬情報を含むHTML要素
+            index: 処理中の馬のインデックス（1ベース）
+            total: 総馬数
+            
+        Returns:
+            馬の情報を含む辞書。必須フィールドが不足している場合はNone
+        """
+        try:
+            horse_info = {}
+            missing_fields = []
+            
+            # 処理開始ログ
+            horse_name = horse_element.select_one('.horse-name')
+            horse_name = horse_name.get_text(strip=True) if horse_name else '不明な馬'
             self.logger.debug(f'馬情報の抽出を開始します: {index}/{total} {horse_name}')
             
-            # HorseInfoExtractorを使用して馬の基本情報を抽出
-            horse_info, missing_fields = self.horse_info_extractor.extract(horse_element)
+            # 馬名を抽出（必須）
+            if horse_name and horse_name != '不明な馬':
+                horse_info['name'] = horse_name
+            else:
+                missing_fields.append('name')
             
-            # 馬名をログ出力用に更新
-            horse_name = horse_info.get('name', horse_name)
-            
-            # 血統情報の抽出
-            try:
-                # 父を抽出
-                sire_elem = horse_element.select_one('.sire')
-                if sire_elem:
-                    horse_info['sire'] = sire_elem.get_text(strip=True)
-                else:
-                    # 代替方法で抽出を試みる
-                    sire_text = re.search(r'父[:：]\s*([^\s<]+)', str(horse_element))
-                    if sire_text:
-                        horse_info['sire'] = sire_text.group(1)
-                    else:
-                        missing_fields.append('sire')
-                
-                # 母を抽出
-                dam_elem = horse_element.select_one('.dam')
-                if dam_elem:
-                    horse_info['dam'] = dam_elem.get_text(strip=True)
-                else:
-                    # 代替方法で抽出を試みる
-                    dam_text = re.search(r'母[:：]\s*([^\s<]+)', str(horse_element))
-                    if dam_text:
-                        horse_info['dam'] = dam_text.group(1)
-                    else:
-                        missing_fields.append('dam')
-                
-                # 母父を抽出
-                damsire_elem = horse_element.select_one('.damsire')
-                if damsire_elem:
-                    horse_info['damsire'] = damsire_elem.get_text(strip=True)
-                else:
-                    # 母父が明示的に表示されていない場合は、母の父として抽出を試みる
-                    if 'dam' in horse_info:
-                        damsire_text = re.search(r'母の父[:：]\s*([^\s<]+)', str(horse_element))
-                        if damsire_text:
-                            horse_info['damsire'] = damsire_text.group(1)
-                        else:
-                            missing_fields.append('damsire')
-                    else:
-                        missing_fields.append('damsire')
-                        
-            except Exception as e:
-                self.logger.warning(f'血統情報の抽出中にエラーが発生しました: {e}')
-                missing_fields.extend(['sire', 'dam', 'damsire'])
+            # 性別・年齢を抽出（必須）
+            sex_age_elem = horse_element.select_one('.horse-info')
+            if sex_age_elem:
+                sex_age = sex_age_elem.get_text(strip=True)
+                if sex_age:
+                    # 性別（最初の1文字）
+                    if len(sex_age) > 0:
+                        horse_info['sex'] = sex_age[0]
+                    # 年齢（2文字目以降の数字）
+                    age_match = re.search(r'\d+', sex_age[1:])
+                    if age_match:
+                        horse_info['age'] = int(age_match.group())
             
             # 必須フィールドの確認
-            for field in ['sire', 'dam', 'damsire']:
+            for field in ['sex', 'age']:
                 if field not in horse_info:
-                    if field not in missing_fields:
-                        missing_fields.append(field)
+                    missing_fields.append(field)
+            
+            # 血統情報を抽出（必須）
+            pedigree_elem = horse_element.select_one('.pedigree')
+            if pedigree_elem:
+                # 父・母・母父を抽出
+                sire_elem = pedigree_elem.select_one('.sire')
+                dam_elem = pedigree_elem.select_one('.dam')
+                damsire_elem = pedigree_elem.select_one('.damsire')
+                
+                if sire_elem and (sire := sire_elem.get_text(strip=True)):
+                    horse_info['sire'] = sire
+                else:
+                    missing_fields.append('sire')
+                    
+                if dam_elem and (dam := dam_elem.get_text(strip=True)):
+                    horse_info['dam'] = dam
+                else:
+                    missing_fields.append('dam')
+                    
+                if damsire_elem and (damsire := damsire_elem.get_text(strip=True)):
+                    horse_info['damsire'] = damsire
+                else:
+                    missing_fields.append('damsire')
+            else:
+                missing_fields.extend(['sire', 'dam', 'damsire'])
             
             # 必須フィールドが不足している場合は警告を記録
             if missing_fields:
                 self.logger.warning(
                     f'必須フィールドが不足しています: {horse_name} - 不足フィールド: {missing_fields}'
                 )
+                return None
             
-            # 通算成績の抽出（オプション）
+            # 通算成績を抽出（オプション）
             try:
-                record_info, success = self.race_record_extractor.extract(horse_element)
-                if success and record_info and 'record' in record_info:
+                record_info = self.race_record_extractor.extract(horse_element)
+                if record_info and 'record' in record_info:
                     horse_info['record'] = record_info['record']
             except Exception as e:
                 self.logger.debug(f'通算成績の抽出に失敗しました: {e}')
             
             # 価格情報を初期化（詳細ページから取得するため、ここではデフォルト値）
             horse_info.update({
-                'starting_price': horse_info.get('starting_price'),
-                'sold_price': horse_info.get('sold_price'),
-                'is_unsold': horse_info.get('is_unsold', False)
+                'starting_price': None,
+                'sold_price': None,
+                'is_unsold': False
             })
             
             # 画像URLを抽出（オプション）
-            if 'image_url' not in horse_info:
-                try:
-                    img_elem = horse_element.select_one('img')
-                    if img_elem and 'src' in img_elem.attrs:
-                        horse_info['image_url'] = urljoin(self.base_url, img_elem['src'])
-                except Exception as e:
-                    self.logger.debug(f'画像URLの抽出に失敗しました: {e}')
+            try:
+                img_elem = horse_element.select_one('img')
+                if img_elem and 'src' in img_elem.attrs:
+                    horse_info['image_url'] = urljoin(self.base_url, img_elem['src'])
+            except Exception as e:
                 self.logger.debug(f'画像URLの抽出に失敗しました: {e}')
             
             # 詳細ページURLを抽出（オプション）
@@ -1228,44 +1242,36 @@ class ImprovedRakutenScraper:
             except Exception as e:
                 self.logger.debug(f'詳細ページURLの抽出に失敗しました: {e}')
             
-            # 賞金情報を抽出（オプション）
+            # JBISから賞金情報を取得（フォールバック、オプション）
             try:
-                prize_info, success = self.prize_info_extractor.extract(horse_element)
-                if success and prize_info and 'prize_money' in prize_info:
-                    horse_info['prize_money'] = prize_info['prize_money']
-                elif 'jbis_url' in horse_info and horse_info['jbis_url']:
-                    # 通常の抽出に失敗した場合、JBISから取得を試みる
-                    prize_money = self.prize_info_extractor.extract_from_jbis(horse_info['jbis_url'])
+                if 'jbis_url' in horse_info and horse_info['jbis_url'] and 'prize_money' not in horse_info:
+                    prize_money = self.get_jbis_prize(horse_info['jbis_url'])
                     if prize_money is not None:
                         horse_info['prize_money'] = prize_money
             except Exception as e:
-                self.logger.debug(f'賞金情報の抽出に失敗しました: {e}')
+                self.logger.debug(f'JBISからの賞金情報取得に失敗しました: {e}')
             
             # コメントを抽出（オプション）
             try:
-                comment_info, success = self.comment_extractor.extract(horse_element)
-                if success and comment_info and 'comment' in comment_info:
+                comment_info = self.comment_extractor.extract(horse_element)
+                if comment_info and 'comment' in comment_info:
                     horse_info['comment'] = comment_info['comment']
+                    horse_info['disease_tags'] = self._extract_disease_tags(comment_info['comment'])
             except Exception as e:
                 self.logger.debug(f'コメントの抽出に失敗しました: {e}')
             
-            # 価格情報を抽出（オプション）
+            # 落札価格を抽出（オプション）
             try:
-                price_info, success = self.price_info_extractor.extract(horse_element)
-                if success and price_info:
-                    if 'sold_price' in price_info:
-                        horse_info['sold_price'] = price_info['sold_price']
-                    if 'starting_price' in price_info:
-                        horse_info['starting_price'] = price_info['starting_price']
-                    if 'is_unsold' in price_info:
-                        horse_info['is_unsold'] = price_info['is_unsold']
+                price_info = self.price_extractor.extract_price(str(horse_element), horse_info.get('name', ''))
+                if price_info and 'sold_price' in price_info:
+                    horse_info['sold_price'] = price_info['sold_price']
             except Exception as e:
-                self.logger.debug(f'価格情報の抽出に失敗しました: {e}')
+                self.logger.debug(f'落札価格の抽出に失敗しました: {e}')
             
             # 販売者情報を抽出（オプション）
             try:
-                seller_info, success = self.seller_info_extractor.extract(horse_element)
-                if success and seller_info and 'seller' in seller_info:
+                seller_info, _ = self._extract_seller_info(horse_element)
+                if seller_info and 'seller' in seller_info:
                     horse_info['seller'] = seller_info['seller']
             except Exception as e:
                 self.logger.debug(f'販売者情報の抽出に失敗しました: {e}')
@@ -1281,256 +1287,129 @@ class ImprovedRakutenScraper:
         """馬の一覧をスクレイピングする
         
         Returns:
-            List[Dict[str, Any]]: スクレイピングした馬の情報のリスト
-        
-        Raises:
-            Exception: スクレイピング中にエラーが発生した場合
+            List[Dict[str, Any]]: 馬の情報のリスト
         """
-        all_horse_info = []
-        html_content = None
-        date_str = datetime.now().strftime("%Y%m%d")
+        self.logger.info("馬の一覧をスクレイピングを開始します")
         
-        # プロジェクトルートを取得
-        project_root = Path(__file__).parent.parent
-        debug_dir = project_root / 'debug'
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        date_dir = debug_dir / date_str
-        detail_dir = date_dir / 'detail'
+        # デバッグ用ディレクトリを作成
+        debug_dir = Path('debug')
+        debug_dir.mkdir(exist_ok=True)
         
-        # デバッグディレクトリの作成を試みる
+        # 馬の一覧を取得
         try:
-            debug_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-            date_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-            detail_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-            self.logger.info(f"デバッグディレクトリを作成しました: {debug_dir}")
-        except Exception as e:
-            self.logger.warning(f"メインのデバッグディレクトリの作成に失敗しました: {e}")
-            # フォールバック先として一時ディレクトリを使用
-            debug_dir = Path('/tmp/saraokudb_debug')
-            date_dir = debug_dir / date_str
-            detail_dir = date_dir / 'detail'
-            try:
-                debug_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                date_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                detail_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                self.logger.warning(f"一時ディレクトリを使用します: {debug_dir}")
-            except Exception as fallback_error:
-                self.logger.critical(f"一時ディレクトリの作成にも失敗しました: {fallback_error}")
-                # 最終手段としてカレントディレクトリを使用
-                debug_dir = Path.cwd()
-                date_dir = debug_dir / 'debug_output'
-                detail_dir = date_dir / 'detail'
-                date_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                detail_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                self.logger.warning(f"カレントディレクトリを使用します: {debug_dir}")
-        
-        self.logger.info(f"デバッグファイルの保存先: {date_dir}")
-        
-        # リストページを取得
-        list_page_file = date_dir / 'horse_list.html'
-        
-        # HTMLを取得（キャッシュからまたはウェブから）
-        html_content = self._fetch_html(self.base_url, use_cache=self.use_cache)
-        if not html_content:
-            self.logger.error("リストページの取得に失敗しました")
-            return all_horse_info
-        
-        # リストページを複数の場所に保存
-        save_attempts = [
-            (date_dir, 'horse_list.html'),  # 優先パス
-            (Path.cwd(), f'debug_horse_list_{date_str}.html')  # フォールバックパス
-        ]
-        
-        saved = False
-        for save_dir, filename in save_attempts:
-            save_path = save_dir / filename if isinstance(save_dir, Path) else Path(filename)
-            try:
-                # ディレクトリが存在することを確認
-                if isinstance(save_dir, Path):
-                    save_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                
-                # ファイルに書き込み
-                with open(save_path, 'w', encoding='utf-8') as f:
-                    f.write(html_content)
-                
-                # パーミッション設定
-                save_path.chmod(0o644)
-                
-                self.logger.info(f"リストページを保存しました: {save_path}")
-                saved = True
-                
-                # メインファイルとして使用
-                if save_dir == date_dir:
-                    list_page_file = save_path
+            self.logger.info("馬の一覧ページを取得中...")
+            response = self.session.get(self.base_url, timeout=30)
+            response.raise_for_status()
             
-            except Exception as e:
-                self.logger.warning(f"リストページの保存に失敗しました ({save_path}): {e}")
-                if not os.access(save_dir if isinstance(save_dir, str) else str(save_dir), os.W_OK):
-                    self.logger.warning(f"書き込み権限がありません: {save_dir}")
-        
-        if not saved:
-            self.logger.error("リストページの保存に失敗しました。すべての保存先でエラーが発生しました。")
-            return all_horse_info
-        
-        try:
+            # デバッグ用にHTMLを保存
+            list_html_path = debug_dir / 'horse_list.html'
+            with open(list_html_path, 'w', encoding='utf-8') as f:
+                f.write(response.text)
+            self.logger.info(f"リストページを保存しました: {list_html_path}")
+            
             # HTMLをパース
-            soup = BeautifulSoup(html_content, 'html.parser')
+            soup = BeautifulSoup(response.text, 'html.parser')
             
-            # 馬のカードを取得
+            # 馬のカードを取得（実際のセレクタは要確認）
             horse_cards = soup.select('.auctionTableCard')
             if not horse_cards:
                 self.logger.warning("馬のカードが見つかりませんでした")
-                # デバッグ用にHTMLを保存
-                debug_html_path = date_dir / 'debug_horse_list.html'
-                try:
-                    with open(debug_html_path, 'w', encoding='utf-8') as f:
-                        f.write(html_content)
-                    self.logger.warning(f"デバッグ用のHTMLを保存しました: {debug_html_path}")
-                except Exception as e:
-                    self.logger.error(f"デバッグ用HTMLの保存に失敗しました: {e}")
-                return all_horse_info
+                return []
                 
             self.logger.info(f"{len(horse_cards)}頭の馬を検出しました")
             
             # 馬の情報を抽出
+            horses = []
             for i, card in enumerate(horse_cards, 1):
                 try:
-                    horse_name = "不明な馬"
                     self.logger.debug(f"[{i}/{len(horse_cards)}] 馬情報の抽出を開始")
+                    
+                    # デバッグ用に各馬のHTMLを保存
+                    card_path = debug_dir / f'horse_{i:03d}.html'
+                    with open(card_path, 'w', encoding='utf-8') as f:
+                        f.write(str(card))
                     
                     # 馬情報を抽出
                     horse_info = self._extract_horse_info(card, i, len(horse_cards))
-                    if not horse_info:
-                        continue
+                    if horse_info:
+                        horses.append(horse_info)
+                        self.logger.info(f"[{i}/{len(horse_cards)}] 馬情報を抽出: {horse_info.get('name', '不明')}")
+                    else:
+                        self.logger.warning(f"[{i}/{len(horse_cards)}] 馬情報の抽出に失敗")
                         
-                    horse_name = horse_info.get('name', '不明な馬')
-                    
-                    # 詳細ページのURLを取得
-                    detail_link = card.select_one('a[href*="detail"]')
-                    if not detail_link:
-                        self.logger.warning(f"詳細ページのリンクが見つかりません: {horse_name}")
-                        continue
-                        
-                    detail_url = urljoin(self.base_url, detail_link.get('href', '').strip())
-                    horse_info['detail_url'] = detail_url
-                    
-                    # 詳細ページのパスを設定
-                    detail_path = detail_dir / f'detail_{i:03d}.html'
-                    detail_html = None
-                    
-                    # 1. 既存のファイルから読み込みを試みる
-                    if detail_path.exists():
-                        try:
-                            with open(detail_path, 'r', encoding='utf-8') as f:
-                                detail_html = f.read()
-                            self.logger.debug(f"既存の詳細ページを読み込みました: {detail_path}")
-                        except Exception as e:
-                            self.logger.warning(f"既存の詳細ページの読み込みに失敗しました: {e}")
-                    
-                    # 2. _fetch_htmlを使用してHTMLを取得（キャッシュを使用）
-                    detail_html = self._fetch_html(detail_url, use_cache=self.use_cache)
-                    
-                    if not detail_html:
-                        self.logger.error(f"詳細ページの取得に失敗しました: {detail_url}")
-                        continue
-                        
-                    # 3. デバッグ用にHTMLをローカルに保存
-                    debug_html_dir = Path('debug_html')
-                    debug_html_dir.mkdir(exist_ok=True, mode=0o755)
-                    
-                    # ファイル名をURLから生成（安全なファイル名に変換）
-                    safe_filename = re.sub(r'[^a-zA-Z0-9]', '_', detail_url)[:100] + '.html'
-                    debug_file = debug_html_dir / safe_filename
-                    
-                    try:
-                        with open(debug_file, 'w', encoding='utf-8') as f:
-                            f.write(detail_html)
-                        debug_file.chmod(0o644)  # 読み取り可能なパーミッションを設定
-                        self.logger.info(f"デバッグ用HTMLを保存しました: {debug_file}")
-                    except Exception as e:
-                        self.logger.warning(f"デバッグ用HTMLの保存に失敗しました: {e}")
-                    
-                    # 4. 詳細ページをファイルに保存
-                    if detail_html:
-                        save_attempts = [
-                            (detail_dir, f'detail_{i:03d}.html'),  # 優先パス
-                            (Path.cwd(), f'detail_{i:03d}_{timestamp}.html')  # フォールバックパス
-                        ]
-                        
-                        saved = False
-                        for save_dir, filename in save_attempts:
-                            save_path = save_dir / filename if isinstance(save_dir, Path) else Path(filename)
-                            try:
-                                # ディレクトリが存在することを確認
-                                if isinstance(save_dir, Path):
-                                    save_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                                
-                                # ファイルに書き込み
-                                with open(save_path, 'w', encoding='utf-8') as f:
-                                    f.write(detail_html)
-                                
-                                # パーミッション設定
-                                save_path.chmod(0o644)
-                                
-                                self.logger.info(f"詳細ページを保存しました: {save_path}")
-                                saved = True
-                                break  # 保存に成功したらループを抜ける
-                                
-                            except Exception as e:
-                                self.logger.warning(f"詳細ページの保存に失敗しました ({save_path}): {e}")
-                        
-                    # 馬情報をリストに追加
-                    all_horse_info.append(horse_info)
-                    self.logger.info(f"[{i}/{len(horse_cards)}] 馬情報を抽出しました: {horse_name}")
-                    
                 except Exception as e:
                     self.logger.error(f"[{i}/{len(horse_cards)}] 馬情報の抽出中にエラーが発生しました: {e}", exc_info=True)
-                    
-                    # 失敗した馬の情報を記録
-                    if not hasattr(self, 'failed_horses'):
-                        self.failed_horses = []
-                        
-                    self.failed_horses.append({
-                        'index': i,
-                        'error': str(e),
-                        'horse_name': horse_name if 'horse_name' in locals() else '不明な馬'
-                    })
-                    
-                    continue  # エラーが発生しても次の馬の処理を継続
-                    
+        
         except Exception as e:
-            self.logger.error(f"スクレイピング中に予期しないエラーが発生しました: {e}", exc_info=True)
+            self.logger.error(f"馬の一覧取得中にエラーが発生しました: {e}", exc_info=True)
+            return []
+        
+        if not horses:
+            self.logger.warning("馬の情報を取得できませんでした")
+            return []
             
-        finally:
-            # 結果をJSONファイルに保存
-            try:
-                output_file = self.output_dir / f'scraped_horses_{timestamp}.json'
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    json.dump(all_horse_info, f, ensure_ascii=False, indent=2)
-                self.logger.info(f"スクレイピング結果を保存しました: {output_file}")
-            except Exception as e:
-                self.logger.error(f"スクレイピング結果の保存に失敗しました: {e}")
-                
-            # 失敗した馬がいたらログに記録
-            if hasattr(self, 'failed_horses') and self.failed_horses:
-                failed_file = self.output_dir / f'failed_horses_{timestamp}.json'
-                try:
-                    with open(failed_file, 'w', encoding='utf-8') as f:
-                        json.dump(self.failed_horses, f, ensure_ascii=False, indent=2)
-                    self.logger.warning(f"{len(self.failed_horses)}頭の馬の処理に失敗しました。詳細: {failed_file}")
-                except Exception as e:
-                    self.logger.error(f"失敗した馬の情報の保存に失敗しました: {e}")
+        self.logger.info(f"{len(horses)}頭の馬の情報を取得しました")
+        
+        # 結果をJSONファイルに保存（フロントエンド連携のためhorses_history.jsonで保存）
+        output_file = self.output_dir / 'horses_history.json'
+        try:
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(horses, f, ensure_ascii=False, indent=2)
+            self.logger.info(f"{len(horses)}頭の馬の情報を {output_file} に保存しました")
+        except Exception as e:
+            self.logger.error(f"ファイルの保存中にエラーが発生しました: {e}", exc_info=True)
+        
+        return horses
+
             
-            # フロントエンド連携用にhorses_history.jsonにも保存
-            try:
-                output_file = self.output_dir / 'horses_history.json'
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    json.dump(all_horse_info, f, ensure_ascii=False, indent=2)
-                self.logger.info(f"{len(all_horse_info)}頭の馬の情報を {output_file} に保存しました")
-            except Exception as e:
-                self.logger.error(f"horses_history.jsonの保存に失敗しました: {e}")
-                
-        return all_horse_info
+    def _setup_logging(self):
+        """ロギングの設定を行う"""
+        # ログレベルの設定
+        log_level = logging.DEBUG if isinstance(self.config, TestConfig) else logging.INFO
+        
+        # ルートロガーを取得
+        logger = logging.getLogger()
+        
+        # ルートロガーの設定
+        logger.setLevel(log_level)
+        
+        # コンソールハンドラの設定
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(log_level)
+        
+        # フォーマッタの設定
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        console_handler.setFormatter(formatter)
+        
+        # 既存のハンドラをクリアして新しいハンドラを追加
+        logger.handlers = [console_handler]
+        
+        # デバッグログ用のファイルハンドラを設定
+        try:
+            log_dir = Path('debug_logs')
+            log_dir.mkdir(exist_ok=True, mode=0o755)
+            log_file = log_dir / f'scraper_debug_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+            
+            file_handler = logging.FileHandler(log_file, encoding='utf-8')
+            file_handler.setLevel(logging.DEBUG)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+            logger.debug(f"デバッグログを {log_file.absolute()} に出力します")
+            
+        except Exception as e:
+            logger.warning(f"デバッグログファイルの作成に失敗しました: {e}")
+        
+        # 他モジュールのログレベルを設定
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+        logging.getLogger('requests').setLevel(logging.WARNING)
+        logging.getLogger('selenium').setLevel(logging.WARNING)
+        logging.getLogger('bs4').setLevel(logging.WARNING)
+        
+        # テストモードの場合は追加のログを出力
+        if isinstance(self.config, TestConfig):
+            logger.info("テストモードで初期化しました")
+            logger.info(f"キャッシュディレクトリ: {self.cache_dir.absolute()}")
+            logger.info(f"並列処理: {self.max_workers} ワーカー")
 
     def analyze_failed_horses(self):
         """失敗した馬の情報を分析する
@@ -1621,46 +1500,24 @@ def main():
     parser = argparse.ArgumentParser(description='楽天競馬オークションのスクレイピングを実行します')
     parser.add_argument('--test', action='store_true', help='テストモードで実行')
     parser.add_argument('--workers', type=int, default=5, help='並列処理のワーカー数')
-    parser.add_argument('--cache', action='store_true', default=False, 
-                      help='キャッシュを使用する（デフォルト: 無効）')
-    parser.add_argument('--no-cache', action='store_false', dest='cache',
-                      help='キャッシュを使用しない（デフォルト）')
+    parser.add_argument('--no-cache', action='store_false', dest='use_cache', 
+                       help='キャッシュを使用しない（デフォルト: 有効）')
     parser.add_argument('--cache-dir', default='cache', help='キャッシュディレクトリのパス')
     args = parser.parse_args()
 
     try:
-        # 設定の初期化
+        # 設定の初期化（キャッシュをデフォルトで有効化）
         config = ScraperConfig(
             max_workers=args.workers,
-            use_cache=args.cache,  # args.cache を使用
+            use_cache=args.use_cache,
             cache_dir=args.cache_dir
         )
         
-        # 出力ディレクトリの設定
-        output_dir = Path('output')
-        output_dir.mkdir(exist_ok=True)
-        
         # スクレイパーの初期化
         if args.test:
-            config = TestConfig(use_cache=args.cache, cache_dir=args.cache_dir)
+            scraper = ImprovedRakutenScraper(TestConfig(use_cache=args.use_cache, cache_dir=args.cache_dir))
         else:
-            config = ScraperConfig(
-                max_workers=args.workers,
-                use_cache=args.cache,
-                cache_dir=args.cache_dir,
-                timeout=config.timeout,
-                max_retries=config.max_retries,
-                backoff_factor=config.backoff_factor
-            )
-        
-        scraper = ImprovedRakutenScraper(config)
-            
-        # 出力ディレクトリを設定
-        scraper.output_dir = output_dir
-            
-        # HTML保存を有効化（既にデフォルトで有効化されているが、明示的に指定）
-        html_dump_dir = Path('html_dump')
-        scraper.enable_html_saving(html_dump_dir)
+            scraper = ImprovedRakutenScraper(config)
 
         # 馬の一覧をスクレイピング
         logger.info("馬の一覧をスクレイピングを開始します")
