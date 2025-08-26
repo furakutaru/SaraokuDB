@@ -25,47 +25,42 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union, Callable
 from urllib.parse import urljoin, urlparse, parse_qs, urlunparse
-from core.utils.html_saver import HTMLSaver
-
-import logging
-import re
-import time
-import json
-import random
-import functools
-import traceback
-import urllib.parse
-import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union, Callable
-from urllib.parse import urljoin, urlparse, parse_qs, urlunparse
 
 import requests
 from bs4 import BeautifulSoup, Tag
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from typing import Optional
 
 # ローカルインポート
 from core.utils.html_saver import HTMLSaver
-from cache_manager import CacheManager
-from components.jbis_link_extractor import JbisLinkExtractor
+from core.cache.cache_manager import CacheManager
 from components.comment_extractor import CommentExtractor
 from components.race_record_extractor import RaceRecordExtractor
 from components.price_extractor import PriceExtractor
 from components.horse_info_extractor import HorseInfoExtractor
 from components.seller_info_extractor import SellerInfoExtractor
-from .components.prize_info_extractor import PrizeInfoExtractor
-from .components.price_info_extractor import PriceInfoExtractor
+from components.prize_info_extractor import PrizeInfoExtractor
+from components.price_info_extractor import PriceInfoExtractor
+from components.image_extractor import ImageExtractor
 
-# ダミーのBaseExtractorクラスを定義（実際の実装に合わせて修正が必要）
-class BaseExtractor:
-    pass
+# BaseExtractor は components.image_extractor からインポートされます
 
 # デフォルトの定数
 DEFAULT_TIMEOUT = 30  # デフォルトのタイムアウト（秒）
+
+# 健康状態のキーワード
+HEALTH_KEYWORDS = [
+    '喘鳴', '喘鳴症', '喉頭', '軟口蓋', '麻痺', '跛行', '屈腱炎', '骨折', '裂蹄',
+    '骨瘤', '繋靭帯炎', 'ソエ', '管骨瘤', '飛節', '飛節炎', '球節', '球節炎',
+    '屈腱', '屈腱部', '屈腱炎', '靭帯', '靭帯炎', '骨片', '骨瘤', '骨膜炎',
+    '骨端症', '骨瘤', '骨瘤形成', '骨棘', '骨棘形成', '骨膜', '骨膜反応',
+    '骨膜性骨化', '骨膜性反応', '骨膜性変化', '骨膜性増殖', '骨膜性肥厚',
+    '骨膜性石灰化', '骨膜性硬化', '骨膜性骨化', '骨膜性反応', '骨膜性変化',
+    '骨膜性増殖', '骨膜性肥厚', '骨膜性石灰化', '骨膜性硬化', '骨膜性骨化',
+    '骨膜性反応', '骨膜性変化', '骨膜性増殖', '骨膜性肥厚', '骨膜性石灰化',
+    '骨膜性硬化'
+]
 MAX_RETRIES = 3  # デフォルトの最大リトライ回数
 BACKOFF_FACTOR = 0.5  # 指数バックオフの係数
 
@@ -121,184 +116,9 @@ BACKOFF_FACTOR = config.scraper.backoff_factor
 MAX_WORKERS = config.scraper.max_workers
 USER_AGENT = config.scraper.user_agent
 
-# 健康関連のキーワード
-HEALTH_KEYWORDS = [
-    '手術歴', '骨折', '皮膚病', '屈腱炎', '腫れ', '咽頭虚脱', '脱臼', '跛行', '打撲'
-]
-
-class CacheManager:
-    """HTMLキャッシュを管理するクラス"""
-    
-    def __init__(self, base_dir: Path = None):
-        """
-        キャッシュマネージャーを初期化します。
-        
-        Args:
-            base_dir: キャッシュディレクトリのパス（指定しない場合は設定値を使用）
-        """
-        self.base_dir = base_dir if base_dir is not None else config.cache.cache_dir
-        self.base_dir.mkdir(parents=True, exist_ok=True)
-        self.cache = {}
-        self._load_cache()
-        logger.info(f"キャッシュディレクトリ: {self.base_dir}")
-        
-    def _get_cache_path(self, url: str) -> Path:
-        """
-        URLからキャッシュファイルのパスを生成します。
-        
-        Args:
-            url: キャッシュするURL
-            
-        Returns:
-            Path: キャッシュファイルのパス
-        """
-        # URLをハッシュ化してファイル名を生成
-        url_hash = hashlib.md5(url.encode('utf-8')).hexdigest()
-        cache_dir = self.base_dir / "details"
-        cache_dir.mkdir(exist_ok=True, parents=True)
-        return cache_dir / f"{url_hash}.html"
-    
-    def load_html(self, url: str) -> Optional[str]:
-        """
-        URLに対応するキャッシュされたHTMLを読み込みます。
-        
-        Args:
-            url: 読み込むHTMLのURL
-            
-        Returns:
-            str: キャッシュされたHTMLコンテンツ。見つからない場合はNone
-        """
-        cache_path = self._get_cache_path(url)
-        if not cache_path.exists():
-            return None
-            
-        try:
-            with open(cache_path, 'r', encoding='utf-8') as f:
-                return f.read()
-        except Exception as e:
-            logger.error(f"キャッシュの読み込みに失敗しました: {cache_path} - {e}")
-            return None
-            
-    def save_html(self, url: str, content: str) -> bool:
-        """
-        HTMLコンテンツをキャッシュに保存します。
-        
-        Args:
-            url: キャッシュするHTMLのURL
-            content: 保存するHTMLコンテンツ
-            
-        Returns:
-            bool: 保存に成功した場合はTrue、失敗した場合はFalse
-        """
-        try:
-            cache_path = self._get_cache_path(url)
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            with open(cache_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-                
-            logger.debug(f"HTMLをキャッシュに保存しました: {cache_path}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"キャッシュの保存に失敗しました: {url} - {e}")
-            return False
-            
-    def _load_cache(self) -> None:
-        """既存のキャッシュをメモリに読み込みます。"""
-        if not self.base_dir.exists():
-            logger.warning(f"キャッシュディレクトリが存在しません: {self.base_dir}")
-            return
-            
-        cache_dir = self.base_dir / "details"
-        if not cache_dir.exists():
-            logger.warning(f"詳細キャッシュディレクトリが存在しません: {cache_dir}")
-            return
-            
-        for file in cache_dir.glob('*.html'):
-            try:
-                with open(file, 'r', encoding='utf-8') as f:
-                    self.cache[file.stem] = f.read()
-            except Exception as e:
-                logger.error(f"キャッシュファイルの読み込み中にエラーが発生しました: {file} - {e}")
-        
-        logger.info(f"キャッシュを読み込みました: {len(self.cache)} 件")
-    
-    def get(self, url: str) -> Optional[str]:
-        """
-        キャッシュからHTMLを取得します。
-        
-        Args:
-            url: 取得するURL
-            
-        Returns:
-            str: キャッシュされたHTMLコンテンツ、またはNone
-        """
-        if not config.cache.enabled:
-            return None
-            
-        cache_file = self._get_cache_path(url)
-        if cache_file.exists():
-            try:
-                with open(cache_file, 'r', encoding='utf-8') as f:
-                    logger.debug(f"キャッシュから読み込み: {url} -> {cache_file}")
-                    return f.read()
-            except Exception as e:
-                logger.error(f"キャッシュの読み込み中にエラーが発生しました: {cache_file} - {e}")
-        return None
-    
-    def set(self, url: str, content: str) -> None:
-        """
-        HTMLをキャッシュに保存します。
-        
-        Args:
-            url: キャッシュするURL
-            content: キャッシュするHTMLコンテンツ
-        """
-        if not config.cache.enabled:
-            return
-            
-        cache_file = self._get_cache_path(url)
-        try:
-            with open(cache_file, 'w', encoding='utf-8') as f:
-                f.write(content)
-            self.cache[cache_file.stem] = content
-            logger.debug(f"キャッシュに保存: {url} -> {cache_file}")
-        except Exception as e:
-            logger.error(f"キャッシュの保存中にエラーが発生しました: {cache_file} - {e}")
-    
-    def clear_expired(self, expire_days: int = 30) -> int:
-        """
-        有効期限が切れたキャッシュを削除します。
-        
-        Args:
-            expire_days: 有効期限（日数）
-            
-        Returns:
-            int: 削除したキャッシュファイルの数
-        """
-        if not self.base_dir.exists():
-            return 0
-            
-        cache_dir = self.base_dir / "details"
-        if not cache_dir.exists():
-            return 0
-            
-        expired_time = time.time() - (expire_days * 24 * 60 * 60)
-        deleted_count = 0
-        
-        for file in cache_dir.glob('*.html'):
-            try:
-                if file.stat().st_mtime < expired_time:
-                    file.unlink()
-                    deleted_count += 1
-                    if file.stem in self.cache:
-                        del self.cache[file.stem]
-            except Exception as e:
-                logger.error(f"キャッシュの削除中にエラーが発生しました: {file} - {e}")
-        
-        logger.info(f"有効期限切れのキャッシュを削除しました: {deleted_count} 件")
-        return deleted_count
+# キャッシュ関連の設定
+CACHE_DIR = config.cache.cache_dir
+OUTPUT_DIR = config.output.output_dir
 
 def extract_prize_from_auction(html_content: str, horse_name: str) -> Dict[str, any]:
     """
@@ -444,27 +264,33 @@ try:
         save_auction_history,
         load_json_file
     )
-except ImportError:
-    # テスト用のモック関数
+except ImportError as e:
+    logger.warning(f"バックエンドモジュールのインポートに失敗しました: {e}")
+    # モック関数を定義
     def save_horse(*args, **kwargs):
-        pass
+        logger.warning("バックエンドモジュールが利用できないため、ダミー関数が呼び出されました")
+        return None
     
     def save_auction_history(*args, **kwargs):
-        pass
+        logger.warning("バックエンドモジュールが利用できないため、ダミー関数が呼び出されました")
+        return None
     
     def load_json_file(*args, **kwargs):
+        logger.warning("バックエンドモジュールが利用できないため、ダミー関数が呼び出されました")
         return {}
 
 class ScraperConfig:
     """スクレイパーの設定を管理するクラス"""
     
-    def __init__(self, 
-                 max_workers: int = 5, 
-                 use_cache: bool = True, 
-                 cache_dir: str = 'cache',
-                 timeout: int = DEFAULT_TIMEOUT,
-                 max_retries: int = MAX_RETRIES,
-                 backoff_factor: float = BACKOFF_FACTOR):
+    def __init__(
+        self,
+        max_workers: int = 5, 
+        use_cache: bool = True, 
+        cache_dir: str = 'cache',
+        timeout: int = DEFAULT_TIMEOUT,
+        max_retries: int = MAX_RETRIES,
+        backoff_factor: float = BACKOFF_FACTOR
+    ):
         """
         初期化メソッド
         
@@ -573,8 +399,6 @@ class ImprovedRakutenScraper:
         
         # 設定を適用
         self.config = config
-        self.use_cache = config.use_cache
-        self.max_workers = config.max_workers
         self.base_url = "https://auction.keiba.rakuten.co.jp/"
         
         # テストモードの設定
@@ -586,11 +410,12 @@ class ImprovedRakutenScraper:
         # 失敗した馬を記録するためのリスト
         self.failed_horses = []
         
-        self.logger.info(f"スクレイパーを初期化します (use_cache={self.use_cache}, max_workers={self.max_workers}")
-        
         # キャッシュマネージャーの初期化（デフォルトでは無効）
         self.cache_manager = None
         self.use_cache = False  # デフォルトでキャッシュを無効化
+        self.max_workers = config.max_workers
+        
+        self.logger.info(f"スクレイパーを初期化します (use_cache={self.use_cache}, max_workers={self.max_workers})")
         self.logger.warning("デフォルトでキャッシュは無効化されています")
         
         # 明示的に有効化が指定された場合のみキャッシュを使用
@@ -618,6 +443,7 @@ class ImprovedRakutenScraper:
         self.prize_info_extractor = PrizeInfoExtractor(logger=self.logger)
         self.price_info_extractor = PriceInfoExtractor(logger=self.logger)
         self.race_record_extractor = RaceRecordExtractor(logger=self.logger)
+        self.image_extractor = ImageExtractor(logger=self.logger)
         
         # HTML保存用の初期化
         self.html_saver = None
@@ -746,18 +572,18 @@ class ImprovedRakutenScraper:
         """
         try:
             if not self.use_cache:
-                logger.debug("キャッシュが無効化されています")
+                self.logger.debug("キャッシュが無効化されています")
                 return False
                 
             if hasattr(self, 'cache_session') and self.cache_session is not None:
-                logger.debug("既にキャッシュセッションが開始されています")
+                self.logger.debug("既にキャッシュセッションが開始されています")
                 return True
                 
-            logger.debug("キャッシュセッションを開始します")
+            self.logger.debug("キャッシュセッションを開始します")
             self.cache_session = datetime.now().strftime("%Y%m%d_%H%M%S")
             return True
         except Exception as e:
-            logger.error(f"キャッシュセッションの開始中にエラーが発生しました: {e}")
+            self.logger.error(f"キャッシュセッションの開始中にエラーが発生しました: {e}")
             return False
     
     def _create_session(self, timeout: int = None, max_retries: int = None, backoff_factor: float = None) -> requests.Session:
@@ -767,7 +593,7 @@ class ImprovedRakutenScraper:
             timeout: リクエストのタイムアウト（秒）
             max_retries: 最大リトライ回数
             backoff_factor: リトライ間の待機時間の係数
-            
+        
         Returns:
             requests.Session: 設定済みのセッションオブジェクト
         """
@@ -788,83 +614,12 @@ class ImprovedRakutenScraper:
             allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
             respect_retry_after_header=True
         )
-        
-        # アダプターの設定
-        adapter = HTTPAdapter(
-            max_retries=retry_strategy,
-            pool_connections=config.scraper.max_workers * 2,
-            pool_maxsize=config.scraper.max_workers * 2,
-            pool_block=False
-        )
-        
-        # セッションにアダプターをマウント
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        
-        # ヘッダー設定
-        session.headers.update({
-            'User-Agent': config.scraper.user_agent,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'DNT': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'same-origin',
-            'Cache-Control': 'max-age=0',
-            'Accept-Encoding': 'gzip, deflate, br'
-        })
-        
-        # セッションのタイムアウト設定
-        session.request = functools.partial(session.request, timeout=timeout)
-        
-        # リトライ設定
-        if max_retries is not None:
-            retry_strategy = requests.adapters.HTTPAdapter(
-                max_retries=max_retries,
-                backoff_factor=backoff_factor or 0.1
-            )
-            session.mount('http://', retry_strategy)
-            session.mount('https://', retry_strategy)
-            
-        return session
-        
-    def _create_session(self, timeout: int = None, max_retries: int = None, backoff_factor: float = None) -> requests.Session:
-        """HTTPセッションを作成します。
-        
-        Args:
-            timeout: リクエストのタイムアウト（秒）
-            max_retries: 最大リトライ回数
-            backoff_factor: リトライ間の待機時間の係数
-        
-        Returns:
-            requests.Session: 設定済みのセッションオブジェクト
-        """
-        # デフォルト値の設定
-        timeout = timeout if timeout is not None else config.scraper.timeout
-        max_retries = max_retries if max_retries is not None else config.scraper.max_retries
-        backoff_factor = backoff_factor if backoff_factor is not None else config.scraper.backoff_factor
-        
-        self.logger.debug(f"セッションを作成します (timeout={timeout}, max_retries={max_retries}, backoff_factor={backoff_factor})")
-        
-        session = requests.Session()
-        
-        # リトライ設定
-        retry_strategy = Retry(
-            total=max_retries,
-            backoff_factor=backoff_factor,
-            status_forcelist=[500, 502, 503, 504, 429],
-            allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
-            respect_retry_after_header=True
-        )
     
         # アダプターの設定
         adapter = HTTPAdapter(
             max_retries=retry_strategy,
-            pool_connections=config.scraper.max_workers * 2,
-            pool_maxsize=config.scraper.max_workers * 2,
+            pool_connections=self.config.max_workers * 2,
+            pool_maxsize=self.config.max_workers * 2,
             pool_block=False
         )
         
@@ -873,8 +628,8 @@ class ImprovedRakutenScraper:
         session.mount("https://", adapter)
         
         # ヘッダー設定
-        session.headers.update({
-            'User-Agent': config.scraper.user_agent,
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
             'Accept-Encoding': 'gzip, deflate, br',
@@ -885,13 +640,19 @@ class ImprovedRakutenScraper:
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'same-origin',
             'Cache-Control': 'max-age=0'
-        })
+        }
         
-        # セッションのタイムアウト設定
-        session.request = functools.partial(session.request, timeout=timeout)
+        # カスタムユーザーエージェントが指定されていれば使用
+        if hasattr(self.config, 'user_agent') and self.config.user_agent:
+            headers['User-Agent'] = self.config.user_agent
+            
+        session.headers.update(headers)
         
         return session
-        
+
+
+# RaceRecordExtractor は components.race_record_extractor からインポートされます
+
     def scrape_horse_list(self, url: str = None, use_cache: bool = False) -> List[Dict[str, Any]]:
         """馬の一覧をスクレイピングする
         
@@ -900,7 +661,7 @@ class ImprovedRakutenScraper:
         """
         try:
             if self.test_mode:
-                logger.info("テストモード: サンプルデータを返します")
+                self.logger.info("テストモード: サンプルデータを返します")
                 return [
                     {
                         "id": "test1",
@@ -1206,12 +967,22 @@ class ImprovedRakutenScraper:
             # 画像URLを抽出（オプション）
             if 'image_url' not in horse_info:
                 try:
-                    img_elem = horse_element.select_one('img')
-                    if img_elem and 'src' in img_elem.attrs:
-                        horse_info['image_url'] = urljoin(self.base_url, img_elem['src'])
+                    # まず詳細ページから高解像度の画像を取得
+                    if 'auction_url' in horse_info and horse_info['auction_url']:
+                        detail_html = self._fetch_html(horse_info['auction_url'], use_cache=self.use_cache)
+                        if detail_html:
+                            # ImageExtractorを使用して高解像度の画像URLを取得
+                            image_url = self.image_extractor.extract(detail_html)
+                            if image_url:
+                                horse_info['image_url'] = urljoin(self.base_url, image_url)
+                    
+                    # 詳細ページから取得できなかった場合は、サムネイル画像を使用
+                    if 'image_url' not in horse_info:
+                        img_elem = horse_element.select_one('img')
+                        if img_elem and 'src' in img_elem.attrs:
+                            horse_info['image_url'] = urljoin(self.base_url, img_elem['src'])
                 except Exception as e:
                     self.logger.debug(f'画像URLの抽出に失敗しました: {e}')
-                self.logger.debug(f'画像URLの抽出に失敗しました: {e}')
             
             # 詳細ページURLを抽出（オプション）
             try:

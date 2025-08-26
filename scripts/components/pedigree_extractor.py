@@ -15,8 +15,15 @@ logger = logging.getLogger(__name__)
 class PedigreeExtractor:
     """馬の血統情報を抽出するクラス"""
     
-    @staticmethod
-    def extract(soup) -> Dict[str, str]:
+    def __init__(self, logger=None):
+        """初期化メソッド
+        
+        Args:
+            logger: ロガーインスタンス（指定しない場合は新規作成）
+        """
+        self.logger = logger or logging.getLogger(__name__)
+    
+    def extract(self, soup) -> Dict[str, str]:
         """BeautifulSoupオブジェクトから血統情報を抽出する
         
         Args:
