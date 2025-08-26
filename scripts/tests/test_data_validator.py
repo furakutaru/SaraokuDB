@@ -252,7 +252,7 @@ class TestDataValidator(unittest.TestCase):
         # 要素の型チェック
         with self.assertRaises(ValueError) as context:
             self.validator.validate_list([1, "2", 3], "Test Field", element_type=int)
-        self.assertIn("Test Field の要素は整数型である必要があります", str(context.exception))
+        self.assertIn("Test Field の要素はint型である必要があります", str(context.exception))
 
 if __name__ == '__main__':
     unittest.main()

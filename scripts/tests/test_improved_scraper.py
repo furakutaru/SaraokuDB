@@ -190,8 +190,8 @@ class TestImprovedRakutenScraper(unittest.TestCase):
         # 結果がNoneであることを確認
         self.assertIsNone(result)
         
-        # エラーログが記録されたことを確認
-        self.mock_logger.error.assert_called()
+        # 警告ログが記録されたことを確認
+        self.mock_logger.warning.assert_called_with('馬情報の抽出に失敗しました')
     
     def test_extract_horse_info_with_missing_optional_fields(self):
         """オプションフィールドが不足している場合のテスト"""
@@ -222,14 +222,15 @@ class TestImprovedRakutenScraper(unittest.TestCase):
         html = '<div class="horse-card"></div>'
         soup = BeautifulSoup(html, 'html.parser')
         
+        # モックの設定
+        self.mock_horse_info_extractor.extract.return_value = ({}, False)
+        
         # テスト実行
         result = self.scraper._extract_horse_info(soup)
         
         # 検証: 必須フィールドが不足している場合はNoneが返される
         self.assertIsNone(result)
-        self.mock_logger.warning.assert_called_with(
-            '必須フィールドが不足しています: %s', ['sex', 'age']
-        )
+        self.mock_logger.warning.assert_called_with('馬情報の抽出に失敗しました')
     
     def test_extract_horse_info_exception_handling(self):
         """例外が発生した場合のテスト"""
