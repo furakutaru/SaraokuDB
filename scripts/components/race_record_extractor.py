@@ -1,47 +1,45 @@
 """
-通算成績を抽出するモジュール
+レース実績情報を抽出するモジュール
 """
-import re
-import logging
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Any, List
+from bs4 import BeautifulSoup
+from .base_extractor import BaseExtractor
 
-
-class RaceRecordExtractor:
-    """通算成績を抽出するクラス"""
+class RaceRecordExtractor(BaseExtractor):
+    """レース実績情報を抽出するクラス"""
     
-    def __init__(self, logger: logging.Logger = None):
-        """初期化メソッド
-        
-        Args:
-            logger: ロガーインスタンス（Noneの場合は新規作成）
+    def extract(self, html_content: str) -> Dict[str, Any]:
         """
-        self.logger = logger or logging.getLogger(__name__)
-    
-    def extract(self, element) -> Tuple[Optional[Dict[str, str]], bool]:
-        """通算成績を抽出する
+        馬の詳細ページからレース実績情報を抽出する
         
         Args:
-            element: BeautifulSoup要素
+            html_content (str): 馬の詳細ページのHTML
             
         Returns:
-            Tuple[Optional[Dict[str, str]], bool]: 
-                (通算成績情報を含む辞書, 成功したかどうか)
+            Dict[str, Any]: レース実績情報を含む辞書
         """
-        try:
-            # テーブル内のテキストを取得
-            table_text = element.get_text(' ', strip=True)
+        soup = BeautifulSoup(html_content, 'html.parser')
+        records = []
+        
+        # レース実績テーブルを検索
+        race_table = soup.find('table', class_='raceTable')
+        if race_table:
+            # ヘッダー行をスキップして各行を処理
+            rows = race_table.find_all('tr')[1:]  # ヘッダー行をスキップ
             
-            # 通算成績の抽出
-            record_match = re.search(r'通算成績[：:]([^\s]+)', table_text)
-            if record_match:
-                record = record_match.group(1).strip()
-                if record:
-                    self.logger.debug(f'通算成績を抽出しました: {record}')
-                    return {'record': record}, True
-                
-            self.logger.debug('通算成績のパターンが一致しませんでした')
-            return None, False
-                
-        except Exception as e:
-            self.logger.error(f'通算成績の抽出中にエラーが発生しました: {e}', exc_info=True)
-            return None, False
+            for row in rows:
+                cols = row.find_all('td')
+                if len(cols) >= 8:  # 必要な列数があることを確認
+                    record = {
+                        'date': cols[0].get_text(strip=True) if cols[0] else '',
+                        'race_name': cols[1].get_text(strip=True) if cols[1] else '',
+                        'track': cols[2].get_text(strip=True) if cols[2] else '',
+                        'distance': cols[3].get_text(strip=True) if cols[3] else '',
+                        'track_condition': cols[4].get_text(strip=True) if cols[4] else '',
+                        'position': cols[5].get_text(strip=True) if cols[5] else '',
+                        'time': cols[6].get_text(strip=True) if cols[6] else '',
+                        'jockey': cols[7].get_text(strip=True) if cols[7] else ''
+                    }
+                    records.append(record)
+        
+        return {'race_records': records}
