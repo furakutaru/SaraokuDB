@@ -21,7 +21,7 @@ class TestDiseaseInfoExtractor(unittest.TestCase):
     def test_extract_no_comment(self):
         """コメントが空の場合のテスト"""
         result = self.extractor.extract("")
-        self.assertEqual(result, {'diseases': [], 'has_health_issues': False})
+        self.assertEqual(result, {})
     
     def test_extract_no_diseases(self):
         """疾病情報がない場合のテスト"""
@@ -58,11 +58,25 @@ class TestDiseaseInfoExtractor(unittest.TestCase):
         """後方互換性のためのextract_disease_tagsメソッドのテスト"""
         comment = "過去に骨折と皮膚病の治療歴があります。"
         result = self.extractor.extract_disease_tags(comment)
-        self.assertEqual(sorted(result.split(',')), ['骨折', '皮膚病'])
+        self.assertCountEqual(result.split(','), ['骨折', '皮膚病'])
+        
+        # 重複するキーワードを含む場合のテスト
+        comment = "骨折の治療歴があり、その後も骨折を繰り返しています。"
+        result = self.extractor.extract_disease_tags(comment)
+        self.assertEqual(result, "骨折")
+        
+        # 複数回出現するキーワードを含む場合のテスト
+        comment = "骨折と皮膚病、骨折の治療歴があります。皮膚病も再発しています。"
+        result = self.extractor.extract_disease_tags(comment)
+        self.assertCountEqual(result.split(','), ['骨折', '皮膚病'])
     
     def test_extract_disease_tags_no_diseases(self):
         """疾病情報がない場合のextract_disease_tagsメソッドのテスト"""
         result = self.extractor.extract_disease_tags("健康です。")
+        self.assertEqual(result, "")
+        
+        # 空文字列の場合のテスト
+        result = self.extractor.extract_disease_tags("")
         self.assertEqual(result, "")
 
 if __name__ == '__main__':

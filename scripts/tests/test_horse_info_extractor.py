@@ -150,11 +150,24 @@ class TestHorseInfoExtractor(unittest.TestCase):
             ('サラブレッド 登録抹消', 'サラブレッド'),
             ('サラブレッド※', 'サラブレッド'),
             ('サラブレッド 新馬', 'サラブレッド'),
-            (' サラブレッド ', 'サラブレッド'),  # スペースはトリムする
-            ('', '')
+            (' サラブレッド ', 'サラブレッド'),  # スペースはトリム
+            ('', ''),  # 空文字
+            ('  ', ''),  # スペースのみ
+            ('サラブレッド　', 'サラブレッド'),  # 全角スペース
+            ('サラブレッド\\n', 'サラブレッド'),  # 改行
+            ('サラブレッド\\t', 'サラブレッド'),  # タブ
+            ('サラブレッド 登録抹消 新馬', 'サラブレッド'),  # 複数の除去対象
+            ('サラブレッド※登録抹消', 'サラブレッド'),  # 連続した除去対象
+            ('サラブレッド（父）', 'サラブレッド（父）'),  # カッコは残る
+            None  # None入力
         ]
         
-        for input_name, expected in test_cases:
+        for input_name in test_cases:
+            if isinstance(input_name, tuple):
+                input_name, expected = input_name
+            else:
+                expected = ''  # Noneや不正な入力の場合は空文字を期待
+                
             with self.subTest(input_name=input_name):
                 result = self.extractor._clean_horse_name(input_name)
                 self.assertEqual(result, expected)
@@ -167,7 +180,13 @@ class TestHorseInfoExtractor(unittest.TestCase):
             ('セ5', {'sex': 'セ', 'age': 5}),
             ('牡', {'sex': '牡'}),
             ('3', {'sex': '3'}),  # 先頭が数字でない場合、最初の文字は性別として扱われる
-            ('', {})
+            ('', {}),
+            # 追加テストケース
+            ('牡10', {'sex': '牡', 'age': 10}),  # 2桁の年齢
+            (' 牝 5 ', {'sex': '牝', 'age': 5}),  # 余分なスペース
+            ('セ', {'sex': 'セ'}),  # 性別のみ
+            ('牡０', {'sex': '牡'}),  # 全角数字（抽出できない想定）
+            ('牡3歳', {'sex': '牡', 'age': 3})  # 歳表記
         ]
         
         for input_text, expected in test_cases:
@@ -177,6 +196,22 @@ class TestHorseInfoExtractor(unittest.TestCase):
                 soup = BeautifulSoup(html, 'html.parser')
                 result = self.extractor._extract_sex_and_age(soup)
                 self.assertEqual(result, expected)
+                
+    def test_extract_sex_and_age_with_invalid_input(self):
+        """無効な入力値での性別・年齢抽出テスト"""
+        # 無効な年齢（文字列）
+        with patch.object(self.extractor.logger, 'warning') as mock_warning:
+            html = '<div class="horse-info">牡abc</div>'
+            soup = BeautifulSoup(html, 'html.parser')
+            result = self.extractor._extract_sex_and_age(soup)
+            self.assertEqual(result, {'sex': '牡'})
+            mock_warning.assert_called_once()
+            
+        # 要素が見つからない場合
+        html = '<div class="wrong-class">牡3</div>'
+        soup = BeautifulSoup(html, 'html.parser')
+        result = self.extractor._extract_sex_and_age(soup)
+        self.assertEqual(result, {})
     
     def test_extract_exception_handling(self):
         """例外発生時のテスト"""
