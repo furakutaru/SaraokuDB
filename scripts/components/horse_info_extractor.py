@@ -1,0 +1,154 @@
+"""
+馬の基本情報を抽出するためのコンポーネント
+"""
+import re
+from typing import Dict, List, Optional, Tuple
+from bs4 import BeautifulSoup, Tag
+import logging
+
+class HorseInfoExtractor:
+    """馬の基本情報を抽出するクラス"""
+    
+    def __init__(self, logger: Optional[logging.Logger] = None):
+        """
+        初期化メソッド
+        
+        Args:
+            logger: ロガーインスタンス（指定がない場合は新規作成）
+        """
+        self.logger = logger or logging.getLogger(__name__)
+    
+    def extract(self, horse_element: Tag) -> Tuple[Dict[str, any], List[str]]:
+        """
+        馬の基本情報を抽出する
+        
+        Args:
+            horse_element: 馬情報を含むBeautifulSoup要素
+            
+        Returns:
+            Tuple[Dict[str, any], List[str]]: (馬情報の辞書, 不足している必須フィールドのリスト)
+        """
+        horse_info = {}
+            
+        # 馬名を抽出（必須）
+        name = self._extract_name(horse_element)
+        if name:
+            horse_info['name'] = name
+        
+        # 性別・年齢を抽出（必須）
+        sex_age = self._extract_sex_and_age(horse_element)
+        if sex_age:
+            horse_info.update(sex_age)
+        
+        # 不足している必須フィールドを確認
+        missing_fields = self._check_required_fields(horse_info)
+        
+        return horse_info, missing_fields
+    
+    def _extract_name(self, horse_element: Tag) -> str:
+        """馬名を抽出する"""
+        name_elem = horse_element.select_one('.horse-name')
+        if not name_elem:
+            return ''
+            
+        # 馬名を取得してクリーンアップ
+        name = name_elem.get_text(strip=True)
+        return self._clean_horse_name(name)
+    
+    def _extract_sex_and_age(self, horse_element: Tag) -> Dict[str, any]:
+        """性別と年齢を抽出する"""
+        result = {}
+        sex_age_elem = horse_element.select_one('.horse-info')
+        if not sex_age_elem:
+            return result
+            
+        sex_age = sex_age_elem.get_text(strip=True)
+        if not sex_age:
+            return result
+        
+        # 性別（最初の1文字）
+        if len(sex_age) > 0:
+            result['sex'] = sex_age[0]
+        
+        # 年齢（2文字目以降の数字）
+        age_match = re.search(r'\d+', sex_age[1:])
+        if age_match:
+            try:
+                result['age'] = int(age_match.group())
+            except (ValueError, TypeError):
+                self.logger.warning(f'年齢の抽出に失敗しました: {sex_age}')
+        
+        return result
+    
+    def _clean_horse_name(self, name: str) -> str:
+        """馬名をクリーンアップする"""
+        if not name:
+            return ''
+        
+        # 不要な文字列を削除
+        for s in ["※", "登録抹消", "新馬", "未出走"]:
+            name = name.replace(s, "")
+            
+        # 連続するスペースを1つにまとめる
+        name = re.sub(r'\s+', ' ', name)
+                
+        return name.strip()
+    
+    def extract(self, horse_element: Tag) -> Tuple[Dict[str, any], List[str]]:
+        """
+        馬の基本情報を抽出する
+        
+        Args:
+            horse_element: 馬情報を含むBeautifulSoup要素
+            
+        Returns:
+            Tuple[Dict[str, any], List[str]]: (馬情報の辞書, 不足している必須フィールドのリスト)
+        """
+        if not isinstance(horse_element, Tag):
+            error_msg = "無効なHTML要素が渡されました"
+            self.logger.error(error_msg)
+            return {}, ['name', 'sex', 'age']  # 全必須フィールドを不足として返す
+        
+        horse_info = {}
+        
+        try:
+            # 馬名を抽出（必須）
+            name = self._extract_name(horse_element)
+            if name:
+                horse_info['name'] = name
+            
+            # 性別・年齢を抽出（必須）
+            sex_age = self._extract_sex_and_age(horse_element)
+            if sex_age:
+                horse_info.update(sex_age)
+                
+            # 追加フィールド（あれば）
+            sire_elem = horse_element.select_one('.sire-name')
+            if sire_elem:
+                horse_info['sire'] = sire_elem.get_text(strip=True)
+                
+            dam_elem = horse_element.select_one('.dam')
+            if dam_elem:
+                horse_info['dam'] = dam_elem.get_text(strip=True)
+                
+            damsire_elem = horse_element.select_one('.damsire')
+            if damsire_elem:
+                horse_info['damsire'] = damsire_elem.get_text(strip=True)
+                
+            # 不足している必須フィールドを確認
+            missing_fields = self._check_required_fields(horse_info)
+            
+            if missing_fields:
+                self.logger.warning(f"必須フィールドが不足しています: {', '.join(missing_fields)}")
+                
+            return horse_info, missing_fields
+            
+        except Exception as e:
+            error_msg = f"馬情報の抽出中にエラーが発生しました: {str(e)}"
+            self.logger.error(error_msg)
+            return horse_info, self._check_required_fields(horse_info)
+    
+    def _check_required_fields(self, horse_info: Dict[str, any]) -> List[str]:
+        """必須フィールドが不足しているか確認する"""
+        required_fields = ['name', 'sex', 'age']
+        return [field for field in required_fields if field not in horse_info]

@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "last_updated": "2025-08-23T16:02:48.360167",
-    "total_horses": 140,
+    "last_updated": "2025-08-24T23:31:01.755985",
+    "total_horses": 141,
     "version": "1.0.0"
   },
   "horses": [
@@ -2449,6 +2449,27 @@
       "created_at": "2025-08-23T16:02:48.360167",
       "updated_at": "2025-08-23T16:02:48.360167",
       "disease_tags": []
+    },
+    {
+      "starting_price": null,
+      "sold_price": null,
+      "is_unsold": false,
+      "auction_url": "http://www.jbis.or.jp/horse/0001356694/",
+      "comment": "",
+      "disease_tags": [],
+      "name": "",
+      "age": "",
+      "sex": "",
+      "sire": "",
+      "dam": "",
+      "damsire": "",
+      "id": "6c37e21d-26c2-42ac-83cc-059d6d3a615c",
+      "created_at": "2025-08-24T23:26:47.156423",
+      "updated_at": "2025-08-24T23:31:01.755985",
+      "image_url": "",
+      "jbis_url": "https://www.jbis.or.jp/horse/0001356694/",
+      "total_prize_start": 0,
+      "total_prize_latest": 0
     }
   ]
 }

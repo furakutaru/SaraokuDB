@@ -3,33 +3,45 @@
 """
 import re
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, Tuple
 
-# ロガーの設定
-logger = logging.getLogger(__name__)
 
 class RaceRecordExtractor:
     """通算成績を抽出するクラス"""
     
-    def extract(self, element) -> Optional[Dict[str, str]]:
+    def __init__(self, logger: logging.Logger = None):
+        """初期化メソッド
+        
+        Args:
+            logger: ロガーインスタンス（Noneの場合は新規作成）
+        """
+        self.logger = logger or logging.getLogger(__name__)
+    
+    def extract(self, element) -> Tuple[Optional[Dict[str, str]], bool]:
         """通算成績を抽出する
         
         Args:
             element: BeautifulSoup要素
             
         Returns:
-            Dict[str, str]: 通算成績情報を含む辞書
+            Tuple[Optional[Dict[str, str]], bool]: 
+                (通算成績情報を含む辞書, 成功したかどうか)
         """
         try:
             # テーブル内のテキストを取得
             table_text = element.get_text(' ', strip=True)
             
             # 通算成績の抽出
-            record_match = re.search(r'通算成績：([^\s]+)', table_text)
+            record_match = re.search(r'通算成績[：:]([^\s]+)', table_text)
             if record_match:
-                return {'record': record_match.group(1)}
+                record = record_match.group(1).strip()
+                if record:
+                    self.logger.debug(f'通算成績を抽出しました: {record}')
+                    return {'record': record}, True
+                
+            self.logger.debug('通算成績のパターンが一致しませんでした')
+            return None, False
                 
         except Exception as e:
-            logger.error(f"通算成績の抽出中にエラーが発生しました: {e}", exc_info=True)
-            
-        return None
+            self.logger.error(f'通算成績の抽出中にエラーが発生しました: {e}', exc_info=True)
+            return None, False

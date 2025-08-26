@@ -31,18 +31,20 @@ class JbisLinkExtractor:
             # JBISへのリンクを探す（一般的なパターン）
             jbis_links = soup.find_all('a', href=True, string=re.compile(r'JBIS|血統|競走馬|競走成績'))
             
-            # 見つからない場合は、hrefに'jbis'が含まれるリンクを探す
+            # 見つからない場合は、hrefに'jbis'または'horse'が含まれるリンクを探す
             if not jbis_links:
-                jbis_links = soup.find_all('a', href=re.compile(r'jbis', re.IGNORECASE))
+                jbis_links = soup.find_all('a', href=re.compile(r'jbis|horse', re.IGNORECASE))
             
             # 適切なリンクを選択
             for link in jbis_links:
                 href = link.get('href', '').strip()
-                if 'jbis' in href.lower() and 'horse' in href.lower():
-                    # 相対URLの場合はベースURLと結合
-                    if not href.startswith(('http://', 'https://')) and base_url:
-                        href = urljoin(base_url, href)
-                    
+                
+                # 相対URLの場合はベースURLと結合
+                if not href.startswith(('http://', 'https://')) and base_url:
+                    href = urljoin(base_url, href)
+                
+                # JBISの馬のページへのリンクか確認
+                if ('jbis' in href.lower() or 'www.jbis.or.jp' in href.lower()) and 'horse' in href.lower():
                     # URLを正規化（/record/ や /pedigree/ を削除）
                     if '/record/' in href or '/pedigree/' in href:
                         # 基本情報ページに正規化

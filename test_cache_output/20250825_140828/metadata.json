@@ -1,0 +1,96 @@
+{
+  "session_id": "20250825_140828",
+  "start_time": "2025-08-25T14:08:28.123346",
+  "files": {
+    "https://auction.keiba.rakuten.co.jp/": {
+      "path": "test_cache_output/20250825_140828/list.html",
+      "type": "list",
+      "saved_at": "2025-08-25T14:08:28.487418"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14778": {
+      "path": "test_cache_output/20250825_140828/details/14778.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:29.057373"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14783": {
+      "path": "test_cache_output/20250825_140828/details/14783.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:29.388561"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14780": {
+      "path": "test_cache_output/20250825_140828/details/14780.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:29.695401"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14782": {
+      "path": "test_cache_output/20250825_140828/details/14782.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:29.999360"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14781": {
+      "path": "test_cache_output/20250825_140828/details/14781.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:30.270395"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14791": {
+      "path": "test_cache_output/20250825_140828/details/14791.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:30.661927"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14789": {
+      "path": "test_cache_output/20250825_140828/details/14789.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:30.940528"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14790": {
+      "path": "test_cache_output/20250825_140828/details/14790.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:31.344020"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14775": {
+      "path": "test_cache_output/20250825_140828/details/14775.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:31.719800"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14779": {
+      "path": "test_cache_output/20250825_140828/details/14779.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:32.017264"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14784": {
+      "path": "test_cache_output/20250825_140828/details/14784.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:32.278838"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14777": {
+      "path": "test_cache_output/20250825_140828/details/14777.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:32.530490"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14785": {
+      "path": "test_cache_output/20250825_140828/details/14785.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:32.824560"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14787": {
+      "path": "test_cache_output/20250825_140828/details/14787.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:33.144069"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14776": {
+      "path": "test_cache_output/20250825_140828/details/14776.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:33.572717"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14788": {
+      "path": "test_cache_output/20250825_140828/details/14788.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:33.903848"
+    },
+    "https://auction.keiba.rakuten.co.jp/item/14786": {
+      "path": "test_cache_output/20250825_140828/details/14786.html",
+      "type": "detail",
+      "saved_at": "2025-08-25T14:08:34.169491"
+    }
+  }
+}
