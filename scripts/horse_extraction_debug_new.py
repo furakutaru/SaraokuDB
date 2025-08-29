@@ -30,19 +30,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class DebugHorseExtractor:
+from scripts.components.horse_info_extractor import HorseInfoExtractor
+
+class DebugHorseExtractor(HorseInfoExtractor):
     """デバッグ用の馬情報抽出クラス
     
     本番環境のスクレイピングロジックを模倣しつつ、
     デバッグ用の機能を追加したクラス
     """
     
-    def __init__(self, test_mode: bool = True):
+    def __init__(self, test_mode: bool = True, logger: Optional[logging.Logger] = None):
         """初期化
         
         Args:
             test_mode: テストモードかどうか
+            logger: ロガーインスタンス（指定がない場合は新規作成）
         """
+        super().__init__(logger=logger or logging.getLogger(__name__))
         self.test_mode = test_mode
         self.session = requests.Session()
         self.session.headers.update({
@@ -101,7 +105,7 @@ class DebugHorseExtractor:
         Returns:
             Dict[str, Any]: 馬の情報を含む辞書
         """
-        logger.info(f"馬情報の抽出を開始: {url}")
+        self.logger.info(f"馬情報の抽出を開始: {url}")
         
         # ページを取得
         html = self.fetch_page(url)
@@ -110,12 +114,12 @@ class DebugHorseExtractor:
             
         soup = BeautifulSoup(html, 'html.parser')
         
-        # 馬の基本情報を抽出
-        horse_info = {
+        # 基本情報を抽出（親クラスのextractメソッドを利用）
+        horse_info, missing_fields = self.extract(soup)
+        
+        # 追加情報を抽出
+        horse_info.update({
             'url': url,
-            'name': self._extract_name(soup),
-            'sex': self._extract_sex(soup),
-            'age': self._extract_age(soup),
             'sire': self._extract_sire(soup),
             'dam': self._extract_dam(soup),
             'damsire': self._extract_damsire(soup),
@@ -124,21 +128,39 @@ class DebugHorseExtractor:
             'weight': self._extract_weight(soup),
             'comment': self._extract_comment(soup),
             'extracted_at': datetime.now().isoformat(),
-        }
+        })
         
         return horse_info
     
-    def _extract_name(self, soup: BeautifulSoup) -> str:
-        """馬名を抽出する"""
+    def _extract_name(self, horse_element) -> str:
+        """
+        馬名を抽出する（デバッグ用に拡張）
+        
+        Args:
+            horse_element: 馬情報を含むBeautifulSoup要素
+            
+        Returns:
+            str: 抽出された馬名。抽出に失敗した場合は空文字列
+        """
+        # まずは親クラスの実装を試す
+        name = super()._extract_name(horse_element)
+        if name:
+            return name
+            
+        # 親クラスで抽出できない場合、デバッグ用の追加ロジックを実行
         try:
             # タイトルタグから抽出を試みる（多くの場合、馬名が含まれている）
-            title = soup.title.string if soup.title else ""
+            title = horse_element.title.string if hasattr(horse_element, 'title') and horse_element.title else ""
+            if not title and hasattr(horse_element, 'select_one') and horse_element.select_one('title'):
+                title = horse_element.select_one('title').string or ""
+                
             if title:
                 # タイトルから馬名を抽出（「馬名 | サイト名」の形式を想定）
                 name_match = re.search(r'^([^|\n\r\t]+?)(?:\s*[|\-]\s*|\s+の血統情報|\s+のプロフィール|\s+の情報|\s*$)', title)
                 if name_match:
                     name = name_match.group(1).strip()
                     if name and len(name) > 1:
+                        self.logger.debug(f'タイトルから馬名を抽出しました: {name}')
                         return name
             
             # 一般的なセレクタで探す

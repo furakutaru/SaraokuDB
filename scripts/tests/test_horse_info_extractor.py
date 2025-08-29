@@ -67,6 +67,69 @@ class TestHorseInfoExtractor(unittest.TestCase):
         self.assertEqual(len(missing_fields), 3)  # name, sex, age
         self.logger.error.assert_called()
     
+    def test_extract_name_with_new_structure(self):
+        """新しいHTML構造での馬名抽出テスト"""
+        test_cases = [
+            {
+                'name': '通常の馬名',
+                'html': '''
+                <div class="auctionTableRow__name">
+                    <span>テスト馬1</span>
+                </div>
+                ''',
+                'expected': 'テスト馬1'
+            },
+            {
+                'name': '改行や空白を含む馬名',
+                'html': '''
+                <div class="auctionTableRow__name">
+                    <span>  テスト馬2  
+                    </span>
+                </div>
+                ''',
+                'expected': 'テスト馬2'
+            },
+            {
+                'name': '特殊文字を含む馬名',
+                'html': '''
+                <div class="auctionTableRow__name">
+                    <span>テスト★馬3</span>
+                </div>
+                ''',
+                'expected': 'テスト★馬3'
+            },
+            {
+                'name': '空の馬名要素',
+                'html': '''
+                <div class="auctionTableRow__name">
+                    <span></span>
+                </div>
+                ''',
+                'expected': ''
+            },
+            {
+                'name': '馬名要素なし',
+                'html': '''
+                <div class="other-class">
+                    <span>テスト馬4</span>
+                </div>
+                ''',
+                'expected': ''
+            }
+        ]
+        
+        for case in test_cases:
+            with self.subTest(case['name']):
+                soup = BeautifulSoup(case['html'], 'html.parser')
+                result = self.extractor._extract_name(soup)
+                self.assertEqual(result, case['expected'])
+                
+                # デバッグログが適切に記録されているか確認
+                if not case['expected']:
+                    self.logger.warning.assert_called()
+                else:
+                    self.logger.debug.assert_called()
+    
     def test_extract_horse_info_edge_cases(self):
         """エッジケースのテスト"""
         test_cases = [
@@ -74,8 +137,11 @@ class TestHorseInfoExtractor(unittest.TestCase):
                 'name': '年齢が境界値',
                 'html': '''
                 <div class="horse-card">
-                    <div class="horse-name">テスト馬1</div>
-                    <div class="horse-info">牡1</div>
+                    <div class="auctionTableRow__name">テスト馬1</div>
+                    <div class="horseLabelWrapper">
+                        <span class="horseLabelWrapper__horseSex">牡</span>
+                        <span class="horseLabelWrapper__horseAge">1歳</span>
+                    </div>
                 </div>
                 ''',
                 'expected': {'name': 'テスト馬1', 'sex': '牡', 'age': 1},
@@ -85,8 +151,11 @@ class TestHorseInfoExtractor(unittest.TestCase):
                 'name': '特殊文字を含む名前',
                 'html': '''
                 <div class="horse-card">
-                    <div class="horse-name">テスト★馬</div>
-                    <div class="horse-info">牝5</div>
+                    <div class="auctionTableRow__name">テスト★馬</div>
+                    <div class="horseLabelWrapper">
+                        <span class="horseLabelWrapper__horseSex">牝</span>
+                        <span class="horseLabelWrapper__horseAge">5歳</span>
+                    </div>
                 </div>
                 ''',
                 'expected': {'name': 'テスト★馬', 'sex': '牝', 'age': 5},
@@ -96,8 +165,11 @@ class TestHorseInfoExtractor(unittest.TestCase):
                 'name': '年齢の表記ゆれ',
                 'html': '''
                 <div class="horse-card">
-                    <div class="horse-name">テスト馬3</div>
-                    <div class="horse-info">セ2歳</div>
+                    <div class="auctionTableRow__name">テスト馬3</div>
+                    <div class="horseLabelWrapper">
+                        <span class="horseLabelWrapper__horseSex">セ</span>
+                        <span class="horseLabelWrapper__horseAge">2歳</span>
+                    </div>
                 </div>
                 ''',
                 'expected': {'name': 'テスト馬3', 'sex': 'セ', 'age': 2},

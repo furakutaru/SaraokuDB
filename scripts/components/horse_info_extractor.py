@@ -2,6 +2,7 @@
 馬の基本情報を抽出するためのコンポーネント
 """
 import re
+import traceback
 from typing import Dict, List, Optional, Tuple
 from bs4 import BeautifulSoup, Tag
 import logging
@@ -46,14 +47,48 @@ class HorseInfoExtractor:
         return horse_info, missing_fields
     
     def _extract_name(self, horse_element: Tag) -> str:
-        """馬名を抽出する"""
-        name_elem = horse_element.select_one('.horse-name')
-        if not name_elem:
-            return ''
+        """
+        馬名を抽出する
+        
+        Args:
+            horse_element: 馬情報を含むBeautifulSoup要素
             
-        # 馬名を取得してクリーンアップ
-        name = name_elem.get_text(strip=True)
-        return self._clean_horse_name(name)
+        Returns:
+            str: 抽出された馬名。抽出に失敗した場合は空文字列
+        """
+        try:
+            # デバッグ用に要素のHTMLをログに出力
+            self.logger.debug(f'馬名抽出を開始: {str(horse_element)[:200]}...')
+            
+            # 新しいHTML構造に対応
+            # まず、auctionTableCard__nameクラスを探す
+            name_elem = horse_element.select_one('.auctionTableCard__name')
+            
+            if not name_elem:
+                # 見つからない場合は、別のセレクタを試す
+                name_elem = horse_element.select_one('.auctionTableCard__name .value')
+            
+            if not name_elem:
+                self.logger.warning('馬名要素が見つかりませんでした')
+                self.logger.debug(f'要素のHTML: {str(horse_element)[:500]}...')
+                return ''
+            
+            # 馬名を取得
+            name = name_elem.get_text(strip=True, separator=' ')
+            
+            if not name:
+                self.logger.warning('馬名が空です')
+                self.logger.debug(f'name_elemの内容: {str(name_elem)}')
+                return ''
+                
+            cleaned_name = self._clean_horse_name(name)
+            self.logger.debug(f'馬名を抽出しました: {cleaned_name}')
+            return cleaned_name
+            
+        except Exception as e:
+            self.logger.error(f'馬名の抽出中にエラーが発生しました: {str(e)}')
+            self.logger.debug(f'エラー詳細: {traceback.format_exc()}')
+            return ''
     
     def _extract_sex_and_age(self, horse_element: Tag) -> Dict[str, any]:
         """
@@ -67,35 +102,44 @@ class HorseInfoExtractor:
         """
         result = {}
         try:
-            sex_age_elem = horse_element.select_one('.horse-info')
-            if not sex_age_elem:
-                return result
+            # 性別を抽出
+            sex_elem = horse_element.select_one('.horseLabelWrapper__horseSex')
+            if not sex_elem:
+                # 別のセレクタを試す
+                sex_elem = horse_element.select_one('.auctionTableCard__sex')
                 
-            sex_age = sex_age_elem.get_text(strip=True)
-            if not sex_age:
-                return result
+            if sex_elem:
+                sex = sex_elem.get_text(strip=True)
+                # 性別を正規化（牡・牝・セに統一）
+                if '牡' in sex or '牡馬' in sex:
+                    result['sex'] = '牡'
+                elif '牝' in sex or '牝馬' in sex:
+                    result['sex'] = '牝'
+                elif 'セ' in sex or 'せん' in sex or 'セン' in sex:
+                    result['sex'] = 'セ'
+                else:
+                    result['sex'] = sex  # 不明な場合はそのまま保存
             
-            # 性別（最初の1文字）
-            if len(sex_age) > 0:
-                result['sex'] = sex_age[0]
-            
-            # 年齢（数字のみ抽出）
-            age_match = re.search(r'\d+', sex_age[1:])
-            if age_match:
-                try:
-                    age_str = age_match.group()
-                    # 年齢が有効な場合のみ追加
-                    if age_str.isdigit() and int(age_str) > 0:
-                        result['age'] = int(age_str)
-                    else:
-                        self.logger.warning(f'無効な年齢です: {age_str}')
-                except (ValueError, TypeError) as e:
-                    self.logger.warning(f'年齢の抽出に失敗しました: {sex_age}')
-                    self.logger.debug(f'Error details: {str(e)}')
-            else:
-                # 数字が見つからない場合も警告を出力
-                if len(sex_age) > 1:  # 性別の1文字目を除く
-                    self.logger.warning(f'年齢の抽出に失敗しました（数字が見つかりません）: {sex_age}')
+            # 年齢を抽出
+            age_elem = horse_element.select_one('.horseLabelWrapper__horseAge')
+            if not age_elem:
+                # 別のセレクタを試す
+                age_elem = horse_element.select_one('.auctionTableCard__age')
+                
+            if age_elem:
+                age_text = age_elem.get_text(strip=True)
+                # 数字のみを抽出
+                age_match = re.search(r'(\d+)', age_text)
+                if age_match:
+                    try:
+                        age = int(age_match.group(1))
+                        if age > 0:
+                            result['age'] = age
+                        else:
+                            self.logger.warning(f'無効な年齢です: {age_text}')
+                    except (ValueError, TypeError) as e:
+                        self.logger.warning(f'年齢の抽出に失敗しました: {age_text}')
+                        self.logger.debug(f'Error details: {str(e)}')
             
             return result
             
@@ -129,61 +173,52 @@ class HorseInfoExtractor:
         # 連続するスペースを1つにまとめてトリム
         return re.sub(r'\s+', ' ', name).strip()
     
-    def extract(self, horse_element: Tag) -> Tuple[Dict[str, any], List[str]]:
+    def _check_required_fields(self, horse_info: Dict[str, any]) -> List[str]:
         """
-        馬の基本情報を抽出する
+        必須フィールドが不足しているかチェック
         
         Args:
-            horse_element: 馬情報を含むBeautifulSoup要素
+            horse_info: 馬情報の辞書
             
         Returns:
-            Tuple[Dict[str, any], List[str]]: (馬情報の辞書, 不足している必須フィールドのリスト)
+            List[str]: 不足している必須フィールドのリスト
         """
-        if not isinstance(horse_element, Tag):
-            error_msg = "無効なHTML要素が渡されました"
-            self.logger.error(error_msg)
-            return {}, ['name', 'sex', 'age']  # 全必須フィールドを不足として返す
-        
-        horse_info = {}
-        
-        try:
-            # 馬名を抽出（必須）
-            name = self._extract_name(horse_element)
-            if name:
-                horse_info['name'] = name
-            
-            # 性別・年齢を抽出（必須）
-            sex_age = self._extract_sex_and_age(horse_element)
-            if sex_age:
-                horse_info.update(sex_age)
-                
-            # 追加フィールド（あれば）
-            sire_elem = horse_element.select_one('.sire-name')
-            if sire_elem:
-                horse_info['sire'] = sire_elem.get_text(strip=True)
-                
-            dam_elem = horse_element.select_one('.dam')
-            if dam_elem:
-                horse_info['dam'] = dam_elem.get_text(strip=True)
-                
-            damsire_elem = horse_element.select_one('.damsire')
-            if damsire_elem:
-                horse_info['damsire'] = damsire_elem.get_text(strip=True)
-                
-            # 不足している必須フィールドを確認
-            missing_fields = self._check_required_fields(horse_info)
-            
-            if missing_fields:
-                self.logger.warning(f"必須フィールドが不足しています: {', '.join(missing_fields)}")
-                
-            return horse_info, missing_fields
-            
-        except Exception as e:
-            error_msg = f"馬情報の抽出中にエラーが発生しました: {str(e)}"
-            self.logger.error(error_msg)
-            return horse_info, self._check_required_fields(horse_info)
-    
-    def _check_required_fields(self, horse_info: Dict[str, any]) -> List[str]:
-        """必須フィールドが不足しているか確認する"""
         required_fields = ['name', 'sex', 'age']
         return [field for field in required_fields if field not in horse_info]
+        
+    def extract_from_detail_page(self, detail_html: str) -> Dict[str, any]:
+        """
+        詳細ページのHTMLから性別と年齢を抽出する
+        
+        Args:
+            detail_html: 詳細ページのHTML
+            
+        Returns:
+            Dict[str, any]: 抽出した情報（sex, age）を含む辞書
+        """
+        result = {}
+        try:
+            soup = BeautifulSoup(detail_html, 'html.parser')
+            
+            # タイトル要素を取得
+            title_elem = soup.select_one('#itemTitle span[itemprop="name"]')
+            if not title_elem:
+                return result
+                
+            title_text = title_elem.get_text(strip=True)
+            
+            # 性別を抽出（牝 or 牡）
+            sex_match = re.search(r'([牡牝])', title_text)
+            if sex_match:
+                result['sex'] = sex_match.group(1)
+            
+            # 年齢を抽出（数字+「歳」のパターン）
+            age_match = re.search(r'(\d+)歳', title_text)
+            if age_match:
+                result['age'] = int(age_match.group(1))
+                
+        except Exception as e:
+            self.logger.error(f"詳細ページからの情報抽出中にエラーが発生しました: {e}")
+            self.logger.debug(traceback.format_exc())
+            
+        return result
