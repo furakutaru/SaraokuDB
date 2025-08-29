@@ -30,24 +30,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class DebugHorseExtractor:
+from scripts.components.horse_info_extractor import HorseInfoExtractor
+
+class DebugHorseExtractor(HorseInfoExtractor):
     """デバッグ用の馬情報抽出クラス
     
     本番環境のスクレイピングロジックを模倣しつつ、
     デバッグ用の機能を追加したクラス
     """
     
-    def __init__(self, test_mode: bool = True):
+    def __init__(self, test_mode: bool = True, logger: Optional[logging.Logger] = None):
         """初期化
         
         Args:
             test_mode: テストモードかどうか
+            logger: ロガーインスタンス（指定がない場合は新規作成）
         """
+        super().__init__(logger=logger or logging.getLogger(__name__))
         self.test_mode = test_mode
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+            'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8,',
         })
         
         # リトライ設定
@@ -101,7 +105,7 @@ class DebugHorseExtractor:
         Returns:
             Dict[str, Any]: 馬の情報を含む辞書
         """
-        logger.info(f"馬情報の抽出を開始: {url}")
+        self.logger.info(f"馬情報の抽出を開始: {url}")
         
         # ページを取得
         html = self.fetch_page(url)
@@ -110,12 +114,12 @@ class DebugHorseExtractor:
             
         soup = BeautifulSoup(html, 'html.parser')
         
-        # 馬の基本情報を抽出
-        horse_info = {
+        # 基本情報を抽出（親クラスのextractメソッドを利用）
+        horse_info, missing_fields = self.extract(soup)
+        
+        # 追加情報を抽出
+        horse_info.update({
             'url': url,
-            'name': self._extract_name(soup),
-            'sex': self._extract_sex(soup),
-            'age': self._extract_age(soup),
             'sire': self._extract_sire(soup),
             'dam': self._extract_dam(soup),
             'damsire': self._extract_damsire(soup),
@@ -124,21 +128,39 @@ class DebugHorseExtractor:
             'weight': self._extract_weight(soup),
             'comment': self._extract_comment(soup),
             'extracted_at': datetime.now().isoformat(),
-        }
+        })
         
         return horse_info
     
-    def _extract_name(self, soup: BeautifulSoup) -> str:
-        """馬名を抽出する"""
+    def _extract_name(self, horse_element) -> str:
+        """
+        馬名を抽出する（デバッグ用に拡張）
+        
+        Args:
+            horse_element: 馬情報を含むBeautifulSoup要素
+            
+        Returns:
+            str: 抽出された馬名。抽出に失敗した場合は空文字列
+        """
+        # まずは親クラスの実装を試す
+        name = super()._extract_name(horse_element)
+        if name:
+            return name
+            
+        # 親クラスで抽出できない場合、デバッグ用の追加ロジックを実行
         try:
             # タイトルタグから抽出を試みる（多くの場合、馬名が含まれている）
-            title = soup.title.string if soup.title else ""
+            title = horse_element.title.string if hasattr(horse_element, 'title') and horse_element.title else ""
+            if not title and hasattr(horse_element, 'select_one') and horse_element.select_one('title'):
+                title = horse_element.select_one('title').string or ""
+                
             if title:
                 # タイトルから馬名を抽出（「馬名 | サイト名」の形式を想定）
                 name_match = re.search(r'^([^|\n\r\t]+?)(?:\s*[|\-]\s*|\s+の血統情報|\s+のプロフィール|\s+の情報|\s*$)', title)
                 if name_match:
                     name = name_match.group(1).strip()
                     if name and len(name) > 1:
+                        self.logger.debug(f'タイトルから馬名を抽出しました: {name}')
                         return name
             
             # 一般的なセレクタで探す
@@ -171,7 +193,7 @@ class DebugHorseExtractor:
             # セレクタで直接探す
             for selector in selectors:
                 try:
-                    name_elems = soup.select(selector)
+                    name_elems = horse_element.select(selector)
                     for elem in name_elems:
                         name = elem.get_text(strip=True)
                         # 余分な文字列を削除
@@ -184,11 +206,12 @@ class DebugHorseExtractor:
                             not name.isdigit() and 
                             re.match(r'^[\w\s・（）()\-〜&]+$', name)):
                             return name
-                except:
+                except Exception as e:
+                    self.logger.warning(f'馬名の抽出中にエラーが発生しました: {str(e)}')
                     continue
             
             # テーブルから探す（馬名が含まれている可能性のあるテーブルを検索）
-            for table in soup.select('table'):
+            for table in horse_element.select('table'):
                 rows = table.select('tr')
                 for row in rows:
                     cells = row.select('th, td')
@@ -202,42 +225,54 @@ class DebugHorseExtractor:
                                     return name
             
             # ページ内の太字テキストから探す（馬名は太字で表示されていることが多い）
-            for bold in soup.select('b, strong'):
-                name = bold.get_text(strip=True)
-                if (len(name) > 1 and 
-                    not name.isdigit() and 
-                    re.match(r'^[\w\s・（）()\-〜&]+$', name)):
-                    return name
+            for bold in horse_element.select('b, strong'):
+                try:
+                    name = bold.get_text(strip=True)
+                    if (len(name) > 1 and 
+                        not name.isdigit() and 
+                        re.match(r'^[\w\s・（）()\-〜&]+$', name)):
+                        return name
+                except Exception as e:
+                    self.logger.warning(f'太字からの馬名抽出中にエラーが発生しました: {str(e)}')
+                    continue
             
             # 最終手段：ページ内で最も長いテキストノードを探す（馬名は通常、ページ内で目立つ）
             def get_text_nodes(element):
-                for child in element.descendants:
-                    if isinstance(child, str) and child.strip():
-                        text = child.strip()
-                        if (len(text) > 1 and 
-                            not text.isdigit() and 
-                            re.match(r'^[\w\s・（）()\-〜&]+$', text)):
-                            yield text
+                try:
+                    for child in element.descendants:
+                        if isinstance(child, str) and child.strip():
+                            text = child.strip()
+                            if (len(text) > 1 and 
+                                not text.isdigit() and 
+                                re.match(r'^[\w\s・（）()\-〜&]+$', text)):
+                                yield text
+                except Exception as e:
+                    self.logger.warning(f'テキストノードの取得中にエラーが発生しました: {str(e)}')
             
             # 長さでソートして最長のものを返す
-            text_nodes = list(get_text_nodes(soup))
-            if text_nodes:
-                return max(text_nodes, key=len)
+            try:
+                text_nodes = list(get_text_nodes(horse_element))
+                if text_nodes:
+                    return max(text_nodes, key=len)
+            except Exception as e:
+                self.logger.warning(f'最長テキストノードの取得中にエラーが発生しました: {str(e)}')
                         
         except Exception as e:
-            logger.warning(f"馬名の抽出に失敗: {e}")
+            self.logger.warning(f'馬名の抽出中にエラーが発生しました: {str(e)}')
             
         # 最終手段: ページの最初のh1タグを取得
         try:
-            h1 = soup.find('h1')
+            h1 = horse_element.find('h1')
             if h1:
-                return h1.get_text(strip=True)[:50]  # 50文字で切り詰め
-        except:
-            pass
+                name = h1.get_text(strip=True)[:50]  # 50文字で切り詰め
+                if name:
+                    return name
+        except Exception as e:
+            self.logger.warning(f'h1タグからの馬名抽出中にエラーが発生しました: {str(e)}')
             
         return ""
     
-    def _extract_sex(self, soup: BeautifulSoup) -> str:
+    def _extract_sex(self, horse_element: BeautifulSoup) -> str:
         """性別を抽出する"""
         try:
             # 性別を表す可能性のあるテキストパターン
@@ -291,7 +326,7 @@ class DebugHorseExtractor:
             # 1. まずセレクタで探す
             for selector in selectors:
                 try:
-                    elements = soup.select(selector)
+                    elements = horse_element.select(selector)
                     for elem in elements:
                         text = elem.get_text(" ", strip=True)
                         # 親要素のテキストも確認（テーブルセルの場合など）
@@ -311,50 +346,61 @@ class DebugHorseExtractor:
                     continue
             
             # 2. テーブルから探す
-            for table in soup.select('table'):
+            for table in horse_element.select('table'):
                 try:
                     rows = table.select('tr')
                     for row in rows:
                         cells = row.select('th, td')
                         for i, cell in enumerate(cells):
-                            cell_text = cell.get_text(" ", strip=True).lower()
-                            if '性別' in cell_text or 'sex' in cell_text or 'せいべつ' in cell_text:
-                                # 同じ行の次のセルを確認
-                                if i + 1 < len(cells):
-                                    sex_text = cells[i+1].get_text(" ", strip=True)
-                                    return self._normalize_sex(sex_text)
-                                # 同じセル内に値がある場合
-                                elif ':' in cell_text or '：' in cell_text:
-                                    parts = re.split(r'[:：]', cell_text, 1)
-                                    if len(parts) > 1:
-                                        return self._normalize_sex(parts[1])
-                except:
+                            try:
+                                cell_text = cell.get_text(" ", strip=True).lower()
+                                if '性別' in cell_text or 'sex' in cell_text or 'せいべつ' in cell_text:
+                                    # 同じ行の次のセルを確認
+                                    if i + 1 < len(cells):
+                                        sex_text = cells[i+1].get_text(" ", strip=True)
+                                        return self._normalize_sex(sex_text)
+                                    # 同じセル内に値がある場合
+                                    elif ':' in cell_text or '：' in cell_text:
+                                        parts = re.split(r'[:：]', cell_text, 1)
+                                        if len(parts) > 1:
+                                            return self._normalize_sex(parts[1])
+                            except Exception as e:
+                                self.logger.debug(f"テーブルセルの処理中にエラー: {e}")
+                                continue
+                except Exception as e:
+                    self.logger.debug(f"テーブルの処理中にエラー: {e}")
                     continue
             
             # 3. ページ全体から正規表現で検索
-            page_text = soup.get_text(" ", strip=True)
-            for pattern in sex_patterns:
-                matches = re.finditer(pattern, page_text, re.IGNORECASE)
-                for match in matches:
-                    if match.groups():
-                        sex = match.group(1).strip()
-                        normalized_sex = self._normalize_sex(sex)
-                        if normalized_sex:
-                            return normalized_sex
+            try:
+                page_text = horse_element.get_text(" ", strip=True)
+                for pattern in sex_patterns:
+                    matches = re.finditer(pattern, page_text, re.IGNORECASE)
+                    for match in matches:
+                        if match.groups():
+                            sex = match.group(1).strip()
+                            normalized_sex = self._normalize_sex(sex)
+                            if normalized_sex:
+                                return normalized_sex
+            except Exception as e:
+                self.logger.debug(f"ページテキストからの性別抽出中にエラー: {e}")
             
             # 4. コメントからも探してみる
-            comment = self._extract_comment(soup)
-            if comment:
-                for pattern in sex_patterns:
-                    match = re.search(pattern, comment, re.IGNORECASE)
-                    if match and match.groups():
-                        sex = match.group(1).strip()
-                        normalized_sex = self._normalize_sex(sex)
-                        if normalized_sex:
-                            return normalized_sex
+            try:
+                comment = self._extract_comment(horse_element)
+                if comment:
+                    for pattern in sex_patterns:
+                        match = re.search(pattern, comment, re.IGNORECASE)
+                        if match and match.groups():
+                            sex = match.group(1).strip()
+                            normalized_sex = self._normalize_sex(sex)
+                            if normalized_sex:
+                                return normalized_sex
+            except Exception as e:
+                self.logger.debug(f"コメントからの性別抽出中にエラー: {e}")
                         
         except Exception as e:
-            logger.warning(f"性別の抽出に失敗: {e}")
+            self.logger.warning(f"性別の抽出中にエラーが発生しました: {e}")
             
         return ""
         
@@ -382,83 +428,20 @@ class DebugHorseExtractor:
             return '騸'
             
         # セ（性別不明または未登録）
-        if 'セ' in sex_text or 'せ' in sex_lower or '性別' in sex_text or 'sex' in sex_lower:
-            return 'セ'
-            
-        return ""
-    
-    def _extract_age(self, soup: BeautifulSoup) -> int:
-        """年齢を抽出する"""
+        return 'セ'
+        
+        # 3. ページ全体から正規表現で検索
         try:
-            # 年齢が含まれていそうな要素を検索
-            age_keywords = ['歳', '才', '年齢', 'age']
-            
-            # 1. まずは一般的なセレクタで探す
-            selectors = [
-                '.age', '.horse-age', '.horseAge', '.horse_age',
-                'div:contains("年齢")', 'span:contains("年齢")',
-                'td:contains("年齢")', 'th:contains("年齢")',
-                'td:contains("歳")', 'th:contains("歳")',
-                'td:contains("才")', 'th:contains("才")',
-                'td:contains("Age")', 'th:contains("Age")',
-                'div.horse-info', 'div.horse_info', 'div.horseData',
-                'div.horse_data', 'div.horse-details', 'div.horseDetails',
-                'table.horse-info', 'table.horse_info', 'table.profile',
-                'div.profile', 'div.horse-profile', 'div.horseProfile'
-            ]
-            
-            # セレクタで直接探す
-            for selector in selectors:
-                try:
-                    elements = soup.select(selector)
-                    for elem in elements:
-                        # 要素のテキストとその周辺のテキストも確認
-                        text = self._get_combined_text(elem)
-                        # 年齢パターンで検索
-                        age = self._extract_age_from_text(text)
-                        if age is not None:
-                            return age
-                except Exception as e:
-                    logger.debug(f"セレクタ {selector} での年齢抽出中にエラー: {e}")
-                    continue
-            
-            # 2. テーブルから探す
-            for table in soup.select('table'):
-                try:
-                    rows = table.select('tr')
-                    for row in rows:
-                        cells = row.select('th, td')
-                        for i, cell in enumerate(cells):
-                            cell_text = cell.get_text(" ", strip=True).lower()
-                            # 年齢に関連するキーワードを含むセルを探す
-                            if any(kw in cell_text for kw in age_keywords):
-                                # 同じ行の次のセルを確認
-                                if i + 1 < len(cells):
-                                    age_text = cells[i+1].get_text(" ", strip=True)
-                                    age = self._extract_age_from_text(age_text)
-                                    if age is not None:
-                                        return age
-                                # 同じセル内に値がある場合
-                                elif ':' in cell_text or '：' in cell_text:
-                                    parts = re.split(r'[:：]', cell_text, 1)
-                                    if len(parts) > 1:
-                                        age = self._extract_age_from_text(parts[1])
-                                        if age is not None:
-                                            return age
-                except Exception as e:
-                    logger.debug(f"テーブルからの年齢抽出中にエラー: {e}")
-                    continue
-            
-            # 3. ページ全体から正規表現で検索
-            page_text = soup.get_text(" ", strip=True)
+            page_text = horse_element.get_text(" ", strip=True)
             
             # パターン1: 「年齢: 3歳」のような形式
             age_matches = re.findall(r'(?:年齢|歳|才|age)[:：]?\s*(\d+\s*[歳才]?)', page_text, re.IGNORECASE)
             if age_matches:
                 age = self._extract_age_from_text(age_matches[0])
                 if age is not None:
+                    self.logger.debug(f'年齢を抽出しました: {age}歳')
                     return age
-            
+                    
             # パターン2: 「3歳」のような形式
             age_matches = re.findall(r'\b(\d+)\s*[歳才]\b', page_text)
             if age_matches:
@@ -480,286 +463,46 @@ class DebugHorseExtractor:
                 if age_counts:
                     return max(age_counts.items(), key=lambda x: x[1])[0]
             
-            # 4. コメントからも探してみる
-            comment = self._extract_comment(soup)
-            if comment:
-                age_matches = re.findall(r'(?:年齢|歳|才|age)[:：]?\s*(\d+\s*[歳才]?)', comment, re.IGNORECASE)
-                if age_matches:
-                    age = self._extract_age_from_text(age_matches[0])
-                    if age is not None:
-                        return age
-                
-                # コメント内の「○歳」を探す
-                age_matches = re.findall(r'\b(\d+)\s*[歳才]\b', comment)
-                if age_matches:
-                    age = self._extract_age_from_text(age_matches[0])
-                    if age is not None:
-                        return age
-            
-            # 5. 生年月日から計算してみる
-            birth_year = self._extract_birth_year(soup)
-            if birth_year:
-                current_year = datetime.now().year
-                age = current_year - birth_year
-                if 0 < age < 30:  # 馬の年齢として妥当な範囲
-                    return age
+            return 0  # 年齢が抽出できなかった場合は0を返す
                     
         except Exception as e:
-            logger.warning(f"年齢の抽出に失敗: {e}")
+            self.logger.warning(f'年齢の抽出中にエラーが発生しました: {str(e)}')
+            return 0
             
-        return 0
-    
-    def _extract_pedigree(self, soup: BeautifulSoup) -> Tuple[str, str, str]:
-        """血統情報を抽出する（父、母、母父）"""
-        sire = dam = damsire = ""
         try:
-            # 本番環境のセレクタに合わせる
-            pedigree = soup.select('.pedigree')
-            if not pedigree:
-                # 別のセレクタを試す
-                pedigree_text = soup.get_text()
-                import re
-                match = re.search(r'父：([^\s]+)\s*母：([^\s]+)\s*母の父：([^\s]+)', pedigree_text)
-                if match:
-                    return match.group(1), match.group(2), match.group(3)
-            
-            if pedigree and len(pedigree) >= 3:
-                sire = pedigree[0].get_text(strip=True)
-                dam = pedigree[1].get_text(strip=True)
-                damsire = pedigree[2].get_text(strip=True)
-                
-                # 血統情報から不要なテキストを除去
-                sire = sire.replace('父', '').strip()
-                dam = dam.replace('母', '').strip()
-                damsire = damsire.replace('母父', '').strip()
-                
-        except Exception as e:
-            logger.warning(f"血統情報の抽出に失敗: {e}")
-            
-        return sire, dam, damsire
-    
-    def _extract_sire(self, soup: BeautifulSoup) -> str:
-        """父馬名を抽出する"""
-        try:
-            sire, _, _ = self._extract_pedigree(soup)
-            return sire
-        except Exception as e:
-            logger.warning(f"父馬名の抽出に失敗: {e}")
-            return ""
-    
-    def _extract_dam(self, soup: BeautifulSoup) -> str:
-        """母馬名を抽出する"""
-        try:
-            _, dam, _ = self._extract_pedigree(soup)
-            return dam
-        except Exception as e:
-            logger.warning(f"母馬名の抽出に失敗: {e}")
-            return ""
-            
-    def _extract_damsire(self, soup: BeautifulSoup) -> str:
-        """母父名を抽出する"""
-        try:
-            _, _, damsire = self._extract_pedigree(soup)
-            return damsire
-        except Exception as e:
-            logger.warning(f"母父名の抽出に失敗: {e}")
-            return ""
-    
-    
-    def _extract_seller(self, soup: BeautifulSoup) -> str:
-        """販売者を抽出する"""
-        try:
-            # 複数のセレクタを試す
-            selectors = [
-                '.sellerInfo',
-                '.seller-info',
-                '.seller',
-                'div:contains("売主")',
-                'div:contains("販売者"):not(:has(*))'  # 子要素を持たない販売者を含む要素
-            ]
-            
-            for selector in selectors:
-                seller_elem = soup.select_one(selector)
-                if seller_elem:
-                    seller = seller_elem.get_text(strip=True)
-                    # インボイス番号などの不要な情報を除去
-                    seller = re.sub(r'[（(].*?[)）]', '', seller)  # 括弧内を除去
-                    seller = re.sub(r'[0-9]{4,}', '', seller)  # 4桁以上の数字を除去
-                    seller = re.sub(r'[\s　]+', ' ', seller).strip()  # 連続する空白を1つに
-                    if seller and len(seller) > 1:  # 1文字の場合はスキップ
-                        return seller
-            
-            # フッターからも検索
-            footer = soup.find('footer') or soup.find('div', class_='footer')
-            if footer:
-                footer_text = footer.get_text(' ', strip=True)
-                # フッターテキストから販売者らしき部分を抽出
-                match = re.search(r'(?:売主|販売者)[:：]\s*([^\s].*?)(?:\s*\||\s*©|\s*$)', footer_text)
-                if match:
-                    return match.group(1).strip()
-                    
-        except Exception as e:
-            logger.warning(f"販売者の抽出に失敗: {e}")
-            
-            # 8. 最終手段: ファイル名やディレクトリ名から日付を推測
-            if hasattr(self, 'current_file_path'):
-                date_str = self._extract_date_from_text(self.current_file_path)
-                if date_str:
-                    return date_str
-                    
-        except Exception as e:
-            logger.warning(f"オークション日付の抽出に失敗: {e}")
-            
-        # デフォルトで現在日付を返す
-        logger.warning("オークション日付が見つからないため、現在日時を使用します")
-        return datetime.now().strftime('%Y-%m-%d')
-    
-    def _extract_date_from_text(self, text: str) -> Optional[str]:
-        """テキストから日付を抽出するヘルパーメソッド"""
-        if not text:
-            return None
-            
-        # 和暦を西暦に変換
-        jp_eras = {
-            '令和': 2018,  # 2019年が令和元年
-            '平成': 1988,  # 1989年が平成元年
-            '昭和': 1925,  # 1926年が昭和元年
-            '大正': 1911,  # 1912年が大正元年
-            '明治': 1867   # 1868年が明治元年
-        }
-        
-        # 和暦表記を西暦に変換
-        for era, base_year in jp_eras.items():
-            if era in text:
-                pattern = f'{era}(?:\s*)(\d+)年(?:\s*)(\d+)月(?:\s*)(\d+)日?'
-                match = re.search(pattern, text)
-                if match:
-                    year = base_year + int(match.group(1))
-                    month = int(match.group(2))
-                    day = int(match.group(3) or '1')
-                    if 2000 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31:
-                        return f"{year}-{month:02d}-{day:02d}"
-        
-        # 西暦表記（YYYY/MM/DD または YYYY-MM-DD）
-        patterns = [
-            # YYYY/MM/DD または YYYY-MM-DD
-            r'(\d{4})[/-](\d{1,2})[/-](\d{1,2})',
-            # YYYY年MM月DD日
-            r'(\d{4})年(\d{1,2})月(\d{1,2})日?',
-            # YY/MM/DD (2000年以降を想定)
-            r'\b(20\d{2})[/-](\d{1,2})[/-](\d{1,2})\b',
-            # MM/DD/YYYY
-            r'\b(\d{1,2})/(\d{1,2})/(\d{4})\b',
-            # DD-MM-YYYY
-            r'\b(\d{1,2})-(\d{1,2})-(\d{4})\b'
-        ]
-        
-        for pattern in patterns:
-            matches = re.finditer(pattern, text)
-            for match in matches:
-                try:
-                    if len(match.groups()) >= 3:
-                        # パターンに応じて年、月、日を取得
-                        if '年' in pattern:  # YYYY年MM月DD日 形式
-                            year, month, day = map(int, match.groups()[:3])
-                        elif pattern == patterns[3]:  # MM/DD/YYYY 形式
-                            month, day, year = map(int, match.groups()[:3])
-                        elif pattern == patterns[4]:  # DD-MM-YYYY 形式
-                            day, month, year = map(int, match.groups()[:3])
-                        else:  # その他の形式（YYYY/MM/DD など）
-                            year, month, day = map(int, match.groups()[:3])
-                        
-                        # 年が2桁の場合は2000年代と仮定
-                        if year < 100:
-                            year += 2000
-                        
-                        # 日付の妥当性チェック
-                        if 2000 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31:
-                            return f"{year}-{month:02d}-{day:02d}"
-                except (ValueError, IndexError):
-                    continue
-        
-        return None  # エラー時は現在日付を返す
-    
-    def _extract_weight(self, soup: BeautifulSoup) -> float:
-        """馬体重を抽出する"""
-        try:
-            # まずはコメントから体重を探す（コメントに体重が含まれていることが多い）
-{{ ... }}
-            if comment:
-                # コメント内の体重表記を検索（例：「馬体重424㎏」）
-                weight_matches = re.findall(r'馬体重\s*([\d.]+)[\s㎏kg]', comment)
-                if weight_matches:
-                    weight = float(weight_matches[-1])  # 最新の体重を取得
-                    if 200 <= weight <= 600:  # 妥当な馬の体重範囲
-                        return weight
-            
-            # 一般的なセレクタで探す
-            selectors = [
-                '.weight',
-                '.horseWeight',
-                'div:contains("馬体重")',
-                'div:contains("体重")',
-                'td:contains("馬体重") + td',
-                'th:contains("馬体重") + td',
-                'span:contains("馬体重") + span',
-                'span:contains("体重") + span',
-                'div:contains("Weight") + div',
-                'td:contains("Weight") + td',
-                'th:contains("Weight") + td'
-            ]
-            
-            for selector in selectors:
-                try:
-                    weight_elems = soup.select(selector)
-                    for weight_elem in weight_elems:
-                        weight_text = weight_elem.get_text(strip=True)
+            # 体重を抽出するセレクタ
+            weight_selectors = ['.weight', '.horse-weight', '.wt', '.weight-value']
+            for selector in weight_selectors:
+                weight_elems = horse_element.select(selector)
+                for weight_elem in weight_elems:
+                    weight_text = weight_elem.get_text(strip=True)
+                    try:
                         # 数字部分を抽出（「500kg」や「500.0kg」などに対応）
                         match = re.search(r'([\d.]+)\s*[㎏kg]?', weight_text)
                         if match:
                             weight = float(match.group(1))
                             if 200 <= weight <= 600:  # 妥当な馬の体重範囲
+                                self.logger.debug(f'馬体重を抽出しました: {weight}kg')
                                 return weight
-                except:
-                    continue
-            
-            # テーブルから検索
-            for row in soup.select('tr'):
-                cells = row.select('th, td')
-                for i, cell in enumerate(cells):
-                    cell_text = cell.get_text(strip=True).lower()
-                    if '体重' in cell_text or 'weight' in cell_text:
-                        # 同じ行の次のセルを確認
-                        if i + 1 < len(cells):
-                            weight_text = cells[i+1].get_text(strip=True)
-                            match = re.search(r'([\d.]+)', weight_text)
-                            if match:
-                                weight = float(match.group(1))
-                                if 200 <= weight <= 600:
-                                    return weight
+                    except (ValueError, IndexError) as e:
+                        self.logger.warning(f'体重の抽出に失敗しました: {str(e)}')
+                        continue
+                
+                # ページ全体から正規表現で検索
+                page_text = horse_element.get_text()
+                weight_matches = re.findall(r'馬体重\s*[：:]*\s*([\d.]+)[\s㎏kg]?', page_text, re.IGNORECASE)
+                if weight_matches:
+                    weight = float(weight_matches[-1])
+                    if 200 <= weight <= 600:
+                        return weight
                         
-                        # 同じセル内に数値がある場合
-                        match = re.search(r'[\d.]+', cell_text)
-                        if match:
-                            weight = float(match.group())
-                            if 200 <= weight <= 600:
-                                return weight
-            
-            # ページ全体から正規表現で検索
-            page_text = soup.get_text()
-            weight_matches = re.findall(r'馬体重\s*[：:]*\s*([\d.]+)[\s㎏kg]?', page_text, re.IGNORECASE)
-            if weight_matches:
-                weight = float(weight_matches[-1])
-                if 200 <= weight <= 600:
-                    return weight
-                    
-            # 単純な体重表記を検索
-            weight_matches = re.findall(r'(?:体重|weight)[：:]*\s*([\d.]+)[\s㎏kg]?', page_text, re.IGNORECASE)
-            if weight_matches:
-                weight = float(weight_matches[-1])
-                if 200 <= weight <= 600:
-                    return weight
-            
+                # 単純な体重表記を検索
+                weight_matches = re.findall(r'(?:体重|weight)[：:]*\s*([\d.]+)[\s㎏kg]?', page_text, re.IGNORECASE)
+                if weight_matches:
+                    weight = float(weight_matches[-1])
+                    if 200 <= weight <= 600:
+                        return weight
+                
             # 数値のみで、妥当な範囲のものを検索（最終手段）
             weight_matches = re.findall(r'\b([3-5]\d{2}|[4-5]\d{2}\.\d)\b', page_text)
             if weight_matches:
@@ -770,16 +513,30 @@ class DebugHorseExtractor:
                     return median_weight
                         
         except Exception as e:
-            logger.warning(f"馬体重の抽出に失敗: {e}")
+            self.logger.warning(f"馬体重の抽出に失敗: {e}")
             
         return 0.0
     
-    def _extract_comment(self, soup: BeautifulSoup) -> str:
-        """コメントを抽出する"""
+    def _extract_comment(self, horse_element) -> str:
+        """コメントを抽出する
+        
+        Args:
+            horse_element: 馬情報を含むBeautifulSoup要素
+            
+        Returns:
+            str: 抽出されたコメント。抽出に失敗した場合は空文字列
+        """
         try:
+            # まずは親クラスの実装を試す（もしあれば）
+            if hasattr(super(), '_extract_comment'):
+                comment = super()._extract_comment(horse_element)
+                if comment:
+                    return comment
+                    
+            # 親クラスに実装がないか、抽出できなかった場合の独自ロジック
             # 「本馬について」セクションを探す
             comment_section = None
-            for elem in soup.find_all(['div', 'section', 'article']):
+            for elem in horse_element.find_all(['div', 'section', 'article']):
                 if '本馬について' in elem.get_text():
                     comment_section = elem
                     break
@@ -790,10 +547,19 @@ class DebugHorseExtractor:
                 if hr:
                     comment = ''
                     # <hr>以降の兄弟要素を取得
-                    for sibling in hr.find_next_siblings():
-                        comment += sibling.get_text(' ', strip=True) + '\n'
-                    if comment.strip():
-                        return comment.strip()
+                    comment_parts = []
+                    for sibling in hr.next_siblings:
+                        if sibling.name == 'hr':
+                            break
+                        if hasattr(sibling, 'get_text'):
+                            comment_parts.append(sibling.get_text(strip=True))
+                        else:
+                            comment_parts.append(str(sibling).strip())
+                
+                    # コメントを結合して返す
+                    comment = '\n'.join(part for part in comment_parts if part)
+                    self.logger.debug(f'コメントを抽出しました: {comment[:100]}...')
+                    return comment
                 
                 # <hr>がない場合はセクション全体を取得
                 comment_text = comment_section.get_text(' ', strip=True)
@@ -804,7 +570,7 @@ class DebugHorseExtractor:
             
             # コメントセクションが見つからない場合、全体から長いテキストを探す
             longest_text = ''
-            for elem in soup.find_all(['div', 'p', 'section', 'article']):
+            for elem in horse_element.find_all(['div', 'p', 'section', 'article']):
                 text = elem.get_text(' ', strip=True)
                 if len(text) > len(longest_text) and len(text) > 100:  # 100文字以上の長いテキスト
                     longest_text = text

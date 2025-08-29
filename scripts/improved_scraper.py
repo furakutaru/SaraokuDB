@@ -13,12 +13,14 @@ import hashlib
 import json
 import logging
 import os
+import random
 import re
 import sys
 import time
 import traceback
 import urllib.parse
 import uuid
+from typing import List, Optional, Dict, Any, Tuple, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -282,14 +284,35 @@ except ImportError as e:
 class ScraperConfig:
     """スクレイパーの設定を管理するクラス"""
     
+    # モバイルデバイス用のUser-Agentリスト
+    MOBILE_USER_AGENTS = [
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
+        'Mozilla/5.0 (Linux; Android 12; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.88 Mobile Safari/537.36',
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 15_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
+    ]
+    
+    # 一般的なPC向けUser-Agentのリスト
+    PC_USER_AGENTS = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.59',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 OPR/77.0.4054.277'
+    ]
+    
     def __init__(
         self,
         max_workers: int = 5, 
         use_cache: bool = True, 
         cache_dir: str = 'cache',
-        timeout: int = DEFAULT_TIMEOUT,
-        max_retries: int = MAX_RETRIES,
-        backoff_factor: float = BACKOFF_FACTOR
+        timeout: int = 30,
+        max_retries: int = 3,
+        backoff_factor: float = 1.0,
+        min_delay: float = 1.0,
+        max_delay: float = 3.0,
+        use_mobile: bool = True  # デフォルトでモバイル版を使用
     ):
         """
         初期化メソッド
@@ -301,6 +324,9 @@ class ScraperConfig:
             timeout: リクエストのタイムアウト（秒）
             max_retries: 最大リトライ回数
             backoff_factor: リトライ間の待機時間の係数
+            min_delay: リクエスト間の最小遅延（秒）
+            max_delay: リクエスト間の最大遅延（秒）
+            use_mobile: モバイル版のUser-Agentを使用するかどうか
         """
         self.max_workers = max_workers
         self.use_cache = use_cache
@@ -308,6 +334,28 @@ class ScraperConfig:
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
+        self.min_delay = min_delay
+        self.max_delay = max_delay
+        self.use_mobile = use_mobile
+        self._current_ua_index = 0
+        
+    def get_random_user_agent(self) -> str:
+        """ランダムなUser-Agentを取得（モバイル/PCを設定に応じて切り替え）"""
+        if self.use_mobile:
+            return random.choice(self.MOBILE_USER_AGENTS)
+        return random.choice(self.PC_USER_AGENTS)
+        
+    def get_next_user_agent(self) -> str:
+        """次のUser-Agentをローテーションして取得（モバイル/PCを設定に応じて切り替え）"""
+        if self.use_mobile:
+            self._current_ua_index = (self._current_ua_index + 1) % len(self.MOBILE_USER_AGENTS)
+            return self.MOBILE_USER_AGENTS[self._current_ua_index]
+        self._current_ua_index = (self._current_ua_index + 1) % len(self.PC_USER_AGENTS)
+        return self.PC_USER_AGENTS[self._current_ua_index]
+        
+    def get_random_delay(self) -> float:
+        """ランダムな遅延時間を取得"""
+        return random.uniform(self.min_delay, self.max_delay)
 
 
 class TestConfig(ScraperConfig):
@@ -481,14 +529,35 @@ class ImprovedRakutenScraper:
                     self.logger.debug(f'キャッシュから取得: {url}')
                     return cached_content
             
+            # リクエスト間のランダムな遅延を追加（1.0〜3.0秒）
+            delay = self.config.get_random_delay()
+            self.logger.debug(f'リクエスト前に {delay:.2f}秒待機します...')
+            time.sleep(delay)
+            
+            # User-Agentをローテーション
+            if hasattr(self, 'session'):
+                new_ua = self.config.get_next_user_agent()
+                self.session.headers.update({'User-Agent': new_ua})
+                self.logger.debug(f'User-Agentを変更: {new_ua[:50]}...')
+            
             # ウェブから取得
             self.logger.debug(f'ウェブから取得: {url}')
-            response = self.session.get(url, timeout=30)
+            response = self.session.get(
+                url,
+                timeout=self.config.timeout,
+                headers={
+                    'User-Agent': self.config.get_next_user_agent(),
+                    'Referer': 'https://auction.keiba.rakuten.co.jp/'
+                }
+            )
             response.raise_for_status()
             
             # エンコーディングを設定
             response.encoding = 'utf-8'
             html_content = response.text
+            
+            # 成功時に少し待機（サーバー負荷軽減のため）
+            time.sleep(random.uniform(0.5, 1.5))
             
             # HTMLを保存（デバッグ用）
             if self.html_saver is not None:
@@ -586,7 +655,8 @@ class ImprovedRakutenScraper:
             self.logger.error(f"キャッシュセッションの開始中にエラーが発生しました: {e}")
             return False
     
-    def _create_session(self, timeout: int = None, max_retries: int = None, backoff_factor: float = None) -> requests.Session:
+    def _create_session(self, timeout: int = None, max_retries: int = None, 
+                      backoff_factor: float = None) -> requests.Session:
         """HTTPセッションを作成します。
         
         Args:
@@ -596,30 +666,50 @@ class ImprovedRakutenScraper:
         
         Returns:
             requests.Session: 設定済みのセッションオブジェクト
+            
+        Example:
+            >>> scraper = ImprovedRakutenScraper()
+            >>> session = scraper._create_session(timeout=30, max_retries=3)
+            >>> isinstance(session, requests.Session)
+            True
         """
         # デフォルト値の設定
         timeout = timeout if timeout is not None else self.config.timeout
         max_retries = max_retries if max_retries is not None else self.config.max_retries
         backoff_factor = backoff_factor if backoff_factor is not None else self.config.backoff_factor
         
-        self.logger.debug(f"セッションを作成します (timeout={timeout}, max_retries={max_retries}, backoff_factor={backoff_factor})")
+        self.logger.debug(
+            f"セッションを作成します (timeout={timeout}, "
+            f"max_retries={max_retries}, backoff_factor={backoff_factor})"
+        )
         
+        # セッションの作成
         session = requests.Session()
         
-        # リトライ設定
+        # リクエスト/レスポンスのフックを設定
+        def log_request(response, *args, **kwargs):
+            self.logger.debug(f"Request: {response.request.method} {response.request.url}")
+            self.logger.debug(f"Status: {response.status_code}")
+            return response
+
+        session.hooks['response'] = [log_request]
+        
+        # リトライ戦略の設定
         retry_strategy = Retry(
             total=max_retries,
             backoff_factor=backoff_factor,
-            status_forcelist=[500, 502, 503, 504, 429],
-            allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
-            respect_retry_after_header=True
+            status_forcelist=[408, 413, 429, 500, 502, 503, 504, 521, 522, 524],
+            allowed_methods=["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST"],
+            respect_retry_after_header=True,
+            backoff_max=60,  # 最大60秒までバックオフ
+            raise_on_status=False
         )
-    
+
         # アダプターの設定
         adapter = HTTPAdapter(
             max_retries=retry_strategy,
-            pool_connections=self.config.max_workers * 2,
-            pool_maxsize=self.config.max_workers * 2,
+            pool_connections=min(32, self.config.max_workers * 2),
+            pool_maxsize=min(100, self.config.max_workers * 10),
             pool_block=False
         )
         
@@ -629,7 +719,7 @@ class ImprovedRakutenScraper:
         
         # ヘッダー設定
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent': self.config.get_random_user_agent(),
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
             'Accept-Encoding': 'gzip, deflate, br',
@@ -639,14 +729,25 @@ class ImprovedRakutenScraper:
             'Sec-Fetch-Dest': 'document',
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'same-origin',
-            'Cache-Control': 'max-age=0'
+            'Cache-Control': 'max-age=0',
+            'Referer': self.base_url
         }
         
         # カスタムユーザーエージェントが指定されていれば使用
         if hasattr(self.config, 'user_agent') and self.config.user_agent:
             headers['User-Agent'] = self.config.user_agent
-            
-        session.headers.update(headers)
+        
+        # セッションのタイムアウト設定
+        session.request = functools.partial(
+            session.request,
+            timeout=timeout,
+            headers=headers
+        )
+        
+        # セッションの設定をログに記録
+        self.logger.debug(f"セッション設定: timeout={timeout}s, "
+                         f"pool_connections={adapter._pool_connections}, "
+                         f"pool_maxsize={adapter._pool_maxsize}")
         
         return session
 
@@ -658,135 +759,123 @@ class ImprovedRakutenScraper:
         
         Args:
             url: スクレイピング対象のURL（Noneの場合はベースURLを使用）
+            use_cache: キャッシュを使用するかどうか
+            
+        Returns:
+            List[Dict[str, Any]]: 馬情報のリスト
         """
+        if self.test_mode:
+            self.logger.info("テストモード: サンプルデータを返します")
+            return [
+                {
+                    "id": "test1",
+                    "name": "テスト馬1",
+                    "sire": "テスト父",
+                    "dam": "テスト母",
+                    "damsire": "テスト母父",
+                    "sex": "牡",
+                    "age": 3,
+                    "seller": "テスト牧場",
+                    "auction_date": datetime.now().strftime("%Y-%m-%d"),
+                    "detail_url": f"{self.base_url}detail/1"
+                },
+                {
+                    "id": "test2",
+                    "name": "テスト馬2",
+                    "sire": "テスト父2",
+                    "dam": "テスト母2",
+                    "damsire": "テスト母父2",
+                    "sex": "牝",
+                    "age": 2,
+                    "seller": "テスト牧場2",
+                    "auction_date": datetime.now().strftime("%Y-%m-%d"),
+                    "detail_url": f"{self.base_url}detail/2"
+                },
+                {
+                    "id": "test3",
+                    "name": "テスト馬3",
+                    "sire": "テスト父3",
+                    "dam": "テスト母3",
+                    "damsire": "テスト母父3",
+                    "sex": "セ",
+                    "age": 4,
+                    "seller": "テスト牧場3",
+                    "auction_date": datetime.now().strftime("%Y-%m-%d"),
+                    "detail_url": f"{self.base_url}detail/3"
+                }
+            ]
+            
+        # 実際のスクレイピング処理を呼び出す
+        return self._scrape_horse_list(url=url, use_cache=use_cache)
+
+    def _scrape_horse_list(self, url: Optional[str] = None, use_cache: bool = True) -> List[Dict[str, Any]]:
+        """
+        馬一覧ページから馬の情報をスクレイピングする
+        
+        Args:
+            url (str, optional): スクレイピング対象のURL. デフォルトはNone.
+            use_cache (bool, optional): キャッシュを使用するかどうか. デフォルトはTrue.
+            
+        Returns:
+            List[Dict[str, Any]]: 馬情報のリスト
+        """
+        from bs4 import BeautifulSoup
+        
+        url = url or self.base_url
+        self.logger.info(f"馬一覧のスクレイピングを開始します: {url}")
+        
         try:
-            if self.test_mode:
-                self.logger.info("テストモード: サンプルデータを返します")
-                return [
-                    {
-                        "id": "test1",
-                        "name": "テスト馬1",
-                        "sire": "テスト父",
-                        "dam": "テスト母",
-                        "damsire": "テスト母父",
-                        "sex": "牡",
-                        "age": 3,
-                        "seller": "テスト牧場",
-                        "auction_date": datetime.now().strftime("%Y-%m-%d"),
-                        "detail_url": f"{self.base_url}detail/1"
-                    },
-                    {
-                        "id": "test2",
-                        "name": "テスト馬2",
-                        "sire": "テスト父2",
-                        "dam": "テスト母2",
-                        "damsire": "テスト母父2",
-                        "sex": "牝",
-                        "age": 2,
-                        "seller": "テスト牧場2",
-                        "auction_date": datetime.now().strftime("%Y-%m-%d"),
-                        "detail_url": f"{self.base_url}detail/2"
-                    },
-                    {
-                        "id": "test3",
-                        "name": "テスト馬3",
-                        "sire": "テスト父3",
-                        "dam": "テスト母3",
-                        "damsire": "テスト母父3",
-                        "sex": "セ",
-                        "age": 4,
-                        "seller": "テスト牧場3",
-                        "auction_date": datetime.now().strftime("%Y-%m-%d"),
-                        "detail_url": f"{self.base_url}detail/3"
-                    }
-                ]
-
-            if url is None:
-                url = self.base_url
-
-            html_content = None
-            if use_cache and hasattr(self, 'cache_manager'):
-                logger.debug(f"キャッシュから読み込みを試みます: {url}")
-                html_content = self.cache_manager.load_html(url)
-                if html_content:
-                    logger.debug(f"キャッシュヒット: {url}")
-                else:
-                    logger.debug(f"キャッシュミス: {url}")
-
-            if not html_content:
-                try:
-                    logger.debug(f"ウェブからデータを取得します: {url}")
-                    response = self.session.get(url, timeout=self.config.timeout)
-                    response.raise_for_status()
-                    
-                    # エンコーディングを設定
-                    response.encoding = 'utf-8'
-                    html_content = response.text
-                    
-                    # HTMLを保存（デバッグ用）
-                    if self.html_saver is not None:
-                        self.html_saver.save(url, html_content)
-                    
-                    # キャッシュに保存（既に_cache_manager.set()で処理されているため不要）
-                    pass
-                except requests.exceptions.RequestException as e:
-                    logger.error(f"リクエストに失敗しました: {e}")
-                    return []
-                        
-            # HTMLをパース
-            soup = BeautifulSoup(html_content, 'html.parser')
-                
-            # 馬の行を取得
-            horse_rows = []
-            # 馬のカードを取得
+            # HTMLを取得
+            html = self._fetch_html(url, use_cache=use_cache)
+            if not html:
+                self.logger.error("HTMLの取得に失敗しました")
+                return []
+            
+            # BeautifulSoupでパース
+            soup = BeautifulSoup(html, 'html.parser')
+            
+            # 馬のカード要素を取得
             horse_cards = soup.select('.auctionTableCard')
             total_horses = len(horse_cards)
             
-            if not horse_cards:
-                # デバッグ用HTML保存処理
-                debug_html = "debug_horse_list.html"
-                with open(debug_html, 'w', encoding='utf-8') as f:
-                    f.write(html_content)
-                logger.warning(f"馬のカードが見つかりませんでした。デバッグ用にHTMLを保存しました: {debug_html}")
+            if total_horses == 0:
+                self.logger.warning("馬のカードが見つかりませんでした")
                 return []
-                
-            logger.info(f"{total_horses}頭の馬を検出しました")
-
-            # 馬の情報を抽出
+            
+            self.logger.info(f"馬のカードを {total_horses} 件見つけました")
+            
+            # 馬情報を格納するリスト
             horses = []
+            success_count = 0
             failed_count = 0
             
-            for i, card in enumerate(horse_cards, 1):
+            # 各馬の情報を抽出
+            for index, card in enumerate(horse_cards, 1):
                 try:
-                    horse_info = self._extract_horse_info(card, i, total_horses)
+                    horse_info = self._process_horse_info(card, index, total_horses)
                     if horse_info:
-                        # 詳細ページへのURLを設定
-                        detail_link = card.select_one('a[href*="detail"]')
-                        if detail_link:
-                            horse_info['detail_url'] = urljoin(self.base_url, detail_link.get('href', '').strip())
                         horses.append(horse_info)
+                        success_count += 1
                     else:
                         failed_count += 1
                 except Exception as e:
-                    logger.error(f"[{i}/{total_horses}] 馬情報の抽出中にエラーが発生しました: {e}", exc_info=True)
+                    self.logger.error(f"馬情報の処理中にエラーが発生しました (馬 {index}/{total_horses}): {e}", exc_info=True)
                     failed_count += 1
-                            
-            # 成功・失敗の集計
-            success_count = len(horses)
             
-            logger.info("\n=== スクレイピング結果 ===")
-            logger.info(f"総数: {total_horses}頭")
-            logger.info(f"成功: {success_count}頭")
-            logger.info(f"失敗: {failed_count}頭")
+            # 結果をログに出力
+            self.logger.info("\n=== スクレイピング結果 ===")
+            self.logger.info(f"総数: {total_horses}頭")
+            self.logger.info(f"成功: {success_count}頭")
+            self.logger.info(f"失敗: {failed_count}頭")
             
             if failed_count > 0:
-                logger.warning(f"{failed_count}頭の馬情報の抽出に失敗しました")
+                self.logger.warning(f"{failed_count}頭の馬情報の抽出に失敗しました")
             
             return horses
                 
         except Exception as e:
-            logger.error(f"馬の一覧のスクレイピング中にエラーが発生しました: {e}", exc_info=True)
-            if self.test_mode:
+            self.logger.error(f"馬の一覧のスクレイピング中にエラーが発生しました: {e}", exc_info=True)
+            if hasattr(self, 'test_mode') and self.test_mode:
                 raise  # テストモードの場合は例外を再スロー
             return []
 
@@ -865,9 +954,120 @@ class ImprovedRakutenScraper:
         
         return None
 
+    def _extract_detail_url(self, card) -> Optional[str]:
+        """
+        馬の詳細ページのURLを抽出する
+        
+        Args:
+            card: 馬情報を含むHTML要素（BeautifulSoupオブジェクト）
+            
+        Returns:
+            Optional[str]: 詳細ページのURL、抽出に失敗した場合はNone
+        """
+        try:
+            # 馬名のリンクから相対URLを取得（複数のクラス名に対応）
+            name_link = card.find('a', class_=lambda c: c and ('horseName' in c or 'auctionTableCard__name' in c.split()))
+            if name_link and 'href' in name_link.attrs:
+                detail_path = name_link['href']
+                # 相対URLを絶対URLに変換
+                return urljoin(self.base_url, detail_path)
+            return None
+        except Exception as e:
+            self.logger.debug(f"詳細ページURLの抽出中にエラーが発生しました: {e}")
+            return None
+
+    def _process_horse_info(self, card, index: int, total: int) -> Optional[Dict[str, Any]]:
+        """
+        馬の情報を抽出する（リストページからの情報抽出用）
+        
+        Args:
+            card: 馬情報を含むHTML要素（BeautifulSoupオブジェクト）
+            index: 処理中の馬のインデックス（1ベース）
+            total: 総馬数
+            
+        Returns:
+            Optional[Dict[str, Any]]: 抽出した馬の情報、抽出に失敗した場合はNone
+        """
+        try:
+            self.logger.debug(f"[{index}/{total}] 馬情報の抽出を開始")
+            
+            # 馬の基本情報を抽出
+            horse_info, missing_fields = self.horse_info_extractor.extract(card)
+            
+            # 必須フィールドの確認
+            required_fields = ['name', 'age', 'sex']
+            missing_required = [field for field in required_fields 
+                             if field not in horse_info or horse_info[field] is None]
+            
+            # 必須フィールドが不足している場合、詳細ページから取得を試みる
+            if missing_required:
+                self.logger.debug(f"必須フィールドが不足しているため、詳細ページから取得を試みます: {missing_required}")
+                detail_url = self._extract_detail_url(card)
+                if detail_url:
+                    detail_html = self._fetch_html(detail_url, use_cache=True)
+                    if detail_html:
+                        # 詳細ページから不足している情報を抽出
+                        detail_info = self.horse_info_extractor.extract_from_detail_page(detail_html)
+                        if detail_info:
+                            # 不足しているフィールドのみを更新
+                            for field in missing_required[:]:  # イテレーション中にリストを変更するためコピーを作成
+                                if field in detail_info and detail_info[field] is not None:
+                                    horse_info[field] = detail_info[field]
+                                    missing_required.remove(field)
+                                    self.logger.debug(f"詳細ページから{field}を取得しました: {horse_info[field]}")
+                            
+                            # 詳細ページから取得した情報で不足フィールドを更新
+                            if not missing_required:
+                                self.logger.debug("すべての必須フィールドを詳細ページから取得しました")
+            
+            # それでも必須フィールドが不足している場合はエラー
+            if missing_required:
+                self.logger.warning(f"必須フィールドが不足しています: {missing_required}")
+                return None
+                
+            # 不足フィールドがあればデバッグログに記録
+            if missing_fields:
+                self.logger.debug(f"以下のフィールドの抽出に失敗しました: {missing_fields}")
+            
+            # オプションフィールドの抽出
+            optional_fields = {}
+            
+            # 各抽出処理
+            extractors = [
+                ('comment', self.comment_extractor, 'コメント'),
+                ('prize_money', self.prize_info_extractor, '賞金情報'),
+                ('price', self.price_info_extractor, '価格情報'),
+                ('seller', self.seller_info_extractor, '販売者情報'),
+                ('race_records', self.race_record_extractor, 'レース記録'),
+                ('image_url', self.image_extractor, '画像URL')
+            ]
+
+            for field, extractor, name in extractors:
+                try:
+                    result, success = extractor.extract(card)
+                    if success and result:
+                        if field == 'price' and isinstance(result, dict):
+                            optional_fields.update(result)
+                        elif field in result:
+                            optional_fields[field] = result[field]
+                    else:
+                        # 抽出に失敗した場合はデバッグログを記録
+                        self.logger.debug(f'{name}の抽出に失敗しました')
+                except Exception as e:
+                    self.logger.debug(f'{name}の抽出中にエラーが発生しました: {e}')
+            
+            # 必須フィールドとオプションフィールドをマージ
+            result = {**horse_info, **optional_fields}
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"馬情報の抽出中にエラーが発生しました: {e}", exc_info=True)
+            return None
+
     def _extract_horse_info(self, horse_element, index: int = 0, total: int = 0) -> Optional[Dict[str, Any]]:
         """
-        馬の情報を抽出する
+        馬の情報を抽出する（詳細ページからの情報抽出用）
         
         Args:
             horse_element: 馬情報を含むHTML要素
@@ -901,24 +1101,22 @@ class ImprovedRakutenScraper:
 
             # 馬の基本情報を抽出
             try:
-                horse_info, success = self.horse_info_extractor.extract(horse_element)
-                if not success or not horse_info:
-                    # テストの期待値に合わせてwarningを出力
-                    self.logger.warning('馬情報の抽出に失敗しました')
-                    return None
+                # HorseInfoExtractor.extract() は (horse_info, missing_fields) を返す
+                horse_info, missing_fields = self.horse_info_extractor.extract(horse_element)
                 
                 # 必須フィールドの確認
                 required_fields = ['name', 'age', 'sex']
-                missing_fields = [field for field in required_fields 
-                               if field not in horse_info or horse_info[field] is None]
-
-                if missing_fields:
-                    if 'age' in missing_fields and 'sex' in missing_fields:
-                        # テストの期待値に合わせて固定のメッセージを出力
-                        self.logger.error('必須フィールドが不足しています: %s', ['age', 'sex'])
-                    else:
-                        self.logger.error('必須フィールドが不足しています: %s', missing_fields)
+                missing_required = [field for field in required_fields 
+                                 if field not in horse_info or horse_info[field] is None]
+                
+                # 不足している必須フィールドがあればエラー
+                if missing_required:
+                    self.logger.error('必須フィールドが不足しています: %s', missing_required)
                     return None
+                    
+                # 不足フィールドがあればデバッグログに記録
+                if missing_fields:
+                    self.logger.debug('以下のフィールドの抽出に失敗しました: %s', missing_fields)
                     
             except Exception as e:
                 self.logger.error('馬情報の抽出中にエラーが発生しました', exc_info=True)
@@ -1335,7 +1533,7 @@ def main():
 
         # 馬の一覧をスクレイピング
         logger.info("馬の一覧をスクレイピングを開始します")
-        horses = scraper.scrape_horses()
+        horses = scraper.scrape_horse_list()
         
         if not horses:
             logger.warning("馬の一覧を取得できませんでした")
