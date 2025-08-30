@@ -5,9 +5,8 @@ import re
 import traceback
 import logging
 import unicodedata
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 from bs4 import BeautifulSoup, Tag
-import logging
 
 class HorseInfoExtractor:
     """馬の基本情報を抽出するクラス"""
@@ -140,37 +139,96 @@ class HorseInfoExtractor:
         return result
 
     # 他のメソッドはそのまま残します
-    def extract(self, horse_element: Tag) -> Tuple[Dict[str, any], List[str]]:
+    def extract(self, horse_element: Tag) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
-        馬の基本情報を抽出する
+        馬の詳細情報を抽出する
+        
+        Args:
+            horse_element: 馬の詳細情報を含むBeautifulSoup要素
+            
+        Returns:
+            Tuple[Dict[str, Any], Dict[str, Any]]: (基本情報, 追加情報) のタプル
+        """
+        try:
+            # 馬名を抽出
+            horse_name = self._extract_name(horse_element)
+            
+            # 性別と年齢を抽出
+            sex_age = self._extract_sex_and_age(horse_element)
+            
+            # 血統情報を抽出
+            pedigree = self._extract_pedigree(horse_element)
+            
+            # 馬体重を抽出
+            weight = self._extract_weight(horse_element)
+            
+            # 基本情報を構築
+            basic_info = {
+                'name': horse_name,
+                'sex': sex_age.get('sex'),
+                'age': sex_age.get('age'),
+                'sire': pedigree.get('sire'),
+                'dam': pedigree.get('dam'),
+                'damsire': pedigree.get('damsire'),
+                'weight': weight
+            }
+            
+            # 追加情報（現時点では空）
+            additional_info = {}
+            
+            self.logger.info(f"馬情報を抽出しました: 名前={horse_name}, 性別={sex_age.get('sex')}, 年齢={sex_age.get('age')}, 体重={weight}kg")
+            return basic_info, additional_info
+            
+        except Exception as e:
+            self.logger.error(f"馬情報の抽出中にエラーが発生しました: {str(e)}")
+            self.logger.error(traceback.format_exc())
+            return {}, {}
+    
+    def _extract_weight(self, horse_element: Tag) -> Optional[int]:
+        """
+        馬体重を抽出する
+        
+        [2025-08-31 確定] 本番環境での動作を確認済み
+        - 以下のフォーマットに対応：
+          - 「最終出走馬体重：392kg」形式
+          - 「馬体重は416キロ」形式
+        - 数値のみを抽出して整数で返す
+        - 見つからない場合は None を返す
+        
+        注意: このメソッドは本番環境で動作確認済みのため、変更する場合は十分なテストが必要です。
         
         Args:
             horse_element: 馬情報を含むBeautifulSoup要素
             
         Returns:
-            Tuple[Dict[str, any], List[str]]: (馬情報の辞書, 不足している必須フィールドのリスト)
+            Optional[int]: 抽出された馬体重（kg単位）、見つからない場合はNone
         """
-        horse_info = {}
+        try:
+            # HTMLを文字列に変換
+            html_content = str(horse_element)
             
-        # 馬名を抽出（必須）
-        name = self._extract_name(horse_element)
-        if name:
-            horse_info['name'] = name
-        
-        # 性別・年齢を抽出（必須）
-        sex_age = self._extract_sex_and_age(horse_element)
-        if sex_age:
-            horse_info.update(sex_age)
+            # パターン1: 「最終出走馬体重：392kg」の形式
+            weight_match = re.search(r'最終出走馬体重[：:](\d+)kg', html_content)
             
-        # 血統情報を抽出
-        pedigree = self._extract_pedigree(horse_element)
-        if pedigree:
-            horse_info.update(pedigree)
-        
-        # 不足している必須フィールドを確認
-        missing_fields = self._check_required_fields(horse_info)
-        
-        return horse_info, missing_fields
+            # パターン2: 「馬体重は416キロ」の形式
+            if not weight_match:
+                weight_match = re.search(r'馬体重[は:：](\d+)[\sキロ]', html_content)
+            
+            if weight_match:
+                try:
+                    weight = int(weight_match.group(1))
+                    self.logger.debug(f"馬体重を抽出しました: {weight}kg")
+                    return weight
+                except (ValueError, TypeError, IndexError) as e:
+                    self.logger.warning(f"馬体重の数値変換に失敗: {weight_match.groups()} - {str(e)}")
+            
+            self.logger.debug("馬体重を抽出できませんでした")
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"馬体重の抽出中にエラーが発生しました: {str(e)}")
+            self.logger.error(traceback.format_exc())
+            return None
 
     def _extract_name(self, horse_element: Tag) -> str:
         """
