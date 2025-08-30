@@ -33,11 +33,34 @@ except ImportError as e:
         raise
 
 
+import logging
+
 class AccumulativeScraper:
     def __init__(self, enable_history=None, mode='development'):
+        # ロガーの初期化
+        self.logger = logging.getLogger('AccumulativeScraper')
+        self.logger.setLevel(logging.INFO)
+        
+        # コンソールハンドラを追加（まだ存在しなければ）
+        if not self.logger.handlers:
+            ch = logging.StreamHandler()
+            ch.setLevel(logging.INFO)
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            ch.setFormatter(formatter)
+            self.logger.addHandler(ch)
+        
         # テストモードの設定（development/testモードの場合はTrue、productionモードの場合はFalse）
         test_mode = mode in ['development', 'dev', 'test']
-        self.scraper = ImprovedRakutenScraper(test_mode=test_mode)
+        
+        # スクレイパーを初期化
+        if mode == 'test':
+            from improved_scraper import TestConfig
+            config = TestConfig(use_cache=test_mode)
+        else:
+            from improved_scraper import ScraperConfig
+            config = ScraperConfig(use_cache=test_mode, max_workers=1)
+            
+        self.scraper = ImprovedRakutenScraper(config=config)
         
         # プロジェクトルートからの絶対パスを使用
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -643,6 +666,28 @@ class AccumulativeScraper:
         
         return new_entry
     
+    def save_data(self, data, filepath=None):
+        """データをJSONファイルに保存する
+        
+        Args:
+            data: 保存するデータ
+            filepath: 保存先ファイルパス（省略時はデフォルトパス）
+        """
+        if filepath is None:
+            filepath = os.path.join('data', 'horses.json')
+            
+        # ディレクトリが存在しない場合は作成
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            self.logger.info(f"データを保存しました: {filepath}")
+            return True
+        except Exception as e:
+            self.logger.error(f"データの保存中にエラーが発生しました: {str(e)}")
+            return False
+            
     def scrape_and_accumulate(self) -> bool:
         """スクレイピング実行＋データ積み上げ
         
@@ -658,32 +703,80 @@ class AccumulativeScraper:
         print(f"既存馬データ: {len(existing_horses)}頭")
         
         # 新しいデータをスクレイピング
-        print("新しいオークションデータを取得中...")
-        new_horses = self.scraper.scrape_all_horses()
-        
-        if not new_horses:
-            print("新しいデータが取得できませんでした")
+        # スクレイピング実行
+        try:
+            # スクレイピングを実行
+            if hasattr(self.scraper, 'scrape_all_horses'):
+                # RakutenAuctionScraper の場合
+                new_horses = self.scraper.scrape_all_horses()
+            else:
+                # ImprovedRakutenScraper の場合
+                new_horses = self.scraper.scrape_horse_list(use_cache=True)
+            if not new_horses:
+                print("スクレイピング結果が空です")
+                return False
+            
+            print(f"新規取得: {len(new_horses)}頭")
+            
+            # オークション日を現在の日付で設定
+            from datetime import datetime
+            auction_date = datetime.now().strftime('%Y-%m-%d')
+            print(f"オークション日: {auction_date}")
+            
+            # データ統合処理
+            added_count = 0
+            updated_count = 0
+            # 既存のIDを数値として抽出
+            existing_ids = []
+            for h in existing_horses:
+                try:
+                    existing_ids.append(int(h.get('id', 0)))
+                except (ValueError, TypeError):
+                    pass
+            # 次のIDを数値として計算
+            next_id = (max(existing_ids, default=0) + 1) if existing_ids else 1
+            
+            # デバッグ用に新しい馬データを表示
+            print("\n=== 新規取得データのサマリー ===")
+            for i, horse in enumerate(new_horses, 1):
+                print(f"{i}. {horse.get('name')} - 性別: {horse.get('sex')}, 年齢: {horse.get('age')}, 販売者: {horse.get('seller')}")
+                print(f"   父: {horse.get('sire')}, 母: {horse.get('dam')}, 母父: {horse.get('damsire') or horse.get('dam_sire')}")
+            
+            print("\n=== データ統合処理を開始します ===")
+            
+            for new_horse in new_horses:
+                # 既存の馬を検索
+                existing_horse = next(
+                    (h for h in existing_horses 
+                     if h['name'] == new_horse['name'] and 
+                        h.get('age') == new_horse.get('age')),
+                    None
+                )
+                
+                if existing_horse:
+                    # 既存の馬情報を更新
+                    existing_horse.update(new_horse)
+                    updated_count += 1
+                # 新しい馬の場合はIDを割り当て
+                if not existing_horse:
+                    new_horse['id'] = str(next_id)
+                    next_id += 1
+                    existing_horses.append(new_horse)
+                    added_count += 1
+            
+            # データを保存
+            self.save_data(existing_horses)
+            
+            print(f"\n=== スクレイピング完了 ===")
+            print(f"追加: {added_count}頭, 更新: {updated_count}頭")
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"スクレイピング中にエラーが発生しました: {str(e)}")
+            import traceback
+            self.logger.error(traceback.format_exc())
             return False
-        
-        print(f"新規取得: {len(new_horses)}頭")
-        
-        # オークション日を取得
-        auction_date = self.scraper.get_auction_date()
-        
-        # データ統合処理
-        added_count = 0
-        updated_count = 0
-        next_id = max([h.get('id', 0) for h in existing_horses], default=0) + 1
-        
-        # デバッグ用に新しい馬データを表示
-        print("\n=== 新規取得データのサマリー ===")
-        for i, horse in enumerate(new_horses, 1):
-            print(f"{i}. {horse.get('name')} - 性別: {horse.get('sex')}, 年齢: {horse.get('age')}, 販売者: {horse.get('seller')}")
-            print(f"   父: {horse.get('sire')}, 母: {horse.get('dam')}, 母父: {horse.get('damsire') or horse.get('dam_sire')}")
-        
-        print("\n=== データ統合処理を開始します ===")
-        
-        for new_horse in new_horses:
             # 必須フィールドのデフォルト値を設定
             default_values = {
                 'comment': '',

@@ -1,0 +1,119 @@
+[
+  {
+    "name": "メモリードライブ",
+    "seller": "吉田 晴哉",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001355666u002F",
+    "price": "未定",
+    "sex": "21.0万円",
+    "age": "d",
+    "scraped_at": "2025-08-30 12:27:56"
+  },
+  {
+    "name": "ヒオウギ",
+    "seller": "(株) サラブレッドクラブ・ラフィアン",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001357694u002F",
+    "price": "未定",
+    "sex": "110.0万円",
+    "age": "c",
+    "scraped_at": "2025-08-30 12:27:56"
+  },
+  {
+    "name": "トリュフチョコ",
+    "seller": "保坂 和孝",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001352673u002F",
+    "price": "未定",
+    "sex": "319.0万円",
+    "age": "c",
+    "scraped_at": "2025-08-30 12:27:56"
+  },
+  {
+    "name": "メルヘンライズ",
+    "seller": "吉岡 寛行",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001359830u002F",
+    "price": "未定",
+    "sex": "348.0万円",
+    "age": "c",
+    "scraped_at": "2025-08-30 12:27:56"
+  },
+  {
+    "name": "ディフューズ",
+    "seller": "(有) ビッグレッドファーム",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001355896u002F",
+    "price": "未定",
+    "sex": "443.0万円",
+    "age": "c",
+    "scraped_at": "2025-08-30 12:27:56"
+  },
+  {
+    "name": "キンセンオー",
+    "seller": "泉 一郎",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001359209u002F",
+    "price": "未定",
+    "sex": "596.6万円",
+    "age": "d",
+    "scraped_at": "2025-08-30 12:27:56"
+  },
+  {
+    "name": "エイシンパンタレイ",
+    "seller": "(株) 栄進堂",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001358464u002F",
+    "price": "未定",
+    "sex": "883.0万円",
+    "age": "d",
+    "scraped_at": "2025-08-30 12:27:56"
+  },
+  {
+    "name": "マンテン",
+    "seller": "大栗 芳一",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001374481u002F",
+    "price": "未定",
+    "sex": "未出走",
+    "age": "d",
+    "scraped_at": "2025-08-30 12:27:56"
+  },
+  {
+    "name": "エルキャピタン",
+    "seller": "(株) ラ・メール",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001370007u002F",
+    "price": "未定",
+    "sex": "37.5万円",
+    "age": "c",
+    "scraped_at": "2025-08-30 12:27:56"
+  },
+  {
+    "name": "ゴールデンサンダー",
+    "seller": "光安 了",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001361762u002F",
+    "price": "未定",
+    "sex": "154.4万円",
+    "age": "d",
+    "scraped_at": "2025-08-30 12:27:56"
+  },
+  {
+    "name": "パレスレガシー",
+    "seller": "西村 豊",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001339479u002F",
+    "price": "未定",
+    "sex": "2517.5万円",
+    "age": "d",
+    "scraped_at": "2025-08-30 12:27:56"
+  },
+  {
+    "name": "ワイドカイゼリン",
+    "seller": "幅田 昌伸",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001323038u002F",
+    "price": "未定",
+    "sex": "1332.3万円",
+    "age": "c",
+    "scraped_at": "2025-08-30 12:27:56"
+  },
+  {
+    "name": "コウキ",
+    "seller": "高野 良美",
+    "jbis_url": "http:u002Fu002Fwww.jbis.or.jpu002Fhorseu002F0001307137u002F",
+    "price": "未定",
+    "sex": "1143.5万円",
+    "age": "f",
+    "scraped_at": "2025-08-30 12:27:56"
+  }
+]
