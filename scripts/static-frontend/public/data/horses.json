@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2025-08-24T23:31:01.755985",
+    "last_updated": "2025-08-30T23:40:13.749587",
     "total_horses": 141,
     "version": "1.0.0"
   },
@@ -947,8 +947,14 @@
       "seller": "テスト牧場",
       "detail_url": "https://auction.keiba.rakuten.co.jp/detail/1",
       "created_at": "2025-08-23T15:46:36.116305",
-      "updated_at": "2025-08-23T15:46:36.116305",
-      "disease_tags": []
+      "updated_at": "2025-08-30T23:40:13.736433",
+      "disease_tags": [],
+      "image_url": "",
+      "jbis_url": "",
+      "auction_url": "",
+      "total_prize_start": 0,
+      "total_prize_latest": 0,
+      "auction_date": "2025-08-30"
     },
     {
       "id": "c4cc8693-c3c9-4a58-b59e-48118feca75e",
@@ -961,8 +967,14 @@
       "seller": "テスト牧場2",
       "detail_url": "https://auction.keiba.rakuten.co.jp/detail/2",
       "created_at": "2025-08-23T15:46:36.118922",
-      "updated_at": "2025-08-23T15:46:36.118922",
-      "disease_tags": []
+      "updated_at": "2025-08-30T23:40:13.745237",
+      "disease_tags": [],
+      "image_url": "",
+      "jbis_url": "",
+      "auction_url": "",
+      "total_prize_start": 0,
+      "total_prize_latest": 0,
+      "auction_date": "2025-08-30"
     },
     {
       "id": "aca4e886-4b5a-49f4-8db9-09c725313a34",
@@ -975,8 +987,14 @@
       "seller": "テスト牧場3",
       "detail_url": "https://auction.keiba.rakuten.co.jp/detail/3",
       "created_at": "2025-08-23T15:46:36.122231",
-      "updated_at": "2025-08-23T15:46:36.122231",
-      "disease_tags": []
+      "updated_at": "2025-08-30T23:40:13.749587",
+      "disease_tags": [],
+      "image_url": "",
+      "jbis_url": "",
+      "auction_url": "",
+      "total_prize_start": 0,
+      "total_prize_latest": 0,
+      "auction_date": "2025-08-30"
     },
     {
       "name": "アクシオン 販売申込者 幅田 昌伸 総賞金 0.0万円 基本情報 競走成績 詳細血統表",
