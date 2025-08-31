@@ -38,6 +38,13 @@ class HorseInfoExtractor:
         result = {'sire': None, 'dam': None, 'damsire': None}
         
         try:
+            # デバッグ用：HTMLの先頭1000文字をログに出力
+            html_str = str(horse_element)[:1000]
+            self.logger.debug(f"血統抽出開始: HTMLの先頭1000文字 = {html_str}")
+            
+            # デバッグ用：全テキストをログに出力
+            full_text = horse_element.get_text(separator='\n', strip=True)
+            self.logger.debug(f"血統抽出: 全テキスト = {full_text[:500]}..." if len(full_text) > 500 else full_text)
             # タイトルから馬名を取得（デバッグ用）
             title_elem = horse_element.select_one('title')
             title_text = title_elem.get_text(strip=True) if title_elem else 'タイトルなし'
@@ -119,11 +126,16 @@ class HorseInfoExtractor:
             for key in ['sire', 'dam', 'damsire']:
                 if result[key]:
                     # 不要な空白や改行を削除
-                    result[key] = re.sub(r'[\s　]+', ' ', result[key]).strip()
+                    cleaned = re.sub(r'[\s　]+', ' ', result[key]).strip()
                     # 不要な記号を削除（カッコ内の年数など）
-                    result[key] = re.sub(r'\s*\(.*?\)', '', result[key]).strip()
+                    cleaned = re.sub(r'\s*\(.*?\)', '', cleaned).strip()
                     # 末尾の記号を削除
-                    result[key] = re.sub(r'[、。・\s　]+$', '', result[key])
+                    cleaned = re.sub(r'[、。・\s　]+$', '', cleaned)
+                    
+                    # 値が変更されたかどうかをログに記録
+                    if cleaned != result[key]:
+                        self.logger.debug(f'血統情報をクリーニング: {key} = "{result[key]}" -> "{cleaned}"')
+                        result[key] = cleaned
             
             # 結果をログに出力
             if any(result.values()):
@@ -131,6 +143,13 @@ class HorseInfoExtractor:
             else:
                 self.logger.warning('血統情報のパターンが一致しませんでした')
                 self.logger.debug(f'抽出対象テキスト: {str(horse_element)[:500]}...')
+                
+                # デバッグ用：血統情報が含まれていそうな要素を探す
+                self.logger.debug("血統情報を含む可能性のある要素を検索中...")
+                for elem in horse_element.find_all(True, recursive=True):
+                    text = elem.get_text(strip=True)
+                    if '父' in text or '母' in text:
+                        self.logger.debug(f'血統情報の可能性あり - タグ: {elem.name}, クラス: {elem.get("class", [])}, テキスト: {text[:200]}...' if len(text) > 200 else text)
                 
         except Exception as e:
             self.logger.error(f'血統情報の抽出中にエラーが発生しました: {str(e)}')
@@ -305,6 +324,9 @@ class HorseInfoExtractor:
         result = {'sex': None, 'age': None}
         
         try:
+            # デバッグ用：要素のHTMLをログに出力
+            self.logger.debug(f"性別・年齢抽出開始: 要素の先頭500文字 = {str(horse_element)[:500]}...")
+            
             # タイトルから性別と年齢を抽出
             title_elem = horse_element.select_one('title')
             if title_elem:
@@ -316,6 +338,7 @@ class HorseInfoExtractor:
                 if match:
                     result['sex'] = match.group(1)
                     result['age'] = int(unicodedata.normalize('NFKC', match.group(2)))
+                    self.logger.debug(f'タイトルから性別・年齢を抽出: {result}')
                     return result
                 
                 # パターン2: スペース区切り
@@ -323,34 +346,51 @@ class HorseInfoExtractor:
                 if match:
                     result['sex'] = match.group(1)
                     result['age'] = int(unicodedata.normalize('NFKC', match.group(2)))
+                    self.logger.debug(f'タイトルから性別・年齢を抽出（スペース区切り）: {result}')
                     return result
             
             # 詳細情報セクションを確認
-            for elem in horse_element.select('div, p, span'):
+            self.logger.debug("詳細情報セクションから性別・年齢を抽出中...")
+            for i, elem in enumerate(horse_element.select('div, p, span, td, th, li'), 1):
                 text = elem.get_text(separator=' ', strip=True)
+                if not text or len(text) > 100:  # 長すぎるテキストはスキップ
+                    continue
+                    
+                self.logger.debug(f"  - 要素 {i}: {text}")
                 
                 # 性別と年齢が近くにあるパターン
                 match = re.search(r'([牡牝セ])\s*([０-９0-9]+)[歳才]', text)
                 if match:
                     result['sex'] = match.group(1)
                     result['age'] = int(unicodedata.normalize('NFKC', match.group(2)))
+                    self.logger.debug(f'性別・年齢を抽出（パターン1）: {result} (テキスト: "{text}")')
                     return result
                 
                 # 性別のみのパターン
                 if not result['sex'] and any(c in text for c in ['牡', '牝', 'セ']):
-                    result['sex'] = next((c for c in text if c in ['牡', '牝', 'セ']), None)
+                    sex = next((c for c in text if c in ['牡', '牝', 'セ']), None)
+                    if sex:
+                        result['sex'] = sex
+                        self.logger.debug(f'性別を抽出: {sex} (テキスト: "{text}")')
                 
                 # 年齢のみのパターン
                 if not result['age']:
                     age_match = re.search(r'([０-９0-9]+)[歳才]', text)
                     if age_match:
                         result['age'] = int(unicodedata.normalize('NFKC', age_match.group(1)))
+                        self.logger.debug(f'年齢を抽出: {result["age"]} (テキスト: "{text}")')
             
             if result['sex'] or result['age']:
                 self.logger.debug(f'性別・年齢を抽出しました: {result}')
                 return result
             
-            self.logger.warning('性別・年齢のパターンが一致しませんでした')
+            # デバッグ用：性別・年齢が含まれていそうな要素を探す
+            self.logger.warning('性別・年齢のパターンが一致しませんでした。デバッグ情報を出力します。')
+            self.logger.debug("性別・年齢が含まれていそうな要素を検索中...")
+            for elem in horse_element.find_all(True, recursive=True):
+                text = elem.get_text(strip=True)
+                if '牡' in text or '牝' in text or 'セ' in text or '歳' in text or '才' in text:
+                    self.logger.debug(f'性別・年齢の可能性あり - タグ: {elem.name}, クラス: {elem.get("class", [])}, テキスト: {text}')
                     
         except Exception as e:
             self.logger.error(f'性別・年齢の抽出中にエラーが発生しました: {str(e)}')
@@ -386,3 +426,44 @@ class HorseInfoExtractor:
         # 全角スペースを半角スペースに変換
         name = name.replace('　', ' ')
         return name
+        
+    def extract_from_detail_page(self, detail_html: str) -> Dict[str, Any]:
+        """
+        詳細ページのHTMLから馬の情報を抽出する
+        
+        Args:
+            detail_html: 詳細ページのHTML文字列
+            
+        Returns:
+            Dict[str, Any]: 抽出した馬の情報
+        """
+        try:
+            self.logger.debug("詳細ページから情報を抽出します")
+            soup = BeautifulSoup(detail_html, 'html.parser')
+            
+            # 血統情報を抽出
+            pedigree = self._extract_pedigree(soup)
+            
+            # 性別と年齢を抽出
+            sex_age = self._extract_sex_and_age(soup)
+            
+            # 馬名を抽出
+            name = self._extract_name(soup)
+            
+            # 結果を結合して返す
+            result = {
+                'name': name,
+                'sex': sex_age.get('sex'),
+                'age': sex_age.get('age'),
+                'sire': pedigree.get('sire'),
+                'dam': pedigree.get('dam'),
+                'damsire': pedigree.get('damsire')
+            }
+            
+            self.logger.debug(f"詳細ページから抽出した情報: {result}")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"詳細ページからの情報抽出中にエラーが発生しました: {str(e)}")
+            self.logger.debug(f"エラー詳細: {traceback.format_exc()}")
+            return {}

@@ -22,27 +22,17 @@ class PriceExtractor:
         Returns:
             抽出した価格情報を含む辞書
             {
-                'starting_price': int,      # スタート価格（円）
                 'sold_price': int or None,  # 落札価格（円、主取り時はNone）
                 'is_unsold': bool          # 主取りフラグ（入札数0の場合にTrue）
             }
         """
         result = {
-            'starting_price': 0,
             'sold_price': None,
             'is_unsold': False
         }
         
         try:
-            # 1. スタート価格を抽出
-            start_price_match = re.search(r'開始価格[：:](?:\s*)([\d,]+)(?:\s*)円', html_content)
-            if start_price_match:
-                try:
-                    result['starting_price'] = int(start_price_match.group(1).replace(',', ''))
-                except (ValueError, IndexError) as e:
-                    logger.warning(f"馬名 '{horse_name}': 開始価格の抽出に失敗しました: {e}")
-            
-            # 2. 入札数が0の場合は主取りと判定
+            # 1. 入札数が0の場合は主取りと判定
             bid_count_match = re.search(r'入札数\s*:\s*(\d+)', html_content)
             if bid_count_match:
                 bid_count = int(bid_count_match.group(1))
