@@ -143,11 +143,20 @@ def save_horse(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/publ
     horses = data.get('horses', [])
     
     # 必須フィールドのバリデーション
-    required_fields = ['name', 'age', 'sex', 'sire', 'dam', 'damsire']
+    required_fields = ['name', 'age', 'sex']
     for field in required_fields:
         if field not in horse_data or not horse_data[field]:
-            print(f"警告: 必須フィールドが不足しています: {field} (馬名: {horse_data.get('name', '不明')})")
-            horse_data[field] = ''  # 空文字で初期化
+            print(f"エラー: 必須フィールドが不足しています: {field} (馬名: {horse_data.get('name', '不明')})")
+            raise ValueError(f"必須フィールドが不足しています: {field}")
+    
+    # 血統情報のバリデーション（警告のみ）
+    pedigree_fields = ['sire', 'dam', 'damsire']
+    missing_pedigree = [field for field in pedigree_fields if not horse_data.get(field)]
+    if missing_pedigree:
+        print(f"警告: 血統情報が不足しています: {', '.join(missing_pedigree)} (馬名: {horse_data.get('name', '不明')})")
+        # 空文字で初期化
+        for field in missing_pedigree:
+            horse_data[field] = ''
     
     # 既存の馬を検索
     existing_horse = find_horse_by_name_and_age(
@@ -168,21 +177,27 @@ def save_horse(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/publ
         existing_disease_tags = existing_horse.get('disease_tags', [])
         new_disease_tags = horse_data.get('disease_tags', [])
         
-        # 更新するフィールドをマージ
+        # 更新するフィールドをマージ（新しいデータに値がある場合のみ更新）
         update_fields = {
-            'sire': horse_data.get('sire', existing_horse.get('sire', '')),
-            'dam': horse_data.get('dam', existing_horse.get('dam', '')),
-            'damsire': horse_data.get('damsire', existing_horse.get('damsire', '')),
-            'sex': horse_data.get('sex', existing_horse.get('sex', '')),
-            'image_url': horse_data.get('image_url', existing_horse.get('image_url', '')),
-            'jbis_url': horse_data.get('jbis_url', existing_horse.get('jbis_url', '')),
-            'auction_url': horse_data.get('auction_url', existing_horse.get('auction_url', '')),
-            'disease_tags': merge_disease_tags(existing_disease_tags, new_disease_tags),
             'updated_at': now,
-            # 賞金情報を明示的にマージ（0の場合も含む）
-            'total_prize_start': horse_data.get('total_prize_start', existing_horse.get('total_prize_start', 0)),
-            'total_prize_latest': horse_data.get('total_prize_latest', existing_horse.get('total_prize_latest', 0))
+            'disease_tags': merge_disease_tags(existing_disease_tags, new_disease_tags)
         }
+        
+        # 血統情報の更新（新しいデータに値がある場合のみ）
+        for field in ['sire', 'dam', 'damsire']:
+            new_value = horse_data.get(field)
+            if new_value:  # 新しいデータに値がある場合のみ更新
+                update_fields[field] = new_value
+                print(f"[DEBUG] 血統情報を更新: {field} = {new_value}")
+            elif field in existing_horse:  # 既存の値を保持
+                update_fields[field] = existing_horse[field]
+        
+        # その他のフィールド
+        for field in ['sex', 'image_url', 'jbis_url', 'auction_url', 'total_prize_start', 'total_prize_latest']:
+            if field in horse_data:
+                update_fields[field] = horse_data[field]
+            elif field in existing_horse:
+                update_fields[field] = existing_horse[field]
         
         # その他のフィールドをマージ
         for key in ['comment', 'race_record', 'weight', 'seller', 'auction_date']:
@@ -214,8 +229,17 @@ def save_horse(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/publ
     data['metadata'] = {
         'last_updated': now,
         'total_horses': len(horses),
-        'version': data.get('metadata', {}).get('version', '1.1.0')  # バージョンを更新
+        'version': data.get('metadata', {}).get('version', '1.2.0')  # バージョンを更新
     }
+    
+    # デバッグ用に更新された馬情報をログ出力
+    updated_horse = next((h for h in horses if h.get('id') == horse_id), None)
+    if updated_horse:
+        print(f"[DEBUG] 更新された馬情報 (ID: {horse_id}):")
+        print(f"  名前: {updated_horse.get('name')}")
+        print(f"  父: {updated_horse.get('sire')}")
+        print(f"  母: {updated_horse.get('dam')}")
+        print(f"  母父: {updated_horse.get('damsire')}")
     
     # ファイルに保存
     save_json_file(horses_file, data)

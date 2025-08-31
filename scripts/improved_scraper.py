@@ -966,14 +966,34 @@ class ImprovedRakutenScraper:
         """
         try:
             # 馬名のリンクから相対URLを取得（複数のクラス名に対応）
+            name_links = card.find_all('a')
+            self.logger.debug(f"見つかったリンク数: {len(name_links)}")
+            
+            # デバッグ用にリンクのクラスをログに出力
+            for i, link in enumerate(name_links):
+                self.logger.debug(f"リンク {i+1} のクラス: {link.get('class', [])}  href: {link.get('href', 'N/A')}")
+            
+            # 馬名のリンクを検索（複数のクラス名に対応）
             name_link = card.find('a', class_=lambda c: c and ('horseName' in c or 'auctionTableCard__name' in c.split()))
-            if name_link and 'href' in name_link.attrs:
-                detail_path = name_link['href']
-                # 相対URLを絶対URLに変換
-                return urljoin(self.base_url, detail_path)
+            
+            if name_link:
+                self.logger.debug(f"馬名リンクのクラス: {name_link.get('class', [])}")
+                if 'href' in name_link.attrs:
+                    detail_path = name_link['href']
+                    self.logger.debug(f"相対URLを検出: {detail_path}")
+                    # 相対URLを絶対URLに変換
+                    full_url = urljoin(self.base_url, detail_path)
+                    self.logger.debug(f"絶対URLに変換: {full_url}")
+                    return full_url
+                else:
+                    self.logger.warning("馬名リンクにhref属性がありません")
+            else:
+                self.logger.warning("馬名リンクが見つかりませんでした")
+                
             return None
+            
         except Exception as e:
-            self.logger.debug(f"詳細ページURLの抽出中にエラーが発生しました: {e}")
+            self.logger.error(f"詳細ページURLの抽出中にエラーが発生しました: {e}", exc_info=True)
             return None
 
     def _process_horse_info(self, card, index: int, total: int) -> Optional[Dict[str, Any]]:
@@ -999,30 +1019,110 @@ class ImprovedRakutenScraper:
             missing_required = [field for field in required_fields 
                              if field not in horse_info or horse_info[field] is None]
             
-            # 必須フィールドが不足している場合、詳細ページから取得を試みる
-            if missing_required:
-                self.logger.debug(f"必須フィールドが不足しているため、詳細ページから取得を試みます: {missing_required}")
-                detail_url = self._extract_detail_url(card)
-                if detail_url:
-                    detail_html = self._fetch_html(detail_url, use_cache=True)
-                    if detail_html:
-                        # 詳細ページから不足している情報を抽出
-                        detail_info = self.horse_info_extractor.extract_from_detail_page(detail_html)
-                        if detail_info:
-                            # 不足しているフィールドのみを更新
-                            for field in missing_required[:]:  # イテレーション中にリストを変更するためコピーを作成
-                                if field in detail_info and detail_info[field] is not None:
-                                    horse_info[field] = detail_info[field]
-                                    missing_required.remove(field)
-                                    self.logger.debug(f"詳細ページから{field}を取得しました: {horse_info[field]}")
-                            
-                            # 詳細ページから取得した情報で不足フィールドを更新
-                            if not missing_required:
-                                self.logger.debug("すべての必須フィールドを詳細ページから取得しました")
+            # 血統情報フィールドの確認
+            pedigree_fields = ['sire', 'dam', 'damsire']
+            missing_pedigree = [field for field in pedigree_fields 
+                              if field not in horse_info or not horse_info.get(field)]
             
-            # それでも必須フィールドが不足している場合はエラー
+            # デバッグ用: 初期の馬情報をログに出力
+            self.logger.debug(f"初期抽出情報 - 馬名: {horse_info.get('name', '不明')}")
+            self.logger.debug(f"初期必須フィールド: {', '.join(f'{k}={v}' for k, v in horse_info.items() if k in required_fields)}")
+            self.logger.debug(f"初期血統情報: {', '.join(f'{k}={v}' for k, v in horse_info.items() if k in pedigree_fields)}")
+            
+            # 必須フィールドまたは血統情報が不足している場合、詳細ページから取得を試みる
+            if missing_required or missing_pedigree:
+                self.logger.info(f"不足フィールドを補完するため、詳細ページから情報を取得します - 必須: {missing_required}, 血統: {missing_pedigree}")
+                detail_url = self._extract_detail_url(card)
+                
+                if not detail_url:
+                    self.logger.warning("詳細ページのURLを抽出できませんでした")
+                    # デバッグ用にカードのHTMLをログに出力
+                    self.logger.debug(f"カードのHTML: {str(card)[:500]}...")
+                else:
+                    # 詳細ページのURLを保存
+                    horse_info['detail_url'] = detail_url
+                    self.logger.info(f"詳細ページから情報を取得します: {detail_url}")
+                    
+                    # 詳細ページのHTMLを取得
+                    detail_html = self._fetch_html(detail_url, use_cache=True)
+                    
+                    if not detail_html:
+                        self.logger.warning(f"詳細ページの取得に失敗しました: {detail_url}")
+                    else:
+                        try:
+                            # 詳細ページから情報を抽出
+                            self.logger.debug("詳細ページから情報を抽出中...")
+                            detail_info = self.horse_info_extractor.extract_from_detail_page(detail_html)
+                            
+                            if not detail_info:
+                                self.logger.warning("詳細ページからの情報抽出に失敗しました")
+                                # デバッグ用に詳細ページのHTMLを保存
+                                debug_path = Path('debug_html') / f'failed_extraction_{index}.html'
+                                debug_path.parent.mkdir(exist_ok=True)
+                                with open(debug_path, 'w', encoding='utf-8') as f:
+                                    f.write(detail_html)
+                                self.logger.debug(f"詳細ページのHTMLを保存しました: {debug_path}")
+                            else:
+                                self.logger.debug(f"詳細ページから抽出した情報: {detail_info}")
+                                
+                                # 血統情報を更新（既存の値がある場合は上書きしない）
+                                for field in pedigree_fields:
+                                    if field in detail_info and detail_info[field] and (field in missing_pedigree or not horse_info.get(field)):
+                                        old_value = horse_info.get(field, '未設定')
+                                        new_value = detail_info[field]
+                                        horse_info[field] = new_value
+                                        self.logger.info(f"血統情報を更新: {field} = {new_value} (元: {old_value})")
+                                        
+                                        # 更新されたフィールドを不足リストから削除
+                                        if field in missing_pedigree:
+                                            missing_pedigree.remove(field)
+                                
+                                # 不足している必須フィールドを更新
+                                for field in missing_required[:]:  # イテレーション中にリストを変更するためコピーを作成
+                                    if field in detail_info and detail_info[field] is not None:
+                                        old_value = horse_info.get(field, '未設定')
+                                        new_value = detail_info[field]
+                                        horse_info[field] = new_value
+                                        missing_required.remove(field)
+                                        self.logger.info(f"必須フィールドを更新: {field} = {new_value} (元: {old_value})")
+                                
+                                # 不足フィールドを再確認
+                                missing_required = [f for f in required_fields 
+                                                 if f not in horse_info or horse_info[f] is None]
+                                
+                                if not missing_required:
+                                    self.logger.info("すべての必須フィールドを取得しました")
+                                else:
+                                    self.logger.warning(f"以下の必須フィールドを取得できませんでした: {missing_required}")
+                                    
+                                # 血統情報の取得状況をログに出力
+                                updated_pedigree = {k: v for k, v in horse_info.items() if k in pedigree_fields and v}
+                                missing_pedigree = [f for f in pedigree_fields if not horse_info.get(f)]
+                                
+                                if updated_pedigree:
+                                    self.logger.info(f"更新された血統情報: {updated_pedigree}")
+                                if missing_pedigree:
+                                    self.logger.warning(f"以下の血統情報を取得できませんでした: {missing_pedigree}")
+                        
+                        except Exception as e:
+                            self.logger.error(f"詳細ページの処理中にエラーが発生しました: {e}", exc_info=True)
+                            
+                            # エラーが発生した場合でも、取得できた情報は保持する
+                            if 'detail_url' not in horse_info:
+                                horse_info['detail_url'] = detail_url
+                                
+                            # エラーが発生した場合のデバッグ情報をログに出力
+                            self.logger.debug(f"エラー発生時の馬情報: {horse_info}")
+                            if 'detail_html' in locals():
+                                debug_path = Path('debug_html') / f'error_extraction_{index}.html'
+                                debug_path.parent.mkdir(exist_ok=True)
+                                with open(debug_path, 'w', encoding='utf-8') as f:
+                                    f.write(detail_html)
+                                self.logger.debug(f"エラー発生時の詳細ページHTMLを保存しました: {debug_path}")
+            
+            # 必須フィールドが不足している場合は警告を出力して処理を中断
             if missing_required:
-                self.logger.warning(f"必須フィールドが不足しています: {missing_required}")
+                self.logger.warning(f"以下の必須フィールドが不足しているため、この馬の処理をスキップします: {missing_required}")
                 return None
                 
             # 不足フィールドがあればデバッグログに記録
@@ -1044,17 +1144,25 @@ class ImprovedRakutenScraper:
 
             for field, extractor, name in extractors:
                 try:
-                    result, success = extractor.extract(card)
+                    # 各エクストラクタは (result_dict, success) のタプルを返す
+                    result, success = extractor.extract(str(card))
+                    
                     if success and result:
                         if field == 'price' and isinstance(result, dict):
+                            # 価格情報は辞書で複数のフィールドを更新
                             optional_fields.update(result)
+                        elif field == 'race_records' and 'race_records' in result:
+                            # レース記録は専用のキーで保存
+                            optional_fields['race_records'] = result['race_records']
+                            self.logger.debug(f'レース記録を{len(result["race_records"])}件抽出しました')
                         elif field in result:
+                            # その他のフィールドはそのまま保存
                             optional_fields[field] = result[field]
                     else:
                         # 抽出に失敗した場合はデバッグログを記録
                         self.logger.debug(f'{name}の抽出に失敗しました')
                 except Exception as e:
-                    self.logger.debug(f'{name}の抽出中にエラーが発生しました: {e}')
+                    self.logger.error(f'{name}の抽出中にエラーが発生しました: {e}', exc_info=True)
             
             # 必須フィールドとオプションフィールドをマージ
             result = {**horse_info, **optional_fields}

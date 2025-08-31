@@ -1,0 +1,23 @@
+[
+  {
+    "name": "アローロ",
+    "status": "success",
+    "comment_length": 99,
+    "comment_preview": "父：リオンディーズ　母：ライトファンタジア　母の父：ゼンノロブロイ\n通算成績：8戦0勝［0-1-0-7］　　　　最終出走馬体重：488kg\n中央獲得賞金：220.0万円　　　地方獲得賞金：0.0万円",
+    "comment_extracted": true
+  },
+  {
+    "name": "ウエスタンタマヤ",
+    "status": "success",
+    "comment_length": 103,
+    "comment_preview": "父：マジェスティックウォリアー 母：ディアユリアザミ 母の父：ボストンハーバー\n通算成績：5戦0勝［0-0-0-5］　　　　最終出走馬体重：454kg\n中央獲得賞金：0.0万円　　　地方獲得賞金：7.0万円",
+    "comment_extracted": true
+  },
+  {
+    "name": "ジャスマン",
+    "status": "success",
+    "comment_length": 42,
+    "comment_preview": "父：ドレフォン　母：ココリモアナ　母の父：ロードカナロア\n育成馬　馬体重：444kg",
+    "comment_extracted": true
+  }
+]

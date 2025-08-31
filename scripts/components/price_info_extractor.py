@@ -30,17 +30,23 @@ class PriceInfoExtractor:
             price_info = {}
             
             # 落札価格を抽出
-            sold_price_elem = horse_element.select_one('.price, .sold-price, .final-price')
+            # itemprop="price"属性を持つ要素を直接検索
+            sold_price_elem = horse_element.select_one('div.price span[itemprop="price"]')
             if sold_price_elem:
-                price_text = sold_price_elem.get_text(strip=True)
-                price_match = re.search(r'[\d,]+', price_text)
-                if price_match:
-                    try:
-                        price = int(price_match.group().replace(',', ''))
-                        price_info['sold_price'] = price
-                        price_info['is_unsold'] = self._is_unsold(price_text)
-                    except (ValueError, TypeError) as e:
-                        self.logger.warning(f'価格の数値変換に失敗しました: {e}')
+                try:
+                    price_text = sold_price_elem.get_text(strip=True)
+                    price = int(price_text.replace(',', ''))
+                    price_info['sold_price'] = price
+                    price_info['is_unsold'] = False
+                    self.logger.debug(f'落札価格を抽出しました: {price}円')
+                except (ValueError, TypeError) as e:
+                    self.logger.warning(f'価格の数値変換に失敗しました: {e}')
+            else:
+                self.logger.debug('落札価格要素が見つかりませんでした')
+                # 主取りの可能性をチェック
+                if '主取り' in str(horse_element):
+                    price_info['is_unsold'] = True
+                    self.logger.debug('主取りを検出しました')
             
             # 開始価格を抽出（オプション）
             start_price_elem = horse_element.select_one('.start-price, .opening-bid')

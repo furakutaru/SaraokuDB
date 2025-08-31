@@ -1,6 +1,6 @@
 import sys
-import os
 import json
+import logging
 import requests
 from pathlib import Path
 from datetime import datetime
@@ -9,7 +9,18 @@ from bs4 import BeautifulSoup
 # プロジェクトのルートディレクトリをパスに追加
 sys.path.append(str(Path(__file__).parent.parent))
 
-from backend.scrapers.rakuten_scraper import RakutenAuctionScraper
+from scripts.components.comment_extractor import CommentExtractor
+
+# ロギングの設定
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('comment_extraction_test.log')
+    ]
+)
+logger = logging.getLogger(__name__)
 
 def fetch_page(url):
     """シンプルにrequestsでページを取得"""
@@ -28,15 +39,10 @@ def test_comment_extraction():
         {"name": "アローロ", "url": "https://auction.keiba.rakuten.co.jp/item/14601"},
         {"name": "ウエスタンタマヤ", "url": "https://auction.keiba.rakuten.co.jp/item/14602"},
         {"name": "ジャスマン", "url": "https://auction.keiba.rakuten.co.jp/item/14603"},
-        {"name": "ウインエンデバー", "url": "https://auction.keiba.rakuten.co.jp/item/14604"},
-        {"name": "ジューンアレグロ", "url": "https://auction.keiba.rakuten.co.jp/item/14605"},
-        {"name": "ミリオンヒット", "url": "https://auction.keiba.rakuten.co.jp/item/14606"},
-        {"name": "セレニティ", "url": "https://auction.keiba.rakuten.co.jp/item/14607"},
-        {"name": "ウィルトゥーウェル", "url": "https://auction.keiba.rakuten.co.jp/item/14608"},
-        {"name": "スカリーワグ", "url": "https://auction.keiba.rakuten.co.jp/item/14609"},
     ]
 
-    scraper = RakutenAuctionScraper()
+    # コメント抽出器を初期化
+    comment_extractor = CommentExtractor(logger=logger)
     results = []
 
     for horse in test_urls:
@@ -44,54 +50,64 @@ def test_comment_extraction():
         print(f"URL: {horse['url']}")
         
         try:
-            # シンプルにページを取得
-            print("ページを取得中...")
+            # ページを取得
+            logger.info(f"ページを取得中: {horse['name']}")
             html_content = fetch_page(horse['url'])
             
             # BeautifulSoupでパース
             soup = BeautifulSoup(html_content, 'html.parser')
             
             # コメントを抽出
-            print("コメントを抽出中...")
-            comment = scraper._extract_comment(soup)
-            
-            # 病気タグを抽出（オプション）
-            disease_tags = ""
-            if comment:
-                disease_tags = scraper._extract_disease_tags(comment)
+            logger.info("コメントを抽出中...")
+            result, success = comment_extractor.extract(soup)
             
             # 結果を保存
-            result = {
-                "name": horse['name'],
-                "status": "success",
-                "comment_length": len(comment) if comment else 0,
-                "comment_preview": comment[:200] + "..." if comment and len(comment) > 200 else (comment if comment else ""),
-                "disease_tags": disease_tags
-            }
-            results.append(result)
-            
-            print(f"抽出されたコメントの長さ: {len(comment) if comment else 0}文字")
-            print(f"抽出された病気タグ: {disease_tags}")
-            
-            # コメントが見つからない場合はHTMLを保存
-            if not comment:
+            if success and result and 'comment' in result:
+                comment = result['comment']
+                result_data = {
+                    "name": horse['name'],
+                    "status": "success",
+                    "comment_length": len(comment),
+                    "comment_preview": comment[:200] + "..." if len(comment) > 200 else comment,
+                    "comment_extracted": True
+                }
+                logger.info(f"コメントを抽出しました: {len(comment)}文字")
+            else:
+                result_data = {
+                    "name": horse['name'],
+                    "status": "success",
+                    "comment_length": 0,
+                    "comment_preview": "",
+                    "comment_extracted": False,
+                    "error": "コメントが見つかりませんでした"
+                }
+                logger.warning(f"コメントの抽出に失敗しました: {horse['name']}")
+                
+                # デバッグ用にHTMLを保存
                 debug_file = f"debug_{horse['name']}.html"
                 with open(debug_file, 'w', encoding='utf-8') as f:
                     f.write(str(soup))
-                print(f"[警告] コメントが見つかりませんでした。デバッグ用に {debug_file} を保存しました。")
+                logger.info(f"デバッグ用にHTMLを保存しました: {debug_file}")
+            results.append(result_data)
+            logger.info(f"テスト完了: {horse['name']}")
             
         except Exception as e:
-            print(f"エラーが発生しました: {str(e)}")
-            results.append({"name": horse['name'], "status": "error", "message": str(e)})
+            logger.error(f"エラーが発生しました: {str(e)}", exc_info=True)
+            results.append({
+                "name": horse['name'], 
+                "status": "error", 
+                "message": str(e),
+                "comment_extracted": False
+            })
             
             # エラーが発生した場合もHTMLを保存
             try:
                 debug_file = f"error_{horse['name']}.html"
                 with open(debug_file, 'w', encoding='utf-8') as f:
                     f.write(str(soup) if 'soup' in locals() else 'No HTML content')
-                print(f"エラー詳細を {debug_file} に保存しました。")
+                logger.info(f"エラー詳細を {debug_file} に保存しました。")
             except Exception as e2:
-                print(f"エラー詳細の保存に失敗しました: {str(e2)}")
+                logger.error(f"エラー詳細の保存に失敗しました: {str(e2)}", exc_info=True)
     
     # 結果を保存
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -99,15 +115,29 @@ def test_comment_extraction():
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
     
+    # サマリーを表示
+    success_count = len([r for r in results if r['status'] == 'success'])
+    error_count = len([r for r in results if r['status'] == 'error'])
+    comments_found = len([r for r in results if r.get('comment_extracted', False)])
+    
+    summary = f"""
+    ===== テスト結果サマリー =====
+    テスト日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+    -----------------------------
+    総テストケース: {len(results)}
+    成功: {success_count}
+    エラー: {error_count}
+    コメント抽出成功: {comments_found}/{len(results)}
+    =============================
+    詳細は {output_file} を確認してください。
+    """
+    
+    logger.info(summary)
+    print(summary)
+    
     print(f"\n=== テスト完了 ===")
     print(f"結果は {output_file} に保存されました")
-    
-    # サマリーを表示
-    success_count = sum(1 for r in results if r['status'] == 'success' and r.get('comment_length', 0) > 0)
-    print(f"\n=== サマリー ===")
-    print(f"テストした馬の数: {len(test_urls)}")
-    print(f"コメントの抽出に成功: {success_count}頭")
-    print(f"コメントの抽出に失敗: {len(test_urls) - success_count}頭")
+    print(f"コメントの抽出に失敗: {len(test_urls) - comments_found}頭")
 
 if __name__ == "__main__":
     test_comment_extraction()
