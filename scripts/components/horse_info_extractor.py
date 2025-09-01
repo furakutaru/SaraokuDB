@@ -5,6 +5,7 @@ import re
 import traceback
 import logging
 import unicodedata
+from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List
 from bs4 import BeautifulSoup, Tag
 
@@ -207,48 +208,99 @@ class HorseInfoExtractor:
         """
         馬体重を抽出する
         
-        [2025-08-31 確定] 本番環境での動作を確認済み
-        - 以下のフォーマットに対応：
-          - 「最終出走馬体重：392kg」形式
-          - 「馬体重は416キロ」形式
-        - 数値のみを抽出して整数で返す
-        - 見つからない場合は None を返す
-        
-        注意: このメソッドは本番環境で動作確認済みのため、変更する場合は十分なテストが必要です。
-        
         Args:
             horse_element: 馬情報を含むBeautifulSoup要素
             
         Returns:
-            Optional[int]: 抽出された馬体重（kg単位）、見つからない場合はNone
+            Optional[int]: 抽出された馬体重（kg）、抽出できない場合はNone
         """
         try:
-            # HTMLを文字列に変換
-            html_content = str(horse_element)
+            # デバッグ用に要素のHTMLをログに出力
+            self.logger.debug(f'馬体重抽出を開始: {str(horse_element)[:200]}...')
             
-            # パターン1: 「最終出走馬体重：392kg」の形式
-            weight_match = re.search(r'最終出走馬体重[：:](\d+)kg', html_content)
+            # テキスト全体を取得
+            text_content = horse_element.get_text()
             
-            # パターン2: 「馬体重は416キロ」の形式
-            if not weight_match:
-                weight_match = re.search(r'馬体重[は:：](\d+)[\sキロ]', html_content)
+            # パターン1: 数値 + kg のパターン（例: 422kg, 454 kg）
+            weight_elements = horse_element.find_all(string=re.compile(r'\d+\s*kg', re.IGNORECASE))
             
-            if weight_match:
-                try:
-                    weight = int(weight_match.group(1))
-                    self.logger.debug(f"馬体重を抽出しました: {weight}kg")
-                    return weight
-                except (ValueError, TypeError, IndexError) as e:
-                    self.logger.warning(f"馬体重の数値変換に失敗: {weight_match.groups()} - {str(e)}")
+            for elem in weight_elements:
+                # 数値と「kg」の組み合わせを検索
+                match = re.search(r'(\d+)\s*kg', str(elem), re.IGNORECASE)
+                if match:
+                    try:
+                        weight = int(match.group(1))
+                        # 馬体重として妥当な範囲かチェック（300kg〜600kg）
+                        if 300 <= weight <= 600:
+                            self.logger.debug(f'馬体重を抽出: {weight}kg')
+                            return weight
+                    except (ValueError, TypeError) as e:
+                        self.logger.warning(f'体重の数値変換に失敗しました: {match.group(1)}')
             
-            self.logger.debug("馬体重を抽出できませんでした")
+            # パターン2: 体重表記が別の形式の場合（例: 体重:422kg）
+            weight_elems = horse_element.find_all(string=re.compile(r'体重\s*[:：]?\s*\d+'))
+            for elem in weight_elems:
+                match = re.search(r'体重\s*[:：]?\s*(\d+)', str(elem))
+                if match:
+                    try:
+                        weight = int(match.group(1))
+                        if 300 <= weight <= 600:
+                            self.logger.debug(f'体重表記から馬体重を抽出: {weight}kg')
+                            return weight
+                    except (ValueError, TypeError):
+                        continue
+            
+            # パターン3: テーブル内の体重情報
+            table_rows = horse_element.find_all('tr')
+            for row in table_rows:
+                th = row.find('th')
+                td = row.find('td')
+                if th and td and '体重' in th.get_text():
+                    match = re.search(r'(\d+)', td.get_text())
+                    if match:
+                        try:
+                            weight = int(match.group(1))
+                            if 300 <= weight <= 600:
+                                self.logger.debug(f'テーブルから馬体重を抽出: {weight}kg')
+                                return weight
+                        except (ValueError, TypeError):
+                            continue
+            
+            # パターン4: 正規表現パターンで直接検索
+            patterns = [
+                (r'最終出走馬体重[：:]\s*(\d+)\s*kg', 'パターン1: 完全一致'),
+                (r'馬体重[：:]\s*(\d+)\s*kg', 'パターン2: 馬体重: 形式'),
+                (r'体重[：:]\s*(\d+)\s*kg', 'パターン3: 体重: 形式'),
+                (r'(\d+)\s*kg', 'パターン4: 数値 + kg形式')
+            ]
+            
+            for pattern, pattern_name in patterns:
+                self.logger.debug(f"試行中: {pattern_name} - {pattern}")
+                match = re.search(pattern, text_content)
+                if match:
+                    try:
+                        weight = int(match.group(1))
+                        if 300 <= weight <= 600:
+                            self.logger.info(f"{pattern_name} で馬体重を抽出: {weight}kg")
+                            return weight
+                    except (ValueError, IndexError) as e:
+                        self.logger.debug(f"{pattern_name} で数値変換エラー: {e}")
+            
+            # デバッグ用に「体重」の前後100文字を出力
+            weight_pos = text_content.find('体重')
+            if weight_pos != -1:
+                start = max(0, weight_pos - 100)
+                end = min(len(text_content), weight_pos + 100)
+                self.logger.debug(f"「体重」付近のテキスト: ...{text_content[start:end]}...")
+            
+            self.logger.warning("馬体重を取得できませんでした")
             return None
             
         except Exception as e:
-            self.logger.error(f"馬体重の抽出中にエラーが発生しました: {str(e)}")
+            self.logger.error(f"馬体重の抽出中にエラーが発生しました: {e}")
             self.logger.error(traceback.format_exc())
             return None
-
+            
     def _extract_name(self, horse_element: Tag) -> str:
         """
         馬名を抽出する
@@ -263,10 +315,19 @@ class HorseInfoExtractor:
             # デバッグ用に要素のHTMLをログに出力
             self.logger.debug(f'馬名抽出を開始: {str(horse_element)[:200]}...')
             
-            # パターン1: リストページ用のセレクタ
+            # パターン1: テスト用のセレクタ
+            name_elem = horse_element.select_one('.horse-name')
+            if name_elem:
+                name = name_elem.get_text(strip=True)
+                if name:
+                    cleaned_name = self._clean_horse_name(name)
+                    self.logger.debug(f'horse-nameクラスから馬名を抽出: {cleaned_name}')
+                    return cleaned_name
+            
+            # パターン2: リストページ用のセレクタ
             name_elem = horse_element.select_one('.auctionTableCard__name')
             if name_elem:
-                # 子要素に.valueがある場合（テストケース2）
+                # 子要素に.valueがある場合
                 value_elem = name_elem.select_one('.value')
                 if value_elem:
                     name = value_elem.get_text(strip=True)
@@ -278,7 +339,7 @@ class HorseInfoExtractor:
                     self.logger.debug(f'リストページから馬名を抽出: {cleaned_name}')
                     return cleaned_name
             
-            # パターン2: 詳細ページ用の<b>タグから抽出
+            # パターン3: 詳細ページ用の<b>タグから抽出
             b_tag = horse_element.find('b')
             if b_tag:
                 text = b_tag.get_text(strip=True, separator=' ')
@@ -290,7 +351,7 @@ class HorseInfoExtractor:
                     self.logger.debug(f'<b>タグから馬名を抽出: {cleaned_name}')
                     return cleaned_name
             
-            # パターン3: タイトルタグから抽出
+            # パターン4: タイトルタグから抽出
             title_tag = horse_element.find('title')
             if title_tag:
                 title_text = title_tag.get_text(strip=True)
@@ -450,11 +511,15 @@ class HorseInfoExtractor:
             # 馬名を抽出
             name = self._extract_name(soup)
             
+            # 馬体重を抽出
+            weight = self._extract_weight(soup)
+            
             # 結果を結合して返す
             result = {
                 'name': name,
                 'sex': sex_age.get('sex'),
                 'age': sex_age.get('age'),
+                'weight': weight,
                 'sire': pedigree.get('sire'),
                 'dam': pedigree.get('dam'),
                 'damsire': pedigree.get('damsire')

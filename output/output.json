@@ -1,0 +1,82 @@
+[
+  {
+    "name": "エスシーボニー",
+    "sex": "牝",
+    "age": 3,
+    "sire": "ストロングリターン",
+    "dam": "エスシーハンコック",
+    "damsire": "ダイワメジャー",
+    "weight": 430,
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14854"
+  },
+  {
+    "name": "エムズドリーム",
+    "sex": "牡",
+    "age": 3,
+    "sire": "ゴールドドリーム",
+    "dam": "ピエナブラウニー",
+    "damsire": "フジキセキ",
+    "weight": 422,
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14855"
+  },
+  {
+    "name": "ジークヴァルツァ...",
+    "sex": "牡",
+    "age": 3,
+    "sire": "デクラレーションオブウォー",
+    "dam": "ラストワルツ",
+    "damsire": "ゼンノロブロイ",
+    "weight": 550,
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14856"
+  },
+  {
+    "name": "ナムラエミー",
+    "sex": "牝",
+    "age": 3,
+    "sire": "タワーオブロンドン",
+    "dam": "ナムラマミー",
+    "damsire": "ディープインパクト",
+    "weight": 454,
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14857"
+  },
+  {
+    "name": "シルクディヴェー...",
+    "sex": "牝",
+    "age": 3,
+    "sire": "フィエールマン",
+    "dam": "ルシルク",
+    "damsire": "Dynaformer",
+    "weight": 441,
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14858"
+  },
+  {
+    "name": "ウェーヴレット",
+    "sex": "牝",
+    "age": 3,
+    "sire": "エピファネイア",
+    "dam": "サザナミ",
+    "damsire": "ディープインパクト",
+    "weight": 428,
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14859"
+  },
+  {
+    "name": "フォルテカリーナ",
+    "sex": "牝",
+    "age": 2,
+    "sire": "フィレンツェファイア",
+    "dam": "エレンシア",
+    "damsire": "ワークフォース",
+    "weight": 420,
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14861"
+  },
+  {
+    "name": "ハラマキ",
+    "sex": "牝",
+    "age": 2,
+    "sire": "サトノダイヤモンド",
+    "dam": "ブルーブラッド",
+    "damsire": "Dubawi",
+    "weight": 394,
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14860"
+  }
+]

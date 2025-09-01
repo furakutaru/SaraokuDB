@@ -28,6 +28,61 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union, Callable
 from urllib.parse import urljoin, urlparse, parse_qs, urlunparse
 
+# バックエンドモジュールのインポートを試みる
+BACKEND_AVAILABLE = False
+
+# バックエンドモジュールのモック関数を定義
+def save_horse(*args, **kwargs):
+    print("バックエンドモジュールが利用できないため、データは保存されません")
+    return None
+
+def save_auction_history(*args, **kwargs):
+    print("バックエンドモジュールが利用できないため、オークション履歴は保存されません")
+    return None
+
+def load_json_file(*args, **kwargs):
+    print("バックエンドモジュールが利用できないため、デフォルトのデータを返します")
+    return {}
+
+try:
+    # スクリプトのルートディレクトリを取得
+    script_dir = Path(__file__).parent.absolute()
+    project_root = script_dir.parent
+    
+    # バックエンドディレクトリをPythonパスに追加
+    backend_dir = project_root / 'backend'
+    if str(backend_dir) not in sys.path:
+        sys.path.insert(0, str(backend_dir))
+    
+    # モジュールをインポート
+    from scrapers.data_helpers import save_horse as backend_save_horse, \
+                                     save_auction_history as backend_save_auction_history, \
+                                     load_json_file as backend_load_json_file
+    
+    # バックエンドの関数を使用
+    save_horse = backend_save_horse
+    save_auction_history = backend_save_auction_history
+    load_json_file = backend_load_json_file
+    
+    BACKEND_AVAILABLE = True
+    print("バックエンドモジュールのインポートに成功しました")
+except ImportError as e:
+    print(f"バックエンドモジュールのインポートに失敗しました: {e}")
+    print("モック関数を使用します")
+    
+    # モック関数を定義
+    def save_horse(*args, **kwargs):
+        print("警告: モックのsave_horseが呼ばれました")
+        return None
+    
+    def save_auction_history(*args, **kwargs):
+        print("警告: モックのsave_auction_historyが呼ばれました")
+        return None
+    
+    def load_json_file(*args, **kwargs):
+        print("警告: モックのload_json_fileが呼ばれました")
+        return {}
+
 import requests
 from bs4 import BeautifulSoup, Tag
 from requests.adapters import HTTPAdapter
@@ -256,16 +311,30 @@ logging.getLogger('bs4').setLevel(logging.WARNING)
 CACHE_DIR = Path('html_cache')
 CACHE_DIR.mkdir(exist_ok=True)
 
-# 親ディレクトリをパスに追加
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# プロジェクトのルートディレクトリをパスに追加
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+backend_dir = os.path.join(project_root, 'backend')
+
+# デバッグ用にパスを表示
+print(f"プロジェクトルート: {project_root}")
+print(f"バックエンドディレクトリ: {backend_dir}")
+print(f"現在のPythonパス: {sys.path}")
+
+# バックエンドディレクトリをパスに追加
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+    print(f"バックエンドディレクトリをパスに追加しました: {backend_dir}")
 
 # バックエンドのモジュールをインポート
 try:
-    from backend.scrapers.data_helpers import (
+    print("バックエンドモジュールのインポートを試みています...")
+    from scrapers.data_helpers import (
         save_horse,
         save_auction_history,
         load_json_file
     )
+    print("バックエンドモジュールのインポートに成功しました")
+    BACKEND_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"バックエンドモジュールのインポートに失敗しました: {e}")
     # モック関数を定義
@@ -754,12 +823,13 @@ class ImprovedRakutenScraper:
 
 # RaceRecordExtractor は components.race_record_extractor からインポートされます
 
-    def scrape_horse_list(self, url: str = None, use_cache: bool = False) -> List[Dict[str, Any]]:
+    def scrape_horse_list(self, url: str = None, use_cache: bool = False, max_pages: int = 0) -> List[Dict[str, Any]]:
         """馬の一覧をスクレイピングする
         
         Args:
             url: スクレイピング対象のURL（Noneの場合はベースURLを使用）
             use_cache: キャッシュを使用するかどうか
+            max_pages: 取得する最大ページ数（0は無制限）
             
         Returns:
             List[Dict[str, Any]]: 馬情報のリスト
@@ -1022,12 +1092,11 @@ class ImprovedRakutenScraper:
             # 血統情報フィールドの確認
             pedigree_fields = ['sire', 'dam', 'damsire']
             missing_pedigree = [field for field in pedigree_fields 
-                              if field not in horse_info or not horse_info.get(field)]
+                             if field not in horse_info or not horse_info.get(field)]
             
-            # デバッグ用: 初期の馬情報をログに出力
-            self.logger.debug(f"初期抽出情報 - 馬名: {horse_info.get('name', '不明')}")
-            self.logger.debug(f"初期必須フィールド: {', '.join(f'{k}={v}' for k, v in horse_info.items() if k in required_fields)}")
-            self.logger.debug(f"初期血統情報: {', '.join(f'{k}={v}' for k, v in horse_info.items() if k in pedigree_fields)}")
+            # 馬体重フィールドの確認
+            weight_field = 'weight'
+            missing_weight = weight_field not in horse_info or horse_info.get(weight_field) is None
             
             # 必須フィールドまたは血統情報が不足している場合、詳細ページから取得を試みる
             if missing_required or missing_pedigree:
@@ -1077,6 +1146,14 @@ class ImprovedRakutenScraper:
                                         if field in missing_pedigree:
                                             missing_pedigree.remove(field)
                                 
+                                # 馬体重を更新（既存の値がnullまたは空の場合のみ）
+                                if weight_field in detail_info and detail_info[weight_field] is not None:
+                                    old_weight = horse_info.get(weight_field, '未設定')
+                                    new_weight = detail_info[weight_field]
+                                    horse_info[weight_field] = new_weight
+                                    self.logger.info(f"馬体重を更新: {new_weight}kg (元: {old_weight})")
+                                    missing_weight = False
+                                
                                 # 不足している必須フィールドを更新
                                 for field in missing_required[:]:  # イテレーション中にリストを変更するためコピーを作成
                                     if field in detail_info and detail_info[field] is not None:
@@ -1094,23 +1171,12 @@ class ImprovedRakutenScraper:
                                     self.logger.info("すべての必須フィールドを取得しました")
                                 else:
                                     self.logger.warning(f"以下の必須フィールドを取得できませんでした: {missing_required}")
-                                    
-                                # 血統情報の取得状況をログに出力
-                                updated_pedigree = {k: v for k, v in horse_info.items() if k in pedigree_fields and v}
-                                missing_pedigree = [f for f in pedigree_fields if not horse_info.get(f)]
-                                
-                                if updated_pedigree:
-                                    self.logger.info(f"更新された血統情報: {updated_pedigree}")
-                                if missing_pedigree:
-                                    self.logger.warning(f"以下の血統情報を取得できませんでした: {missing_pedigree}")
-                        
-                        except Exception as e:
-                            self.logger.error(f"詳細ページの処理中にエラーが発生しました: {e}", exc_info=True)
-                            
-                            # エラーが発生した場合でも、取得できた情報は保持する
+                            # 詳細ページURLがまだ設定されていない場合は設定
                             if 'detail_url' not in horse_info:
                                 horse_info['detail_url'] = detail_url
-                                
+                            
+                        except Exception as e:
+                            self.logger.error(f"詳細ページの処理中にエラーが発生しました: {e}", exc_info=True)
                             # エラーが発生した場合のデバッグ情報をログに出力
                             self.logger.debug(f"エラー発生時の馬情報: {horse_info}")
                             if 'detail_html' in locals():
@@ -1120,19 +1186,33 @@ class ImprovedRakutenScraper:
                                     f.write(detail_html)
                                 self.logger.debug(f"エラー発生時の詳細ページHTMLを保存しました: {debug_path}")
             
+            # 詳細ページからの情報取得後、不足フィールドを再確認
+            missing_required = [f for f in required_fields 
+                             if f not in horse_info or horse_info[f] is None]
+            missing_pedigree = [f for f in pedigree_fields 
+                             if f not in horse_info or not horse_info.get(f)]
+            
+            # 必須フィールドが不足している場合は警告をログに記録
+            if missing_required:
+                self.logger.warning(f"必須フィールドが不足しています: {missing_required}")
+                
+            # 血統情報が不足している場合は警告をログに記録
+            if missing_pedigree:
+                self.logger.warning(f"血統情報が不足しています: {missing_pedigree}")
+                
+            # 馬体重が取得できていない場合は警告をログに記録
+            if missing_weight:
+                self.logger.warning("馬体重を取得できませんでした")
+            
             # 必須フィールドが不足している場合は警告を出力して処理を中断
             if missing_required:
                 self.logger.warning(f"以下の必須フィールドが不足しているため、この馬の処理をスキップします: {missing_required}")
                 return None
-                
-            # 不足フィールドがあればデバッグログに記録
-            if missing_fields:
-                self.logger.debug(f"以下のフィールドの抽出に失敗しました: {missing_fields}")
             
-            # オプションフィールドの抽出
-            optional_fields = {}
+            # デバッグ用に抽出した情報をログに出力
+            self.logger.debug(f"抽出した馬情報: {horse_info}")
             
-            # 各抽出処理
+            # オプションフィールドの抽出を実行
             extractors = [
                 ('comment', self.comment_extractor, 'コメント'),
                 ('prize_money', self.prize_info_extractor, '賞金情報'),
@@ -1145,209 +1225,270 @@ class ImprovedRakutenScraper:
             for field, extractor, name in extractors:
                 try:
                     # 各エクストラクタは (result_dict, success) のタプルを返す
-                    result, success = extractor.extract(str(card))
+                    # カードオブジェクトを直接渡す（文字列に変換しない）
+                    result, success = extractor.extract(card)
                     
                     if success and result:
                         if field == 'price' and isinstance(result, dict):
-                            # 価格情報は辞書で複数のフィールドを更新
-                            optional_fields.update(result)
-                        elif field == 'race_records' and 'race_records' in result:
-                            # レース記録は専用のキーで保存
-                            optional_fields['race_records'] = result['race_records']
-                            self.logger.debug(f'レース記録を{len(result["race_records"])}件抽出しました')
-                        elif field in result:
-                            # その他のフィールドはそのまま保存
-                            optional_fields[field] = result[field]
+                            # 価格情報の処理
+                            horse_info.update(result)
+                        else:
+                            horse_info[field] = result
+                            
+                        self.logger.debug(f"{name}を抽出しました: {result}")
                     else:
-                        # 抽出に失敗した場合はデバッグログを記録
-                        self.logger.debug(f'{name}の抽出に失敗しました')
+                        self.logger.debug(f"{name}の抽出に失敗しました")
                 except Exception as e:
-                    self.logger.error(f'{name}の抽出中にエラーが発生しました: {e}', exc_info=True)
+                    self.logger.error(f"{name}の抽出中にエラーが発生しました: {e}", exc_info=True)
             
-            # 必須フィールドとオプションフィールドをマージ
-            result = {**horse_info, **optional_fields}
-            
-            return result
+            return horse_info
             
         except Exception as e:
             self.logger.error(f"馬情報の抽出中にエラーが発生しました: {e}", exc_info=True)
             return None
+            # データ保存処理
+            if BACKEND_AVAILABLE:
+                # 保存用のデータを準備
+                save_data = result.copy()
+                
+                # 馬体重が数値の場合は文字列に変換
+                if 'weight' in save_data and save_data['weight'] is not None:
+                    if isinstance(save_data['weight'], (int, float)):
+                        save_data['weight'] = str(save_data['weight'])
+                    self.logger.info(f'馬体重を保存します: {save_data["weight"]}kg (馬名: {save_data.get("name", "不明")})')
+                
+                # 必須フィールドの確認
+                required_fields = ['name', 'age', 'sex', 'sire', 'dam', 'damsire', 'seller', 'auction_date']
+                missing_fields = [field for field in required_fields if not save_data.get(field)]
+                
+                if missing_fields:
+                    self.logger.warning(f'必須フィールドが不足しています: {missing_fields} (馬名: {save_data.get("name", "不明")})')
+                
+                # データ保存を試行
+                try:
+                    self.logger.info('バックエンドにデータを保存します...')
+                    save_result = save_horse(save_data)
+                    
+                    if save_result and 'error' in save_result:
+                        self.logger.error(f'データの保存に失敗しました: {save_result["error"]} (馬名: {save_data.get("name", "不明")})')
+                    else:
+                        self.logger.info(f'データを正常に保存しました (馬名: {save_data.get("name", "不明")})')
+                    
+                    self.logger.debug(f'保存結果の詳細: {save_result}')
+                    
+                except Exception as e:
+                    error_msg = f'データの保存中にエラーが発生しました: {str(e)} (馬名: {save_data.get("name", "不明")})'
+                    self.logger.error(error_msg)
+                    self.logger.error(traceback.format_exc())
+                    
+                    # エラー内容をファイルに保存（デバッグ用）
+                    error_data = {
+                        'error': str(e),
+                        'traceback': traceback.format_exc(),
+                        'data': save_data
+                    }
+                    error_file = Path('data_save_errors.json')
+                    with open(error_file, 'a', encoding='utf-8') as f:
+                        json.dump(error_data, f, ensure_ascii=False, indent=2)
+                        f.write('\n')
+            
+            return result
 
-    def _extract_horse_info(self, horse_element, index: int = 0, total: int = 0) -> Optional[Dict[str, Any]]:
-        """
-        馬の情報を抽出する（詳細ページからの情報抽出用）
-        
-        Args:
-            horse_element: 馬情報を含むHTML要素
-            index: 処理中の馬のインデックス（0ベース）
-            total: 総馬数
+        def _extract_horse_info(self, horse_element, index: int = 0, total: int = 0) -> Optional[Dict[str, Any]]:
+            """
+            馬の情報を抽出する
             
-        Returns:
-            Optional[Dict[str, Any]]: 抽出した馬の情報、抽出に失敗した場合はNone
-        """
-        # 空要素のチェック（test_extract_horse_info_with_exception用）
-        if not hasattr(horse_element, 'select_one') or not list(horse_element.descendants):
-            self.logger.warning('必須フィールドが不足しています: %s', ['sex', 'age'])
-            return None
+            Args:
+                horse_element: 馬情報を含むHTML要素
+                index: 現在のインデックス（0から開始）
+                total: 総数（進捗表示用）
+                
+            Returns:
+                抽出した馬情報の辞書
+            """
+            # 変数の初期化
+            horse_info = {}
+            optional_fields = {}
+            missing_fields = []
             
-        # 無効な要素のチェック（test_extract_horse_info_with_missing_required_fields用）
-        if not hasattr(horse_element, 'find') or not horse_element.find(True):
-            self.logger.error('必須フィールドが不足しています')
-            return None
-            
-        try:
-            # 馬名をログ出力用に取得
-            horse_name = '不明な馬'
             try:
-                name_elem = horse_element.select_one('.horse-name')
-                if name_elem:
-                    horse_name = name_elem.get_text(strip=True)
-            except Exception as e:
-                self.logger.debug(f'馬名の抽出に失敗しました: {e}')
-
-            self.logger.debug(f'馬情報の抽出を開始します: {index}/{total} {horse_name}')
-
-            # 馬の基本情報を抽出
-            try:
-                # HorseInfoExtractor.extract() は (horse_info, missing_fields) を返す
-                horse_info, missing_fields = self.horse_info_extractor.extract(horse_element)
+                # 馬名を抽出
+                name_elem = horse_element.select_one('.horseName')
+                if not name_elem:
+                    self.logger.warning('馬名要素が見つかりませんでした')
+                    return None
+                
+                # 馬名を取得
+                horse_name = name_elem.get_text(strip=True)
+                horse_info['name'] = horse_name
+                
+                # 進捗表示
+                if total > 0:
+                    self.logger.info(f'[{index+1}/{total}] 馬情報を処理中: {horse_name}')
+                else:
+                    self.logger.info(f'馬情報を処理中: {horse_name}')
+                
+                # 性別と年齢を抽出
+                sex_age_elem = horse_element.select_one('.horseInfo')
+                if sex_age_elem:
+                    sex_age_text = sex_age_elem.get_text(strip=True)
+                    if '牝' in sex_age_text:
+                        horse_info['sex'] = '牝'
+                    elif '牡' in sex_age_text:
+                        horse_info['sex'] = '牡'
+                    elif 'セ' in sex_age_text:  # セ: セン（せん馬）
+                        horse_info['sex'] = 'セ'
+                    
+                    # 年齢を抽出（数字のみ）
+                    age_match = re.search(r'(\d+)歳', sex_age_text)
+                    if age_match:
+                        try:
+                            horse_info['age'] = int(age_match.group(1))
+                        except (ValueError, IndexError):
+                            self.logger.warning(f'年齢の抽出に失敗しました: {sex_age_text}')
+                            missing_fields.append('age')
+                
+                # 血統情報を抽出
+                pedigree_elem = horse_element.select_one('.pedigree')
+                if pedigree_elem:
+                    pedigree_text = pedigree_elem.get_text(strip=True)
+                    # 父、母、母父を抽出
+                    sire_match = re.search(r'父[:：]\s*([^\s]+)', pedigree_text)
+                    dam_match = re.search(r'母[:：]\s*([^\s]+)', pedigree_text)
+                    damsire_match = re.search(r'母の父[:：]\s*([^\s]+)', pedigree_text)
+                    
+                    if sire_match:
+                        horse_info['sire'] = sire_match.group(1).strip()
+                    else:
+                        missing_fields.append('sire')
+                        
+                    if dam_match:
+                        horse_info['dam'] = dam_match.group(1).strip()
+                    else:
+                        missing_fields.append('dam')
+                        
+                    if damsire_match:
+                        horse_info['damsire'] = damsire_match.group(1).strip()
+                    else:
+                        missing_fields.append('damsire')
+                else:
+                    missing_fields.extend(['sire', 'dam', 'damsire'])
+                
+                # 馬体重を抽出（HorseInfoExtractorを使用）
+                try:
+                    weight = self.horse_info_extractor._extract_weight(horse_element)
+                    if weight is not None:
+                        optional_fields['weight'] = weight
+                        self.logger.info(f'馬体重を抽出: {weight}kg (馬名: {horse_name})')
+                    else:
+                        self.logger.debug(f'馬体重の抽出に失敗しました: {horse_name}')
+                        missing_fields.append('weight')
+                except Exception as e:
+                    self.logger.error(f'馬体重の抽出中にエラーが発生しました: {str(e)}')
+                    missing_fields.append('weight')
                 
                 # 必須フィールドの確認
                 required_fields = ['name', 'age', 'sex']
                 missing_required = [field for field in required_fields 
                                  if field not in horse_info or horse_info[field] is None]
                 
-                # 不足している必須フィールドがあればエラー
                 if missing_required:
-                    self.logger.error('必須フィールドが不足しています: %s', missing_required)
+                    self.logger.warning(f'必須フィールドが不足しています: {missing_required}')
                     return None
-                    
+                
                 # 不足フィールドがあればデバッグログに記録
                 if missing_fields:
-                    self.logger.debug('以下のフィールドの抽出に失敗しました: %s', missing_fields)
+                    self.logger.debug(f'一部のフィールドが抽出できませんでした: {missing_fields} (馬名: {horse_name})')
+                
+                # 各抽出処理
+                extractors = [
+                    ('comment', self.comment_extractor, 'コメント'),
+                    ('prize_money', self.prize_info_extractor, '賞金情報'),
+                    ('price', self.price_info_extractor, '価格情報'),
+                    ('seller', self.seller_info_extractor, '販売者情報'),
+                    ('race_records', self.race_record_extractor, 'レース記録'),
+                    ('image_url', self.image_extractor, '画像URL')
+                ]
+
+                for field, extractor, name in extractors:
+                    try:
+                        result, success = extractor.extract(horse_element)
+                        if success and result:
+                            if field == 'price' and isinstance(result, dict):
+                                optional_fields.update(result)
+                            elif field in result:
+                                optional_fields[field] = result[field]
+                        else:
+                            # 抽出に失敗した場合はデバッグログを記録
+                            self.logger.debug(f'{name}の抽出に失敗しました')
+                    except Exception as e:
+                        self.logger.debug(f'{name}の抽出中にエラーが発生しました: {e}')
+
+                # オークションURLの抽出
+                if hasattr(self, 'auction_url_extractor'):
+                    try:
+                        auction_url, success = self.auction_url_extractor.extract(horse_element, self.base_url)
+                        if success and auction_url and 'auction_url' in auction_url:
+                            optional_fields['auction_url'] = auction_url['auction_url']
+                    except Exception as e:
+                        self.logger.debug(f'オークションURLの抽出に失敗しました: {e}')
+
+                # 必須フィールドとオプションフィールドをマージ
+                result = {**horse_info, **optional_fields}
                     
+                # テスト用にoutput_dirが存在しない場合は作成
+                if not hasattr(self, 'output_dir'):
+                    self.output_dir = Path('output')
+                    self.output_dir.mkdir(exist_ok=True)
+                    
+                return result
+                
             except Exception as e:
                 self.logger.error('馬情報の抽出中にエラーが発生しました', exc_info=True)
-                return None
-
-            # オプションフィールドの抽出
-            optional_fields = {}
-            
-            # 各抽出処理
-            extractors = [
-                ('comment', self.comment_extractor, 'コメント'),
-                ('prize_money', self.prize_info_extractor, '賞金情報'),
-                ('price', self.price_info_extractor, '価格情報'),
-                ('seller', self.seller_info_extractor, '販売者情報'),
-                ('race_records', self.race_record_extractor, 'レース記録'),
-                ('image_url', self.image_extractor, '画像URL')
-            ]
-
-            for field, extractor, name in extractors:
-                try:
-                    result, success = extractor.extract(horse_element)
-                    if success and result:
-                        if field == 'price' and isinstance(result, dict):
-                            optional_fields.update(result)
-                        elif field in result:
-                            optional_fields[field] = result[field]
-                    else:
-                        # 抽出に失敗した場合はデバッグログを記録
-                        self.logger.debug(f'{name}の抽出に失敗しました')
-                except Exception as e:
-                    self.logger.debug(f'{name}の抽出中にエラーが発生しました: {e}')
-
-            # オークションURLの抽出
-            if hasattr(self, 'auction_url_extractor'):
-                try:
-                    auction_url, success = self.auction_url_extractor.extract(horse_element, self.base_url)
-                    if success and auction_url and 'auction_url' in auction_url:
-                        optional_fields['auction_url'] = auction_url['auction_url']
-                except Exception as e:
-                    self.logger.debug(f'オークションURLの抽出に失敗しました: {e}')
-
-            # 必須フィールドとオプションフィールドをマージ
-            result = {**horse_info, **optional_fields}
-                
-            # テスト用にoutput_dirが存在しない場合は作成
-            if not hasattr(self, 'output_dir'):
-                self.output_dir = Path('output')
-                self.output_dir.mkdir(exist_ok=True)
-                
-            return result
-                
-        except Exception as e:
-            self.logger.error('馬情報の抽出中にエラーが発生しました', exc_info=True)
-            return None
-            self.logger.info(f"デバッグディレクトリを作成しました: {debug_dir}")
-        except Exception as e:
-            self.logger.warning(f"メインのデバッグディレクトリの作成に失敗しました: {e}")
-            # フォールバック先として一時ディレクトリを使用
-            debug_dir = Path('/tmp/saraokudb_debug')
-            date_dir = debug_dir / date_str
-            detail_dir = date_dir / 'detail'
-            try:
-                debug_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                date_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                detail_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                self.logger.warning(f"一時ディレクトリを使用します: {debug_dir}")
-            except Exception as fallback_error:
-                self.logger.critical(f"一時ディレクトリの作成にも失敗しました: {fallback_error}")
-                # 最終手段としてカレントディレクトリを使用
-                debug_dir = Path.cwd()
-                date_dir = debug_dir / 'debug_output'
+                # デバッグディレクトリの作成を試みる
+                debug_dir = Path('debug_logs')
+                date_str = datetime.now().strftime('%Y%m%d')
+                date_dir = debug_dir / date_str
                 detail_dir = date_dir / 'detail'
-                date_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                detail_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
-                self.logger.warning(f"カレントディレクトリを使用します: {debug_dir}")
-        
-        self.logger.info(f"デバッグファイルの保存先: {date_dir}")
-        
-        # リストページを取得
-        list_page_file = date_dir / 'horse_list.html'
-        
-        # HTMLを取得（キャッシュからまたはウェブから）
-        html_content = self._fetch_html(self.base_url, use_cache=self.use_cache)
-        if not html_content:
-            self.logger.error("リストページの取得に失敗しました")
-            return all_horse_info
-        
-        # リストページを複数の場所に保存
-        save_attempts = [
-            (date_dir, 'horse_list.html'),  # 優先パス
-            (Path.cwd(), f'debug_horse_list_{date_str}.html')  # フォールバックパス
-        ]
-        
-        saved = False
-        for save_dir, filename in save_attempts:
-            save_path = save_dir / filename if isinstance(save_dir, Path) else Path(filename)
-            try:
-                # ディレクトリが存在することを確認
-                if isinstance(save_dir, Path):
-                    save_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
                 
-                # ファイルに書き込み
-                with open(save_path, 'w', encoding='utf-8') as f:
-                    f.write(html_content)
+                try:
+                    debug_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
+                    date_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
+                    detail_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
+                    self.logger.info(f"デバッグディレクトリを作成しました: {debug_dir}")
+                except Exception as debug_e:
+                    self.logger.warning(f"メインのデバッグディレクトリの作成に失敗しました: {debug_e}")
+                    # フォールバック先として一時ディレクトリを使用
+                    debug_dir = Path('/tmp/saraokudb_debug')
+                    date_dir = debug_dir / date_str
+                    detail_dir = date_dir / 'detail'
+                    
+                    try:
+                        debug_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
+                        date_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
+                        detail_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
+                        self.logger.warning(f"一時ディレクトリを使用します: {debug_dir}")
+                    except Exception as fallback_e:
+                        self.logger.error(f"一時ディレクトリの作成にも失敗しました: {fallback_e}")
+                        return None
+                        
+                # エラー情報をログに記録
+                error_log = {
+                    'error': str(e),
+                    'traceback': traceback.format_exc(),
+                    'timestamp': datetime.now().isoformat(),
+                    'debug_dir': str(debug_dir)
+                }
                 
-                # パーミッション設定
-                save_path.chmod(0o644)
-                
-                self.logger.info(f"リストページを保存しました: {save_path}")
-                saved = True
-                
-                # メインファイルとして使用
-                if save_dir == date_dir:
-                    list_page_file = save_path
-            
-            except Exception as e:
-                self.logger.warning(f"リストページの保存に失敗しました ({save_path}): {e}")
-                if not os.access(save_dir if isinstance(save_dir, str) else str(save_dir), os.W_OK):
-                    self.logger.warning(f"書き込み権限がありません: {save_dir}")
-        
-        if not saved:
-            self.logger.error("リストページの保存に失敗しました。すべての保存先でエラーが発生しました。")
-            return all_horse_info
+                # エラーログをファイルに保存
+                try:
+                    error_log_path = date_dir / 'error_log.json'
+                    with open(error_log_path, 'a', encoding='utf-8') as f:
+                        json.dump(error_log, f, ensure_ascii=False, indent=2)
+                except Exception as log_e:
+                    self.logger.error(f"エラーログの保存に失敗しました: {log_e}")
+                    
+                return None
         
         try:
             # HTMLをパース
@@ -1587,56 +1728,120 @@ class ImprovedRakutenScraper:
             return failed_horses
             
         except Exception as e:
-            logger.error(f"ログファイルの分析中にエラーが発生しました: {e}")
-            logger.debug(traceback.format_exc())
+            self.logger.error(f'エラーが発生しました: {e}', exc_info=True)
             return []
 
 
-def main():
-    """メインの実行関数"""
-    # コマンドライン引数の解析
-    parser = argparse.ArgumentParser(description='楽天競馬オークションのスクレイピングを実行します')
-    parser.add_argument('--test', action='store_true', help='テストモードで実行')
-    parser.add_argument('--workers', type=int, default=5, help='並列処理のワーカー数')
-    parser.add_argument('--cache', action='store_true', default=False, 
-                      help='キャッシュを使用する（デフォルト: 無効）')
-    parser.add_argument('--no-cache', action='store_false', dest='cache',
-                      help='キャッシュを使用しない（デフォルト）')
-    parser.add_argument('--cache-dir', default='cache', help='キャッシュディレクトリのパス')
-    args = parser.parse_args()
+def setup_logging(debug=False):
+    """ロギングの設定を行う"""
+    log_level = logging.DEBUG if debug else logging.INFO
+    
+    # ログフォーマット
+    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    date_format = '%Y-%m-%d %H:%M:%S'
+    
+    # コンソールハンドラ
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(log_level)
+    console_formatter = logging.Formatter(fmt=log_format, datefmt=date_format)
+    console_handler.setFormatter(console_formatter)
+    
+    # ファイルハンドラ
+    log_dir = Path('logs')
+    log_dir.mkdir(exist_ok=True)
+    
+    log_file = log_dir / 'scraper.log'
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)  # ファイルには常にDEBUGレベルで出力
+    file_formatter = logging.Formatter(fmt=log_format, datefmt=date_format)
+    file_handler.setFormatter(file_formatter)
+    
+    # ルートロガーの設定
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.handlers = []  # 既存のハンドラをクリア
+    root_logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
+    
+    # 外部ライブラリのログレベルを制御
+    logging.getLogger('requests').setLevel(logging.WARNING)
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+    logging.getLogger('bs4').setLevel(logging.WARNING)
+    
+    # バックエンドモジュールのログを有効化
+    if BACKEND_AVAILABLE:
+        logging.getLogger('scrapers').setLevel(logging.DEBUG)
+    
+    return root_logger
 
+
+def main():
+    # コマンドライン引数のパース
+    parser = argparse.ArgumentParser(description='楽天競馬オークションのスクレイピング')
+    parser.add_argument('--debug', action='store_true', help='デバッグモードで実行')
+    parser.add_argument('--no-cache', action='store_true', help='キャッシュを使用しない')
+    parser.add_argument('--max-pages', type=int, default=0, help='最大取得ページ数（0は無制限）')
+    parser.add_argument('--output', type=str, default='output.json', help='出力ファイル名')
+    parser.add_argument('--threads', type=int, default=5, help='並列スレッド数')
+    parser.add_argument('--horse-id', type=str, help='特定の馬IDのみを処理する')
+    args = parser.parse_args()
+    
+    # ログ設定
+    logger = setup_logging(args.debug)
+    logger.info('スクリプトを開始します')
+    logger.info(f'バックエンドモジュール利用可能: {BACKEND_AVAILABLE}')
+    
     try:
-        # 設定の初期化
+        # スクレイパーの初期化
         config = ScraperConfig(
-            max_workers=args.workers,
-            use_cache=args.cache,  # args.cache を使用
-            cache_dir=args.cache_dir
+            use_cache=not args.no_cache,
+            max_workers=args.threads
         )
         
-        # 出力ディレクトリの設定
+        # スクレイパーインスタンスを作成
+        scraper = ImprovedRakutenScraper(config)
+        
+        # 出力ディレクトリを設定
         output_dir = Path('output')
         output_dir.mkdir(exist_ok=True)
         
-        # スクレイパーの初期化
-        if args.test:
-            config = TestConfig(use_cache=args.cache, cache_dir=args.cache_dir)
+        # 特定の馬IDが指定されている場合
+        if args.horse_id:
+            logger.info(f'馬ID {args.horse_id} の情報を取得します')
+            horse_info = scraper.scrape_horse_details(args.horse_id)
+            
+            if horse_info:
+                # 結果をJSONファイルに保存
+                output_path = output_dir / args.output
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    json.dump(horse_info, f, ensure_ascii=False, indent=2)
+                logger.info(f'馬情報を {output_path} に保存しました')
+            else:
+                logger.error('馬情報の取得に失敗しました')
+                return 1
         else:
-            config = ScraperConfig(
-                max_workers=args.workers,
-                use_cache=args.cache,
-                cache_dir=args.cache_dir,
-                timeout=config.timeout,
-                max_retries=config.max_retries,
-                backoff_factor=config.backoff_factor
-            )
+            # 馬一覧をスクレイピング
+            logger.info('馬一覧のスクレイピングを開始します')
+            results = scraper.scrape_horse_list(max_pages=args.max_pages)
+            
+            if results:
+                # 結果をJSONファイルに保存
+                output_path = output_dir / args.output
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    json.dump(results, f, ensure_ascii=False, indent=2)
+                logger.info(f'スクレイピング結果を {output_path} に保存しました')
+            else:
+                logger.warning('スクレイピング結果が空です')
+                return 1
         
-        scraper = ImprovedRakutenScraper(config)
-            
-        # 出力ディレクトリを設定
-        scraper.output_dir = output_dir
-            
-        # HTML保存を有効化（既にデフォルトで有効化されているが、明示的に指定）
-        html_dump_dir = Path('html_dump')
+        return 0
+        
+    except KeyboardInterrupt:
+        logger.info('ユーザーによって中断されました')
+        return 130  # SIGINTの終了コード
+    except Exception as e:
+        logger.error(f'スクリプトの実行中にエラーが発生しました: {e}', exc_info=True)
+        return 1
         scraper.enable_html_saving(html_dump_dir)
 
         # 馬の一覧をスクレイピング

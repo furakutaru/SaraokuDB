@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "last_updated": "2025-08-30T23:40:13.749587",
-    "total_horses": 141,
+    "last_updated": "2025-08-31T23:52:52.950955",
+    "total_horses": 149,
     "version": "1.0.0"
   },
   "horses": [
@@ -2488,6 +2488,118 @@
       "jbis_url": "https://www.jbis.or.jp/horse/0001356694/",
       "total_prize_start": 0,
       "total_prize_latest": 0
+    },
+    {
+      "name": "エスシーボニー",
+      "sex": "牝",
+      "age": 3,
+      "sire": "ストロングリターン",
+      "dam": "エスシーハンコック",
+      "damsire": "ダイワメジャー",
+      "weight": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14854",
+      "id": "a8547625-5183-405d-9d53-f92680652a57",
+      "created_at": "2025-08-31T23:34:10.329635",
+      "updated_at": "2025-08-31T23:52:52.925327",
+      "disease_tags": []
+    },
+    {
+      "name": "エムズドリーム",
+      "sex": "牡",
+      "age": 3,
+      "sire": "ゴールドドリーム",
+      "dam": "ピエナブラウニー",
+      "damsire": "フジキセキ",
+      "weight": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14855",
+      "id": "1e938552-76ef-413f-9c42-a92e583e7336",
+      "created_at": "2025-08-31T23:34:10.333517",
+      "updated_at": "2025-08-31T23:52:52.929857",
+      "disease_tags": []
+    },
+    {
+      "name": "ジークヴァルツァ...",
+      "sex": "牡",
+      "age": 3,
+      "sire": "デクラレーションオブウォー",
+      "dam": "ラストワルツ",
+      "damsire": "ゼンノロブロイ",
+      "weight": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14856",
+      "id": "02eac1a3-1fa7-48d9-90d0-2a0efdb3c832",
+      "created_at": "2025-08-31T23:34:10.336924",
+      "updated_at": "2025-08-31T23:52:52.933812",
+      "disease_tags": []
+    },
+    {
+      "name": "ナムラエミー",
+      "sex": "牝",
+      "age": 3,
+      "sire": "タワーオブロンドン",
+      "dam": "ナムラマミー",
+      "damsire": "ディープインパクト",
+      "weight": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14857",
+      "id": "770969c7-e2b7-40d1-9ce3-85c7569a786f",
+      "created_at": "2025-08-31T23:34:10.340094",
+      "updated_at": "2025-08-31T23:52:52.937156",
+      "disease_tags": []
+    },
+    {
+      "name": "シルクディヴェー...",
+      "sex": "牝",
+      "age": 3,
+      "sire": "フィエールマン",
+      "dam": "ルシルク",
+      "damsire": "Dynaformer",
+      "weight": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14858",
+      "id": "92e87d7c-5071-4a28-b08c-2873163d20e8",
+      "created_at": "2025-08-31T23:34:10.344135",
+      "updated_at": "2025-08-31T23:52:52.940784",
+      "disease_tags": []
+    },
+    {
+      "name": "ウェーヴレット",
+      "sex": "牝",
+      "age": 3,
+      "sire": "エピファネイア",
+      "dam": "サザナミ",
+      "damsire": "ディープインパクト",
+      "weight": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14859",
+      "id": "88732f57-8ae8-4f87-9a33-bf795213d5ef",
+      "created_at": "2025-08-31T23:34:10.347422",
+      "updated_at": "2025-08-31T23:52:52.944124",
+      "disease_tags": []
+    },
+    {
+      "name": "フォルテカリーナ",
+      "sex": "牝",
+      "age": 2,
+      "sire": "フィレンツェファイア",
+      "dam": "エレンシア",
+      "damsire": "ワークフォース",
+      "weight": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14861",
+      "id": "ea600505-cd03-4f55-bab8-527c6074d8a8",
+      "created_at": "2025-08-31T23:34:10.350701",
+      "updated_at": "2025-08-31T23:52:52.947531",
+      "disease_tags": []
+    },
+    {
+      "name": "ハラマキ",
+      "sex": "牝",
+      "age": 2,
+      "sire": "サトノダイヤモンド",
+      "dam": "ブルーブラッド",
+      "damsire": "Dubawi",
+      "weight": null,
+      "detail_url": "https://auction.keiba.rakuten.co.jp/item/14860",
+      "id": "33234d9c-9d5c-4ea8-bbe4-47d9b4fa60c9",
+      "created_at": "2025-08-31T23:34:10.354049",
+      "updated_at": "2025-08-31T23:52:52.950955",
+      "disease_tags": []
     }
   ]
 }
