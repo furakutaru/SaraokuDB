@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "last_updated": "2025-08-31T23:23:47.081599",
+    "last_updated": "2025-09-01T00:14:57.007913",
     "total_horses": 11,
     "version": "1.0.0"
   },
@@ -14,10 +14,10 @@
       "sex": "牡",
       "age": 3,
       "seller": "テスト牧場",
-      "auction_date": "2025-08-31",
+      "auction_date": "2025-09-01",
       "detail_url": "https://auction.keiba.rakuten.co.jp/detail/1",
       "created_at": "2025-08-31T23:00:20.348763",
-      "updated_at": "2025-08-31T23:00:20.348763",
+      "updated_at": "2025-09-01T00:00:23.424000",
       "disease_tags": []
     },
     {
@@ -29,10 +29,10 @@
       "sex": "牝",
       "age": 2,
       "seller": "テスト牧場2",
-      "auction_date": "2025-08-31",
+      "auction_date": "2025-09-01",
       "detail_url": "https://auction.keiba.rakuten.co.jp/detail/2",
       "created_at": "2025-08-31T23:00:20.349927",
-      "updated_at": "2025-08-31T23:00:20.349927",
+      "updated_at": "2025-09-01T00:00:23.424695",
       "disease_tags": []
     },
     {
@@ -44,10 +44,10 @@
       "sex": "セ",
       "age": 4,
       "seller": "テスト牧場3",
-      "auction_date": "2025-08-31",
+      "auction_date": "2025-09-01",
       "detail_url": "https://auction.keiba.rakuten.co.jp/detail/3",
       "created_at": "2025-08-31T23:00:20.351083",
-      "updated_at": "2025-08-31T23:00:20.351083",
+      "updated_at": "2025-09-01T00:00:23.425447",
       "disease_tags": []
     },
     {
@@ -60,7 +60,7 @@
       "weight": null,
       "id": "3cc8bfb4-675a-4e77-815e-0cf8e45a3f49",
       "created_at": "2025-08-31T23:02:54.236479",
-      "updated_at": "2025-08-31T23:23:47.072212",
+      "updated_at": "2025-09-01T00:14:57.001094",
       "disease_tags": []
     },
     {
@@ -73,7 +73,7 @@
       "weight": null,
       "id": "8cfc41eb-ca8b-4298-91c5-7c35805d42d0",
       "created_at": "2025-08-31T23:02:54.237482",
-      "updated_at": "2025-08-31T23:23:47.073389",
+      "updated_at": "2025-09-01T00:14:57.002285",
       "disease_tags": []
     },
     {
@@ -86,7 +86,7 @@
       "weight": null,
       "id": "936275c4-d8a1-4124-9924-d3b92fe272ad",
       "created_at": "2025-08-31T23:02:54.238337",
-      "updated_at": "2025-08-31T23:23:47.074627",
+      "updated_at": "2025-09-01T00:14:57.003344",
       "disease_tags": []
     },
     {
@@ -99,7 +99,7 @@
       "weight": null,
       "id": "99f00c49-7732-4d52-bea1-a6b861661759",
       "created_at": "2025-08-31T23:02:54.239198",
-      "updated_at": "2025-08-31T23:23:47.075805",
+      "updated_at": "2025-09-01T00:14:57.004437",
       "disease_tags": []
     },
     {
@@ -112,7 +112,7 @@
       "weight": null,
       "id": "3e82d3fa-f5ef-4e04-b1c8-dabaa079b9d9",
       "created_at": "2025-08-31T23:02:54.239990",
-      "updated_at": "2025-08-31T23:23:47.077092",
+      "updated_at": "2025-09-01T00:14:57.005546",
       "disease_tags": []
     },
     {
@@ -125,7 +125,7 @@
       "weight": null,
       "id": "27f4e011-1cfb-44e7-8dc3-b13c91214519",
       "created_at": "2025-08-31T23:02:54.240817",
-      "updated_at": "2025-08-31T23:23:47.078243",
+      "updated_at": "2025-09-01T00:14:57.006525",
       "disease_tags": []
     },
     {
@@ -138,7 +138,7 @@
       "weight": null,
       "id": "cb670890-fa59-40e1-bd3c-ef23e808f7e7",
       "created_at": "2025-08-31T23:02:54.241834",
-      "updated_at": "2025-08-31T23:23:47.080115",
+      "updated_at": "2025-09-01T00:14:57.007257",
       "disease_tags": []
     },
     {
@@ -151,7 +151,7 @@
       "weight": null,
       "id": "bb751a79-13d9-46e3-985c-2802852aa54d",
       "created_at": "2025-08-31T23:02:54.242910",
-      "updated_at": "2025-08-31T23:23:47.081599",
+      "updated_at": "2025-09-01T00:14:57.007913",
       "disease_tags": []
     }
   ]

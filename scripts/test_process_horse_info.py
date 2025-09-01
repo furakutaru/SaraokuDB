@@ -23,13 +23,22 @@ def test_process_horse_info():
         # テスト用のHTMLサンプル - 実際の構造に合わせて修正
         html_content = """
         <div class="auctionTableCard">
-            <div class="auctionTableCard__name">テスト馬</div>
+            <div class="auctionTableCard__name">
+                <a href="/auction/12345/">テスト馬</a>
+            </div>
             <div class="horseLabelWrapper">
-                <div class="horseLabelWrapper__horseSex">牡</div>
-                <div class="horseLabelWrapper__horseAge">3</div>
+                <div class="horseLabelWrapper__sexAge">牡3歳</div>
+                <div class="horseLabelWrapper__horseWeight">480kg</div>
             </div>
             <div class="auctionTableCard__price">1,234万円</div>
             <div class="auctionTableCard__comment">テストコメント</div>
+            <div class="auctionTableCard__pedigree">
+                <div class="pedigree">
+                    <div class="pedigree__sire">父: キタサンブラック</div>
+                    <div class="pedigree__dam">母: テストメア</div>
+                    <div class="pedigree__damsire">母父: ディープインパクト</div>
+                </div>
+            </div>
         </div>
         """
         
