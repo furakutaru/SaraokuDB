@@ -674,7 +674,7 @@ class AccumulativeScraper:
             filepath: 保存先ファイルパス（省略時はデフォルトパス）
         """
         if filepath is None:
-            filepath = os.path.join('data', 'horses.json')
+            filepath = os.path.join('static-frontend', 'public', 'data', 'horses.json')
             
         # ディレクトリが存在しない場合は作成
         os.makedirs(os.path.dirname(filepath), exist_ok=True)

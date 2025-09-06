@@ -18,84 +18,89 @@ class RaceRecordExtractor:
         """
         self.logger = logger or logging.getLogger(__name__)
     
-    def _parse_race_record(self, record_text: str) -> Optional[Dict[str, str]]:
-        """戦績テキストからレース記録をパースする
-        
-        Args:
-            record_text: 戦績テキスト（例: "23戦1勝［1-0-1-21］"）
-            
-        Returns:
-            パースされたレコードの辞書、またはパースできない場合はNone
-        """
-        try:
-            # 戦績テキストから各数値を抽出
-            match = re.search(r'(\d+)戦(\d+)勝\s*\[(\d+)-(\d+)-(\d+)-(\d+)\]', record_text)
-            if not match:
-                return None
-                
-            return {
-                'races': int(match.group(1)),  # 総出走回数
-                'wins': int(match.group(2)),   # 勝利回数
-                'first': int(match.group(3)),  # 1着回数
-                'second': int(match.group(4)), # 2着回数
-                'third': int(match.group(5)),  # 3着回数
-                'other': int(match.group(6))   # その他の着順回数
-            }
-        except (ValueError, IndexError, AttributeError) as e:
-            self.logger.warning(f"戦績テキストのパースに失敗しました: {record_text}, エラー: {e}")
-            return None
-    
     def extract(self, html_content: str) -> Tuple[Dict[str, Any], bool]:
         """
         馬の詳細ページからレース実績情報を抽出する
         
         Args:
-            html_content (str): 馬の詳細ページのHTML
+            html_content (str or BeautifulSoup): 馬の詳細ページのHTMLまたはBeautifulSoupオブジェクト
             
         Returns:
             Tuple[Dict[str, Any], bool]: (レース実績情報を含む辞書, 抽出が成功したかどうか)
         """
         try:
-            soup = BeautifulSoup(html_content, 'html.parser')
-            records = []
-            
-            # 戦績テキストを抽出
-            record_summary = {}
-            record_div = soup.find('div', class_='record')
-            if record_div:
-                record_text = record_div.get_text(strip=True)
-                record_summary = self._parse_race_record(record_text) or {}
-            
-            # レース実績テーブルを検索
-            race_table = soup.find('table', class_='raceTable')
-            if race_table:
-                # ヘッダー行をスキップして各行を処理
-                rows = race_table.find_all('tr')[1:]  # ヘッダー行をスキップ
+            # html_contentがBeautifulSoupオブジェクトの場合はそのまま使用
+            if not isinstance(html_content, str):
+                soup = html_content
+            else:
+                soup = BeautifulSoup(html_content, 'html.parser')
                 
-                for row in rows:
-                    cols = row.find_all('td')
-                    if len(cols) >= 8:  # 必要な列数があることを確認
-                        record = {
-                            'date': cols[0].get_text(strip=True) if cols[0] else '',
-                            'race_name': cols[1].get_text(strip=True) if cols[1] else '',
-                            'track': cols[2].get_text(strip=True) if cols[2] else '',
-                            'distance': cols[3].get_text(strip=True) if cols[3] else '',
-                            'track_condition': cols[4].get_text(strip=True) if cols[4] else '',
-                            'position': cols[5].get_text(strip=True) if cols[5] else '',
-                            'time': cols[6].get_text(strip=True) if cols[6] else '',
-                            'jockey': cols[7].get_text(strip=True) if cols[7] else ''
-                        }
-                        records.append(record)
+            records = []
+            record_summary = {}
             
-            # 戦績サマリーと詳細を結合
-            result = {
-                'summary': record_summary,
-                'races': records
-            }
+            # 通算成績を抽出
+            record_summary = {}
+            # preタグ内のテキストを検索
+            pre_tag = soup.find('pre')
+            if pre_tag:
+                pre_text = pre_tag.get_text()
+                self.logger.debug(f"pre_text: {pre_text}")
+                
+                # 未出走馬のチェック
+                if '未出走' in pre_text:
+                    self.logger.debug("未出走馬を検出しました")
+                    return {'summary': {'status': 'unraced'}, 'races': []}, True
+                
+                # 通算成績：の後からスペースまでの文字列を取得
+                start_markers = ['通算成績：', '通算成績:']
+                record_text = None
+                
+                for marker in start_markers:
+                    if marker in pre_text:
+                        # 開始マーカーの直後から次のスペースまでを取得
+                        start = pre_text.find(marker) + len(marker)
+                        end = pre_text.find(' ', start)
+                        if end == -1:  # スペースが見つからない場合は最後まで
+                            end = len(pre_text)
+                        record_text = pre_text[start:end].strip()
+                        break
+                
+                if record_text:
+                    self.logger.debug(f"Found record text: {record_text}")
+                    # 例: "3戦0勝[0-0-0-3]" をパース
+                    try:
+                        # 数字とハイフン、カッコを抽出
+                        import re
+                        numbers = re.findall(r'\d+', record_text)
+                        if len(numbers) >= 4:  # 最低限必要な数値が揃っているか確認
+                            # サマリーを文字列で保存
+                            record_summary = f"{numbers[0]}戦{numbers[1]}勝［{numbers[2]}-{numbers[3]}-{numbers[4] if len(numbers) > 4 else 0}-{numbers[5] if len(numbers) > 5 else 0}］"
+                            
+                            # 詳細な情報も辞書として保持
+                            record_summary_dict = {
+                                'status': 'active',  # 出走歴あり
+                                'races': int(numbers[0]),  # 総出走回数
+                                'wins': int(numbers[1]),   # 勝利回数
+                                'first': int(numbers[2]) if len(numbers) > 2 else 0,  # 1着回数
+                                'second': int(numbers[3]) if len(numbers) > 3 else 0, # 2着回数
+                                'third': int(numbers[4]) if len(numbers) > 4 else 0,  # 3着回数
+                                'other': int(numbers[5]) if len(numbers) > 5 else 0,  # その他の着順回数
+                                'summary': f"{numbers[0]}戦{numbers[1]}勝［{numbers[2]}-{numbers[3]}-{numbers[4] if len(numbers) > 4 else 0}-{numbers[5] if len(numbers) > 5 else 0}］"
+                            }
+                            record_summary = record_summary_dict
+                        self.logger.debug(f"Extracted record: {record_summary}")
+                    except (IndexError, ValueError) as e:
+                        self.logger.error(f"通算成績の抽出中にエラーが発生しました: {e}")
+                        return {'summary': {}}, False
+                else:
+                    self.logger.debug("通算成績のパターンにマッチしませんでした")
+                    return {'summary': {'summary': ''}}, True
             
-            # レコードが0件でも成功とみなす（データが存在しない場合は空のリストを返す）
-            return result, True
+            # 通算成績を返す（racesフィールドは削除）
+            if isinstance(record_summary, dict) and 'summary' in record_summary:
+                return {'summary': record_summary}, True
+            return {'summary': {'summary': record_summary}}, True
             
         except Exception as e:
-            self.logger.error(f'レース実績の抽出中にエラーが発生しました: {e}', exc_info=True)
+            self.logger.error(f"レース実績の抽出中にエラーが発生しました: {e}", exc_info=True)
             return {'summary': {}, 'races': []}, False

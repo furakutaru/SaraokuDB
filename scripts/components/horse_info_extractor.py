@@ -158,52 +158,82 @@ class HorseInfoExtractor:
             
         return result
 
-    # 他のメソッドはそのまま残します
     def extract(self, horse_element: Tag) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
-        馬の詳細情報を抽出する
+        馬の基本情報を抽出する
         
         Args:
-            horse_element: 馬の詳細情報を含むBeautifulSoup要素
+            horse_element: 馬情報を含むBeautifulSoup要素
             
         Returns:
-            Tuple[Dict[str, Any], Dict[str, Any]]: (基本情報, 追加情報) のタプル
+            Tuple[Dict[str, Any], Dict[str, Any]]: (基本情報, 詳細情報) のタプル
         """
         try:
-            # 馬名を抽出
-            horse_name = self._extract_name(horse_element)
+            # 基本情報の抽出
+            basic_info = {}
             
-            # 性別と年齢を抽出
+            # 性別と年齢の抽出
             sex_age = self._extract_sex_and_age(horse_element)
-            
-            # 血統情報を抽出
+            if sex_age:
+                basic_info.update(sex_age)
+                
+            # 血統情報の抽出
             pedigree = self._extract_pedigree(horse_element)
+            if pedigree:
+                basic_info.update(pedigree)
+                
+            # 詳細情報の抽出
+            detail_info = {}
             
-            # 馬体重を抽出
-            weight = self._extract_weight(horse_element)
-            
-            # 基本情報を構築
-            basic_info = {
-                'name': horse_name,
-                'sex': sex_age.get('sex'),
-                'age': sex_age.get('age'),
-                'sire': pedigree.get('sire'),
-                'dam': pedigree.get('dam'),
-                'damsire': pedigree.get('damsire'),
-                'weight': weight
-            }
-            
-            # 追加情報（現時点では空）
-            additional_info = {}
-            
-            self.logger.info(f"馬情報を抽出しました: 名前={horse_name}, 性別={sex_age.get('sex')}, 年齢={sex_age.get('age')}, 体重={weight}kg")
-            return basic_info, additional_info
-            
+            # 通算成績の抽出
+            race_record = self._extract_race_record(horse_element)
+            if race_record:
+                detail_info['race_record'] = race_record
+                
+            return basic_info, detail_info
+                
         except Exception as e:
             self.logger.error(f"馬情報の抽出中にエラーが発生しました: {str(e)}")
             self.logger.error(traceback.format_exc())
             return {}, {}
     
+    def _extract_race_record(self, horse_element: Tag) -> Optional[str]:
+        """
+        通算成績を抽出する
+        
+        Args:
+            horse_element: 馬情報を含むBeautifulSoup要素
+            
+        Returns:
+            Optional[str]: 抽出された通算成績（例: "3戦0勝［0-0-0-3］"）、抽出できない場合はNone
+        """
+        try:
+            # テキスト全体を取得
+            text_content = horse_element.get_text()
+            
+            # パターン1: 通算成績：3戦0勝［0-0-0-3］形式
+            record_match = re.search(r'通算成績[：:]([^\[\]\n]+(?:\[[^\]]+\])?)', text_content)
+            if record_match:
+                record = record_match.group(1).strip()
+                self.logger.debug(f'通算成績を抽出: {record}')
+                return record
+                
+            # パターン2: テーブル内の通算成績
+            for td in horse_element.find_all('td'):
+                if '通算成績' in td.text:
+                    record_match = re.search(r'通算成績[：:]([^\[\]\n]+(?:\[[^\]]+\])?)', td.text)
+                    if record_match:
+                        record = record_match.group(1).strip()
+                        self.logger.debug(f'テーブルから通算成績を抽出: {record}')
+                        return record
+                        
+            self.logger.debug('通算成績が見つかりませんでした')
+            return None
+            
+        except Exception as e:
+            self.logger.error(f'通算成績の抽出中にエラーが発生しました: {str(e)}')
+            return None
+
     def _extract_weight(self, horse_element: Tag) -> Optional[int]:
         """
         馬体重を抽出する

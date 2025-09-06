@@ -12,19 +12,55 @@ class HorseService:
     
     def create_horse(self, db: Session, horse_data: Dict) -> Horse:
         """馬データをデータベースに保存"""
+        # レースレコードが辞書型の場合はJSON文字列に変換
+        if 'race_record' in horse_data and isinstance(horse_data['race_record'], dict):
+            horse_data['race_record'] = json.dumps(horse_data['race_record'], ensure_ascii=False)
+            
         horse = Horse(**horse_data)
         db.add(horse)
         db.commit()
         db.refresh(horse)
         return horse
     
-    def get_horses(self, db: Session, skip: int = 0, limit: int = 100) -> List[Horse]:
-        """馬データを取得"""
-        return db.query(Horse).offset(skip).limit(limit).all()
+    def get_horses(self, db: Session, skip: int = 0, limit: int = 100) -> List[Dict]:
+        """馬データを取得し、レースレコードを適切に変換"""
+        horses = db.query(Horse).offset(skip).limit(limit).all()
+        result = []
+        
+        for horse in horses:
+            # SQLAlchemyモデルを辞書に変換
+            horse_dict = {c.name: getattr(horse, c.name) for c in horse.__table__.columns}
+            
+            # レースレコードをJSON文字列から辞書に変換
+            if horse_dict.get('race_record'):
+                try:
+                    horse_dict['race_record'] = json.loads(horse_dict['race_record'])
+                except (json.JSONDecodeError, TypeError):
+                    # 既に辞書型または変換できない場合はそのまま
+                    pass
+            
+            result.append(horse_dict)
+            
+        return result
     
-    def get_horse_by_id(self, db: Session, horse_id: int) -> Optional[Horse]:
-        """IDで馬データを取得"""
-        return db.query(Horse).filter(Horse.id == horse_id).first()
+    def get_horse_by_id(self, db: Session, horse_id: int) -> Optional[Dict]:
+        """IDで馬データを取得し、レースレコードを適切に変換"""
+        horse = db.query(Horse).filter(Horse.id == horse_id).first()
+        if not horse:
+            return None
+            
+        # SQLAlchemyモデルを辞書に変換
+        horse_dict = {c.name: getattr(horse, c.name) for c in horse.__table__.columns}
+        
+        # レースレコードをJSON文字列から辞書に変換
+        if horse_dict.get('race_record'):
+            try:
+                horse_dict['race_record'] = json.loads(horse_dict['race_record'])
+            except (json.JSONDecodeError, TypeError):
+                # 既に辞書型または変換できない場合はそのまま
+                pass
+                
+        return horse_dict
     
     def get_horses_by_auction_date(self, db: Session, auction_date: str) -> List[Horse]:
         """開催日で馬データを取得"""
@@ -32,6 +68,10 @@ class HorseService:
     
     def update_horse(self, db: Session, horse_id: int, horse_data: Dict) -> Optional[Horse]:
         """馬データを更新"""
+        # レースレコードが辞書型の場合はJSON文字列に変換
+        if 'race_record' in horse_data and isinstance(horse_data['race_record'], dict):
+            horse_data['race_record'] = json.dumps(horse_data['race_record'], ensure_ascii=False)
+            
         horse = db.query(Horse).filter(Horse.id == horse_id).first()
         if horse:
             for key, value in horse_data.items():

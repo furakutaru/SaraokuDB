@@ -7,10 +7,15 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # モジュールをインポート
 try:
-    from scripts.improved_scraper import ImprovedRakutenScraper
-except ImportError:
-    # スクリプトが直接実行される場合に備えて、相対インポートも試みる
+    # スクリプトが直接実行される場合
     from improved_scraper import ImprovedRakutenScraper
+except ImportError:
+    # スクリプトがモジュールとして実行される場合
+    try:
+        from scripts.improved_scraper import ImprovedRakutenScraper
+    except ImportError as e:
+        print(f"モジュールのインポートに失敗しました: {e}")
+        sys.exit(1)
 
 # ロギングの設定
 logging.basicConfig(

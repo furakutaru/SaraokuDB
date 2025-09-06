@@ -111,129 +111,16 @@ def extract_prize_from_jbis(jbis_url: str) -> float:
     """
     JBISの馬基本情報ページから総賞金を抽出する
     
+    Note: 現在、JBIS機能は一時的に無効化されています。常に0.0を返します。
+    
     Args:
         jbis_url (str): JBISの馬基本情報ページURL
         
     Returns:
-        float: 総賞金（万円単位）。見つからない場合は0.0
+        float: 常に0.0を返します
     """
-    import re
-    import time
-    from bs4 import BeautifulSoup
-    import requests
-    import os
-    from datetime import datetime
-    from urllib.parse import urljoin, urlparse
-    
-    def parse_prize_text(prize_text):
-        """賞金テキストから数値を抽出するヘルパー関数"""
-        if not prize_text or prize_text.strip() in ('-', '0', '0.0'):
-            return 0.0
-            
-        # 数値部分を抽出（「145455.1万円」や「1,234.5」のような形式に対応）
-        prize_text = prize_text.replace(' ', '').replace('\u3000', '').replace('万円', '')
-        match = re.search(r'([\d,]+(?:\.[\d,]+)?)', prize_text)
-        if match:
-            try:
-                return float(match.group(1).replace(',', ''))
-            except (ValueError, TypeError):
-                return 0.0
-        return 0.0
-
-    if not jbis_url or not jbis_url.startswith('http'):
-        logging.warning("無効なURLが指定されました")
-        return 0.0
-
-    try:
-        # リトライ設定（1回のみ実行）
-        max_retries = 1
-        retry_delay = 0  # 遅延なし
-        
-        for attempt in range(max_retries):
-            try:
-                # より自然なユーザーエージェントに更新
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-                    'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                    'Referer': 'https://www.google.com/',
-                    'Sec-Ch-Ua': '"Google Chrome";v="125", "Chromium";v="125"',
-                    'Sec-Ch-Ua-Mobile': '?0',
-                    'Sec-Ch-Ua-Platform': '"macOS"',
-                    'Sec-Fetch-Dest': 'document',
-                    'Sec-Fetch-Mode': 'navigate',
-                    'Sec-Fetch-Site': 'none',
-                    'Sec-Fetch-User': '?1',
-                    'Upgrade-Insecure-Requests': '1',
-                    'Dnt': '1'
-                }
-                
-                # リクエスト送信
-                response = requests.get(jbis_url, headers=headers, timeout=30)
-                response.encoding = 'utf-8'  # エンコーディングをUTF-8に設定
-                
-                # ステータスコードを確認
-                if response.status_code != 200:
-                    if response.status_code >= 400:  # エラーのみログ出力
-                        logging.warning("HTTPエラー: ステータスコード %d" % response.status_code)
-                    response.raise_for_status()
-                
-                # レスポンスをパース
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # 方法1: data-4__item-2クラスから総賞金を検索
-                prize_div = soup.find('div', class_='data-4__item-2')
-                if prize_div:
-                    dt_elem = prize_div.find('dt', string=re.compile(r'^\s*総賞金\s*$'))
-                    if dt_elem:
-                        dd_elem = dt_elem.find_next_sibling('dd')
-                        if dd_elem:
-                            prize_text = dd_elem.get_text(strip=True)
-                            total_prize = parse_prize_text(prize_text)
-                            if total_prize > 0 or prize_text.strip() == '0.0':
-                                logging.info("方法1で総賞金を取得: %s万円" % total_prize)
-                                return total_prize
-                
-                # 方法2: すべてのdt要素から総賞金を検索
-                for dt in soup.find_all('dt'):
-                    if dt.get_text(strip=True) == '総賞金':
-                        dd = dt.find_next_sibling('dd')
-                        if dd:
-                            prize_text = dd.get_text(strip=True)
-                            total_prize = parse_prize_text(prize_text)
-                            if total_prize > 0 or prize_text.strip() == '0.0':
-                                logging.info("方法2で総賞金を取得: %s万円" % total_prize)
-                                return total_prize
-                
-                # 方法3: 正規表現で直接検索（フォールバック）
-                prize_patterns = [
-                    r'総賞金[^\d>]*([\d,]+(?:\.[\d,]+)?)',
-                    r'総賞金[^<]*?<dd[^>]*>([^<]+)',
-                    r'<dt[^>]*>\s*総賞金\s*</dt>\s*<dd[^>]*>([^<]+)'
-                ]
-                
-                for pattern in prize_patterns:
-                    matches = re.search(pattern, response.text, re.DOTALL)
-                    if matches:
-                        prize_text = matches.group(1).strip()
-                        total_prize = parse_prize_text(prize_text)
-                        if total_prize > 0 or prize_text.strip() == '0.0':
-                            logging.info("方法3で総賞金を取得: %s万円" % total_prize)
-                            return total_prize
-                
-                # 見つからなかった場合は0.0を返す
-                logging.info("総賞金情報が見つかりませんでした")
-                return 0.0
-                
-            except requests.exceptions.RequestException as e:
-                if attempt == max_retries - 1:
-                    raise
-                logging.warning("リクエストエラー: %s。%d秒後に再試行します..." % (str(e), 0))
-                time.sleep(0)
-                
-    except Exception as e:
-        logging.error("賞金情報の取得中にエラーが発生: %s" % str(e))
-        return 0.0
+    logging.info("JBIS機能は一時的に無効化されています。賞金情報の取得をスキップします。")
+    return 0.0
 
 def _extract_disease_tags(comment: str) -> str:
     """
@@ -541,18 +428,9 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
     except Exception as e:
         logging.error("Error extracting auction date: %s" % str(e))
     
-    # JBIS URLから最新の総賞金を取得
-    if jbis_url:
-        logging.info("JBIS URLから最新の総賞金を取得中: %s" % jbis_url)
-        try:
-            latest_prize = extract_prize_from_jbis(jbis_url)
-            if latest_prize > 0:
-                horse_info['total_prize_latest'] = latest_prize
-                logging.info("最新の総賞金を更新: %s 万円" % latest_prize)
-            else:
-                logging.warning("JBISから総賞金を取得できませんでした")
-        except Exception as e:
-                logging.error("JBISからの賞金取得中にエラーが発生: %s" % str(e))
+    # JBIS機能は一時的に無効化されています
+    logging.info("JBIS機能は一時的に無効化されています。賞金情報の取得をスキップします。")
+    horse_info['total_prize_latest'] = 0.0
         
         # 性別を抽出（「牡」「牝」「セ」のいずれか）
         if 'sex' not in horse_info:
