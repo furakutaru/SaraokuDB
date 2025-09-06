@@ -10,7 +10,7 @@
     "weight": 422,
     "name": "アットザホップ 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 0
+      "total_prize": "0.0万円"
     },
     "sold_price": 860000,
     "is_unsold": false,
@@ -34,7 +34,7 @@
     "weight": 422,
     "name": "アレクレア 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 0
+      "total_prize": "0.0万円"
     },
     "sold_price": 1910000,
     "is_unsold": false,
@@ -58,7 +58,7 @@
     "weight": 476,
     "name": "オメガストリーム 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 0
+      "total_prize": "0.0万円"
     },
     "sold_price": 1190000,
     "is_unsold": false,
@@ -82,7 +82,7 @@
     "weight": 490,
     "name": "フーイナム 牡３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 0
+      "total_prize": "0.0万円"
     },
     "sold_price": 1580000,
     "is_unsold": false,
@@ -106,7 +106,7 @@
     "weight": 570,
     "name": "フランシュフック 牡３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 0
+      "total_prize": "0.0万円"
     },
     "sold_price": 1200000,
     "is_unsold": false,
@@ -130,7 +130,7 @@
     "weight": 466,
     "name": "ベネスティローザ 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 0
+      "total_prize": "0.0万円"
     },
     "sold_price": 300000,
     "is_unsold": false,
@@ -154,7 +154,7 @@
     "weight": 462,
     "name": "ミヤビバエル 牡３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 0
+      "total_prize": "0.0万円"
     },
     "sold_price": 520000,
     "is_unsold": false,
@@ -178,7 +178,7 @@
     "weight": 436,
     "name": "ヨルハ 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 0
+      "total_prize": "0.0万円"
     },
     "sold_price": 660000,
     "is_unsold": false,
@@ -202,7 +202,7 @@
     "weight": 492,
     "name": "ランドオブファイア 牡３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 0
+      "total_prize": "0.0万円"
     },
     "sold_price": 870000,
     "is_unsold": false,
@@ -226,7 +226,7 @@
     "weight": 483,
     "name": "メイショウボナンザ 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 70000
+      "total_prize": "7.0万円"
     },
     "sold_price": 1410000,
     "is_unsold": false,
@@ -250,7 +250,7 @@
     "weight": 498,
     "name": "クリノエドガー 牡３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 150000
+      "total_prize": "15.0万円"
     },
     "sold_price": 1260000,
     "is_unsold": false,
@@ -274,7 +274,7 @@
     "weight": 414,
     "name": "スマイルデイズ 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 240000
+      "total_prize": "24.0万円"
     },
     "sold_price": 560000,
     "is_unsold": false,
@@ -298,7 +298,7 @@
     "weight": 476,
     "name": "プルクワ 牡３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 436000
+      "total_prize": "43.6万円"
     },
     "sold_price": 1570000,
     "is_unsold": false,
@@ -322,7 +322,7 @@
     "weight": 424,
     "name": "パリモード 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 830000
+      "total_prize": "83.0万円"
     },
     "sold_price": 710000,
     "is_unsold": false,
@@ -346,7 +346,7 @@
     "weight": 418,
     "name": "カリータフェリス 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 1400000
+      "total_prize": "140.0万円"
     },
     "sold_price": 1520000,
     "is_unsold": false,
@@ -370,7 +370,7 @@
     "weight": 430,
     "name": "フェアーメロディ 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 1680000
+      "total_prize": "168.0万円"
     },
     "sold_price": 2530000,
     "is_unsold": false,
@@ -394,7 +394,7 @@
     "weight": 408,
     "name": "マジェスティルール 牡３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 1950000
+      "total_prize": "195.0万円"
     },
     "sold_price": 1450000,
     "is_unsold": false,
@@ -418,7 +418,7 @@
     "weight": 456,
     "name": "ナッシングベター 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 2160000
+      "total_prize": "216.0万円"
     },
     "sold_price": 2210000,
     "is_unsold": false,
@@ -442,7 +442,7 @@
     "weight": 444,
     "name": "アンティジャミーラ 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 2230000
+      "total_prize": "223.0万円"
     },
     "sold_price": 2720000,
     "is_unsold": false,
@@ -466,7 +466,7 @@
     "weight": 492,
     "name": "セラトーン 牡３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 2920000
+      "total_prize": "292.0万円"
     },
     "sold_price": 2820000,
     "is_unsold": false,
@@ -490,7 +490,7 @@
     "weight": 484,
     "name": "ルセルマンダムール 牡３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 4200000
+      "total_prize": "420.0万円"
     },
     "sold_price": 2820000,
     "is_unsold": false,
@@ -514,7 +514,7 @@
     "weight": 462,
     "name": "ファンタズマ 牡３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 5280000
+      "total_prize": "528.0万円"
     },
     "sold_price": 1820000,
     "is_unsold": false,
@@ -538,7 +538,7 @@
     "weight": 484,
     "name": "ヴィジブルライト 牡３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 6960000
+      "total_prize": "696.0万円"
     },
     "sold_price": 4960000,
     "is_unsold": false,
@@ -562,7 +562,7 @@
     "weight": 408,
     "name": "サルーポルティ 牝３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 7050000
+      "total_prize": "705.0万円"
     },
     "sold_price": 1230000,
     "is_unsold": false,
@@ -586,7 +586,7 @@
     "weight": 478,
     "name": "アートコレクション 牡３歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 7200000
+      "total_prize": "720.0万円"
     },
     "sold_price": 1020000,
     "is_unsold": false,
@@ -610,7 +610,7 @@
     "weight": 516,
     "name": "スピリットガイド セン４歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 28199000
+      "total_prize": "2819.9万円"
     },
     "sold_price": 3990000,
     "is_unsold": false,
@@ -634,7 +634,7 @@
     "weight": 474,
     "name": "ツインビスケッツ 牝５歳 ※中央競馬 登録抹消",
     "prize_money": {
-      "total_prize": 18700000
+      "total_prize": "1870.0万円"
     },
     "sold_price": 1400000,
     "is_unsold": false,
@@ -658,7 +658,7 @@
     "weight": 418,
     "name": "サスケリアン 牝２歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 0
+      "total_prize": "0.0万円"
     },
     "sold_price": 500000,
     "is_unsold": false,
@@ -682,7 +682,7 @@
     "weight": 452,
     "name": "エイシンジンジャー 牡２歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 280000
+      "total_prize": "28.0万円"
     },
     "sold_price": 1020000,
     "is_unsold": false,
@@ -706,7 +706,7 @@
     "weight": 477,
     "name": "ウォールローゼ 牡２歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 3565000
+      "total_prize": "356.5万円"
     },
     "sold_price": 900000,
     "is_unsold": false,
@@ -730,7 +730,7 @@
     "weight": 450,
     "name": "エムティパブロ 牡３歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 210000
+      "total_prize": "21.0万円"
     },
     "is_unsold": true,
     "sold_price": null,
@@ -754,7 +754,7 @@
     "weight": 472,
     "name": "ミンスパイ 牝３歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 754000
+      "total_prize": "75.4万円"
     },
     "sold_price": 320000,
     "is_unsold": false,
@@ -778,7 +778,7 @@
     "weight": 440,
     "name": "リオンノワール 牡３歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 1140000
+      "total_prize": "114.0万円"
     },
     "sold_price": 540000,
     "is_unsold": false,
@@ -802,7 +802,7 @@
     "weight": 424,
     "name": "ツキヨノウサギ 牝４歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 812000
+      "total_prize": "81.2万円"
     },
     "sold_price": 310000,
     "is_unsold": false,
@@ -826,7 +826,7 @@
     "weight": 454,
     "name": "トレポンティ 牝４歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 3520000
+      "total_prize": "352.0万円"
     },
     "sold_price": 2800000,
     "is_unsold": false,
@@ -850,7 +850,7 @@
     "weight": 444,
     "name": "ヘルキャット 牝４歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 3900000
+      "total_prize": "390.0万円"
     },
     "sold_price": 340000,
     "is_unsold": false,
@@ -874,7 +874,7 @@
     "weight": 476,
     "name": "シュトーレン 牝４歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 4145000
+      "total_prize": "414.5万円"
     },
     "sold_price": 330000,
     "is_unsold": false,
@@ -898,7 +898,7 @@
     "weight": 471,
     "name": "ピヤージュ 牡４歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 4226000
+      "total_prize": "422.6万円"
     },
     "sold_price": 420000,
     "is_unsold": false,
@@ -922,7 +922,7 @@
     "weight": 445,
     "name": "エコロブレード 牡４歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 14475000
+      "total_prize": "1447.5万円"
     },
     "sold_price": 1770000,
     "is_unsold": false,
@@ -946,7 +946,7 @@
     "weight": 477,
     "name": "グレル 牝７歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 9015000
+      "total_prize": "901.5万円"
     },
     "sold_price": 300000,
     "is_unsold": false,
@@ -970,7 +970,7 @@
     "weight": 470,
     "name": "アビレ 牝７歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 10560000
+      "total_prize": "1056.0万円"
     },
     "sold_price": 600000,
     "is_unsold": false,
@@ -994,7 +994,7 @@
     "weight": 466,
     "name": "ヴェニーレ 牡７歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 13040000
+      "total_prize": "1304.0万円"
     },
     "sold_price": 440000,
     "is_unsold": false,
@@ -1018,7 +1018,7 @@
     "weight": 550,
     "name": "ハクアイゴジロー 牡７歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 21120000
+      "total_prize": "2112.0万円"
     },
     "sold_price": 780000,
     "is_unsold": false,
@@ -1042,7 +1042,7 @@
     "weight": 446,
     "name": "ザリナイラン 牝８歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 3747000
+      "total_prize": "374.7万円"
     },
     "is_unsold": true,
     "sold_price": null,
@@ -1066,7 +1066,7 @@
     "weight": 545,
     "name": "ホワイトヘッド 牡９歳 ※地方競馬 在籍",
     "prize_money": {
-      "total_prize": 44335000
+      "total_prize": "4433.5万円"
     },
     "sold_price": 1310000,
     "is_unsold": false,

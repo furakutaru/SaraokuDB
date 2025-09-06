@@ -46,20 +46,15 @@ class PrizeInfoExtractor:
                 self.logger.debug(f'賞金テキストを発見: {prize_text}')
                 
                 # 賞金情報を抽出（例: "総賞金 4,433.5万円" または "1,234万円"）
-                prize_match = re.search(r'(?:総賞金[：: ]*)?([\d,.]+)万?円', prize_text)
+                prize_match = re.search(r'(?:総賞金[：: ]*)?([\d,.]+万?円)', prize_text)
                 if prize_match:
                     try:
-                        # カンマを削除し、浮動小数点数に変換
-                        prize_amount = float(prize_match.group(1).replace(',', ''))
-                        # 万円単位を円に変換（小数点以下も考慮）
-                        prize_money = int(prize_amount * 10000)
-                        # 総賞金を設定（JBIS連携はコメントアウト）
+                        # 元の表示形式をそのまま保持
+                        prize_display = prize_match.group(1)
                         result = {
-                            'total_prize': prize_money,
-                            # JBIS連携が可能になったらコメントを外す
-                            # 'total_prize_latest': self._get_jbis_prize(horse_element) or prize_money
+                            'total_prize': prize_display
                         }
-                        self.logger.debug(f'賞金を抽出しました: {prize_money}円 (元のテキスト: {prize_match.group(0)})')
+                        self.logger.debug(f'賞金を抽出しました: {prize_display} (元のテキスト: {prize_match.group(0)})')
                         return result, True
                     except (ValueError, TypeError) as e:
                         self.logger.error(f'賞金情報の数値変換に失敗しました: {e}')
