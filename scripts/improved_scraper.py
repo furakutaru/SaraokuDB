@@ -1319,12 +1319,27 @@ class ImprovedRakutenScraper:
             # デバッグ用に抽出した情報をログに出力
             self.logger.debug(f"抽出した馬情報: {horse_info}")
             
+            # 馬名を先頭に移動するために新しい辞書を作成
+            if 'name' in horse_info:
+                name = horse_info.pop('name')
+                horse_info = {'name': name, **horse_info}
+            
             # 詳細ページのHTMLを取得（まだ取得していない場合）
             detail_html = None
             if 'detail_url' in horse_info and horse_info['detail_url']:
                 detail_html = self._fetch_html(horse_info['detail_url'])
                 if not detail_html:
                     self.logger.warning(f"詳細ページの取得に失敗しました: {horse_info['detail_url']}")
+                else:
+                    # JBISリンクを抽出
+                    try:
+                        detail_soup = BeautifulSoup(detail_html, 'html.parser')
+                        jbis_info = JbisLinkExtractor.extract(detail_soup, self.base_url)
+                        if jbis_info.get('jbis_url'):
+                            horse_info.update(jbis_info)
+                            self.logger.info(f"JBISリンクを抽出しました: {jbis_info['jbis_url']}")
+                    except Exception as e:
+                        self.logger.error(f"JBISリンクの抽出中にエラーが発生しました: {e}", exc_info=True)
             
             # オプションフィールドの抽出を実行（JBIS関連は一時的に無効化）
             # コメントは最後に処理するために別途抽出
@@ -1407,8 +1422,16 @@ class ImprovedRakutenScraper:
                     detail_soup = BeautifulSoup(detail_html, 'html.parser')
                     comment_data, success = comment_extractor.extract(detail_soup)
                     if success and comment_data:
+                        # コメントを追加
                         horse_info.update(comment_data)
                         self.logger.debug("コメントを抽出しました")
+                        
+                        # コメントから疾病情報を抽出
+                        if 'comment' in comment_data and comment_data['comment']:
+                            disease_tags = _extract_disease_tags(comment_data['comment'])
+                            if disease_tags != "なし":
+                                horse_info['disease_tags'] = disease_tags.split(',')
+                                self.logger.debug(f"疾病タグを抽出しました: {horse_info['disease_tags']}")
                     else:
                         self.logger.debug("コメントの抽出に失敗しました")
                 except Exception as e:
