@@ -1319,17 +1319,28 @@ class ImprovedRakutenScraper:
             # デバッグ用に抽出した情報をログに出力
             self.logger.debug(f"抽出した馬情報: {horse_info}")
             
+            # 詳細ページのHTMLを取得（まだ取得していない場合）
+            detail_html = None
+            if 'detail_url' in horse_info and horse_info['detail_url']:
+                detail_html = self._fetch_html(horse_info['detail_url'])
+                if not detail_html:
+                    self.logger.warning(f"詳細ページの取得に失敗しました: {horse_info['detail_url']}")
+            
             # オプションフィールドの抽出を実行（JBIS関連は一時的に無効化）
+            # コメントは最後に処理するために別途抽出
             extractors = [
-                ('comment', 'comment_extractor', 'コメント'),
-                ('prize_money', 'prize_info_extractor', '賞金情報'),
-                ('price', 'price_info_extractor', '価格情報'),
-                ('seller', 'seller_info_extractor', '販売者情報'),
-                ('race_records', 'race_record_extractor', 'レース記録'),
-                ('image_url', 'image_extractor', '画像URL')
+                ('prize_money', 'prize_info_extractor', '賞金情報', False),
+                ('price', 'price_info_extractor', '価格情報', True),  # 詳細ページを使用
+                ('seller', 'seller_info_extractor', '販売者情報', False),
+                ('race_records', 'race_record_extractor', 'レース記録', True),  # 詳細ページを使用
+                ('image_url', 'image_extractor', '画像URL', False)
             ]
+            
+            # コメント抽出用の抽出器
+            comment_extractor = getattr(self, 'comment_extractor', None)
+            comment_data = None
 
-            for field, extractor_name, display_name in extractors:
+            for field, extractor_name, display_name, use_detail_page in extractors:
                 try:
                     # 抽出器が初期化されているか確認
                     extractor = getattr(self, extractor_name, None)
@@ -1337,27 +1348,43 @@ class ImprovedRakutenScraper:
                         self.logger.warning(f"{display_name}の抽出器が初期化されていません")
                         continue
                         
-                    # 各エクストラクタは (result_dict, success) のタプルを返す
-                    if field == 'race_records' and 'detail_url' in horse_info:
-                        # race_record_extractor には詳細ページのHTMLを渡す
-                        detail_html = self._fetch_html(horse_info['detail_url'])
-                        if detail_html:
-                            result, success = extractor.extract(detail_html)
-                        else:
-                            result, success = None, False
-                    elif field == 'price' and 'detail_url' in horse_info:
-                        # price_info_extractor には詳細ページのHTMLを渡す
-                        detail_html = self._fetch_html(horse_info['detail_url'])
-                        if detail_html:
-                            result, success = extractor.extract(detail_html)
-                        else:
+                    # 詳細ページを使用する場合
+                    if use_detail_page and detail_html:
+                        try:
+                            # レコード抽出器の場合は文字列を渡す
+                            if extractor_name == 'race_record_extractor':
+                                result, success = extractor.extract(str(detail_html))
+                            else:
+                                detail_soup = BeautifulSoup(detail_html, 'html.parser')
+                                result, success = extractor.extract(detail_soup)
+                            
+                            # 詳細ページから抽出に失敗した場合はリストビューを試す
+                            if not success and hasattr(card, 'prettify'):
+                                self.logger.debug(f"詳細ページからの{display_name}抽出に失敗したため、リストビューから抽出を試みます")
+                                if extractor_name == 'race_record_extractor':
+                                    result, success = extractor.extract(str(card))
+                                else:
+                                    result, success = extractor.extract(card)
+                        except Exception as e:
+                            self.logger.error(f"詳細ページからの{display_name}抽出中にエラーが発生しました: {e}", exc_info=True)
                             result, success = None, False
                     elif hasattr(card, 'prettify'):
-                        # その他の抽出器にはBeautifulSoupオブジェクトをそのまま渡す
-                        result, success = extractor.extract(card)
+                        # リストビューのHTMLから抽出
+                        try:
+                            if extractor_name == 'race_record_extractor':
+                                result, success = extractor.extract(str(card))
+                            else:
+                                result, success = extractor.extract(card)
+                        except Exception as e:
+                            self.logger.error(f"リストビューからの{display_name}抽出中にエラーが発生しました: {e}", exc_info=True)
+                            result, success = None, False
                     else:
                         # その他の抽出器にはそのまま渡す
-                        result, success = extractor.extract(card)
+                        try:
+                            result, success = extractor.extract(card)
+                        except Exception as e:
+                            self.logger.error(f"{display_name}の抽出中にエラーが発生しました: {e}", exc_info=True)
+                            result, success = None, False
                     
                     if success and result:
                         if field == 'price' and isinstance(result, dict):
@@ -1373,6 +1400,19 @@ class ImprovedRakutenScraper:
                 except Exception as e:
                     self.logger.error(f"{display_name}の抽出中にエラーが発生しました: {e}", exc_info=True)
                     # エラーが発生しても処理は続行
+            
+            # 最後にコメントを抽出して追加
+            if comment_extractor and detail_html:
+                try:
+                    detail_soup = BeautifulSoup(detail_html, 'html.parser')
+                    comment_data, success = comment_extractor.extract(detail_soup)
+                    if success and comment_data:
+                        horse_info.update(comment_data)
+                        self.logger.debug("コメントを抽出しました")
+                    else:
+                        self.logger.debug("コメントの抽出に失敗しました")
+                except Exception as e:
+                    self.logger.error(f"コメントの抽出中にエラーが発生しました: {e}", exc_info=True)
             
             return horse_info
             
@@ -1759,10 +1799,19 @@ class ImprovedRakutenScraper:
                 self.logger.warning('レース記録の抽出に失敗しました')
                 horse_info['race_records'] = {'summary': {}, 'races': []}
             
-            # コメントを抽出
-            comment, comment_success = self.comment_extractor.extract(html_content)
+            # コメントを抽出（詳細ページのHTMLをそのまま渡す）
+            comment, comment_success = self.comment_extractor.extract(soup)
             if comment_success and comment:
                 horse_info['comment'] = comment
+                self.logger.info(f'コメントを抽出しました（長さ: {len(comment)}文字）')
+            else:
+                # コメント抽出に失敗した場合、HTMLをファイルに保存してデバッグ用に残す
+                debug_dir = Path('debug_html')
+                debug_dir.mkdir(exist_ok=True)
+                debug_file = debug_dir / f'comment_debug_{horse_id}.html'
+                with open(debug_file, 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+                self.logger.warning(f'コメントの抽出に失敗しました。デバッグ用HTMLを保存しました: {debug_file}')
             
             # 賞金情報を抽出
             prize_info, prize_success = self.prize_info_extractor.extract(html_content)
