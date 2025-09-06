@@ -17,4 +17,12 @@ sys.path.insert(0, scripts_dir)
 from improved_scraper import main
 
 if __name__ == "__main__":
-    main()
+    import sys
+    import traceback
+    try:
+        sys.exit(main())
+    except Exception as e:
+        print(f"予期せぬエラーが発生しました: {str(e)}")
+        print("トレースバック:")
+        traceback.print_exc()
+        sys.exit(1)

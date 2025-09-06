@@ -26,50 +26,98 @@ class PrizeInfoExtractor:
             Tuple[Optional[Dict[str, int]], bool]: 
                 (賞金情報を含む辞書, 成功したかどうか)
                 辞書のキー:
-                - total_prize_start: オークション時点の総賞金（円）
-                - total_prize_latest: 最新の総賞金（円、JBISから取得）
+                - total_prize: 総賞金（円）
         """
         try:
             prize_info = {}
             
             # 1. オークション時点の賞金を抽出
-            prize_elem = horse_element.find('div', class_='prize-money')
+            # まずはカード内の賞金情報を探す
+            prize_elem = None
+            
+            # クラス名のバリエーションに対応
+            for class_name in ['auctionTableCard__price', 'price', 'prize-money']:
+                prize_elem = horse_element.find('div', class_=class_name)
+                if prize_elem:
+                    break
+            
             if prize_elem:
                 prize_text = prize_elem.get_text(strip=True)
-                if prize_text:
-                    # 賞金情報を抽出（例: "総賞金: 1,234万円"）
-                    prize_match = re.search(r'総賞金[：: ]*([\d,]+)万円', prize_text)
-                    if prize_match:
-                        try:
-                            prize_money = int(prize_match.group(1).replace(',', '')) * 10000  # 万円単位を円に変換
-                            prize_info['total_prize_start'] = prize_money
-                            self.logger.debug(f'オークション時点の賞金を抽出しました: {prize_money}円')
-                        except (ValueError, TypeError) as e:
-                            self.logger.error(f'賞金情報の数値変換に失敗しました: {e}')
+                self.logger.debug(f'賞金テキストを発見: {prize_text}')
+                
+                # 賞金情報を抽出（例: "総賞金 4,433.5万円" または "1,234万円"）
+                prize_match = re.search(r'(?:総賞金[：: ]*)?([\d,.]+)万?円', prize_text)
+                if prize_match:
+                    try:
+                        # カンマを削除し、浮動小数点数に変換
+                        prize_amount = float(prize_match.group(1).replace(',', ''))
+                        # 万円単位を円に変換（小数点以下も考慮）
+                        prize_money = int(prize_amount * 10000)
+                        # 総賞金を設定（JBIS連携はコメントアウト）
+                        result = {
+                            'total_prize': prize_money,
+                            # JBIS連携が可能になったらコメントを外す
+                            # 'total_prize_latest': self._get_jbis_prize(horse_element) or prize_money
+                        }
+                        self.logger.debug(f'賞金を抽出しました: {prize_money}円 (元のテキスト: {prize_match.group(0)})')
+                        return result, True
+                    except (ValueError, TypeError) as e:
+                        self.logger.error(f'賞金情報の数値変換に失敗しました: {e}')
             
-            # 2. JBISから最新の賞金情報を取得
-            jbis_url = None
+            # 2. 詳細ページから賞金情報を取得
+            detail_url = None
             if hasattr(horse_element, 'find'):
-                jbis_link = horse_element.find('a', href=lambda x: x and 'jbis.or.jp' in x)
-                if jbis_link:
-                    jbis_url = jbis_link.get('href')
+                link = horse_element.find('a', href=lambda x: x and '/item/' in x)
+                if link:
+                    detail_url = link.get('href')
+                    if not detail_url.startswith('http'):
+                        detail_url = f'https://auction.keiba.rakuten.co.jp{detail_url}'
             
-            if jbis_url:
-                latest_prize = self.extract_from_jbis(jbis_url)
-                if latest_prize is not None:
-                    prize_info['total_prize_latest'] = latest_prize
-                    self.logger.debug(f'最新の賞金を取得しました: {latest_prize}円')
-            
-            # どちらか一方でも取得できていれば成功とする
-            if prize_info:
-                return prize_info, True
+            if detail_url:
+                try:
+                    # 詳細ページのHTMLを取得
+                    import requests
+                    from bs4 import BeautifulSoup
+                    
+                    response = requests.get(detail_url, timeout=10)
+                    if response.status_code == 200:
+                        soup = BeautifulSoup(response.text, 'html.parser')
+                        # 詳細ページ内の賞金情報を探す
+                        for elem in soup.find_all(['div', 'span'], class_=True):
+                            if '賞金' in elem.get_text():
+                                prize_match = re.search(r'(?:総賞金[：: ]*)?([\d,]+)万円', elem.get_text())
+                                if prize_match:
+                                    prize_money = int(prize_match.group(1).replace(',', '')) * 10000
+                                    prize_info['total_prize'] = prize_money
+                                    self.logger.debug(f'詳細ページから賞金を抽出しました: {prize_money}円')
+                                    return prize_info, True
+                except Exception as e:
+                    self.logger.debug(f'詳細ページからの賞金取得に失敗しました: {e}')
             
             self.logger.debug('賞金情報を取得できませんでした')
             return None, False
                 
         except Exception as e:
             self.logger.error(f'賞金情報の抽出中にエラーが発生しました: {e}', exc_info=True)
-            return None, False
+            return {}, False
+            
+    # JBISから最新の賞金情報を取得するメソッド（将来的に使用）
+    def _get_jbis_prize(self, horse_element):
+        """
+        JBISから最新の賞金情報を取得する（将来的に実装）
+        
+        Args:
+            horse_element: 馬情報を含むHTML要素
+            
+        Returns:
+            Optional[int]: 最新の賞金（円）、取得できない場合はNone
+        """
+        # 将来的に実装
+        # 例:
+        # jbis_url = self._extract_jbis_url(horse_element)
+        # if jbis_url:
+        #     return self._scrape_jbis_prize(jbis_url)
+        return None
     
     def extract_from_jbis(self, jbis_url: str) -> Optional[int]:
         """JBISのページから賞金情報を抽出する

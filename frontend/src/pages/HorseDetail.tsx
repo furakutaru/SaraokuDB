@@ -12,6 +12,16 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 
+interface RaceRecordSummary {
+  status?: 'active' | 'unraced' | 'broodmare';
+  races?: number;
+  wins?: number;
+  first?: number;
+  second?: number;
+  third?: number;
+  other?: number;
+}
+
 interface Horse {
   id: number;
   name: string;
@@ -20,7 +30,7 @@ interface Horse {
   sire: string;
   dam: string;
   dam_sire: string;
-  race_record: string;
+  race_record: string | RaceRecordSummary;
   weight: number;
   total_prize_start: number | number[];
   total_prize_latest: number | number[];
@@ -158,7 +168,11 @@ const HorseDetail: React.FC = () => {
                     成績
                   </Typography>
                   <Typography variant="body1">
-                    {horse.race_record}
+                    {typeof horse.race_record === 'string' ? (
+                      horse.race_record
+                    ) : (
+                      <RaceRecordDisplay record={horse.race_record} />
+                    )}
                   </Typography>
                 </Grid>
               </Grid>
@@ -361,6 +375,59 @@ const HorseDetail: React.FC = () => {
       </Grid>
     </Box>
   );
+};
+
+// レース記録の表示コンポーネント
+const RaceRecordDisplay: React.FC<{ record: string | RaceRecordSummary | null }> = ({ record }) => {
+  // レコードがnullまたはundefinedの場合
+  if (!record) return <span>-</span>;
+  
+  // 文字列型の場合はそのまま表示
+  if (typeof record === 'string') {
+    return <span>{record}</span>;
+  }
+  
+  // レコードがオブジェクトでない場合
+  if (typeof record !== 'object') {
+    return <span>-</span>;
+  }
+  
+  // レコードが有効なRaceRecordSummaryオブジェクトかどうかをチェック
+  const hasStatus = 'status' in record;
+  
+  // ステータスに基づいて表示を切り替え
+  switch (record.status) {
+    case 'unraced':
+      return <span>未出走</span>;
+    case 'broodmare':
+      return <span>繁殖牝馬</span>;
+    case 'active':
+      // レース記録がある場合
+      if (record.races !== undefined || record.wins !== undefined) {
+        return (
+          <span>
+            {record.races ?? 0}戦{record.wins ?? 0}勝
+            {(record.first !== undefined || record.second !== undefined || 
+              record.third !== undefined || record.other !== undefined) && (
+              <span style={{ fontSize: '0.9em', color: '#666' }}>
+                [{record.first ?? 0}-{record.second ?? 0}-{record.third ?? 0}-{record.other ?? 0}]
+              </span>
+            )}
+          </span>
+        );
+      }
+      // サマリーがある場合はそれを使用
+      if ('summary' in record && record.summary) {
+        return <span>{record.summary}</span>;
+      }
+      return <span>-</span>;
+    default:
+      // 不明なステータスまたはステータスなし
+      if ('summary' in record && record.summary) {
+        return <span>{record.summary}</span>;
+      }
+      return <span>-</span>;
+  }
 };
 
 export default HorseDetail; 

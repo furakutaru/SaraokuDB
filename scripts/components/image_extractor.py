@@ -45,22 +45,34 @@ class BaseExtractor:
 class ImageExtractor(BaseExtractor):
     """馬の画像URLを抽出するクラス"""
     
-    def extract(self, html_content: str) -> Optional[str]:
+    def extract(self, card) -> tuple[Optional[dict], bool]:
         """
-        詳細ページのHTMLから馬の画像URLを抽出する
+        馬の画像URLを抽出する
         
         Args:
-            html_content (str): 詳細ページのHTML
+            card: 馬情報を含むHTML要素（BeautifulSoupオブジェクト）
             
         Returns:
-            Optional[str]: 画像のURL（見つからない場合はNone）
+            tuple[Optional[dict], bool]: (抽出した画像URLを含む辞書, 成功したかどうか)
         """
-        soup = BeautifulSoup(html_content, 'html.parser')
-        
-        # メイン画像を検索
-        big_image = soup.select_one('img.photo')
-        
-        if big_image and 'src' in big_image.attrs:
-            return big_image['src']
+        try:
+            # カードが文字列の場合はBeautifulSoupオブジェクトに変換
+            if isinstance(card, str):
+                soup = BeautifulSoup(card, 'html.parser')
+            else:
+                soup = card
             
-        return None
+            # メイン画像を検索
+            big_image = soup.select_one('div.bigImageWrap img.topImage')
+            
+            if big_image and 'src' in big_image.attrs:
+                image_url = big_image['src']
+                self.log_debug(f'画像URLを抽出しました: {image_url}')
+                return {'image_url': image_url}, True
+                
+            self.log_warning('画像URLが見つかりませんでした')
+            return None, False
+            
+        except Exception as e:
+            self.log_error(f'画像URLの抽出中にエラーが発生しました: {str(e)}')
+            return None, False

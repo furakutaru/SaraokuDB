@@ -1,0 +1,88 @@
+[
+  {
+    "sex": "牝",
+    "age": 3,
+    "sire": "ストロングリターン",
+    "dam": "エスシーハンコック",
+    "damsire": "ダイワメジャー",
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14854",
+    "weight": 430,
+    "name": "エスシーボニー 牝３歳 ※中央競馬 登録抹消"
+  },
+  {
+    "sex": "牡",
+    "age": 3,
+    "sire": "ゴールドドリーム",
+    "dam": "ピエナブラウニー",
+    "damsire": "フジキセキ",
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14855",
+    "weight": 422,
+    "name": "エムズドリーム 牡３歳 ※中央競馬 登録抹消"
+  },
+  {
+    "sex": "牡",
+    "age": 3,
+    "sire": "デクラレーションオブウォー",
+    "dam": "ラストワルツ",
+    "damsire": "ゼンノロブロイ",
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14856",
+    "weight": 550,
+    "name": "ジークヴァルツァー 牡３歳 ※中央競馬 登録抹消"
+  },
+  {
+    "sex": "牝",
+    "age": 3,
+    "sire": "タワーオブロンドン",
+    "dam": "ナムラマミー",
+    "damsire": "ディープインパクト",
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14857",
+    "weight": 454,
+    "name": "ナムラエミー 牝３歳 ※中央競馬 登録抹消"
+  },
+  {
+    "sex": "牝",
+    "age": 3,
+    "sire": "フィエールマン",
+    "dam": "ルシルク",
+    "damsire": "Dynaformer",
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14858",
+    "weight": 441,
+    "name": "シルクディヴェール 牝３歳 ※中央競馬 登録抹消",
+    "prize_money": {
+      "total_prize_latest": 175000
+    }
+  },
+  {
+    "sex": "牝",
+    "age": 3,
+    "sire": "エピファネイア",
+    "dam": "サザナミ",
+    "damsire": "ディープインパクト",
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14859",
+    "weight": 428,
+    "name": "ウェーヴレット 牝３歳 ※中央競馬 登録抹消"
+  },
+  {
+    "sex": "牝",
+    "age": 2,
+    "sire": "フィレンツェファイア",
+    "dam": "エレンシア",
+    "damsire": "ワークフォース",
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14861",
+    "weight": 420,
+    "name": "フォルテカリーナ 牝２歳 ※地方競馬 在籍",
+    "prize_money": {
+      "total_prize_latest": 0
+    }
+  },
+  {
+    "sex": "牝",
+    "age": 2,
+    "sire": "サトノダイヤモンド",
+    "dam": "ブルーブラッド",
+    "damsire": "Dubawi",
+    "detail_url": "https://auction.keiba.rakuten.co.jp/item/14860",
+    "weight": 394,
+    "name": "ハラマキ 牝２歳 ※地方競馬 在籍"
+  }
+]

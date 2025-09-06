@@ -23,6 +23,16 @@ app.add_middleware(
 )
 
 # Pydanticモデル
+class RaceRecordSummary(BaseModel):
+    status: Optional[str] = None  # 'active', 'unraced', or 'broodmare'
+    races: Optional[int] = None
+    wins: Optional[int] = None
+    first: Optional[int] = None
+    second: Optional[int] = None
+    third: Optional[int] = None
+    other: Optional[int] = None
+    summary: Optional[str] = None  # For backward compatibility
+
 class HorseResponse(BaseModel):
     id: int
     name: str
@@ -31,7 +41,7 @@ class HorseResponse(BaseModel):
     sire: Optional[str] = None
     dam: Optional[str] = None
     dam_sire: Optional[str] = None
-    race_record: Optional[str] = None
+    race_record: Optional[Union[RaceRecordSummary, str]] = None
     weight: Optional[int] = None
     total_prize_start: Optional[float] = None
     total_prize_latest: Optional[float] = None
@@ -47,6 +57,9 @@ class HorseResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            'dict': lambda v: v  # Handle dictionary serialization
+        }
 
 class HorseCreate(BaseModel):
     name: str
@@ -55,7 +68,7 @@ class HorseCreate(BaseModel):
     sire: Optional[str] = None
     dam: Optional[str] = None
     dam_sire: Optional[str] = None
-    race_record: Optional[str] = None
+    race_record: Optional[Union[RaceRecordSummary, str]] = None
     weight: Optional[int] = None
     total_prize_start: Optional[float] = None
     total_prize_latest: Optional[float] = None
@@ -95,25 +108,42 @@ async def get_horses(
         horses = horse_service.get_horses_by_auction_date(db, auction_date)
     else:
         horses = horse_service.get_horses(db, skip=skip, limit=limit)
-    def parse_json_field(val):
+    
+    def parse_race_record(record):
+        if not record:
+            return None
         try:
-            if val is None:
-                return []
-            return json.loads(val)
-        except Exception:
-            return [val] if val else []
-    result = []
+            if isinstance(record, str):
+                # 文字列の場合はJSONとしてパースを試みる
+                try:
+                    record = json.loads(record)
+                except json.JSONDecodeError:
+                    # JSONとしてパースできない場合はそのまま返す
+                    return record
+            
+            # 辞書型の場合はRaceRecordSummaryに変換
+            if isinstance(record, dict):
+                return RaceRecordSummary(**record)
+            return record
+        except Exception as e:
+            print(f"Error parsing race record: {e}")
+            return record
+    
+    # 各馬のデータを処理
     for horse in horses:
-        result.append({
-            **jsonable_encoder(horse),
-            "sex": parse_json_field(horse.sex),
-            "age": parse_json_field(horse.age),
-            "sold_price": parse_json_field(horse.sold_price),
-            "auction_date": parse_json_field(horse.auction_date),
-            "seller": parse_json_field(horse.seller),
-            "comment": parse_json_field(horse.comment),
-        })
-    return result
+        # 通常のJSONフィールドをパース
+        for field in ['sex', 'age', 'sold_price', 'auction_date', 'seller', 'comment']:
+            if field in horse and horse[field] and isinstance(horse[field], str):
+                try:
+                    horse[field] = json.loads(horse[field])
+                except json.JSONDecodeError:
+                    pass
+        
+        # レースレコードを処理
+        if 'race_record' in horse:
+            horse['race_record'] = parse_race_record(horse['race_record'])
+    
+    return horses
 
 @app.get("/horses/{horse_id}", response_model=HorseResponse)
 async def get_horse(horse_id: int, db: Session = Depends(get_db)):
@@ -121,28 +151,52 @@ async def get_horse(horse_id: int, db: Session = Depends(get_db)):
     horse = horse_service.get_horse_by_id(db, horse_id)
     if not horse:
         raise HTTPException(status_code=404, detail="馬が見つかりません")
-    # 履歴カラムを配列で返す
-    def parse_json_field(val):
+    
+    def parse_race_record(record):
+        if not record:
+            return None
         try:
-            if val is None:
-                return []
-            return json.loads(val)
-        except Exception:
-            return [val] if val else []
-    return {
-        **jsonable_encoder(horse),
-        "sex": parse_json_field(horse.sex),
-        "age": parse_json_field(horse.age),
-        "sold_price": parse_json_field(horse.sold_price),
-        "auction_date": parse_json_field(horse.auction_date),
-        "seller": parse_json_field(horse.seller),
-        "comment": parse_json_field(horse.comment),
-    }
+            if isinstance(record, str):
+                # 文字列の場合はJSONとしてパースを試みる
+                try:
+                    record = json.loads(record)
+                except json.JSONDecodeError:
+                    # JSONとしてパースできない場合はそのまま返す
+                    return record
+            
+            # 辞書型の場合はRaceRecordSummaryに変換
+            if isinstance(record, dict):
+                return RaceRecordSummary(**record)
+            return record
+        except Exception as e:
+            print(f"Error parsing race record: {e}")
+            return record
+    
+    # 通常のJSONフィールドをパース
+    for field in ['sex', 'age', 'sold_price', 'auction_date', 'seller', 'comment']:
+        if field in horse and horse[field] and isinstance(horse[field], str):
+            try:
+                horse[field] = json.loads(horse[field])
+            except json.JSONDecodeError:
+                pass
+    
+    # レースレコードを処理
+    if 'race_record' in horse:
+        horse['race_record'] = parse_race_record(horse['race_record'])
+    
+    return horse
 
 @app.post("/horses/", response_model=HorseResponse)
 async def create_horse(horse_data: HorseCreate, db: Session = Depends(get_db)):
     """新しい馬データを作成"""
-    horse = horse_service.create_horse(db, horse_data.dict())
+    # Pydanticモデルを辞書に変換
+    horse_dict = horse_data.dict()
+    
+    # レースレコードがRaceRecordSummary型の場合は辞書に変換
+    if isinstance(horse_dict.get('race_record'), RaceRecordSummary):
+        horse_dict['race_record'] = horse_dict['race_record'].dict()
+    
+    horse = horse_service.create_horse(db, horse_dict)
     return horse
 
 @app.put("/horses/{horse_id}", response_model=HorseResponse)
@@ -152,10 +206,19 @@ async def update_horse(
     db: Session = Depends(get_db)
 ):
     """馬データを更新"""
-    horse = horse_service.update_horse(db, horse_id, horse_data.dict())
-    if not horse:
+    # Pydanticモデルを辞書に変換
+    horse_dict = horse_data.dict()
+    
+    # レースレコードがRaceRecordSummary型の場合は辞書に変換
+    if isinstance(horse_dict.get('race_record'), RaceRecordSummary):
+        horse_dict['race_record'] = horse_dict['race_record'].dict()
+    
+    updated_horse = horse_service.update_horse(db, horse_id, horse_dict)
+    if not updated_horse:
         raise HTTPException(status_code=404, detail="馬が見つかりません")
-    return horse
+    
+    # 更新後のデータを取得して返す
+    return await get_horse(horse_id, db)
 
 @app.delete("/horses/{horse_id}")
 async def delete_horse(horse_id: int, db: Session = Depends(get_db)):
