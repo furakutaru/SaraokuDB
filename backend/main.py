@@ -1,12 +1,23 @@
+import os
+import sys
+from pathlib import Path
+
+# Add the project root to the Python path
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+import uvicorn
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Optional, Union
 from datetime import datetime
 
-from backend.database.models import get_db, Horse
+# Import services and models
 from backend.services.horse_service import HorseService
-from backend.scheduler.auction_scheduler import scheduler
+from database.models import Base, engine, get_db, Horse
+from scheduler.auction_scheduler import scheduler
 from pydantic import BaseModel
 from fastapi.encoders import jsonable_encoder
 import json

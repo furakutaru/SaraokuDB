@@ -8,15 +8,23 @@ from typing import List, Dict, Optional, Union, cast, Any, Tuple
 from datetime import datetime
 from urllib.parse import urljoin
 
+# Add the project root to the Python path
+import sys
+import os
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 try:
-    from data_helpers import (
+    from backend.scrapers.data_helpers import (
         save_horse,
         save_auction_history,
         load_json_file
     )
     HAS_DATA_HELPERS = True
-except ImportError:
+except ImportError as e:
     # For testing without data_helpers
+    print(f"Warning: Could not import data_helpers: {e}")
     HAS_DATA_HELPERS = False
     def save_horse(*args, **kwargs):
         pass
