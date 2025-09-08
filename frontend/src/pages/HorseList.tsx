@@ -16,32 +16,18 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Pagination
+  Pagination,
+  Button
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
-import axios from 'axios';
+import AddIcon from '@mui/icons-material/Add';
 
-interface HistoryEntry {
-  auction_date: string;
-  sold_price: number | null;
-  total_prize_start: number;
-  [key: string]: any;
-}
+import { Horse } from '../types/horse';
+import { horseApi, statsApi } from '../utils/api';
+import { transformHorseArray } from '../utils/transformHorseData';
 
-interface Horse {
-  id: number;
-  name: string;
-  sex: string;
-  age: string | number;
-  primary_image: string;
-  history: HistoryEntry[];
-  sold_price?: number | null;
-  unsold_count?: number;
-  disease_tags?: string[] | string;
-  detail_url?: string;
-  jbis_url?: string;
-  comment?: string;
-  [key: string]: any;
+interface HorseListProps {
+  // 必要に応じてプロパティを追加
 }
 
 const HorseList: React.FC = () => {
@@ -60,40 +46,64 @@ const HorseList: React.FC = () => {
   }, [page, selectedDate]);
 
   const fetchHorses = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const params: any = {
-        skip: (page - 1) * 50,
-        limit: 50
-      };
+      const horsesData = await horseApi.getHorses({
+        page,
+        search: searchTerm,
+        auctionDate: selectedDate || undefined
+      });
       
-      if (selectedDate) {
-        params.auction_date = selectedDate;
-      }
+      // データを変換（必要な場合）
+      const transformedHorses = transformHorseArray(horsesData);
+      setHorses(transformedHorses);
       
-      const response = await axios.get('/horses/', { params });
-      setHorses(response.data);
-      setTotalPages(Math.ceil(response.data.length / 50) + 1);
-    } catch (err) {
-      setError('馬データの取得に失敗しました');
-      console.error('Error fetching horses:', err);
-    } finally {
+      // ページネーション情報はAPIから取得するか、デフォルト値を設定
+      // この例ではデフォルト値を使用
+      setTotalPages(1);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching horses:', error);
+      setError('馬のデータの取得中にエラーが発生しました');
       setLoading(false);
     }
   };
 
   const fetchAuctionDates = async () => {
     try {
-      const response = await axios.get('/auction-dates/');
-      setAuctionDates(response.data);
+      const dates = await statsApi.getAuctionDates();
+      // 日付を重複なくソートしてセット
+      const uniqueDates = Array.from(new Set(Array.isArray(dates) ? dates : []))
+        .sort()
+        .reverse(); // 新しい日付順にソート
+      setAuctionDates(uniqueDates as string[]);
     } catch (err) {
       console.error('Error fetching auction dates:', err);
+      setAuctionDates([]);
     }
   };
 
-  const filteredHorses = horses.filter(horse =>
-    horse.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // 検索はバックエンドで行うため、クライアントサイドでのフィルタリングは行わない
+  const filteredHorses = horses || [];
+  
+  // 検索フィールドの変更時に検索を実行
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    // 検索テキストが変更されたら1ページ目に戻る
+    setPage(1);
+  };
+
+  // オークション日付の変更時に検索を実行
+  const handleAuctionDateChange = (event: React.ChangeEvent<{ value: unknown }> | any) => {
+    setSelectedDate(event.target.value as string);
+    setPage(1);
+  };
+  
+  // ページ変更時のハンドラ
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+  };
 
   if (loading) {
     return (
@@ -104,155 +114,171 @@ const HorseList: React.FC = () => {
   }
 
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    return (
+      <Box my={4}>
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={fetchHorses}
+        >
+          再試行
+        </Button>
+      </Box>
+    );
   }
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        馬一覧
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">
+          馬一覧
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<AddIcon />}
+          component={RouterLink}
+          to="/horses/new"
+        >
+          新規登録
+        </Button>
+      </Box>
       
-      <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+      <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
           label="馬名で検索"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ minWidth: 300 }}
+          onChange={handleSearchChange}
+          sx={{ minWidth: 300, mb: { xs: 2, md: 0 } }}
           placeholder="馬名を入力"
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') {
+              fetchHorses();
+            }
+          }}
         />
-        <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel>開催日</InputLabel>
+        <FormControl sx={{ minWidth: 200, mb: { xs: 2, md: 0 } }}>
+          <InputLabel id="auction-date-label">オークション日</InputLabel>
           <Select
+            labelId="auction-date-label"
+            id="auction-date"
             value={selectedDate}
-            label="開催日"
-            onChange={(e) => setSelectedDate(e.target.value)}
+            label="オークション日"
+            onChange={handleAuctionDateChange}
+            disabled={loading}
           >
-            <MenuItem value="">全て</MenuItem>
-            {auctionDates.map((date) => (
-              <MenuItem key={date} value={date}>
-                {date}
-              </MenuItem>
-            ))}
+            <MenuItem value="">すべての日付</MenuItem>
+            {auctionDates.map((date) => {
+              // 日付のフォーマット（必要に応じて調整）
+              const formattedDate = new Date(date).toLocaleDateString('ja-JP', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'short'
+              });
+              return (
+                <MenuItem key={date} value={date}>
+                  {formattedDate}
+                </MenuItem>
+              );
+            })}
           </Select>
         </FormControl>
       </Box>
 
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{ mt: 3, overflowX: 'auto' }}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>画像</TableCell>
               <TableCell>馬名</TableCell>
               <TableCell>性別</TableCell>
               <TableCell>年齢</TableCell>
+              <TableCell>父</TableCell>
+              <TableCell>母</TableCell>
+              <TableCell>母父</TableCell>
               <TableCell>落札価格</TableCell>
-              <TableCell>疾病タグ</TableCell>
+              <TableCell>オークション日</TableCell>
+              <TableCell>アクション</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredHorses.map((horse) => (
-              <TableRow key={horse.id} hover>
-                <TableCell>
-                  {horse.primary_image ? (
-                    <img 
-                      src={horse.primary_image} 
-                      alt={`${horse.name}の画像`}
-                      style={{ 
-                        width: '60px', 
-                        height: '60px', 
-                        objectFit: 'cover',
-                        borderRadius: '4px'
-                      }}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div style={{ 
-                      width: '60px', 
-                      height: '60px', 
-                      backgroundColor: '#f5f5f5',
-                      borderRadius: '4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      color: '#999'
-                    }}>
-                      画像なし
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <RouterLink to={`/horses/${horse.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    {horse.name}
-                  </RouterLink>
-                </TableCell>
-                <TableCell>{horse.sex || '-'}</TableCell>
-                <TableCell>{horse.age || '-'}</TableCell>
-                <TableCell>
-                  {horse.history && 
-                   horse.history.length > 0 && 
-                   horse.history[0]?.sold_price !== null && 
-                   horse.history[0]?.sold_price !== undefined && 
-                   horse.history[0]?.sold_price > 0
-                    ? `¥${horse.history[0].sold_price.toLocaleString()}`
-                    : '¥-'}
-                </TableCell>
-                <TableCell>
-                  {horse.disease_tags ? (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {Array.isArray(horse.disease_tags) ? (
-                        horse.disease_tags.map((tag, index) => (
-                          <span 
-                            key={index}
-                            style={{
-                              backgroundColor: '#ffebee',
-                              color: '#c62828',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              fontSize: '0.75rem',
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            {tag}
-                          </span>
-                        ))
-                      ) : (
-                        <span 
-                          style={{
-                            backgroundColor: '#ffebee',
-                            color: '#c62828',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
-                            fontSize: '0.75rem',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          {horse.disease_tags}
-                        </span>
-                      )}
-                    </div>
-                  ) : '-'}
+            {loading && filteredHorses.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  <CircularProgress />
+                  <Box mt={2}>データを読み込んでいます...</Box>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : filteredHorses.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                  該当する馬が見つかりませんでした。
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredHorses.map((horse) => (
+                <TableRow
+                  key={horse.id}
+                  hover
+                  sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                >
+                  <TableCell>
+                    <RouterLink 
+                      to={`/horses/${horse.id}`}
+                      style={{ textDecoration: 'none', color: 'inherit' }}
+                    >
+                      {horse.name}
+                    </RouterLink>
+                  </TableCell>
+                  <TableCell>{Array.isArray(horse.sex) ? horse.sex[0] : horse.sex}</TableCell>
+                  <TableCell>{Array.isArray(horse.age) ? horse.age[0] : horse.age}</TableCell>
+                  <TableCell>{horse.sire || '-'}</TableCell>
+                  <TableCell>{horse.dam || '-'}</TableCell>
+                  <TableCell>{horse.damsire || '-'}</TableCell>
+                  <TableCell>
+                    {horse.sold_price ? 
+                      `¥${new Intl.NumberFormat('ja-JP').format(horse.sold_price)}` : 
+                      '-'}
+                  </TableCell>
+                  <TableCell>
+                    {horse.auction_date ? 
+                      new Date(horse.auction_date).toLocaleDateString('ja-JP') : 
+                      '-'}
+                  </TableCell>
+                  <TableCell>
+                    <Button 
+                      variant="outlined" 
+                      size="small"
+                      component={RouterLink}
+                      to={`/horses/${horse.id}`}
+                    >
+                      詳細
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </TableContainer>
 
-      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-        <Pagination
-          count={totalPages}
-          page={page}
-          onChange={(_, value) => setPage(value)}
-          color="primary"
-        />
-      </Box>
+      {totalPages > 1 && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={handlePageChange}
+            color="primary"
+            showFirstButton
+            showLastButton
+            disabled={loading}
+            sx={{ mt: 2 }}
+          />
+        </Box>
+      )}
     </Box>
   );
 };
 
-export default HorseList; 
+export default HorseList;
