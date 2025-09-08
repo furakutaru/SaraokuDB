@@ -1056,22 +1056,48 @@ class ImprovedRakutenScraper:
             name_elem: BeautifulSoupの要素オブジェクト
             
         Returns:
-            str: クリーンアップされた馬名
+            str: クリーンアップされた馬名（余分な情報を削除）
         """
         if not name_elem:
             return ""
             
-        # 1. まず、要素内のすべてのテキストを取得
+        # 1. 要素内のすべてのテキストを取得
         name = name_elem.get_text(' ', strip=True)
         
-        # 2. 最初の半角・全角スペース以降を削除
-        name = re.split(r'[ 　]', name, 1)[0]
+        # 2. 改行をスペースに変換
+        name = name.replace('\n', ' ')
         
-        # 3. 不要な文字列を削除
-        for s in ["※", "登録抹消", "新馬", "未出走"]:
-            name = name.replace(s, "")
+        # 3. 不要なパターンを削除
+        patterns = [
+            r'※.*$',  # ※以降の文字列
+            r'登録抹消.*$',  # 登録抹消以降の文字列
+            r'新馬.*$',  # 新馬以降の文字列
+            r'未出走.*$',  # 未出走以降の文字列
+            r'[0-9]+歳',  # 年齢（例：3歳）
+            r'[牡牝セ]',  # 性別（牡、牝、セ）
+            r'\(.*\)',  # 括弧内の文字列
+            r'\[.*\]'  # 角括弧内の文字列
+        ]
+        
+        for pattern in patterns:
+            name = re.sub(pattern, '', name)
             
-        return name.strip()
+        # 4. スペースで分割して最後の要素が「セン」の場合は削除
+        name_parts = name.split()
+        if len(name_parts) > 1 and name_parts[-1] == 'セン':
+            name = ' '.join(name_parts[:-1])
+        # スペースがなく「セン」で終わる場合も削除
+        elif name.endswith(' セン') or name.endswith('　セン'):
+            name = name[:-2].strip()
+            
+        # 5. 前後の空白を削除
+        name = name.strip()
+        
+        # 5. 空の場合は元のテキストを返す
+        if not name:
+            return name_elem.get_text(' ', strip=True)
+            
+        return name
 
     def _extract_age(self, age_elem, card):
         """年齢を抽出する
@@ -1176,250 +1202,156 @@ class ImprovedRakutenScraper:
             total: 総馬数
             
         Returns:
-            Optional[Dict[str, Any]]: 抽出した馬の情報、抽出に失敗した場合はNone
+            Optional[Dict[str, Any]]: 抽出した馬情報の辞書。必須フィールドが不足している場合はNoneを返す
         """
         try:
-            self.logger.debug(f"[{index}/{total}] 馬情報の抽出を開始")
+            self.logger.info(f"[{index}/{total}] 馬情報の抽出を開始")
             
-            # 馬の基本情報を抽出
-            horse_info, missing_fields = self.horse_info_extractor.extract(card)
+            # 1. 詳細ページのURLを抽出
+            detail_url = self._extract_detail_url(card)
+            if not detail_url:
+                self.logger.warning(f"詳細ページURLの抽出に失敗しました")
+                return None
+                
+            # 2. 詳細ページのHTMLを取得
+            detail_html = self._fetch_html(detail_url, use_cache=True)
+            if not detail_html:
+                self.logger.warning(f"詳細ページの取得に失敗しました: {detail_url}")
+                return None
+                
+            # 3. 詳細ページから基本情報を抽出
+            detail_soup = BeautifulSoup(detail_html, 'html.parser')
+            
+            # 馬名を抽出 (タイトルタグから取得)
+            title_tag = detail_soup.find('title')
+            if not title_tag:
+                self.logger.warning("タイトルタグが見つかりませんでした")
+                return None
+                
+            # タイトルから馬名部分を抽出（「|」で分割して最初の要素を取得）
+            title_text = title_tag.get_text(strip=True)
+            title_text = title_text.split('|')[0].strip() if '|' in title_text else title_text
+            
+            # 最初のスペース（全角・半角）までを馬名として抽出
+            import re
+            name_match = re.match(r'^([^ 　]+)', title_text)
+            if not name_match:
+                self.logger.warning("馬名の抽出に失敗しました")
+                return None
+                
+            name = name_match.group(1).strip()
+            self.logger.debug(f"抽出した馬名: {name} (元のテキスト: {title_text})")
+                
+            self.logger.debug(f"馬名を抽出: {name}")
+            
+            horse_info = {'name': name, 'detail_url': detail_url}
+            
+            # 基本情報テーブルから情報を抽出
+            info_table = detail_soup.find('table', class_=lambda c: c and 'horse-info' in c.lower())
+            if info_table:
+                rows = info_table.find_all('tr')
+                for row in rows:
+                    cols = row.find_all('td')
+                    if len(cols) >= 2:
+                        key = cols[0].get_text(strip=True).replace(':', '')
+                        value = cols[1].get_text(strip=True)
+                        horse_info[key] = value
+            
+            # 性別と年齢を抽出
+            try:
+                sex_age = self.horse_info_extractor._extract_sex_and_age(detail_soup)
+                if sex_age:
+                    horse_info.update(sex_age)
+            except Exception as e:
+                self.logger.warning(f"性別・年齢の抽出中にエラーが発生しました: {e}")
+            
+            # 血統情報を抽出
+            try:
+                pedigree = self.horse_info_extractor._extract_pedigree(detail_soup)
+                if pedigree:
+                    horse_info.update(pedigree)
+            except Exception as e:
+                self.logger.warning(f"血統情報の抽出中にエラーが発生しました: {e}")
             
             # 必須フィールドの確認
             required_fields = ['name', 'age', 'sex']
-            missing_required = [field for field in required_fields 
-                             if field not in horse_info or horse_info[field] is None]
+            missing_required = [f for f in required_fields if f not in horse_info or not horse_info.get(f)]
             
             # 血統情報フィールドの確認
             pedigree_fields = ['sire', 'dam', 'damsire']
-            missing_pedigree = [field for field in pedigree_fields 
-                             if field not in horse_info or not horse_info.get(field)]
+            missing_pedigree = [f for f in pedigree_fields if f not in horse_info or not horse_info.get(f)]
             
-            # 馬体重フィールドの確認
-            weight_field = 'weight'
-            missing_weight = weight_field not in horse_info or horse_info.get(weight_field) is None
-            
-            # 必須フィールドまたは血統情報が不足している場合、詳細ページから取得を試みる
-            if missing_required or missing_pedigree:
-                self.logger.info(f"不足フィールドを補完するため、詳細ページから情報を取得します - 必須: {missing_required}, 血統: {missing_pedigree}")
-                detail_url = self._extract_detail_url(card)
-                
-                if not detail_url:
-                    self.logger.warning("詳細ページのURLを抽出できませんでした")
-                    # デバッグ用にカードのHTMLをログに出力
-                    self.logger.debug(f"カードのHTML: {str(card)[:500]}...")
-                else:
-                    # 詳細ページのURLを保存
-                    horse_info['detail_url'] = detail_url
-                    self.logger.info(f"詳細ページから情報を取得します: {detail_url}")
-                    
-                    # 詳細ページのHTMLを取得
-                    detail_html = self._fetch_html(detail_url, use_cache=True)
-                    
-                    if not detail_html:
-                        self.logger.warning(f"詳細ページの取得に失敗しました: {detail_url}")
-                    else:
-                        # 詳細ページから画像URLを抽出
-                        try:
-                            detail_soup = BeautifulSoup(detail_html, 'html.parser')
-                            img_element = detail_soup.select_one('div.bigImageWrap img.topImage')
-                            if img_element and 'src' in img_element.attrs:
-                                image_url = img_element['src']
-                                horse_info['image_url'] = image_url
-                                self.logger.info(f"詳細ページから画像URLを抽出しました: {image_url}")
-                            else:
-                                self.logger.warning("詳細ページに画像要素が見つかりませんでした")
-                        except Exception as e:
-                            self.logger.warning(f"詳細ページからの画像URL抽出に失敗しました: {str(e)}")
-                            
-                        try:
-                            # 詳細ページから情報を抽出
-                            self.logger.debug("詳細ページから情報を抽出中...")
-                            detail_info = self.horse_info_extractor.extract_from_detail_page(detail_html)
-                            
-                            if not detail_info:
-                                self.logger.warning("詳細ページからの情報抽出に失敗しました")
-                            else:
-                                self.logger.debug(f"詳細ページから抽出した情報: {detail_info}")
-                                
-                                # 血統情報を更新（既存の値がある場合は上書きしない）
-                                for field in pedigree_fields:
-                                    if field in detail_info and detail_info[field] and (field in missing_pedigree or not horse_info.get(field)):
-                                        old_value = horse_info.get(field, '未設定')
-                                        new_value = detail_info[field]
-                                        horse_info[field] = new_value
-                                        self.logger.info(f"血統情報を更新: {field} = {new_value} (元: {old_value})")
-                                        
-                                        # 更新されたフィールドを不足リストから削除
-                                        if field in missing_pedigree:
-                                            missing_pedigree.remove(field)
-                                
-                                # 馬体重を更新（既存の値がnullまたは空の場合のみ）
-                                if weight_field in detail_info and detail_info[weight_field] is not None:
-                                    old_weight = horse_info.get(weight_field, '未設定')
-                                    new_weight = detail_info[weight_field]
-                                    horse_info[weight_field] = new_weight
-                                    self.logger.info(f"馬体重を更新: {new_weight}kg (元: {old_weight})")
-                                    missing_weight = False
-                                
-                                # 不足している必須フィールドを更新
-                                for field in missing_required[:]:  # イテレーション中にリストを変更するためコピーを作成
-                                    if field in detail_info and detail_info[field] is not None:
-                                        old_value = horse_info.get(field, '未設定')
-                                        new_value = detail_info[field]
-                                        horse_info[field] = new_value
-                                        missing_required.remove(field)
-                                        self.logger.info(f"必須フィールドを更新: {field} = {new_value} (元: {old_value})")
-                                
-                                # 不足フィールドを再確認
-                                missing_required = [f for f in required_fields 
-                                                 if f not in horse_info or horse_info[f] is None]
-                                
-                                if not missing_required:
-                                    self.logger.info("すべての必須フィールドを取得しました")
-                                else:
-                                    self.logger.warning(f"以下の必須フィールドを取得できませんでした: {missing_required}")
-                            # 詳細ページURLがまだ設定されていない場合は設定
-                            if 'detail_url' not in horse_info:
-                                horse_info['detail_url'] = detail_url
-                            
-                        except Exception as e:
-                            self.logger.error(f"詳細ページの処理中にエラーが発生しました: {e}", exc_info=True)
-                            # エラーが発生した場合のデバッグ情報をログに出力
-                            self.logger.debug(f"エラー発生時の馬情報: {horse_info}")
-                            if 'detail_html' in locals():
-                                debug_path = Path('debug_html') / f'error_extraction_{index}.html'
-                                debug_path.parent.mkdir(exist_ok=True)
-                                with open(debug_path, 'w', encoding='utf-8') as f:
-                                    f.write(detail_html)
-                                self.logger.debug(f"エラー発生時の詳細ページHTMLを保存しました: {debug_path}")
-            
-            # 詳細ページからの情報取得後、不足フィールドを再確認
-            missing_required = [f for f in required_fields 
-                             if f not in horse_info or horse_info[f] is None]
-            missing_pedigree = [f for f in pedigree_fields 
-                             if f not in horse_info or not horse_info.get(f)]
-            
-            # 必須フィールドが不足している場合は警告をログに記録
+            # 必須フィールドが不足している場合は処理を中断
             if missing_required:
-                self.logger.warning(f"必須フィールドが不足しています: {missing_required}")
+                self.logger.warning(f"以下の必須フィールドが不足しているため、この馬の処理をスキップします: {missing_required}")
+                return None
                 
             # 血統情報が不足している場合は警告をログに記録
             if missing_pedigree:
                 self.logger.warning(f"血統情報が不足しています: {missing_pedigree}")
-                
-            # 馬体重が取得できていない場合は警告をログに記録
-            if missing_weight:
-                self.logger.warning("馬体重を取得できませんでした")
-            
-            # 必須フィールドが不足している場合は警告を出力して処理を中断
-            if missing_required:
-                self.logger.warning(f"以下の必須フィールドが不足しているため、この馬の処理をスキップします: {missing_required}")
-                return None
             
             # デバッグ用に抽出した情報をログに出力
             self.logger.debug(f"抽出した馬情報: {horse_info}")
             
-            # 馬名を先頭に移動するために新しい辞書を作成
-            if 'name' in horse_info:
-                name = horse_info.pop('name')
-                horse_info = {'name': name, **horse_info}
+            # JBISリンクを抽出
+            try:
+                jbis_info = JbisLinkExtractor.extract(detail_soup, self.base_url)
+                if jbis_info.get('jbis_url'):
+                    horse_info.update(jbis_info)
+                    self.logger.info(f"JBISリンクを抽出しました: {jbis_info['jbis_url']}")
+            except Exception as e:
+                self.logger.error(f"JBISリンクの抽出中にエラーが発生しました: {e}", exc_info=True)
             
-            # 詳細ページのHTMLを取得（まだ取得していない場合）
-            detail_html = None
-            if 'detail_url' in horse_info and horse_info['detail_url']:
-                detail_html = self._fetch_html(horse_info['detail_url'])
-                if not detail_html:
-                    self.logger.warning(f"詳細ページの取得に失敗しました: {horse_info['detail_url']}")
-                else:
-                    # JBISリンクを抽出
-                    try:
-                        detail_soup = BeautifulSoup(detail_html, 'html.parser')
-                        jbis_info = JbisLinkExtractor.extract(detail_soup, self.base_url)
-                        if jbis_info.get('jbis_url'):
-                            horse_info.update(jbis_info)
-                            self.logger.info(f"JBISリンクを抽出しました: {jbis_info['jbis_url']}")
-                    except Exception as e:
-                        self.logger.error(f"JBISリンクの抽出中にエラーが発生しました: {e}", exc_info=True)
-            
-            # オプションフィールドの抽出を実行（JBIS関連は一時的に無効化）
-            # コメントは最後に処理するために別途抽出
+            # オプションフィールドの抽出を実行
             extractors = [
-                ('prize_money', 'prize_info_extractor', '賞金情報', False),
-                ('price', 'price_info_extractor', '価格情報', True),  # 詳細ページを使用
-                ('seller', 'seller_info_extractor', '販売者情報', False),
-                ('race_records', 'race_record_extractor', 'レース記録', True),  # 詳細ページを使用
-                ('image_url', 'image_extractor', '画像URL', False)
+                ('prize_money', 'prize_info_extractor', '賞金情報', True),
+                ('price', 'price_info_extractor', '価格情報', True),
+                ('seller', 'seller_info_extractor', '販売者情報', True),
+                ('race_records', 'race_record_extractor', 'レース記録', True),
+                ('image_url', 'image_extractor', '画像URL', True)
             ]
             
             # コメント抽出用の抽出器
             comment_extractor = getattr(self, 'comment_extractor', None)
             comment_data = None
 
-            for field, extractor_name, display_name, use_detail_page in extractors:
+            # 各抽出器を実行
+            for field, extractor_name, display_name, _ in extractors:
                 try:
                     # 抽出器が初期化されているか確認
                     extractor = getattr(self, extractor_name, None)
                     if extractor is None:
                         self.logger.warning(f"{display_name}の抽出器が初期化されていません")
                         continue
-                        
-                    # 詳細ページを使用する場合
-                    if use_detail_page and detail_html:
-                        try:
-                            # レコード抽出器の場合は文字列を渡す
-                            if extractor_name == 'race_record_extractor':
-                                result, success = extractor.extract(str(detail_html))
-                            else:
-                                detail_soup = BeautifulSoup(detail_html, 'html.parser')
-                                result, success = extractor.extract(detail_soup)
-                            
-                            # 詳細ページから抽出に失敗した場合はリストビューを試す
-                            if not success and hasattr(card, 'prettify'):
-                                self.logger.debug(f"詳細ページからの{display_name}抽出に失敗したため、リストビューから抽出を試みます")
-                                if extractor_name == 'race_record_extractor':
-                                    result, success = extractor.extract(str(card))
-                                else:
-                                    result, success = extractor.extract(card)
-                        except Exception as e:
-                            self.logger.error(f"詳細ページからの{display_name}抽出中にエラーが発生しました: {e}", exc_info=True)
-                            result, success = None, False
-                    elif hasattr(card, 'prettify'):
-                        # リストビューのHTMLから抽出
-                        try:
-                            if extractor_name == 'race_record_extractor':
-                                result, success = extractor.extract(str(card))
-                            else:
-                                result, success = extractor.extract(card)
-                        except Exception as e:
-                            self.logger.error(f"リストビューからの{display_name}抽出中にエラーが発生しました: {e}", exc_info=True)
-                            result, success = None, False
-                    else:
-                        # その他の抽出器にはそのまま渡す
-                        try:
-                            result, success = extractor.extract(card)
-                        except Exception as e:
-                            self.logger.error(f"{display_name}の抽出中にエラーが発生しました: {e}", exc_info=True)
-                            result, success = None, False
                     
-                    if success and result:
-                        if field == 'price' and isinstance(result, dict):
-                            # 価格情報の処理
-                            horse_info.update(result)
+                    # 抽出を実行
+                    try:
+                        # レコード抽出器の場合は文字列を渡す
+                        if extractor_name == 'race_record_extractor':
+                            result, success = extractor.extract(str(detail_html))
                         else:
-                            horse_info[field] = result
+                            result, success = extractor.extract(detail_soup)
+                        
+                        if success and result:
+                            if field == 'price' and isinstance(result, dict):
+                                # 価格情報の処理
+                                horse_info.update(result)
+                            else:
+                                horse_info[field] = result
+                                
+                            self.logger.debug(f"{display_name}を抽出しました: {result}")
+                        else:
+                            self.logger.debug(f"{display_name}の抽出に失敗しました")
                             
-                        self.logger.debug(f"{display_name}を抽出しました: {result}")
-                    else:
-                        self.logger.debug(f"{display_name}の抽出に失敗しました")
+                    except Exception as e:
+                        self.logger.error(f"{display_name}の抽出中にエラーが発生しました: {e}", exc_info=True)
                         
                 except Exception as e:
-                    self.logger.error(f"{display_name}の抽出中にエラーが発生しました: {e}", exc_info=True)
-                    # エラーが発生しても処理は続行
+                    self.logger.error(f"{display_name}の抽出器の実行中にエラーが発生しました: {e}", exc_info=True)
             
             # 最後にコメントを抽出して追加
-            if comment_extractor and detail_html:
+            if comment_extractor:
                 try:
-                    detail_soup = BeautifulSoup(detail_html, 'html.parser')
                     comment_data, success = comment_extractor.extract(detail_soup)
                     if success and comment_data:
                         # コメントを追加
@@ -1437,6 +1369,12 @@ class ImprovedRakutenScraper:
                 except Exception as e:
                     self.logger.error(f"コメントの抽出中にエラーが発生しました: {e}", exc_info=True)
             
+            # 馬名を先頭に移動するために新しい辞書を作成
+            if 'name' in horse_info:
+                name = horse_info.pop('name')
+                horse_info = {'name': name, **horse_info}
+            
+            self.logger.info(f"[{index}/{total}] 馬情報の抽出が完了: {horse_info.get('name', '不明')}")
             return horse_info
             
         except Exception as e:
@@ -1965,9 +1903,9 @@ def main():
         # スクレイパーインスタンスを作成
         scraper = ImprovedRakutenScraper(config)
         
-        # 出力ディレクトリを設定
-        output_dir = Path('output')
-        output_dir.mkdir(exist_ok=True)
+        # 出力ディレクトリを設定（フロントエンドのpublic/dataディレクトリに保存）
+        output_dir = Path('../static-frontend/public/data')
+        output_dir.mkdir(parents=True, exist_ok=True)
         
         # 特定の馬IDが指定されている場合
         if args.horse_id:
@@ -1975,8 +1913,8 @@ def main():
             horse_info = scraper.scrape_horse_details(args.horse_id)
             
             if horse_info:
-                # 結果をJSONファイルに保存
-                output_path = output_dir / args.output
+                # 結果をJSONファイルに保存（常にhorses.jsonに保存）
+                output_path = output_dir / 'horses.json'
                 # シリアライズ可能な形式に変換
                 serializable_data = []
                 for horse in horse_info:
@@ -2001,8 +1939,8 @@ def main():
             results = scraper.scrape_horse_list(max_pages=args.max_pages)
             
             if results:
-                # 結果をJSONファイルに保存
-                output_path = output_dir / args.output
+                # 結果をJSONファイルに保存（常にhorses.jsonに保存）
+                output_path = output_dir / 'horses.json'
                 # シリアライズ可能な形式に変換
                 serializable_data = []
                 for horse in results:

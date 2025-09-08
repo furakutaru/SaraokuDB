@@ -510,12 +510,34 @@ class HorseInfoExtractor:
             name: クリーニング前の馬名
             
         Returns:
-            str: クリーニング後の馬名
+            str: クリーニング後の馬名（余分な情報を削除）
         """
-        # 不要な空白や改行を削除
+        if not name:
+            return ""
+            
+        # 1. 不要な空白や改行を削除
         name = re.sub(r'\s+', ' ', name).strip()
-        # 全角スペースを半角スペースに変換
+        # 2. 全角スペースを半角スペースに変換
         name = name.replace('　', ' ')
+        
+        # 3. 馬名の最初の単語を抽出（スペースまたは記号の前まで）
+        # 例: "スピリットガイド セン" -> "スピリットガイド"
+        # 例: "アットザホップ 牝3歳" -> "アットザホップ"
+        # 例: "サクラバクシンオー(父: サクラユタカオー)" -> "サクラバクシンオー"
+        name_parts = re.split(r'[ 　(（※]', name)
+        if name_parts:
+            name = name_parts[0].strip()
+        
+        # 4. 不要な記号を削除
+        name = re.sub(r'[\[\]()（）※]', '', name).strip()
+        
+        # 5. 末尾の「セ」「セン」が性別の場合は削除
+        # ただし、馬名の一部として「セ」や「セン」を含む可能性がある場合は注意が必要
+        # 例: "スピリットガイド セン" は "スピリットガイド" になるが、
+        #     "ゴールドシップ" はそのまま残る
+        if name.endswith(' セ') or name.endswith(' セン'):
+            name = name.rsplit(' ', 1)[0]
+            
         return name
         
     def extract_from_detail_page(self, detail_html: str) -> Dict[str, Any]:
