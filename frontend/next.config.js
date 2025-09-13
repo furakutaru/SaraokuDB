@@ -1,8 +1,7 @@
 /** @type {import('next').NextConfig} */
 const path = require('path');
 
-// バックエンドのAPIベースURL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8001';
 
 const nextConfig = {
   // 静的エクスポート(output: 'export')はVercel運用では不要なので削除

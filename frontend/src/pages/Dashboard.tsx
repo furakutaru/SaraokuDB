@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useDataIntegrityCheck, HorseData } from '../hooks/useDataIntegrityCheck';
 import {
   Box,
   Typography,
@@ -11,100 +12,139 @@ import {
   TableRow,
   Paper,
   Button,
-  Pagination,
-  Alert,
-  Card,
-  CardContent,
   TextField,
   FormControl,
   InputLabel,
   MenuItem,
   Select,
-  TablePagination,
+  Pagination,
+  CircularProgress,
+  Alert,
+  Container,
+  InputAdornment,
   IconButton,
-  Tooltip,
+  Grid,
 } from '@mui/material';
-import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Refresh as RefreshIcon,
-  Search as SearchIcon,
-} from '@mui/icons-material';
-import axios from 'axios';
-import { Horse } from '../types/horse';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import SearchIcon from '@mui/icons-material/Search';
 
-// Use the imported Horse type from types/horse
-
-const calcROI = (prize: number, price: number) => {
-  if (!price || price === 0) return '-';
-  return (price / prize).toFixed(2);
-};
-
-export default function Dashboard() {
-  const [horses, setHorses] = useState<Horse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const rowsPerPage = 10;
-  const [showType, setShowType] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDate, setSelectedDate] = useState<string>('');
+const Dashboard = () => {
   const navigate = useNavigate();
-
-  // Initialize missing data state
-  const [missingData, setMissingData] = useState({
-    horsesWithMissingData: [] as number[],
-    totalHorses: 0,
-    missingFields: {
-      name: 0,
-      sex: 0,
-      age: 0,
-      sire: 0,
-      dam: 0,
-      dam_sire: 0,
-      weight: 0,
-      total_prize_latest: 0,
-      comment: 0
+  const [horses, setHorses] = useState<HorseData[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [page, setPage] = useState<number>(1);
+  const rowsPerPage = 10;
+  
+  // データ整合性チェックフックを使用
+  const { data, isLoading: isCheckingData, error: dataError } = useDataIntegrityCheck();
+  
+  // データが利用可能になったらhorsesステートを更新
+  useEffect(() => {
+    if (data) {
+      setHorses(data);
+      setLoading(false);
     }
-  });
+  }, [data]);
+  
+  // エラーハンドリング
+  useEffect(() => {
+    if (dataError) {
+      setError(dataError);
+      setLoading(false);
+    }
+  }, [dataError]);
 
-  // Handle show type change
-  const handleShowTypeChange = (event: SelectChangeEvent) => {
-    setShowType(event.target.value);
-    setPage(1);
+
+  const fetchHorses = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('http://localhost:8001/horses/');
+      if (!response.ok) {
+        throw new Error('データの取得に失敗しました');
+      }
+      const data = await response.json();
+      
+      // レスポンスからデータを抽出
+      let horsesData = [];
+      if (data && data.status === 'success' && Array.isArray(data.data)) {
+        horsesData = data.data;
+      } else if (Array.isArray(data)) {
+        horsesData = data;
+      } else if (data && Array.isArray(data.horses)) {
+        horsesData = data.horses;
+      }
+      
+      setHorses(horsesData);
+    } catch (err) {
+      setError('馬データの取得中にエラーが発生しました');
+      console.error('Error fetching horses:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // オークション開催日の一覧を取得
-  const auctionDates = useMemo(() => 
-    [...new Set(horses.map(horse => horse.auction_date))].sort().reverse(),
-    [horses]
-  );
-
-  // 馬データを取得
   useEffect(() => {
-    const fetchHorses = async () => {
-      try {
-        const response = await axios.get('/api/horses');
-        const horseData = response.data.map((horse: any) => ({
-          ...horse,
-          // Ensure weight is either number or undefined to match the Horse type
-          weight: horse.weight || undefined
-        }));
-        setHorses(horseData);
-        setLoading(false);
-      } catch (err) {
-        setError('データの取得に失敗しました');
-        setLoading(false);
-        console.error('Error fetching horses:', err);
-      }
-    };
-
     fetchHorses();
   }, []);
 
+  // フィルタリングされた馬のリスト
+  const filteredHorses = useMemo(() => {
+    return horses.filter((horse: HorseData) => {
+      const searchTermLower = searchTerm.toLowerCase();
+      const nameMatch = horse.name?.toLowerCase().includes(searchTermLower) || false;
+      const sireMatch = horse.sire?.toLowerCase().includes(searchTermLower) || false;
+      const damMatch = horse.dam?.toLowerCase().includes(searchTermLower) || false;
+      const damsireMatch = horse.damsire?.toLowerCase().includes(searchTermLower) || false;
+      
+      const matchesSearch = nameMatch || sireMatch || damMatch || damsireMatch;
+      const matchesDate = !selectedDate || horse.auction_date === selectedDate;
+      
+      return matchesSearch && matchesDate;
+    });
+  }, [horses, searchTerm, selectedDate]);
+
+  // ページネーションで表示する馬を選択
+  const paginatedHorses = useMemo(() => {
+    const start = (page - 1) * rowsPerPage;
+    const end = start + rowsPerPage;
+    return filteredHorses.slice(start, end);
+  }, [filteredHorses, page, rowsPerPage]);
+
+  // ページネーションの総ページ数
+  const totalPages = Math.max(1, Math.ceil(filteredHorses.length / rowsPerPage));
+
+  // ページ変更ハンドラー
+  const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+  };
+
+  // 検索ハンドラー
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setPage(1); // 検索時に1ページ目に戻る
+  };
+
+  // オークション日選択ハンドラー
+  const handleDateChange = (e: any) => {
+    setSelectedDate(e.target.value);
+    setPage(1); // フィルター変更時に1ページ目に戻る
+  };
+
+  // オークション開催日の一覧を取得
+  const auctionDates = useMemo(() => {
+    const dates = horses
+      .map(horse => horse.auction_date)
+      .filter((date): date is string => !!date);
+    return Array.from(new Set(dates)).sort().reverse();
+  }, [horses]);
+
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
         <CircularProgress />
       </Box>
     );
@@ -112,182 +152,73 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <Box p={3}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
+      <Container maxWidth="lg" sx={{ py: 4, textAlign: 'center' }}>
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<RefreshIcon />}
+          onClick={fetchHorses}
+        >
+          再試行
+        </Button>
+      </Container>
     );
   }
 
-  // フィルタリングされた馬のリスト
-  const filteredHorses = useMemo(() => {
-    let result = [...horses];
-    
-    // 検索キーワードでフィルタリング
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(horse => 
-        horse.name?.toLowerCase().includes(term) ||
-        horse.sire?.toLowerCase().includes(term) ||
-        horse.dam?.toLowerCase().includes(term) ||
-        horse.dam_sire?.toLowerCase().includes(term)
-      );
-    }
-    
-    // オークション日でフィルタリング
-    if (selectedDate) {
-      result = result.filter(horse => horse.auction_date === selectedDate);
-    }
-    
-    return result;
-  }, [horses, searchTerm, selectedDate]);
-
-  // ページネーションで表示する馬を選択
-  const paginatedHorses = useMemo(() => {
-    let result = [...filteredHorses];
-    
-    // 表示タイプでフィルタリング
-    if (showType === 'withMissingData') {
-      const missingDataSummary = getMissingDataSummary(filteredHorses);
-      result = result.filter(horse => 
-        missingDataSummary.horsesWithMissingData.includes(horse.id)
-
-  // 不足データアラートを表示するかどうか
-  const showMissingDataAlert = useMemo(() => {
-    return missingData?.horsesWithMissingData?.length > 0;
-  }, [missingData]);
-
-  // ページネーション
-  const totalPages = useMemo(() => {
-    return Math.ceil((filteredHorses?.length || 0) / rowsPerPage);
-  }, [filteredHorses, rowsPerPage]);
-
-  // 表示する馬のデータをフィルタリング
-  const paginatedHorses = useMemo(() => {
-    if (!filteredHorses) return [];
-    const start = (page - 1) * rowsPerPage;
-    const end = start + rowsPerPage;
-    return filteredHorses.slice(start, end);
-  }, [filteredHorses, page, rowsPerPage]);
-
-  // テーブルの行をレンダリング
-  const renderTableRows = () => {
-    if (!paginatedHorses || paginatedHorses.length === 0) {
-      return (
-        <TableRow>
-          <TableCell colSpan={10} align="center">
-            表示するデータがありません
-          </TableCell>
-        </TableRow>
-      );
-    }
-
-    return paginatedHorses.map((horse: Horse) => (
-      <TableRow key={horse.id}>
-        <TableCell>
-          <Link 
-            to={`/horses/${horse.id}`} 
-            style={{ textDecoration: 'none', color: 'inherit' }}
-          >
-            {horse.name || '-'}
-          </Link>
-        </TableCell>
-        <TableCell>{horse.sex || '-'}</TableCell>
-        <TableCell>{horse.age || '-'}</TableCell>
-        <TableCell>{horse.sire || '-'}</TableCell>
-        <TableCell>{horse.dam || '-'}</TableCell>
-        <TableCell>{horse.dam_sire || '-'}</TableCell>
-        <TableCell>{horse.weight ? `${horse.weight} kg` : '-'}</TableCell>
-        <TableCell>
-          {horse.total_prize_latest ? 
-            `${new Intl.NumberFormat('ja-JP').format(horse.total_prize_latest)} 万円` : 
-            '-'}
-        </TableCell>
-        <TableCell>
-          {horse.auction_date ? new Date(horse.auction_date).toLocaleDateString('ja-JP') : '-'}
-        </TableCell>
-        <TableCell>
-          <Button 
-            variant="outlined" 
-            size="small"
-            onClick={() => navigate(`/horses/${horse.id}/edit`)}
-          >
-            編集
-          </Button>
-        </TableCell>
-      </TableRow>
-    ));
-  };
-
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        ダッシュボード
-      </Typography>
-      
-      {/* 不足データアラート */}
-      {showMissingDataAlert && (
-        <Box mb={3}>
-          <Alert severity="warning">
-            {missingData.horsesWithMissingData.length}頭の馬に不足データがあります。詳細は各馬の詳細ページで確認してください。
-          </Alert>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ mb: 4 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2, mb: 3 }}>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 0 }}>
+            馬データ一覧
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<RefreshIcon />}
+            onClick={fetchHorses}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          >
+            更新
+          </Button>
         </Box>
-      )}
-
-      {/* 検索とフィルター */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, gap: 2, flexWrap: 'wrap' }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', flex: 1 }}>
-          <TextField
-            label="検索"
-            variant="outlined"
-            size="small"
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setPage(1);
-            }}
-            sx={{ minWidth: 200 }}
-          />
-          <FormControl variant="outlined" size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>オークション日</InputLabel>
-            <Select
-              value={selectedDate}
-              onChange={(e) => {
-                setSelectedDate(e.target.value as string);
-                setPage(1);
-              }}
-              label="オークション日"
-            >
-              <MenuItem value="">すべての日付</MenuItem>
-              {auctionDates.map(date => (
-                <MenuItem key={date} value={date}>
-                  {new Date(date).toLocaleDateString('ja-JP')}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl variant="outlined" size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>表示</InputLabel>
-            <Select
-              value={showType}
-              onChange={handleShowTypeChange}
-              label="表示"
-            >
-              <MenuItem value="all">すべての馬</MenuItem>
-              <MenuItem value="withMissingData">不足データあり</MenuItem>
-            </Select>
-          </FormControl>
+        
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
+            <Box sx={{ width: { xs: '100%', md: '50%' } }}>
+              <TextField
+                fullWidth
+                label="検索"
+                variant="outlined"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
+            <Box sx={{ width: { xs: '100%', md: '50%' } }}>
+              <TextField
+                fullWidth
+                type="date"
+                label="オークション日でフィルタリング"
+                variant="outlined"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+            </Box>
+          </Box>
         </Box>
-        <Button 
-          variant="contained" 
-          color="primary"
-          onClick={() => navigate('/horses/new')}
-          sx={{ minWidth: 120 }}
-        >
-          新規登録
-        </Button>
       </Box>
-
-      {/* テーブル */}
+        
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -298,105 +229,63 @@ export default function Dashboard() {
               <TableCell>父</TableCell>
               <TableCell>母</TableCell>
               <TableCell>母父</TableCell>
-              <TableCell>馬体重</TableCell>
-              <TableCell>獲得賞金</TableCell>
+              <TableCell>落札価格</TableCell>
               <TableCell>オークション日</TableCell>
-              <TableCell>アクション</TableCell>
+              <TableCell>売主</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {renderTableRows()}
+            {paginatedHorses.length > 0 ? (
+              paginatedHorses.map((horse) => (
+                <TableRow key={horse.id} hover>
+                  <TableCell>{horse.name || '-'}</TableCell>
+                  <TableCell>{horse.sex || '-'}</TableCell>
+                  <TableCell>{horse.age || '-'}</TableCell>
+                  <TableCell>{horse.sire || '-'}</TableCell>
+                  <TableCell>{horse.dam || '-'}</TableCell>
+                  <TableCell>{horse.damsire || '-'}</TableCell>
+                  <TableCell>
+                    <div>
+                      <div>unsold: {String(horse.unsold)}</div>
+                      <div>sold_price: {String(horse.sold_price)}</div>
+                      <div>history: {horse.history && horse.history.length > 0 ? 
+                        JSON.stringify(horse.history.map((h: any) => h.sold_price)) : 'No history'}</div>
+                      <div>raw sold_price type: {typeof horse.sold_price}</div>
+                      <div>raw sold_price value: {JSON.stringify(horse.sold_price)}</div>
+                      {horse.unsold ? '主取り' : (horse.sold_price ? `¥${Number(horse.sold_price).toLocaleString()}` : '-')}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {horse.auction_date ? new Date(horse.auction_date).toLocaleDateString('ja-JP') : '-'}
+                  </TableCell>
+                  <TableCell>{horse.seller || '-'}</TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={9} align="center">
+                  <Typography variant="body1" color="textSecondary">
+                    該当する馬データがありません
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>
-
-      {/* ページネーション */}
-      {filteredHorses.length > 0 && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-          <Pagination 
-            count={Math.ceil(filteredHorses.length / rowsPerPage)} 
-            page={page}
-            onChange={(_, value) => setPage(value)}
-            color="primary"
-            showFirstButton 
-            showLastButton
-          />
-        </Box>
-      )}
-    </Box>
+      
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 4 }}>
+        <Pagination
+          count={totalPages}
+          page={Math.min(page, totalPages)}
+          onChange={handlePageChange}
+          color="primary"
+          showFirstButton
+          showLastButton
+        />
+      </Box>
+    </Container>
   );
-}
+};
 
 export default Dashboard;
-        <Card sx={{ minWidth: 200, flex: 1 }}>
-          <CardContent>
-            <Typography color="textSecondary">平均賞金</Typography>
-            <Typography variant="h5">
-              {filteredHorses.length > 0 
-                ? (filteredHorses.reduce((sum, h) => sum + (h.total_prize_latest || 0), 0) / filteredHorses.length).toFixed(1) + ' 万円'
-                : '-'}
-            </Typography>
-          </CardContent>
-        </Card>
-      </Box>
-          </Card>
-        </div>
-        {/* 指標ボタン */}
-        <div className="flex gap-4 mb-6">
-          <Button onClick={() => setShowType('all')} variant={showType==='all'?'default':'outline'}>全馬</Button>
-          <Button onClick={() => setShowType('roi')} variant={showType==='roi'?'default':'outline'}>ROIランキング</Button>
-          <Button onClick={() => setShowType('value')} variant={showType==='value'?'default':'outline'}>妙味馬</Button>
-        </div>
-        {/* DataTable風の表 */}
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">馬名</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">性別</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">年齢</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">父</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">落札価格</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">オークション時賞金</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">現在賞金</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">ROI</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">画像</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">リンク</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {tableHorses.map((horse) => (
-                <tr key={horse.id} className="hover:bg-blue-50">
-                  <td className="px-3 py-2 font-medium text-gray-900">
-                    <Link href={`/horses/${horse.id}`} className="hover:underline text-blue-700">{horse.name}</Link>
-                  </td>
-                  <td className="px-3 py-2">{horse.sex}</td>
-                  <td className="px-3 py-2">{horse.age}</td>
-                  <td className="px-3 py-2">{horse.sire}</td>
-                  <td className="px-3 py-2">{horse.sold_price}</td>
-                  <td className="px-3 py-2">{horse.total_prize_start}</td>
-                  <td className="px-3 py-2">{horse.total_prize_latest}</td>
-                  <td className="px-3 py-2">{horse.sold_price && horse.total_prize_latest ? (horse.total_prize_latest / horse.sold_price).toFixed(2) : '-'}</td>
-                  <td className="px-3 py-2">
-                    {horse.primary_image ? (
-                      <HorseImage src={horse.primary_image} alt={horse.name} className="w-12 h-12 object-contain rounded bg-gray-100" />
-                    ) : (
-                      <span className="text-gray-400">No Image</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-col gap-1">
-                      {horse.jbis_url && (
-                        <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">JBIS</a>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-} 

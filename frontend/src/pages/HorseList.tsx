@@ -49,18 +49,19 @@ const HorseList: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const horsesData = await horseApi.getHorses({
-        page,
-        search: searchTerm,
-        auctionDate: selectedDate || undefined
-      });
+      // バックエンドAPIからデータを取得
+      const response = await fetch('http://localhost:8000/api/test/horses');
+      if (!response.ok) {
+        throw new Error('データの取得に失敗しました');
+      }
+      
+      const data = await response.json();
       
       // データを変換（必要な場合）
-      const transformedHorses = transformHorseArray(horsesData);
+      const transformedHorses = transformHorseArray(data.horses || []);
       setHorses(transformedHorses);
       
       // ページネーション情報はAPIから取得するか、デフォルト値を設定
-      // この例ではデフォルト値を使用
       setTotalPages(1);
       setLoading(false);
     } catch (error) {

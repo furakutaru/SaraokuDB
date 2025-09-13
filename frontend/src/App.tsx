@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import HorseList from './pages/HorseList';
 import HorseDetail from './pages/HorseDetail';
 import ScrapingPage from './pages/ScrapingPage';
+import TestDataLoad from './pages/TestDataLoad';
 
 const theme = createTheme({
   palette: {
@@ -35,6 +36,7 @@ function App() {
               <Route path="/horses" element={<HorseList />} />
               <Route path="/horses/:id" element={<HorseDetail />} />
               <Route path="/scraping" element={<ScrapingPage />} />
+              <Route path="/test-data" element={<TestDataLoad />} />
             </Routes>
           </Container>
         </Box>
