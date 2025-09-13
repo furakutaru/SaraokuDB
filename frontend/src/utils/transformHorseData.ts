@@ -6,13 +6,13 @@ import { Horse, AuctionHistory } from '../types/horse';
  * @returns Transformed horse data in the frontend format
  */
 export function transformHorseData(apiData: any): Horse {
-  // 安定したIDを生成（IDがない場合）
-  const horseId = apiData.id 
-    ? String(apiData.id)
-    : `horse-${apiData.name ? apiData.name.replace(/\s+/g, '-').toLowerCase() : 'unknown'}-${Date.now()}`;
+  // バックエンドから提供されるIDを使用
+  // フロントエンドでは一時的なIDを生成せず、バックエンドのIDに依存する
+  const horseId = apiData.id ? String(apiData.id) : '';
 
   // 必須フィールドに適切なデフォルト値を設定
   const transformed: Horse = {
+    // IDはバックエンドで管理されるため、存在しない場合は空文字列を設定
     id: horseId,
     name: apiData.name || '不明な馬名',
     sex: Array.isArray(apiData.sex) ? apiData.sex[0] || '' : (apiData.sex || ''),
@@ -37,9 +37,10 @@ export function transformHorseData(apiData: any): Horse {
   if (apiData.auction_history && Array.isArray(apiData.auction_history)) {
     // 配列形式の履歴データを処理
     transformed.auction_history = apiData.auction_history.map((history: any, index: number) => ({
-      id: history.id || `history-${horseId}-${index}`,
+      // 履歴IDもバックエンドで管理されるため、存在しない場合は空文字列を設定
+      id: history.id || '',
       horse_id: horseId,
-      auction_date: history.auction_date || (Array.isArray(apiData.auction_date) ? apiData.auction_date[index] : apiData.auction_date) || '',
+      auction_date: history.auction_date || (Array.isArray(apiData.auction_date) ? apiData.auction_date[index] || '' : apiData.auction_date || ''),
       sold_price: history.sold_price || null,
       total_prize_start: history.total_prize_start || 0,
       total_prize_latest: history.total_prize_latest || 0,
@@ -100,10 +101,14 @@ export function transformHorseData(apiData: any): Horse {
 }
 
 /**
- * Transforms an array of horse data
+ * Transforms an array of horse data from the API
  * @param data Array of horse data from the API
  * @returns Array of transformed horse data
  */
 export function transformHorseArray(data: any[]): Horse[] {
-  return data.map(horse => transformHorseData(horse));
+  if (!Array.isArray(data)) {
+    console.error('Expected an array of horse data, received:', data);
+    return [];
+  }
+  return data.map(horseData => transformHorseData(horseData));
 }

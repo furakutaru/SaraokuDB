@@ -11,7 +11,7 @@ import {
 } from '../types/api';
 
 // 環境変数からAPIのベースURLを取得、デフォルトは開発環境用
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 // Axiosインスタンスの作成
 const apiClient: AxiosInstance = axios.create({

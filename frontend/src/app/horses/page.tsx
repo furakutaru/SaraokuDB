@@ -25,6 +25,12 @@ interface Horse {
   comment: string;
   created_at: string;
   updated_at: string;
+  sold_price?: number | null;
+  seller?: string;
+  auction_date?: string;
+  total_prize_start?: number;
+  total_prize_latest?: number;
+  is_unsold?: boolean;
 }
 
 interface AuctionHistory {
@@ -79,28 +85,113 @@ export default function HorsesPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // 馬データとオークション履歴を並行して取得
-      const [horsesRes, auctionHistoriesRes] = await Promise.all([
-        fetch('/data/horses.json'),
-        fetch('/data/auction_history.json')
-      ]);
-
-      if (!horsesRes.ok || !auctionHistoriesRes.ok) {
-        throw new Error('データの取得に失敗しました');
+      
+      // バックエンドAPIから馬データを取得
+      const response = await fetch('http://localhost:8001/horses/?limit=100');
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error:', errorData);
+        throw new Error(errorData.message || 'データの取得に失敗しました');
       }
 
-      const [horses, auctionHistories] = await Promise.all([
-        horsesRes.json(),
-        auctionHistoriesRes.json()
-      ]);
-
-      // デバッグ用: データを出力
-      console.log('読み込まれた馬の数:', horses.length);
-      console.log('読み込まれたオークション履歴の数:', auctionHistories.length);
+      const result = await response.json();
+      const horses = result.data || [];
+      
+      console.log('APIから取得した馬の数:', horses.length);
+      
+      // オークション履歴を馬データから抽出
+      const auctionHistories = horses.flatMap((horse: any) => {
+        if (!horse.auction_date || !Array.isArray(horse.auction_date)) return [];
+        
+        return horse.auction_date.map((date: string, index: number) => {
+          // 販売価格を取得（配列の場合はインデックスでアクセス、そうでなければそのまま使用）
+          const soldPrice = Array.isArray(horse.sold_price) 
+            ? (index < horse.sold_price.length ? horse.sold_price[index] : null)
+            : horse.sold_price;
+            
+          // 販売者の取得
+          const seller = Array.isArray(horse.seller) 
+            ? (index < horse.seller.length ? horse.seller[index] : '')
+            : horse.seller || '';
+            
+          // コメントの取得
+          const comment = Array.isArray(horse.comment)
+            ? (index < horse.comment.length ? horse.comment[index] : '')
+            : horse.comment || '';
+            
+          return {
+            id: `${horse.id}-${index}`,
+            horse_id: horse.id,
+            auction_date: date,
+            sold_price: soldPrice,
+            total_prize_start: horse.total_prize_start || 0,
+            total_prize_latest: horse.total_prize_latest || 0,
+            weight: null,
+            seller: seller,
+            is_unsold: soldPrice === null || soldPrice === undefined || soldPrice === 0,
+            comment: comment,
+            created_at: horse.created_at || new Date().toISOString()
+          };
+        });
+      });
+      
+      // 馬データを整形
+      const formattedHorses = horses.map((horse: any) => {
+        // 販売価格を取得（配列の場合は最初の要素、数値の場合はそのまま）
+        const soldPrice = Array.isArray(horse.sold_price) 
+          ? (horse.sold_price.length > 0 ? horse.sold_price[0] : null)
+          : horse.sold_price;
+          
+        return {
+          ...horse,
+          // 配列フィールドを単一値に変換（最初の要素を使用）
+          sex: Array.isArray(horse.sex) ? horse.sex[0] : horse.sex,
+          age: Array.isArray(horse.age) ? horse.age[0] : horse.age,
+          auction_date: Array.isArray(horse.auction_date) ? horse.auction_date[0] : horse.auction_date,
+          sold_price: soldPrice,
+          seller: Array.isArray(horse.seller) ? horse.seller[0] : horse.seller,
+          comment: Array.isArray(horse.comment) ? horse.comment[0] : horse.comment,
+          is_unsold: soldPrice === null || soldPrice === undefined || soldPrice === 0,
+        };
+      });
+      
+      console.log('フォーマット済み馬データ:', formattedHorses.slice(0, 3));
       
       // 馬データとオークション履歴を結合
+      const horsesWithAuctionInfo = formattedHorses.map((horse: Horse) => {
+        // 最新のオークション履歴を取得
+        const latestAuction = auctionHistories
+          .filter((ah: AuctionHistory) => ah.horse_id === horse.id)
+          .sort((a: AuctionHistory, b: AuctionHistory) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0];
+
+        // 価格を決定（馬オブジェクト → オークション履歴の順で優先）
+        const soldPrice = horse.sold_price !== undefined ? horse.sold_price : 
+                        (latestAuction?.sold_price !== undefined ? latestAuction.sold_price : null);
+        
+        // 主取りかどうかを判定（明示的に設定されていない場合は不明として扱う）
+        const isUnsold = horse.is_unsold !== undefined ? horse.is_unsold : 
+                        (latestAuction?.is_unsold !== undefined ? latestAuction.is_unsold : null);
+
+        // 価格が取得できず、主取りフラグも不明な場合はエラー
+        if (soldPrice === null && isUnsold === null) {
+          console.error(`価格情報が不足しています: ${horse.name} (ID: ${horse.id})`);
+        }
+
+        return {
+          ...horse,
+          auction_date: latestAuction?.auction_date || horse.auction_date || '',
+          sold_price: soldPrice,
+          seller: latestAuction?.seller || horse.seller || 'Unknown',
+          is_unsold: isUnsold,
+          total_prize_start: latestAuction?.total_prize_start || horse.total_prize_start || 0,
+          total_prize_latest: latestAuction?.total_prize_latest || horse.total_prize_latest || 0,
+          weight: latestAuction?.weight || horse.weight || null
+        };
+      });
+
       setData({
-        horses,
+        horses: horsesWithAuctionInfo,
         auctionHistories,
         metadata: {
           last_updated: new Date().toISOString(),
@@ -158,15 +249,23 @@ export default function HorsesPage() {
       .filter(ah => ah.horse_id === horse.id)
       .sort((a, b) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0];
 
+    // 馬オブジェクトのsold_priceを優先し、なければオークション履歴から取得
+    const soldPrice = horse.sold_price !== undefined ? horse.sold_price : 
+                     (latestAuction?.sold_price || null);
+    
+    // 主取りかどうかを判定
+    const isUnsold = horse.is_unsold !== undefined ? horse.is_unsold : 
+                    (soldPrice === null || soldPrice === 0);
+
     return {
       ...horse,
-      auction_date: latestAuction?.auction_date || '',
-      sold_price: latestAuction?.sold_price || null,
-      seller: latestAuction?.seller || 'Unknown',
-      is_unsold: latestAuction?.is_unsold || false,
-      total_prize_start: latestAuction?.total_prize_start || 0,
-      total_prize_latest: latestAuction?.total_prize_latest || 0,
-      weight: latestAuction?.weight || null
+      auction_date: latestAuction?.auction_date || horse.auction_date || '',
+      sold_price: soldPrice,
+      seller: latestAuction?.seller || horse.seller || 'Unknown',
+      is_unsold: isUnsold,
+      total_prize_start: latestAuction?.total_prize_start || horse.total_prize_start || 0,
+      total_prize_latest: latestAuction?.total_prize_latest || horse.total_prize_latest || 0,
+      weight: latestAuction?.weight || horse.weight || null
     };
   });
 
@@ -346,13 +445,11 @@ export default function HorsesPage() {
                     <div className="mt-auto pt-2 border-t border-gray-100">
                       <div className="flex justify-between items-center">
                         <span className={`inline-block px-2 py-1 text-xs rounded ${
-                          'is_unsold' in horse && horse.is_unsold
+                          horse.is_unsold
                             ? 'bg-gray-100 text-gray-800' 
                             : 'bg-blue-100 text-blue-800'
                         }`}>
-                          {'is_unsold' in horse && horse.is_unsold 
-                            ? '主取り' 
-                            : `落札: ¥${('sold_price' in horse && horse.sold_price) ? horse.sold_price.toLocaleString() : '0'}`}
+                          {displayPrice(horse.sold_price, horse.is_unsold)}
                         </span>
                         
                         {horse.disease_tags && horse.disease_tags.length > 0 && (

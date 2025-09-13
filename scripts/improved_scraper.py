@@ -18,6 +18,7 @@ import re
 import sys
 import time
 import traceback
+import uuid
 import urllib.parse
 import uuid
 from typing import List, Optional, Dict, Any, Tuple, Union, Callable
@@ -35,10 +36,77 @@ if str(project_root) not in sys.path:
 # バックエンドモジュールのインポート状態
 BACKEND_AVAILABLE = False
 
-# バックエンドモジュールのモック関数を定義
-def save_horse(*args, **kwargs):
-    print("バックエンドモジュールが利用できないため、データは保存されません")
-    return None
+# 馬データを保存する関数
+def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    馬データをJSONファイルに保存する
+    
+    Args:
+        horse_data: 保存する馬データの辞書
+        
+    Returns:
+        Dict: 保存結果を含む辞書
+    """
+    try:
+        # 保存先ディレクトリが存在するか確認し、なければ作成
+        data_dir = Path('static-frontend/public/data')
+        data_dir.mkdir(exist_ok=True, parents=True)
+        
+        # 保存先ファイルパス
+        json_file = data_dir / 'horses.json'
+        
+        # 必須フィールドが存在することを確認
+        required_fields = ['id', 'name', 'sex', 'age', 'sire', 'dam', 'damsire', 'jbis_url']
+        for field in required_fields:
+            if field not in horse_data or not horse_data[field]:
+                horse_data[field] = ''  # 必須フィールドがなければ空文字を設定
+        
+        # 既存のデータを読み込む（存在する場合）
+        if json_file.exists():
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    existing_data = json.load(f)
+                    if not isinstance(existing_data, list):
+                        existing_data = []
+            except (json.JSONDecodeError, FileNotFoundError):
+                existing_data = []
+        else:
+            existing_data = []
+        
+        # 馬IDが既存のデータに存在するか確認
+        horse_id = horse_data.get('id')
+        if not horse_id:
+            # IDがなければ新規生成
+            horse_id = str(uuid.uuid4())
+            horse_data['id'] = horse_id
+            print(f"[DEBUG] 新しいIDを生成しました: {horse_id}")
+        
+        # 既存の馬データを更新または新規追加
+        updated = False
+        for i, horse in enumerate(existing_data):
+            if str(horse.get('id')) == str(horse_id):
+                # 既存の馬データを更新（IDはそのまま）
+                existing_data[i].update(horse_data)
+                updated = True
+                break
+                
+        if not updated:
+            # 新しい馬データを追加
+            existing_data.append(horse_data)
+        
+        # データをJSONファイルに保存
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(existing_data, f, ensure_ascii=False, indent=2)
+        
+        print(f"[INFO] 馬データを保存しました: {horse_data.get('name')} (ID: {horse_id})")
+        return {'success': True, 'id': horse_id, 'action': 'updated' if updated else 'created'}
+        
+    except Exception as e:
+        print(f"[ERROR] 馬データの保存中にエラーが発生しました: {str(e)}")
+        return {'error': str(e)}
+        
+    except Exception as e:
+        return {'error': str(e), 'traceback': traceback.format_exc()}
 
 def save_auction_history(*args, **kwargs):
     print("バックエンドモジュールが利用できないため、オークション履歴は保存されません")
@@ -1735,6 +1803,9 @@ class ImprovedRakutenScraper:
             # 馬の基本情報を抽出
             horse_info = {}
             
+            # 馬IDを追加
+            horse_info['id'] = horse_id
+            
             # 馬名を取得
             name_elem = soup.find('h1', class_=lambda c: c and 'horse-name' in c.lower())
             if name_elem:
@@ -1877,13 +1948,56 @@ def setup_logging(debug=False):
     return root_logger
 
 
+def load_existing_horses(output_dir: Path) -> List[Dict[str, Any]]:
+    """既存の馬データを読み込む"""
+    output_path = output_dir / 'horses.json'
+    if output_path.exists():
+        try:
+            with open(output_path, 'r', encoding='utf-8') as f:
+                existing_data = json.load(f)
+                if not isinstance(existing_data, list):
+                    return []
+                return existing_data
+        except (json.JSONDecodeError, FileNotFoundError):
+            return []
+    return []
+
+def save_horses_to_file(horses: List[Dict[str, Any]], output_path: Path) -> bool:
+    """馬データをファイルに保存する"""
+    try:
+        # 必須フィールドを確認
+        required_fields = ['id', 'name', 'sex', 'age', 'sire', 'dam', 'damsire', 'jbis_url']
+        
+        # 各馬のデータを検証して必須フィールドを追加
+        validated_horses = []
+        for horse in horses:
+            # 馬IDがなければ新規生成
+            if 'id' not in horse or not horse['id']:
+                horse['id'] = str(uuid.uuid4())
+            
+            # 必須フィールドがなければ空文字を設定
+            for field in required_fields:
+                if field not in horse or not horse[field]:
+                    horse[field] = ''
+            
+            validated_horses.append(horse)
+        
+        # ファイルに保存
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(validated_horses, f, ensure_ascii=False, indent=2)
+        
+        return True
+    except Exception as e:
+        logger.error(f'馬データの保存中にエラーが発生しました: {e}')
+        return False
+
 def main():
     # コマンドライン引数のパース
     parser = argparse.ArgumentParser(description='楽天競馬オークションのスクレイピング')
     parser.add_argument('--debug', action='store_true', help='デバッグモードで実行')
     parser.add_argument('--no-cache', action='store_true', help='キャッシュを使用しない')
     parser.add_argument('--max-pages', type=int, default=0, help='最大取得ページ数（0は無制限）')
-    parser.add_argument('--output', type=str, default='output.json', help='出力ファイル名')
+    parser.add_argument('--output', type=str, default='horses.json', help='出力ファイル名')
     parser.add_argument('--threads', type=int, default=5, help='並列スレッド数')
     parser.add_argument('--horse-id', type=str, help='特定の馬IDのみを処理する')
     args = parser.parse_args()
@@ -1904,8 +2018,14 @@ def main():
         scraper = ImprovedRakutenScraper(config)
         
         # 出力ディレクトリを設定（フロントエンドのpublic/dataディレクトリに保存）
-        output_dir = Path('../static-frontend/public/data')
+        script_dir = Path(__file__).parent.parent
+        output_dir = script_dir / 'static-frontend' / 'public' / 'data'
         output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / args.output
+        
+        # 既存の馬データを読み込む
+        existing_horses = load_existing_horses(output_dir)
+        existing_horses_map = {horse.get('id'): horse for horse in existing_horses if 'id' in horse}
         
         # 特定の馬IDが指定されている場合
         if args.horse_id:
@@ -1913,23 +2033,26 @@ def main():
             horse_info = scraper.scrape_horse_details(args.horse_id)
             
             if horse_info:
-                # 結果をJSONファイルに保存（常にhorses.jsonに保存）
-                output_path = output_dir / 'horses.json'
-                # シリアライズ可能な形式に変換
-                serializable_data = []
+                # 既存のデータを更新または追加
                 for horse in horse_info:
-                    # 各馬の情報をコピー
-                    horse_data = horse.copy()
-                    # race_recordsが存在する場合はそのまま含める
-                    if 'race_records' in horse and hasattr(horse['race_records'], 'get'):
-                        horse_data['race_records'] = horse['race_records']
-                    serializable_data.append(horse_data)
+                    horse_id = horse.get('id')
+                    if horse_id and horse_id in existing_horses_map:
+                        # 既存のデータを更新
+                        existing_horses_map[horse_id].update(horse)
+                    else:
+                        # 新しい馬を追加
+                        if not horse_id:
+                            horse_id = str(uuid.uuid4())
+                            horse['id'] = horse_id
+                        existing_horses_map[horse_id] = horse
                 
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    json.dump(serializable_data, f, ensure_ascii=False, indent=2)
-                logger.info(f'馬情報を {output_path} に保存しました (race_recordsを含む)')
-                saved_count = len(serializable_data)
-                logger.info(f"{saved_count}頭の馬情報を保存しました")
+                # 更新されたデータを保存
+                updated_horses = list(existing_horses_map.values())
+                if save_horses_to_file(updated_horses, output_path):
+                    logger.info(f'馬情報を {output_path} に保存しました ({len(updated_horses)}頭)')
+                else:
+                    logger.error('馬情報の保存に失敗しました')
+                    return 1
             else:
                 logger.error('馬情報の取得に失敗しました')
                 return 1
@@ -1939,28 +2062,37 @@ def main():
             results = scraper.scrape_horse_list(max_pages=args.max_pages)
             
             if results:
-                # 結果をJSONファイルに保存（常にhorses.jsonに保存）
-                output_path = output_dir / 'horses.json'
-                # シリアライズ可能な形式に変換
-                serializable_data = []
+                # 既存のデータを更新または追加
                 for horse in results:
-                    # 各馬の情報をコピー
-                    horse_data = horse.copy()
-                    # race_records が存在する場合はリスト形式に変換
-                    if 'race_records' in horse:
-                        if isinstance(horse['race_records'], (list, tuple)):
-                            horse_data['race_records'] = list(horse['race_records'])
-                        elif hasattr(horse['race_records'], 'get'):
-                            horse_data['race_records'] = [horse['race_records']]
-                        else:
-                            horse_data['race_records'] = []
-                    serializable_data.append(horse_data)
+                    # 馬IDを抽出（detail_urlから）
+                    detail_url = horse.get('detail_url', '')
+                    horse_id = None
+                    
+                    # URLからIDを抽出（例: https://auction.keiba.rakuten.co.jp/item/14927 から 14927 を抽出）
+                    if detail_url and '/item/' in detail_url:
+                        horse_id = detail_url.split('/')[-1].strip()
+                    
+                    # IDがなければ新規生成
+                    if not horse_id:
+                        horse_id = str(uuid.uuid4())
+                    
+                    horse['id'] = horse_id
+                    
+                    # 既存のデータを更新または追加
+                    if horse_id in existing_horses_map:
+                        # 既存のデータを更新（新しいデータで上書き）
+                        existing_horses_map[horse_id].update(horse)
+                    else:
+                        # 新しい馬を追加
+                        existing_horses_map[horse_id] = horse
                 
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    json.dump(serializable_data, f, ensure_ascii=False, indent=2)
-                logger.info(f'スクレイピング結果を {output_path} に保存しました (race_recordsを含む)')
-                saved_count = len(serializable_data)
-                logger.info(f"{saved_count}頭の馬情報を保存しました")
+                # 更新されたデータを保存
+                updated_horses = list(existing_horses_map.values())
+                if save_horses_to_file(updated_horses, output_path):
+                    logger.info(f'スクレイピング結果を {output_path.absolute()} に保存しました ({len(updated_horses)}頭)')
+                else:
+                    logger.error('スクレイピング結果の保存に失敗しました')
+                    return 1
                 
                 # 失敗した馬がいる場合は分析
                 if hasattr(scraper, 'failed_horses') and scraper.failed_horses:
