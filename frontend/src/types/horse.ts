@@ -24,7 +24,8 @@ export interface ImageUrl {
 }
 
 export interface Horse {
-  id: string;
+  id: string;  // データベースのID（数値）
+  auction_id?: string;  // オークションサイトのID（文字列）
   name: string;
   sex: string;
   age: number;

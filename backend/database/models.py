@@ -11,6 +11,7 @@ class Horse(Base):
     __tablename__ = 'horses'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
+    auction_id = Column(String(20), unique=True, index=True, nullable=True)  # オークションサイトの数値ID
     name = Column(String(100), nullable=False)  # 馬名（カタカナのみ）
     sex = Column(Text)  # 性別履歴（JSON配列文字列: ["牡", "牝", ...]）
     age = Column(Text)  # 年齢履歴（JSON配列文字列: [3, 4, ...]）
