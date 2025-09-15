@@ -73,13 +73,21 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
         else:
             existing_data = []
         
-        # 馬IDが既存のデータに存在するか確認
+        # 馬IDが指定されていない場合はエラー
         horse_id = horse_data.get('id')
         if not horse_id:
-            # IDがなければ新規生成
-            horse_id = str(uuid.uuid4())
+            error_msg = "馬IDが指定されていません。オークションページのIDを指定してください"
+            print(f"[ERROR] {error_msg}")
+            return {'error': error_msg}
+            
+        # 数値IDに変換（文字列の場合は数値に、既に数値の場合はそのまま）
+        try:
+            horse_id = str(int(horse_id))  # 数値に変換してから文字列に
             horse_data['id'] = horse_id
-            print(f"[DEBUG] 新しいIDを生成しました: {horse_id}")
+        except (ValueError, TypeError) as e:
+            error_msg = f"無効な馬ID形式です: {horse_id}"
+            print(f"[ERROR] {error_msg}")
+            return {'error': error_msg}
         
         # 既存の馬データを更新または新規追加
         updated = False
@@ -1218,15 +1226,15 @@ class ImprovedRakutenScraper:
         
         return None
 
-    def _extract_detail_url(self, card) -> Optional[str]:
+    def _extract_detail_url(self, card) -> Optional[Tuple[str, str]]:
         """
-        馬の詳細ページのURLを抽出する
+        馬の詳細ページのURLと馬IDを抽出する
         
         Args:
             card: 馬情報を含むHTML要素（BeautifulSoupオブジェクト）
             
         Returns:
-            Optional[str]: 詳細ページのURL、抽出に失敗した場合はNone
+            Optional[Tuple[str, str]]: (詳細ページのURL, 馬ID)のタプル。抽出に失敗した場合はNone
         """
         try:
             # 馬名のリンクから相対URLを取得（複数のクラス名に対応）
@@ -1248,7 +1256,17 @@ class ImprovedRakutenScraper:
                     # 相対URLを絶対URLに変換
                     full_url = urljoin(self.base_url, detail_path)
                     self.logger.debug(f"絶対URLに変換: {full_url}")
-                    return full_url
+                    
+                    # URLから数値の馬IDを抽出（例: /item/12345 から 12345 を抽出）
+                    import re
+                    match = re.search(r'/(\d+)(?:/|$)', full_url)
+                    if match:
+                        horse_id = match.group(1)
+                        self.logger.debug(f"抽出した馬ID: {horse_id}")
+                        return (full_url, horse_id)
+                    else:
+                        self.logger.warning(f"URLから馬IDを抽出できませんでした: {full_url}")
+                        return (full_url, None)
                 else:
                     self.logger.warning("馬名リンクにhref属性がありません")
             else:
@@ -1275,11 +1293,14 @@ class ImprovedRakutenScraper:
         try:
             self.logger.info(f"[{index}/{total}] 馬情報の抽出を開始")
             
-            # 1. 詳細ページのURLを抽出
-            detail_url = self._extract_detail_url(card)
-            if not detail_url:
+            # 1. 詳細ページのURLと馬IDを抽出
+            detail_info = self._extract_detail_url(card)
+            if not detail_info:
                 self.logger.warning(f"詳細ページURLの抽出に失敗しました")
                 return None
+                
+            detail_url, horse_id = detail_info
+            self.logger.debug(f"抽出した馬ID: {horse_id}, 詳細URL: {detail_url}")
                 
             # 2. 詳細ページのHTMLを取得
             detail_html = self._fetch_html(detail_url, use_cache=True)
@@ -1312,7 +1333,14 @@ class ImprovedRakutenScraper:
                 
             self.logger.debug(f"馬名を抽出: {name}")
             
-            horse_info = {'name': name, 'detail_url': detail_url}
+            # 基本情報を辞書に格納
+            horse_info = {
+                'id': horse_id,  # データベース用のID（後で自動採番される）
+                'auction_id': horse_id,  # オークションサイトの数値ID
+                'name': name,
+                'detail_url': detail_url,
+                'scraped_at': datetime.now().isoformat()
+            }
             
             # 基本情報テーブルから情報を抽出
             info_table = detail_soup.find('table', class_=lambda c: c and 'horse-info' in c.lower())

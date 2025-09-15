@@ -349,12 +349,28 @@ def save_horse(horse_data: Dict[str, Any], data_dir: str = 'static-frontend/publ
         raise
 
 def save_auction_history(auction_data, data_dir='static-frontend/public/data'):
-    "Save auction history data to a JSON file"
+    """オークション履歴をJSONファイルに保存する
+    
+    Args:
+        auction_data: 保存するオークション履歴データ
+        data_dir: データディレクトリのパス
+        
+    Returns:
+        bool: 保存に成功した場合はTrue、失敗した場合はFalse
+    """
     try:
         # 必須フィールドの確認
         required_fields = ['horse_id', 'auction_date', 'sold_price']
         if not all(field in auction_data for field in required_fields):
             print("[ERROR] 必須フィールドが不足しています")
+            return False
+            
+        # horse_idが数値IDであることを確認
+        try:
+            horse_id = str(int(auction_data['horse_id']))  # 数値に変換してから文字列に
+            auction_data['horse_id'] = horse_id
+        except (ValueError, TypeError) as e:
+            print(f"[ERROR] 無効な馬ID形式です: {auction_data['horse_id']}")
             return False
             
         # 保存先ディレクトリが存在するか確認し、なければ作成

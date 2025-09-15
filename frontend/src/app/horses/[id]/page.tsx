@@ -152,69 +152,70 @@ async function getHorseData(horseId: number): Promise<{ horse: Horse | null; err
   }
 
   try {
-    // 静的ファイルからデータを取得
-    const response = await fetch('/data/horses_history.json');
+    // 両方のJSONファイルからデータを取得
+    const [historyResponse, horsesResponse] = await Promise.all([
+      fetch('/data/horses_history.json'),
+      fetch('/data/horses.json')
+    ]);
     
-    if (!response.ok) {
-      throw new Error(`データの取得に失敗しました (${response.status} ${response.statusText})`);
+    if (!historyResponse.ok || !horsesResponse.ok) {
+      throw new Error(`データの取得に失敗しました (${historyResponse.status} ${horsesResponse.status})`);
     }
     
-    const rawHorses = await response.json();
+    const [historyData, horsesData] = await Promise.all([
+      historyResponse.json(),
+      horsesResponse.json()
+    ]);
     
-    // データを変換してから検索
-    const horseData = rawHorses.find((h: any) => {
-      // IDはURLから抽出するか、配列のインデックス+1
-      if (h.detail_url) {
-        const idFromUrl = parseInt(h.detail_url.split('/').pop() || '');
-        return idFromUrl === horseId;
-      }
-      return false;
-    });
-    
-    if (!horseData) {
-      throw new Error('指定された馬のデータが見つかりません');
+    // 馬の基本情報を検索
+    const horseBaseData = horsesData.find((h: any) => h.id === horseId);
+    if (!horseBaseData) {
+      throw new Error('指定された馬の基本データが見つかりません');
     }
     
-      // デバッグ用に元データをログ出力
-    console.log('元の馬データ:', horseData);
+    // 履歴情報を検索（IDでマッチング）
+    const horseHistoryData = historyData.find((h: any) => h.id === horseId);
     
-    // データをHorse型に変換
+    // デバッグ用に元データをログ出力
+    console.log('基本データ:', horseBaseData);
+    console.log('履歴データ:', horseHistoryData);
+    
+    // データをマージしてHorse型に変換
     const horse: Horse = {
       id: horseId,
-      name: horseData.name || '不明',
-      sex: horseData.sex || '不明',
-      age: horseData.age?.toString() || '0',
+      name: horseBaseData.name || '不明',
+      sex: horseBaseData.sex || '不明',
+      age: horseBaseData.age?.toString() || '0',
       color: '不明',
-      birthday: horseData.birthday || '不明',
+      birthday: horseBaseData.birthday || '不明',
       history: [{
-        auction_date: horseData.auction_date || new Date().toISOString().split('T')[0],
-        name: horseData.name || '不明',
-        sex: horseData.sex || '不明',
-        age: horseData.age?.toString() || '0',
-        seller: horseData.seller || '不明',
-        race_record: horseData.race_record || '未出走',
-        comment: horseData.comment || 'コメントはありません',
-        sold_price: horseData.sold_price !== undefined ? Number(horseData.sold_price) : null,
-        total_prize_start: horseData.total_prize_start || 0,
-        unsold: horseData.unsold || false,
-        detail_url: horseData.detail_url || '',
-        primary_image: horseData.primary_image || '',
-        disease_tags: horseData.disease_tags || '',
-        weight: horseData.weight !== undefined ? Number(horseData.weight) : undefined
+        auction_date: horseHistoryData?.auction_date || new Date().toISOString().split('T')[0],
+        name: horseBaseData.name || '不明',
+        sex: horseBaseData.sex || '不明',
+        age: horseBaseData.age?.toString() || '0',
+        seller: horseHistoryData?.seller || '不明',
+        race_record: horseBaseData.race_record || '未出走',
+        comment: horseHistoryData?.comment || 'コメントはありません',
+        sold_price: horseHistoryData?.sold_price !== undefined ? Number(horseHistoryData.sold_price) : null,
+        total_prize_start: horseBaseData.total_prize_start || 0,
+        unsold: horseBaseData.unsold || false,
+        detail_url: horseBaseData.detail_url || '',
+        primary_image: horseBaseData.primary_image || '',
+        disease_tags: horseBaseData.disease_tags || '',
+        weight: horseBaseData.weight !== undefined ? Number(horseBaseData.weight) : undefined
       }],
-      sire: horseData.sire || '不明',
-      dam: horseData.dam || '不明',
-      dam_sire: horseData.damsire || '不明',
-      primary_image: horseData.primary_image || '',
-      disease_tags: horseData.disease_tags || '',
-      jbis_url: horseData.jbis_url || '',
-      // 馬体重が存在しない場合はundefinedのまま
-      weight: horseData.weight !== undefined ? Number(horseData.weight) : undefined,
-      unsold_count: horseData.unsold_count || 0,
-      total_prize_latest: horseData.total_prize_latest || 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      unsold: horseData.unsold || false
+      sire: horseBaseData.sire || '不明',
+      dam: horseBaseData.dam || '不明',
+      dam_sire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
+      primary_image: horseBaseData.primary_image || '',
+      disease_tags: horseBaseData.disease_tags || '',
+      jbis_url: horseBaseData.jbis_url || '',
+      weight: horseBaseData.weight !== undefined ? Number(horseBaseData.weight) : undefined,
+      unsold_count: horseBaseData.unsold_count || 0,
+      total_prize_latest: horseBaseData.total_prize_latest || 0,
+      created_at: horseBaseData.created_at || new Date().toISOString(),
+      updated_at: horseBaseData.updated_at || new Date().toISOString(),
+      unsold: horseBaseData.unsold || false
     };
     
     // デバッグ用に変換後のデータをログ出力

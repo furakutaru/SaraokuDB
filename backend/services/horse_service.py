@@ -19,7 +19,19 @@ class HorseService:
         self.rakuten_scraper = RakutenAuctionScraper()
     
     def create_horse(self, db: Session, horse_data: Dict) -> Horse:
-        """馬データをデータベースに保存"""
+        """
+        馬データをデータベースに保存
+        
+        Args:
+            db: データベースセッション
+            horse_data: 保存する馬データ（auction_idを含む）
+            
+        Returns:
+            Horse: 保存された馬データ
+            
+        Raises:
+            ValueError: 必須フィールドが不足している場合
+        """
         try:
             print(f"[HorseService] 受信データ: {horse_data}")
             
@@ -32,9 +44,17 @@ class HorseService:
                     except Exception as e:
                         print(f"[HorseService] レースレコードのJSON変換エラー: {str(e)}")
                         raise
-                
+            
+            # auction_idが指定されている場合は、既存の馬を検索
+            if 'auction_id' in horse_data and horse_data['auction_id']:
+                existing_horse = self.get_horse_by_auction_id(db, horse_data['auction_id'])
+                if existing_horse:
+                    # 既存の馬を更新
+                    print(f"[HorseService] 既存の馬を更新します (auction_id: {horse_data['auction_id']})")
+                    return self.update_horse(db, existing_horse.id, horse_data)
+            
             # 必須フィールドのバリデーション
-            required_fields = ['name']
+            required_fields = ['name', 'auction_id']
             for field in required_fields:
                 if field not in horse_data or not horse_data[field]:
                     raise ValueError(f"必須フィールド '{field}' が不足しています")
@@ -46,7 +66,7 @@ class HorseService:
                 db.add(horse)
                 db.commit()
                 db.refresh(horse)
-                print(f"[HorseService] 保存成功: 馬ID {horse.id}")
+                print(f"[HorseService] 保存成功: 馬ID {horse.id}, オークションID {horse.auction_id}")
                 return horse
                 
             except Exception as e:
@@ -68,6 +88,10 @@ class HorseService:
     def get_horse_by_id(self, db: Session, horse_id: int) -> Optional[Horse]:
         """IDで馬データを取得"""
         return db.query(Horse).filter(Horse.id == horse_id).first()
+        
+    def get_horse_by_auction_id(self, db: Session, auction_id: str) -> Optional[Horse]:
+        """オークションIDで馬データを取得"""
+        return db.query(Horse).filter(Horse.auction_id == auction_id).first()
     
     def get_horses_by_auction_date(self, db: Session, auction_date: str) -> List[Horse]:
         """開催日で馬データを取得"""

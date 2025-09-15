@@ -28,6 +28,10 @@ if str(project_root) not in sys.path:
 
 # Import services and models
 from database.models import Base, engine, get_db, Horse
+from services.horse_service import HorseService
+
+# Initialize services
+horse_service = HorseService()
 from scheduler.auction_scheduler import scheduler
 from pydantic import BaseModel
 from fastapi.encoders import jsonable_encoder
@@ -94,6 +98,7 @@ class RaceRecordSummary(BaseModel):
 
 class HorseResponse(BaseModel):
     id: int
+    auction_id: Optional[str] = None  # オークションサイトの数値ID
     name: str
     sex: Optional[List[str]] = None
     age: Optional[List[Union[int, str]]] = None
@@ -122,6 +127,7 @@ class HorseResponse(BaseModel):
 
 class HorseCreate(BaseModel):
     name: str
+    auction_id: Optional[str] = None  # オークションサイトの数値ID
     sex: Optional[str] = None
     age: Optional[int] = None
     sire: Optional[str] = None
@@ -368,6 +374,27 @@ async def get_horses(
             }
         )
 
+@app.get("/horses/auction/{auction_id}", response_model=HorseResponse)
+async def get_horse_by_auction_id(auction_id: str, db: Session = Depends(get_db)):
+    """オークションIDで馬データを取得
+    
+    Args:
+        auction_id: オークションサイトの数値ID
+        db: データベースセッション
+        
+    Returns:
+        HorseResponse: 馬データ
+        
+    Raises:
+        HTTPException: 馬が見つからない場合
+    """
+    horse = horse_service.get_horse_by_auction_id(db, auction_id)
+    if not horse:
+        raise HTTPException(status_code=404, detail=f"Auction ID {auction_id} の馬が見つかりません")
+    
+    # レスポンスモデルに合わせてデータを整形
+    return horse
+
 @app.get("/horses/{horse_id}", response_model=HorseResponse)
 async def get_horse(horse_id: int, db: Session = Depends(get_db)):
     """特定の馬データを取得（履歴カラムは配列で返す）"""
@@ -455,14 +482,6 @@ async def update_horse(
     # 更新後のデータを取得して返す
     return await get_horse(horse_id, db)
 
-@app.delete("/horses/{horse_id}")
-async def delete_horse(horse_id: int, db: Session = Depends(get_db)):
-    """馬データを削除"""
-    success = horse_service.delete_horse(db, horse_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="馬が見つかりません")
-    return {"message": "削除されました"}
-
 @app.post("/scrape/")
 async def scrape_horses(
     background_tasks: BackgroundTasks,
@@ -471,7 +490,7 @@ async def scrape_horses(
 ):
     """スクレイピングを実行"""
     try:
-        horses = horse_service.scrape_and_save_horses(db, auction_date)
+        horses = horse_service.scrape_and_save_horses(db, auction_date=auction_date)
         return {
             "message": f"{len(horses)}頭の馬データを取得・保存しました",
             "count": len(horses)
@@ -483,7 +502,7 @@ async def scrape_horses(
 async def update_prize_money(db: Session = Depends(get_db)):
     """全馬の賞金情報を更新"""
     try:
-        updated_count = horse_service.update_prize_money_for_all(db)
+        updated_count = horse_service.update_all_prize_money(db)
         return {
             "message": f"{updated_count}頭の馬の賞金情報を更新しました",
             "updated_count": updated_count

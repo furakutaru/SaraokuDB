@@ -44,6 +44,7 @@ def import_horses():
         
         # 馬の基本情報を準備
         horse_data = {
+            'auction_id': horse.get('id', ''),  # オークションIDを追加
             'name': horse['name'],
             'sex': json.dumps([horse.get('sex', '')]),
             'age': json.dumps([horse.get('age', 0)]),
@@ -51,18 +52,19 @@ def import_horses():
             'dam': horse.get('dam', ''),
             'dam_sire': horse.get('damsire', horse.get('dam_sire', '')),
             'race_record': json.dumps(horse.get('race_record', '')),
-            'weight': horse.get('weight'),
-            'total_prize_start': horse.get('total_prize_start', 0.0),
-            'total_prize_latest': horse.get('total_prize_latest', 0.0),
-            'sold_price': json.dumps(sold_prices) if sold_prices else None,
-            'auction_date': json.dumps(auction_dates) if auction_dates else None,
-            'seller': json.dumps(sellers) if sellers else None,
+            'weight': float(horse.get('weight', 0)) if horse.get('weight') is not None else None,
+            'total_prize_start': float(horse.get('total_prize_start', 0.0)),
+            'total_prize_latest': float(horse.get('total_prize_latest', 0.0)),
+            'sold_price': json.dumps(sold_prices) if sold_prices else '[]',
+            'auction_date': json.dumps(auction_dates) if auction_dates else '[]',
+            'seller': json.dumps(sellers) if sellers else '[]',
             'disease_tags': json.dumps(horse.get('disease_tags', [])),
-            'comment': json.dumps([entry.get('comment', '') for entry in history] if history else ''),
-            'image_url': horse.get('image_url', ''),
-            'primary_image': horse.get('primary_image', ''),
-            'unsold_count': horse.get('unsold_count', 0),
-            'created_at': horse.get('created_at', now),
+            'comment': json.dumps([entry.get('comment', '') for entry in history] if history else []),
+            'image_url': json.dumps(horse.get('image_url', {})),
+            'jbis_url': horse.get('jbis_url', ''),
+            'auction_url': horse.get('detail_url', ''),
+            'is_unsold': 1 if horse.get('is_unsold', False) else 0,
+            'created_at': now,
             'updated_at': now
         }
         
