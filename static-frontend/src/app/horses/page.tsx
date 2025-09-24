@@ -8,10 +8,35 @@ import Link from 'next/link';
 import HorseImage from '@/components/HorseImage';
 import HorseCard from '@/components/HorseCard';
 import { useRouter } from 'next/navigation';
-import { Horse as HorseType, AuctionHistory } from '@/types/horse';
+import { Horse as BaseHorse, AuctionHistory, HorseData } from '@/types/horse';
+
+// コンポーネントで使用する馬の型を定義
+interface Horse extends Omit<BaseHorse, 'race_records'> {
+  // 互換性のためのプロパティ
+  name: string;
+  sex: string;
+  age: number;
+  sire: string;
+  dam: string;
+  damsire: string;
+  auction_date?: string;
+  latest_auction?: AuctionHistory | null;
+  sold_price?: number | null;
+  seller?: string;
+  is_unsold?: boolean;
+  // BaseHorse から race_records を除外して再定義
+  race_records: {
+    total_prize_money: number;
+    last_race_date?: string;
+    last_prize_update?: string;
+  };
+}
+
+type HorseType = Horse;
 import { Header } from '@/components/Header';
 
 export default function HorsesPage() {
+  const router = useRouter();
   const [horses, setHorses] = useState<HorseType[]>([]);
   const [auctionHistory, setAuctionHistory] = useState<AuctionHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,48 +53,51 @@ export default function HorsesPage() {
       try {
         setLoading(true);
         
-        // 馬データを取得
-        const [horsesRes, historyRes] = await Promise.all([
-          fetch('/data/horses.json'),
-          fetch('/data/auction_history.json')
-        ]);
-
-        if (!horsesRes.ok || !historyRes.ok) {
+        // 統一された馬データを取得
+        const response = await fetch('/data/horses_combined.json');
+        
+        if (!response.ok) {
           throw new Error('データの取得に失敗しました');
         }
 
-        const horsesJson = await horsesRes.json();
-        const historyJson = await historyRes.json();
-
-        // 馬データを抽出（horses.jsonの構造に応じて）
-        const horsesData = (
-          (horsesJson && horsesJson.horses) || 
-          (Array.isArray(horsesJson) && horsesJson) ||
-          []
-        ).filter(Boolean); // null/undefinedを除外
-
-        // オークションデータを抽出
-        const historyData = (
-          (historyJson && historyJson.history) ||
-          (historyJson && historyJson.data) ||
-          (Array.isArray(historyJson) && historyJson) ||
-          []
-        ).filter(Boolean);
-
-        // 最新のオークション日付を取得
-        if (historyData.length > 0) {
-          const latestDate = historyData.reduce((latest: string, item: any) => {
-            const date = item.auction_date || item.date || '';
-            return date > latest ? date : latest;
-          }, '');
-          setLatestAuctionDate(latestDate);
+        const data: HorseData = await response.json();
+        
+        // メタデータから最新のオークション日を取得
+        if (data.metadata) {
+          setLatestAuctionDate(data.metadata.last_updated);
         }
         
-        console.log('Loaded horses:', horsesData);
-        console.log('Loaded history:', historyData);
-        
-        setHorses(horsesData);
-        setAuctionHistory(historyData);
+        // 馬データを取得して整形
+        const processedHorses = (data.horses || []).map(horse => {
+          // 最新のオークション情報を取得
+          const latestAuction = horse.auction_history?.length > 0 
+            ? [...horse.auction_history].sort((a, b) => 
+                new Date(b.date).getTime() - new Date(a.date).getTime()
+              )[0]
+            : null;
+          
+          // 互換性のためのプロパティを追加
+          return {
+            ...horse,
+            // 基本情報
+            name: horse.basic_info?.name || '',
+            sex: horse.basic_info?.sex || '',
+            age: horse.basic_info?.age || 0,
+            sire: horse.basic_info?.sire || '',
+            dam: horse.basic_info?.dam || '',
+            damsire: horse.basic_info?.damsire || '',
+            // オークション情報
+            latest_auction: latestAuction,
+            sold_price: latestAuction?.price || null,
+            auction_date: latestAuction?.date || '',
+            seller: latestAuction?.seller || '',
+            is_unsold: latestAuction?.is_unsold || false,
+            // レコード情報
+            race_records: horse.race_records || { total_prize_money: 0 }
+          };
+        });
+
+        setHorses(processedHorses);
         setError(null);
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -83,49 +111,51 @@ export default function HorsesPage() {
   }, []);
 
   // フィルタリングとソートを適用した馬のリストを取得
-  const filteredAndSortedHorses = (Array.isArray(horses) ? horses : [])
-    .filter(horse => {
-      if (!horse) return false;
-      
-      // 検索条件に一致するか
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = !searchTerm || 
-        (horse.name && horse.name.toLowerCase().includes(searchLower)) ||
-        (horse.sire && horse.sire.toLowerCase().includes(searchLower)) ||
-        (horse.dam && horse.dam.toLowerCase().includes(searchLower)) ||
-        (horse.damsire && horse.damsire.toLowerCase().includes(searchLower));
+  const filteredHorses = horses.filter(horse => {
+    // 検索条件に一致するか確認
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = !searchTerm || 
+      horse.name.toLowerCase().includes(searchLower) ||
+      horse.sire.toLowerCase().includes(searchLower) ||
+      horse.dam.toLowerCase().includes(searchLower) ||
+      horse.damsire.toLowerCase().includes(searchLower);
+    
+    // 最新のオークションのみ表示する場合
+    if (showOnlyLatestAuction && latestAuctionDate) {
+      return matchesSearch && horse.auction_date === latestAuctionDate.split('T')[0];
+    }
+    
+    return matchesSearch;
+  });
 
-      // 最新のオークションのみ表示する場合
-      const isLatestAuction = !showOnlyLatestAuction || 
-        !latestAuctionDate ||  // latestAuctionDateがnullの場合は全件表示
-        (horse.auction_date && horse.auction_date === latestAuctionDate) ||
-        (horse.latest_auction && horse.latest_auction.auction_date === latestAuctionDate) ||
-        (auctionHistory.some(auction => 
-          auction.horse_id === horse.id && 
-          auction.auction_date === latestAuctionDate
-        ));
-
-      return matchesSearch && isLatestAuction;
-    })
-    .sort((a, b) => {
-      // ソート順を決定
-      let comparison = 0;
-      
-      if (sortBy === 'name') {
-        comparison = (a.name || '').localeCompare(b.name || '');
-      } else if (sortBy === 'price') {
-        const priceA = a.latest_auction?.sold_price || 0;
-        const priceB = b.latest_auction?.sold_price || 0;
-        comparison = priceA - priceB;
-      } else if (sortBy === 'age') {
-        const ageA = typeof a.age === 'number' ? a.age : (typeof a.age === 'string' ? parseInt(a.age, 10) : 0);
-        const ageB = typeof b.age === 'number' ? b.age : (typeof b.age === 'string' ? parseInt(b.age, 10) : 0);
-        comparison = (ageA || 0) - (ageB || 0);
-      }
-      
-      // 降順の場合は反転
-      return sortOrder === 'desc' ? -comparison : comparison;
-    });
+  const sortedHorses = [...filteredHorses].sort((a, b) => {
+    let valueA: any, valueB: any;
+    
+    switch (sortBy) {
+      case 'name':
+        valueA = a.name;
+        valueB = b.name;
+        break;
+      case 'price':
+        valueA = a.sold_price || 0;
+        valueB = b.sold_price || 0;
+        break;
+      case 'age':
+        valueA = a.age;
+        valueB = b.age;
+        break;
+      default:
+        return 0;
+    }
+    
+    if (valueA < valueB) {
+      return sortOrder === 'asc' ? -1 : 1;
+    }
+    if (valueA > valueB) {
+      return sortOrder === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
 
   if (loading) {
     return (
@@ -169,7 +199,7 @@ export default function HorsesPage() {
         {latestAuctionDate && (
           <div className="mb-8">
             <p className="text-sm text-gray-600">
-              オークションの日付: {new Date(latestAuctionDate).toLocaleDateString('ja-JP', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'})} | {filteredAndSortedHorses.length}頭
+              オークションの日付: {new Date(latestAuctionDate).toLocaleDateString('ja-JP', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'})} | {sortedHorses.length}頭
             </p>
           </div>
         )}
@@ -230,22 +260,25 @@ export default function HorsesPage() {
         </div>
         
         {/* 馬のグリッド表示 */}
-        {filteredAndSortedHorses.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredAndSortedHorses.map((horse) => (
-              <HorseCard
-                key={horse.id}
-                horse={horse}
-                auctionHistory={auctionHistory}
-                onClick={() => window.location.href = `/horses/${horse.id}`}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-gray-600">条件に一致する馬が見つかりませんでした</p>
-          </div>
-        )}
+        <div className="mt-8">
+          {sortedHorses.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600">条件に一致する馬が見つかりませんでした</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {sortedHorses.map((horse: HorseType) => (
+                <div key={horse.id} onClick={() => router.push(`/horses/${horse.id}`)}>
+                  <HorseCard 
+                    horse={horse} 
+                    auctionHistory={horse.auction_history || []}
+                    onClick={() => router.push(`/horses/${horse.id}`)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
