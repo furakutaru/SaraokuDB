@@ -968,7 +968,7 @@ export default function AnalysisContent() {
                   className="hover:bg-blue-50"
                 >
                   <td className="px-3 py-2 font-medium text-gray-900">
-                    <Link href={`/horses/${horse.id}`} className="hover:underline text-blue-700">{horse.name}</Link>
+                    <Link href={`/horses/${String((horse as any).auction_id || horse.id)}`} className="hover:underline text-blue-700">{horse.name}</Link>
                   </td>
                   <td className="px-3 py-2">{horse.sex}</td>
                   <td className="px-3 py-2">{displayAge(horse.age)}</td>

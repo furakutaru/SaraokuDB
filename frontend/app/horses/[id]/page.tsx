@@ -146,14 +146,14 @@ function LoadingSpinner() {
  * @param horseId 取得する馬のID
  * @returns 馬データとエラー情報を含むオブジェクト
  */
-async function getHorseData(horseId: number): Promise<{ horse: Horse | null; error: string | null }> {
-  if (!horseId || isNaN(horseId) || horseId <= 0) {
+async function getHorseData(horseId: string): Promise<{ horse: Horse | null; error: string | null }> {
+  if (!horseId || typeof horseId !== 'string') {
     return { horse: null, error: '無効な馬IDです' };
   }
 
   try {
     const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-    const url = `${apiBase}/api/horses/${horseId}?_=${Date.now()}`;
+    const url = `${apiBase}/api/horses/${encodeURIComponent(horseId)}?_=${Date.now()}`;
     console.log('[horse detail] Fetch:', url);
 
     const response = await fetch(url, {
@@ -163,6 +163,163 @@ async function getHorseData(horseId: number): Promise<{ horse: Horse | null; err
       credentials: 'same-origin'
     });
     if (!response.ok) {
+      // 404 の場合は一覧からフォールバック検索
+      if (response.status === 404) {
+        console.warn('[horse detail] Not found by ID, trying fallback via /api/horses');
+        const apiBaseList = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+        // limit を大きくして取りこぼしを防ぐ
+        const listUrl = `${apiBaseList}/api/horses?limit=10000&_=${Date.now()}`;
+        const listRes = await fetch(listUrl, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+        if (listRes.ok) {
+          const listJson = await listRes.json();
+          const horses: any[] = Array.isArray(listJson?.horses) ? listJson.horses : [];
+          // まず id/auction_id で検索
+          const numId = Number(horseId);
+          let candidate = horses.find(h => (
+            (h.id === horseId) ||
+            (typeof h.id === 'number' && !isNaN(numId) && h.id === numId) ||
+            (h.auction_id && (String(h.auction_id) === String(horseId)))
+          ));
+
+          // 見つからない場合、静的データから名前等を取得して名前で突き合わせ
+          if (!candidate) {
+            try {
+              const staticRes = await fetch('/data/horses.json', { cache: 'no-store' });
+              if (staticRes.ok) {
+                const staticHorses = await staticRes.json();
+                const staticBase = Array.isArray(staticHorses)
+                  ? staticHorses.find((h: any) => String(h.id) === String(horseId) || String(h.auction_id) === String(horseId))
+                  : null;
+                const baseName = staticBase?.name?.trim();
+                const baseAge = staticBase?.age;
+                if (baseName) {
+                  const normalize = (s: any) => String(s || '')
+                    .toLowerCase()
+                    .replace(/[\s\u3000]/g, ''); // 半角/全角スペース除去
+                  // 名前一致、かつ可能なら年齢も一致を優先
+                  candidate = horses.find(h => (
+                    normalize(h.name) === normalize(baseName) &&
+                    (baseAge === undefined || baseAge === null || Number(h.age) === Number(baseAge))
+                  ));
+                  // それでもなければ、部分一致を試す
+                  if (!candidate) {
+                    candidate = horses.find(h => normalize(h.name) === normalize(baseName));
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn('[horse detail] static horses.json lookup failed:', e);
+            }
+          }
+
+          if (!candidate) {
+            // さらに見つからない場合、静的データ(staticBase)があればそれで詳細を構築して返す
+            try {
+              const staticRes = await fetch('/data/horses.json', { cache: 'no-store' });
+              if (staticRes.ok) {
+                const staticHorses = await staticRes.json();
+                const staticBase = Array.isArray(staticHorses)
+                  ? staticHorses.find((h: any) => String(h.id) === String(horseId) || String(h.auction_id) === String(horseId))
+                  : null;
+                if (staticBase) {
+                  const historyEntry: HorseHistory = {
+                    auction_date: staticBase.auction_date || new Date().toISOString().split('T')[0],
+                    name: staticBase.name || '不明',
+                    sex: staticBase.sex || '不明',
+                    age: String(staticBase.age ?? '0'),
+                    seller: staticBase.seller || '不明',
+                    race_record: staticBase.race_record || '未出走',
+                    comment: staticBase.comment || '',
+                    sold_price: staticBase.sold_price ?? null,
+                    total_prize_start: staticBase.total_prize_start ?? 0,
+                    unsold: (staticBase.unsold ?? false) || (staticBase.is_unsold ?? false),
+                    detail_url: staticBase.auction_url || '',
+                    primary_image: staticBase.primary_image || staticBase.image_url || '',
+                    disease_tags: Array.isArray(staticBase.disease_tags) ? staticBase.disease_tags.join(',') : (staticBase.disease_tags || ''),
+                    weight: staticBase.weight
+                  };
+
+                  const horse: Horse = {
+                    id: staticBase.id ?? horseId,
+                    name: staticBase.name || '不明',
+                    sex: staticBase.sex || '不明',
+                    age: String(staticBase.age ?? '0'),
+                    color: staticBase.color || '不明',
+                    birthday: staticBase.birthday || '不明',
+                    history: [historyEntry],
+                    sire: staticBase.sire || '不明',
+                    dam: staticBase.dam || '不明',
+                    dam_sire: staticBase.dam_sire || staticBase.damsire || '不明',
+                    primary_image: staticBase.primary_image || staticBase.image_url || '',
+                    disease_tags: Array.isArray(staticBase.disease_tags) ? staticBase.disease_tags.join(',') : (staticBase.disease_tags || ''),
+                    jbis_url: staticBase.jbis_url || '',
+                    weight: staticBase.weight,
+                    unsold_count: staticBase.unsold_count || 0,
+                    total_prize_latest: staticBase.total_prize_latest ?? 0,
+                    created_at: staticBase.created_at || new Date().toISOString(),
+                    updated_at: staticBase.updated_at || new Date().toISOString(),
+                    unsold: (staticBase.unsold ?? false) || (staticBase.is_unsold ?? false)
+                  };
+
+                  console.log('[horse detail] Use static horses.json mapped horse:', horse);
+                  return { horse, error: null };
+                }
+              }
+            } catch (e) {
+              console.warn('[horse detail] static-only mapping failed:', e);
+            }
+
+            const text = await response.text();
+            console.error('[horse detail] API Error (no fallback match):', response.status, text);
+            throw new Error('馬データの取得に失敗しました');
+          }
+
+          // 一覧の1件分から詳細用オブジェクトを構築
+          const horseBaseData = candidate;
+          const historyEntry: HorseHistory = {
+            auction_date: horseBaseData.auction_date || new Date().toISOString().split('T')[0],
+            name: horseBaseData.name || '不明',
+            sex: horseBaseData.sex || '不明',
+            age: String(horseBaseData.age ?? '0'),
+            seller: horseBaseData.seller || '不明',
+            race_record: horseBaseData.race_record || '未出走',
+            comment: horseBaseData.comment || '',
+            sold_price: horseBaseData.sold_price ?? null,
+            total_prize_start: horseBaseData.total_prize_start ?? 0,
+            unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false) || (horseBaseData.unsold_count > 0),
+            detail_url: horseBaseData.auction_url || '',
+            primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
+            disease_tags: Array.isArray(horseBaseData.disease_tags) ? horseBaseData.disease_tags.join(',') : (horseBaseData.disease_tags || ''),
+            weight: horseBaseData.weight
+          };
+
+          const horse: Horse = {
+            id: horseBaseData.id ?? horseId,
+            name: horseBaseData.name || '不明',
+            sex: horseBaseData.sex || '不明',
+            age: String(horseBaseData.age ?? '0'),
+            color: horseBaseData.color || '不明',
+            birthday: horseBaseData.birthday || '不明',
+            history: [historyEntry],
+            sire: horseBaseData.sire || '不明',
+            dam: horseBaseData.dam || '不明',
+            dam_sire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
+            primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
+            disease_tags: Array.isArray(horseBaseData.disease_tags) ? horseBaseData.disease_tags.join(',') : (horseBaseData.disease_tags || ''),
+            jbis_url: horseBaseData.jbis_url || '',
+            weight: horseBaseData.weight,
+            unsold_count: horseBaseData.unsold_count || 0,
+            total_prize_latest: horseBaseData.total_prize_latest ?? 0,
+            created_at: horseBaseData.created_at || new Date().toISOString(),
+            updated_at: horseBaseData.updated_at || new Date().toISOString(),
+            unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false) || (horseBaseData.unsold_count > 0)
+          };
+
+          console.log('[horse detail] Fallback mapped horse:', horse);
+          return { horse, error: null };
+        }
+
+      }
       const text = await response.text();
       console.error('[horse detail] API Error:', response.status, text);
       throw new Error('馬データの取得に失敗しました');
@@ -191,7 +348,7 @@ async function getHorseData(horseId: number): Promise<{ horse: Horse | null; err
     };
 
     const horse: Horse = {
-      id: Number(horseBaseData.id) || horseId,
+      id: horseBaseData.id ?? horseId,
       name: horseBaseData.name || '不明',
       sex: horseBaseData.sex || '不明',
       age: String(horseBaseData.age ?? '0'),
@@ -267,28 +424,17 @@ export default function HorseDetailPage({ params }: PageProps) {
   // 馬IDをパース (Next.js 14+ のparams Promise対応)
   const horseId = useMemo(() => {
     try {
-      // params.id を直接使用（Next.jsが自動的に解決）
       const idParam = params?.id;
-      
-      // idが存在しないか無効な場合はエラー
-      if (!idParam) {
+      if (!idParam || typeof idParam !== 'string' || idParam.trim() === '') {
         throw new Error('馬IDが指定されていません');
       }
-      
-      // 数値に変換
-      const id = typeof idParam === 'string' ? parseInt(idParam, 10) : 0;
-      
-      if (isNaN(id) || id <= 0) {
-        throw new Error('無効な馬IDです');
-      }
-      
-      return id;
+      return idParam;
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : '無効な馬IDです';
       setError(errorMessage);
       setIsLoading(false);
       console.error('馬IDのパースに失敗しました:', errorMessage);
-      return 0;
+      return '';
     }
   }, [params]);
   

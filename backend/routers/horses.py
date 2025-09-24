@@ -126,9 +126,100 @@ async def get_horses(
         )
 
 @router.get("/horses/{horse_id}", response_model=HorseResponse)
-async def get_horse(horse_id: int, db: Session = Depends(get_db)):
+async def get_horse(horse_id: str, db: Session = Depends(get_db)):
     """馬IDで馬データを取得"""
-    horse = db.query(Horse).filter(Horse.id == horse_id).first()
+    # horse_id が数値なら内部ID検索、そうでなければ auction_id で検索
+    horse = None
+    # 1) 数値として内部ID検索
+    try:
+        num_id = int(horse_id)
+        horse = db.query(Horse).filter(Horse.id == num_id).first()
+    except Exception:
+        pass
+    # 2) 見つからなければ auction_id で検索（文字列一致）
+    if not horse:
+        horse = db.query(Horse).filter(Horse.auction_id == horse_id).first()
     if not horse:
         raise HTTPException(status_code=404, detail="Horse not found")
-    return horse
+
+    # NOTE: DB上は一部フィールドが JSON 配列文字列(例: "[3]", "[8500000]") として保存されている。
+    # HorseResponse は age(int), sold_price(int) を期待するため、適切に正規化して返す。
+    import json
+
+    def parse_first_int(value):
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, str):
+            s = value.strip()
+            # JSON 配列文字列 [8500000] など
+            if s.startswith('[') and s.endswith(']'):
+                try:
+                    arr = json.loads(s)
+                    if isinstance(arr, list) and len(arr) > 0:
+                        # 直近(最後)を優先
+                        last = arr[-1]
+                        return int(last) if isinstance(last, (int, float, str)) and str(last).strip('"').isdigit() else None
+                except Exception:
+                    pass
+            # 数字文字列
+            num = s.strip('"')
+            if num.isdigit():
+                return int(num)
+        return None
+
+    def parse_first_str(value):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            s = value.strip()
+            if s.startswith('[') and s.endswith(']'):
+                try:
+                    arr = json.loads(s)
+                    if isinstance(arr, list) and len(arr) > 0:
+                        # 先頭要素を採用
+                        return str(arr[0])
+                except Exception:
+                    pass
+            # そのまま
+            return value
+        return str(value)
+
+    # 正規化
+    age_norm = parse_first_int(horse.age)
+    sold_price_norm = parse_first_int(horse.sold_price)
+    auction_date_norm = parse_first_str(horse.auction_date)
+    seller_norm = parse_first_str(horse.seller)
+    sex_norm = parse_first_str(horse.sex)
+    comment_norm = parse_first_str(horse.comment)
+
+    # dam_sire -> スキーマは dam_sire 名で受けるのでそのまま
+
+    # レスポンス辞書を手動構築（Pydantic が期待するプリミティブ型に合わせる）
+    response = {
+        "id": horse.id,
+        "name": horse.name,
+        "auction_id": horse.auction_id,
+        "sex": sex_norm,
+        "age": age_norm,
+        "sire": horse.sire,
+        "dam": horse.dam,
+        "dam_sire": horse.dam_sire,
+        "race_record": horse.race_record,
+        "weight": horse.weight,
+        "total_prize_start": horse.total_prize_start,
+        "total_prize_latest": horse.total_prize_latest,
+        "sold_price": sold_price_norm,
+        "auction_date": auction_date_norm,
+        "seller": seller_norm,
+        "disease_tags": horse.disease_tags,
+        "comment": comment_norm,
+        "image_url": horse.image_url,
+        "created_at": horse.created_at,
+        "updated_at": horse.updated_at,
+    }
+
+    return response
