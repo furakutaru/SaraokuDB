@@ -1,0 +1,822 @@
+{
+  "metadata": {
+    "version": "1.1",
+    "last_updated": "2025-09-18T21:25:00+09:00",
+    "total_horses": 53,
+    "data_source": "jbis"
+  },
+  "horses": [
+    {
+      "id": "14927",
+      "basic_info": {
+        "name": "モズクレオパトラの24",
+        "sex": "牝",
+        "age": 1,
+        "sire": "モズアスコット",
+        "dam": "モズクレオパトラ",
+        "damsire": "American Pharoah",
+        "image_url": "https://keiba.r10s.jp/auction/data/item/1/250911_horse_01/1.jpg",
+        "jbis_url": "https://www.jbis.or.jp/horse/0001396668/",
+        "auction_url": "https://auction.keiba.rakuten.co.jp/item/14927",
+        "is_retired": false,
+        "retirement_date": null,
+        "disease_tags": ["跛行"]
+      },
+      "race_records": {
+        "total_prize_money": 2000000,
+        "last_race_date": null,
+        "last_prize_update": "2025-09-18T21:25:00+09:00"
+      },
+      "auction_history": [
+        {
+          "auction_date": "2025-09-10",
+          "sold_price": null,
+          "weight": 405,
+          "seller": "(株) キャピタル・システム",
+          "is_unsold": true,
+          "comment": "本馬について\n父モズアスコットはFrankel産駒の米国産馬で、安田記念とフェラブリーSに優勝。2021年からスタッドインしており、現3歳が初年度産駒となります。JRAではファウストラーゼンがホープフルS で3着に入り、弥生賞ディープインパクト記念で重賞初制覇。他にもモズナナスターがファ ンタジーSで2着、リリーフィールドはもみじSに勝ち、ファルコンSと交流重賞の兵庫チャンピオンシップでともに3着。グレイテストソングは今夏の駒場特別に勝って準オープン入り となりました。また地方競馬ではベアバッキ ューンが川崎の若武者賞と鎌倉記念、さらに 船橋の若潮スプリントに勝利して5連勝、ユアマイドリームも園田FCスプリントを制覇。2歳では浦和重賞・ルーキーズサマーCで3連勝を 収めたロードレイジングが頭角を現すなど、 産駒は父同様に芝とダートの双方で活躍中で す。\n\n一方、母系を見ますと、母モズクレ オパトラは現役時に矢作芳人厩舎の管理馬と して中央で2戦。祖母オーデュボンパークのきょうだいには米G3フロリダオークスの勝ち馬Tapicat、フラワーC2着でクラシック戦線を歩 んだエンスージアズムらが名を連ねており、 近親にはユニコーンS2着、南関東重賞2勝のデュードヴァンがいます。4代母は米G1トリプルベンドHの覇者Pohaveを産んだTrail Robbery 、5代母は米G1・3勝のTrack Robberyと筋が通っており、米G1BCクラシックを制したCat Thiefなどもこのファミリーの出身です。\n\n本 馬は、自己所有馬として今後の成長に期待を 込めて見守っておりましたが、思いの外、体 の成長が遅いことを踏まえて、所有馬の整理 を検討した結果、誠に残念ではありますが、 サラブレッドオークションへ出品とさせて頂 きます。なお、9月初めに左前を挫跖し跛行を見せましたが、経過観察で歩様は良くなって おります。それまでは、1日、約20時間の昼夜放牧を実施していました。皆様には、現状を ご理解いただき、不安のある方は必ず事前に 検査を受けるなど、ご納得をいただいた上で のご検討、ご入札をお願いし、現状渡しのノ ークレーム、ノーリターンでお願いいたしま す。"
+        }
+      ]
+    },
+    {
+      "id": "14928",
+      "basic_info": {
+        "name": "アズーロエマローネ",
+        "sex": "牡",
+        "age": 3,
+        "sire": "ハービンジャー",
+        "dam": "ガルデルスリール",
+        "damsire": "ダイワメジャー"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14929",
+      "basic_info": {
+        "name": "ウーバーミッション",
+        "sex": "牝",
+        "age": 3,
+        "sire": "ノーブルミッション",
+        "dam": "エンゼルジョーカー",
+        "damsire": "ブライアンズタイム"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14930",
+      "basic_info": {
+        "name": "エムズオルフェ",
+        "sex": "牝",
+        "age": 3,
+        "sire": "オルフェーヴル",
+        "dam": "ピエナアプローズ",
+        "damsire": "フジキセキ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14931",
+      "basic_info": {
+        "name": "エリタージュソング",
+        "sex": "牝",
+        "age": 3,
+        "sire": "ブリックスアンドモルタル",
+        "dam": "デスティニーソング",
+        "damsire": "メイショウボーラー"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14932",
+      "basic_info": {
+        "name": "グランヴァルール",
+        "sex": "牝",
+        "age": 3,
+        "sire": "リアルスティール",
+        "dam": "シェリレーヌ",
+        "damsire": "Mineshaft"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14933",
+      "basic_info": {
+        "name": "ディプタルアスール",
+        "sex": "牡",
+        "age": 3,
+        "sire": "フィエールマン",
+        "dam": "オロフィナアスール",
+        "damsire": "キンシャサノキセキ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14934",
+      "basic_info": {
+        "name": "メイショウハヤセ",
+        "sex": "牝",
+        "age": 3,
+        "sire": "ロジャーバローズ",
+        "dam": "ヴィヴァマリアンヌ",
+        "damsire": "ヘニーヒューズ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14935",
+      "basic_info": {
+        "name": "バレアレス",
+        "sex": "牡",
+        "age": 3,
+        "sire": "ナダル",
+        "dam": "チャームザワールド",
+        "damsire": "ロードカナロア"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14967",
+      "basic_info": {
+        "name": "アンボワテ",
+        "sex": "牝",
+        "age": 3,
+        "sire": "ミッキーアイル",
+        "dam": "グランドピルエット",
+        "damsire": "ロードカナロア"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14936",
+      "basic_info": {
+        "name": "パブリックスフィア",
+        "sex": "牡",
+        "age": 3,
+        "sire": "ブリックスアンドモルタル",
+        "dam": "チャリティーライン",
+        "damsire": "Manduro"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14937",
+      "basic_info": {
+        "name": "ムンディ",
+        "sex": "牝",
+        "age": 3,
+        "sire": "サトノクラウン",
+        "dam": "フライトゥヘヴン",
+        "damsire": "ヨハネスブルグ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14938",
+      "basic_info": {
+        "name": "ロベルタカリーナ",
+        "sex": "牝",
+        "age": 3,
+        "sire": "ルヴァンスレーヴ",
+        "dam": "ダイワジャンヌ",
+        "damsire": "タニノギムレット"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14939",
+      "basic_info": {
+        "name": "サンダーフレア",
+        "sex": "牝",
+        "age": 3,
+        "sire": "リアルスティール",
+        "dam": "マルモセーラ",
+        "damsire": "クロフネ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14940",
+      "basic_info": {
+        "name": "アクデニズ",
+        "sex": "牡",
+        "age": 3,
+        "sire": "ミッキースワロー",
+        "dam": "アレクサンドレッタ",
+        "damsire": "ダイワメジャー"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14941",
+      "basic_info": {
+        "name": "サマーツアー",
+        "sex": "牡",
+        "age": 3,
+        "sire": "モーリス",
+        "dam": "ラストサマー",
+        "damsire": "エンパイアメーカー"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14942",
+      "basic_info": {
+        "name": "マハーギータ",
+        "sex": "牝",
+        "age": 3,
+        "sire": "バゴ",
+        "dam": "リリックドラマ",
+        "damsire": "ステイゴールド"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14943",
+      "basic_info": {
+        "name": "バッキンガムパレス",
+        "sex": "牝",
+        "age": 3,
+        "sire": "タワーオブロンドン",
+        "dam": "プリンセスケイト",
+        "damsire": "ハードスパン"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14944",
+      "basic_info": {
+        "name": "バーミーズルビー",
+        "sex": "牝",
+        "age": 3,
+        "sire": "ブリックスアンドモルタル",
+        "dam": "ハーエミネンシー",
+        "damsire": "Successful Appeal"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14945",
+      "basic_info": {
+        "name": "コルネイユドール",
+        "sex": "牝",
+        "age": 3,
+        "sire": "マインドユアビスケッツ",
+        "dam": "アリンナ",
+        "damsire": "マツリダゴッホ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14946",
+      "basic_info": {
+        "name": "マスターライセンス",
+        "sex": "牡",
+        "age": 3,
+        "sire": "サートゥルナーリア",
+        "dam": "トップライセンス",
+        "damsire": "キンシャサノキセキ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14947",
+      "basic_info": {
+        "name": "エキゾチックガール",
+        "sex": "牝",
+        "age": 3,
+        "sire": "ダノンバラード",
+        "dam": "マイネグレヴィル",
+        "damsire": "ブライアンズタイム"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14948",
+      "basic_info": {
+        "name": "アラモアナ",
+        "sex": "牡",
+        "age": 3,
+        "sire": "ミッキーアイル",
+        "dam": "モアナ",
+        "damsire": "キンシャサノキセキ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14949",
+      "basic_info": {
+        "name": "トロワヴァレー",
+        "sex": "牡",
+        "age": 3,
+        "sire": "アルアイン",
+        "dam": "レディドーヴィル",
+        "damsire": "ファスリエフ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14950",
+      "basic_info": {
+        "name": "オドラニャソンソン",
+        "sex": "牡",
+        "age": 3,
+        "sire": "ディープブリランテ",
+        "dam": "キイレ",
+        "damsire": "フジキセキ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14951",
+      "basic_info": {
+        "name": "アッケシ",
+        "sex": "牡",
+        "age": 3,
+        "sire": "Blue Point",
+        "dam": "Ishitaki",
+        "damsire": "Interprete"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14952",
+      "basic_info": {
+        "name": "アリアルブラック",
+        "sex": "牡",
+        "age": 3,
+        "sire": "ロゴタイプ",
+        "dam": "オープンユアアイズ",
+        "damsire": "ヴィクトワールピサ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14953",
+      "basic_info": {
+        "name": "チェンジオブハート",
+        "sex": "牡",
+        "age": 3,
+        "sire": "ハービンジャー",
+        "dam": "ウーマンズハート",
+        "damsire": "ハーツクライ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14954",
+      "basic_info": {
+        "name": "マブアンドフェール",
+        "sex": "牡",
+        "age": 3,
+        "sire": "マインドユアビスケッツ",
+        "dam": "イブニングサンダー",
+        "damsire": "Morning Line"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14955",
+      "basic_info": {
+        "name": "ミッドナイトホーク",
+        "sex": "セ",
+        "age": 4,
+        "sire": "リアルスティール",
+        "dam": "レディホークフィールド",
+        "damsire": "Hawk Wing"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14956",
+      "basic_info": {
+        "name": "エムティルイス",
+        "sex": "牡",
+        "age": 2,
+        "sire": "タイセイレジェンド",
+        "dam": "タイセイレフィーノ",
+        "damsire": "ディープブリランテ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14957",
+      "basic_info": {
+        "name": "プラクシテレス",
+        "sex": "セ",
+        "age": 3,
+        "sire": "ゴールドドリーム",
+        "dam": "ビーナストリック",
+        "damsire": "キングヘイロー"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14958",
+      "basic_info": {
+        "name": "ランドチャーター",
+        "sex": "牡",
+        "age": 3,
+        "sire": "サートゥルナーリア",
+        "dam": "ルールブリタニア",
+        "damsire": "ディープインパクト"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14959",
+      "basic_info": {
+        "name": "ノクターナル",
+        "sex": "牝",
+        "age": 4,
+        "sire": "キタサンブラック",
+        "dam": "ノーバザー",
+        "damsire": "Scat Daddy"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14960",
+      "basic_info": {
+        "name": "インサイダー",
+        "sex": "セ",
+        "age": 4,
+        "sire": "イスラボニータ",
+        "dam": "アームズレングス",
+        "damsire": "ホワイトマズル"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14961",
+      "basic_info": {
+        "name": "ミニストリー",
+        "sex": "牝",
+        "age": 5,
+        "sire": "シニスターミニスター",
+        "dam": "メイショウツバクロ",
+        "damsire": "フレンチデピュティ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14962",
+      "basic_info": {
+        "name": "クレテイユ",
+        "sex": "牡",
+        "age": 5,
+        "sire": "ヴァンセンヌ",
+        "dam": "オープニングベル",
+        "damsire": "キングカメハメハ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14963",
+      "basic_info": {
+        "name": "スターキー",
+        "sex": "牡",
+        "age": 5,
+        "sire": "メイショウボーラー",
+        "dam": "ゲットミー",
+        "damsire": "アグネスデジタル"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14964",
+      "basic_info": {
+        "name": "ガーベランクイーン",
+        "sex": "牝",
+        "age": 5,
+        "sire": "ストロングリターン",
+        "dam": "ワイルドゲッツ",
+        "damsire": "ワイルドラッシュ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14965",
+      "basic_info": {
+        "name": "メモリーエフェクト",
+        "sex": "牡",
+        "age": 7,
+        "sire": "モーリス",
+        "dam": "メモリーパフィア",
+        "damsire": "ノボジャック"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14966",
+      "basic_info": {
+        "name": "ローズボウル",
+        "sex": "牡",
+        "age": 7,
+        "sire": "キズナ",
+        "dam": "オールドパサデナ",
+        "damsire": "エンパイアメーカー"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14968",
+      "basic_info": {
+        "name": "ウインボニータ",
+        "sex": "牝",
+        "age": 3,
+        "sire": "イスラボニータ",
+        "dam": "テーブルロンド",
+        "damsire": "Astronomer Royal"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14969",
+      "basic_info": {
+        "name": "ピンパンポン",
+        "sex": "牡",
+        "age": 3,
+        "sire": "Wootton Bassett",
+        "dam": "イーデンキー",
+        "damsire": "No Nay Never"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14970",
+      "basic_info": {
+        "name": "プリンスドール",
+        "sex": "牡",
+        "age": 3,
+        "sire": "レイデオロ",
+        "dam": "ユイフィーユ",
+        "damsire": "ディープインパクト"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14971",
+      "basic_info": {
+        "name": "ブルンツヴィーク",
+        "sex": "牡",
+        "age": 3,
+        "sire": "スワーヴリチャード",
+        "dam": "ヴルタヴァ",
+        "damsire": "ロードカナロア"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14972",
+      "basic_info": {
+        "name": "フィナルフェリス",
+        "sex": "牝",
+        "age": 3,
+        "sire": "イスラボニータ",
+        "dam": "ポケットチャーリー",
+        "damsire": "ジャングルポケット"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14973",
+      "basic_info": {
+        "name": "フライエフェクト",
+        "sex": "牝",
+        "age": 3,
+        "sire": "ジョーカプチーノ",
+        "dam": "コスモバタフライ",
+        "damsire": "ソングオブウインド"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14974",
+      "basic_info": {
+        "name": "メイショウアキカゼ",
+        "sex": "牝",
+        "age": 3,
+        "sire": "ダノンレジェンド",
+        "dam": "メイショウルンバ",
+        "damsire": "マツリダゴッホ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14975",
+      "basic_info": {
+        "name": "ジーティースピカ",
+        "sex": "牝",
+        "age": 4,
+        "sire": "シャンハイボビー",
+        "dam": "ロイヤルメジャー",
+        "damsire": "ダイワメジャー"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14976",
+      "basic_info": {
+        "name": "フォーマイディア",
+        "sex": "牝",
+        "age": 2,
+        "sire": "ベンバトル",
+        "dam": "ウインセレナード",
+        "damsire": "オルフェーヴル"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14977",
+      "basic_info": {
+        "name": "ワタシイノッテマス",
+        "sex": "牡",
+        "age": 2,
+        "sire": "ガルボ",
+        "dam": "グッドチョイス",
+        "damsire": "フレンチデピュティ"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14978",
+      "basic_info": {
+        "name": "トリディマイト",
+        "sex": "牡",
+        "age": 3,
+        "sire": "ダノンレジェンド",
+        "dam": "レディエントブルー",
+        "damsire": "バトルプラン"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    },
+    {
+      "id": "14979",
+      "basic_info": {
+        "name": "ヴアーサ",
+        "sex": "牡",
+        "age": 7,
+        "sire": "キズナ",
+        "dam": "ブリリアントクラン",
+        "damsire": "ロックオブジブラルタル"
+      },
+      "race_records": {
+        "total_prize_money": 0
+      },
+      "auction_history": []
+    }
+  ]
+}

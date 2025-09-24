@@ -1,40 +1,34 @@
 /** @type {import('next').NextConfig} */
-const path = require('path');
-
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8001';
-
 const nextConfig = {
-  // 静的エクスポート(output: 'export')はVercel運用では不要なので削除
-  trailingSlash: true,
+  reactStrictMode: true,
+  swcMinify: true,
   images: {
+    domains: ['localhost'],
     unoptimized: true,
   },
-  // Webpackのエイリアス設定
-  webpack: (config) => {
-    config.resolve.alias['@'] = path.resolve(__dirname, 'src');
-    return config;
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:8001/api/:path*',
+      },
+    ];
   },
-  // 環境変数をクライアントサイドで利用可能に
-  env: {
-    NEXT_PUBLIC_API_URL: API_BASE_URL,
+  // CORS設定
+  async headers() {
+    return [
+      {
+        // すべてのAPIルートに適用
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT' },
+          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
+        ],
+      },
+    ];
   },
-  // リライト設定（開発時のみ）
-  ...(process.env.NODE_ENV !== 'production' && {
-    async rewrites() {
-      return [
-        // 既存のリライトルールを保持
-        {
-          source: '/horses.json',
-          destination: '/data/horses.json',
-        },
-        // バックエンドAPIへのプロキシ設定
-        {
-          source: '/api/:path*',
-          destination: `${API_BASE_URL}/:path*`,
-        },
-      ];
-    },
-  }),
 };
 
 module.exports = nextConfig;

@@ -46,4 +46,19 @@ def get_db():
     try:
         yield db
     finally:
-        db.close() 
+        db.close()
+
+def check_db_connection():
+    db = None
+    try:
+        db = next(get_db())
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        print("データベースに接続されました")
+        return True
+    except Exception as e:
+        print(f"データベース接続エラー: {str(e)}")
+        return False
+    finally:
+        if db:
+            db.close()

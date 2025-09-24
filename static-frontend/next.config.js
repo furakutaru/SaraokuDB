@@ -13,10 +13,7 @@ const nextConfig = {
           source: '/horses.json',
           destination: '/data/horses.json',
         },
-        {
-          source: '/api/horses/:path*',
-          destination: 'http://localhost:3002/api/horses/:path*',
-        },
+        // APIルートはNext.jsのAPIルートを使用するため、リライトを削除
       ];
     },
   }),

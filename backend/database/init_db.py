@@ -1,7 +1,7 @@
 import os
 import sys
 from sqlalchemy import inspect
-from backend.database.models import Base, engine, SessionLocal
+from .models import Base, engine, SessionLocal
 
 def init_database():
     """データベースとテーブルを作成する"""

@@ -42,11 +42,11 @@ export interface Horse {
   prize_money?: PrizeMoney;
   is_unsold?: boolean;
   sold_price: number | null;
-  comment?: string;
+  unsold?: boolean;
+  seller?: string;  // 販売者情報を追加
   // 互換性のためのフィールド
   auction_history?: AuctionHistory[];
   weight?: number | null;
-  unsold?: boolean;
 }
 
 export interface Metadata {

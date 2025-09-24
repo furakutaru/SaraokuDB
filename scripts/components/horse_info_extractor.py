@@ -182,6 +182,11 @@ class HorseInfoExtractor:
             if pedigree:
                 basic_info.update(pedigree)
                 
+            # 馬体重の抽出を追加
+            weight = self._extract_weight(horse_element)
+            if weight is not None:
+                basic_info['weight'] = weight
+                
             # 詳細情報の抽出
             detail_info = {}
             

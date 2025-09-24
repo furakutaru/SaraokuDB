@@ -754,11 +754,19 @@ class AccumulativeScraper:
                 )
                 
                 if existing_horse:
-                    # 既存の馬情報を更新
-                    existing_horse.update(new_horse)
+                    # 既存の体重を保持
+                    existing_weight = existing_horse.get('weight')
+                    # 体重以外のフィールドを更新
+                    existing_horse.update({k: v for k, v in new_horse.items() if k != 'weight'})
+                    # 新しいデータに体重が含まれている場合のみ更新
+                    if 'weight' in new_horse and new_horse['weight'] is not None:
+                        existing_horse['weight'] = new_horse['weight']
+                    elif existing_weight is not None:
+                        # 新しいデータに体重が含まれていない場合は既存の体重を保持
+                        existing_horse['weight'] = existing_weight
                     updated_count += 1
-                # 新しい馬の場合はIDを割り当て
-                if not existing_horse:
+                else:
+                    # 新しい馬の場合はIDを割り当てて追加
                     new_horse['id'] = str(next_id)
                     next_id += 1
                     existing_horses.append(new_horse)

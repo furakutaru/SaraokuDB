@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
-import { Horse, AuctionHistory } from '@/types/horse';
 import path from 'path';
 import fs from 'fs/promises';
 
-// 馬データを取得
-async function getHorseData(horseId: string): Promise<Horse | null> {
+// 馬データを取得（horses_combined.jsonから取得）
+async function getHorseData(horseId: string): Promise<any | null> {
   try {
     const projectRoot = process.cwd();
-    const dataPath = path.join(projectRoot, 'public', 'data', 'horses.json');
+    const dataPath = path.join(projectRoot, 'public', 'data', 'horses_combined.json');
     
     const fileContent = await fs.readFile(dataPath, 'utf-8');
     const data = JSON.parse(fileContent);
@@ -17,58 +16,27 @@ async function getHorseData(horseId: string): Promise<Horse | null> {
       return null;
     }
     
-    return data.horses.find((h: Horse) => h.id === horseId) || null;
+    // 馬をIDで検索
+    const horse = data.horses.find((h: any) => h.id === horseId);
+    
+    if (!horse) {
+      console.error(`馬が見つかりません (ID: ${horseId})`);
+      return null;
+    }
+    
+    return horse;
   } catch (error) {
     console.error('馬データの読み込み中にエラーが発生しました:', error);
     return null;
   }
 }
 
-// オークション履歴を取得
-async function getAuctionHistory(horseId: string): Promise<AuctionHistory[]> {
-  try {
-    const projectRoot = process.cwd();
-    const dataPath = path.join(projectRoot, 'public', 'data', 'auction_history.json');
-    
-    const fileContent = await fs.readFile(dataPath, 'utf-8');
-    const data = JSON.parse(fileContent);
-    
-    if (!data?.auction_history || !Array.isArray(data.auction_history)) {
-      console.error('無効なオークションデータ形式です');
-      return [];
-    }
-    
-    return data.auction_history.filter((a: AuctionHistory) => a.horse_id === horseId)
-      .sort((a: AuctionHistory, b: AuctionHistory) => 
-        new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime()
-      );
-  } catch (error) {
-    console.error('オークションデータの読み込み中にエラーが発生しました:', error);
-    return [];
-  }
-}
-
-import { NextRequest } from 'next/server';
-
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const horseId = params.id;
-    
-    if (!horseId) {
-      return NextResponse.json(
-        { error: '馬IDが指定されていません' },
-        { status: 400 }
-      );
-    }
-    
-    // 馬データとオークション履歴を並行して取得
-    const [horse, auctionHistory] = await Promise.all([
-      getHorseData(horseId),
-      getAuctionHistory(horseId)
-    ]);
+    const horse = await getHorseData(params.id);
     
     if (!horse) {
       return NextResponse.json(
@@ -76,15 +44,32 @@ export async function GET(
         { status: 404 }
       );
     }
-    
-    // 馬データにオークション履歴を追加して返す
-    return NextResponse.json({
+
+    // オークション履歴を取得
+    const auctionHistory = horse.auction_history || [];
+
+    // フロントエンドが期待する形式でデータを整形
+    const responseData = {
       ...horse,
-      auction_history: auctionHistory
-    });
-    
+      name: horse.name || '',
+      sex: horse.sex || '',
+      age: horse.age || 0,
+      sire: horse.sire || '',
+      dam: horse.dam || '',
+      damsire: horse.damsire || '',
+      auction_history: auctionHistory,
+      race_records: horse.race_records || { total_prize_money: 0 },
+      latest_auction: horse.latest_auction || null,
+      metadata: horse.metadata || {
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        data_source: 'jbis'
+      }
+    };
+
+    return NextResponse.json(responseData);
   } catch (error) {
-    console.error('エラーが発生しました:', error);
+    console.error('馬データの取得中にエラーが発生しました:', error);
     return NextResponse.json(
       { error: 'サーバーエラーが発生しました' },
       { status: 500 }
