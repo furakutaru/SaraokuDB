@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import HorseImage from '@/components/HorseImage';
 import { useRouter } from 'next/navigation';
+import { fetchHorsesList } from '@/utils/horseApi';
+import { getDisplayPrice } from '@/utils/price';
 
 interface Horse {
   id: string; // UUID形式のID
@@ -85,40 +87,8 @@ export default function HorsesPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // バックエンドAPIから馬データを取得（/api/horses）
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-      const url = `${apiBase}/api/horses?_=${Date.now()}`;
-      console.log('[horses/page] Fetch:', url);
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        cache: 'no-store',
-        credentials: 'same-origin'
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        console.error('[horses/page] API Error:', response.status, text);
-        throw new Error('データの取得に失敗しました');
-      }
-
-      const responseData = await response.json();
-      // 期待する構造: { horses: Horse[], auctionHistories: AuctionHistory[], metadata: {...} }
-      const horses: Horse[] = Array.isArray(responseData?.horses) ? responseData.horses : [];
-      const auctionHistories: AuctionHistory[] = Array.isArray(responseData?.auctionHistories) ? responseData.auctionHistories : [];
-      console.log('[horses/page] horses:', horses.length, 'auctionHistories:', auctionHistories.length);
-
-      // そのまま state に格納（後段のUIロジックは data.horses と data.auctionHistories を前提に動作）
-      setData({
-        horses,
-        auctionHistories,
-        metadata: responseData?.metadata || {
-          last_updated: new Date().toISOString(),
-          total_horses: horses.length,
-          total_auction_records: auctionHistories.length
-        }
-      });
+      const list = await fetchHorsesList();
+      setData(list as any);
     } catch (err) {
       setError('データの読み込みに失敗しました');
       console.error('Error fetching data:', err);
@@ -317,7 +287,7 @@ export default function HorsesPage() {
             if (!horse.id) return null;
             
             return (
-              <Link key={horse.id} href={`/horses/${horse.id}`} className="block h-full">
+              <Link key={horse.id} href={`/horses/${String((horse as any).auction_id || horse.id)}`} className="block h-full">
                 <div className="w-full bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer flex flex-col overflow-hidden h-full">
                   {/* 馬体画像 */}
                   <div className="w-full aspect-[4/3] overflow-hidden">
@@ -369,7 +339,11 @@ export default function HorsesPage() {
                             ? 'bg-gray-100 text-gray-800' 
                             : 'bg-blue-100 text-blue-800'
                         }`}>
-                          {displayPrice(horse.sold_price, horse.is_unsold)}
+                          {getDisplayPrice({
+                            unsold: horse.is_unsold,
+                            sold_price: horse.sold_price,
+                            history: []
+                          })}
                         </span>
                         
                         {horse.disease_tags && horse.disease_tags.length > 0 && (

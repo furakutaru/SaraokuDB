@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Union, Dict, Any
 from datetime import datetime
 
@@ -43,8 +43,8 @@ class HorseResponse(HorseBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    # Pydantic v2: enable ORM mode equivalent
+    model_config = ConfigDict(from_attributes=True)
 
 class StatisticsResponse(BaseModel):
     total_horses: int

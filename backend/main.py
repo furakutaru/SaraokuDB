@@ -11,6 +11,7 @@ import uvicorn
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 # Import database and models
 from database.models import Base, get_db, engine
@@ -52,7 +53,6 @@ async def test_endpoint():
 # データベース接続テスト用エンドポイント
 @app.get("/test-db")
 async def test_db():
-    from sqlalchemy import text
     from database.models import SessionLocal
     
     db = SessionLocal()
@@ -75,7 +75,7 @@ async def test_db():
 def check_db_connection():
     try:
         db = next(get_db())
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         print("データベースに接続されました")
         return True
     except Exception as e:

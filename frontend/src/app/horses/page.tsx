@@ -3,48 +3,23 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
+import { formatPrizeMan } from '@/utils/format';
+import { fetchHorsesList } from '@/utils/horseApi';
+import { getDisplayPrice } from '@/utils/price';
+import { Horse as UHorse, AuctionHistory as UHistory, ImageUrl } from '@/types/horse';
+import { filterHorsesByTerm, sortHorses } from '@/utils/searchSort';
+import { normalizeImageUrl } from '@/utils/url';
 
-// 型定義
-interface Horse {
-  id: number;
-  auction_id?: string | null;
-  name: string;
-  sex?: string | null;
-  age?: number | null;
-  sire?: string | null;
-  dam?: string | null;
-  damsire?: string | null;
-  race_record?: string | null;
-  weight?: number | null;
+// 型は共通定義をベースにしつつ、このページで扱う拡張フィールドを許容
+interface HorseListRow extends UHorse {
+  auction_date?: string | null;
   total_prize_start?: number | null;
   total_prize_latest?: number | null;
-  sold_price?: any; // JSON文字列または配列の可能性
-  auction_date?: string | null;
-  seller?: string | null;
-  disease_tags?: string | string[] | null;
+  race_record?: string | null;
   comment?: string | null;
-  image_url?: string | null;
   primary_image?: string | null;
+  seller?: string;
   unsold_count?: number;
-  is_unsold?: boolean;
-  jbis_url?: string;
-  auction_url?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface AuctionHistory {
-  id: number;
-  horse_id: number;
-  auction_date: string | null;
-  sold_price: any; // JSON文字列または配列の可能性
-  total_prize_start: number | null;
-  total_prize_latest: number | null;
-  weight: number | null;
-  seller: string | null;
-  is_unsold: boolean;
-  comment: string | null;
-  created_at: string;
 }
 
 interface Metadata {
@@ -54,20 +29,20 @@ interface Metadata {
 }
 
 interface HorseData {
-  horses: Horse[];
-  auctionHistories: AuctionHistory[];
+  horses: HorseListRow[];
+  auctionHistories: UHistory[];
   metadata: Metadata;
 }
 
-// デフォルトの馬データ
+// 初期値（空データ）
 const defaultHorseData: HorseData = {
   horses: [],
   auctionHistories: [],
   metadata: {
-    last_updated: new Date().toISOString(),
+    last_updated: '',
     total_horses: 0,
-    total_auction_records: 0
-  }
+    total_auction_records: 0,
+  },
 };
 
 // 検索とソート用の型
@@ -92,97 +67,22 @@ export default function HorsesPage() {
 
   const fetchData = useCallback(async () => {
     if (!mounted) return;
-    
-    console.log('=== データ取得を開始します ===');
+
+    console.log('=== データ取得を開始します (utils/horseApi 経由) ===');
     setLoading(true);
     setError(null);
-    
     try {
-      // 環境変数からAPIのベースURLを取得
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-      // backend/routers/horses.py は APIRouter(prefix="/api") のため /api/horses が正しい
-      const apiUrl = `${apiBaseUrl}/api/horses`;
-      
-      console.log('APIリクエスト先:', apiUrl);
-      
-      // キャッシュを無効化
-      const timestamp = new Date().getTime();
-      const urlWithCacheBuster = `${apiUrl}?_=${timestamp}`;
-      
-      const startTime = Date.now();
-      const response = await fetch(urlWithCacheBuster, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        },
-        cache: 'no-store',
-        credentials: 'same-origin'
-      });
-
-      const responseTime = Date.now() - startTime;
-      console.log(`APIレスポンス受信 (${responseTime}ms)`, {
-        status: response.status,
-        statusText: response.statusText
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('APIエラーレスポンス:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-        throw new Error(`HTTPエラー! ステータス: ${response.status}`);
-      }
-      
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error('JSON以外のレスポンスを受信:', text);
-        throw new Error('無効なレスポンス形式です');
-      }
-      
-      const responseData = await response.json();
-      console.log('APIレスポンスデータ:', responseData);
-      
-      // データを正規化
-      const horsesData = responseData.horses || [];
-      const auctionHistories = responseData.auctionHistories || [];
-      
-      if (horsesData.length > 0) {
-        console.log('最初の馬のデータ:', JSON.stringify(horsesData[0], null, 2));
-      }
-      
-      // 馬データにオークション履歴をマージ
-      const horsesWithAuctionData = horsesData.map((horse: Horse) => {
-        const horseHistory = auctionHistories.find((h: AuctionHistory) => h.horse_id === horse.id);
-        return {
-          ...horse,
-          is_unsold: (horse.unsold_count || 0) > 0,
-          jbis_url: horse.image_url, // 一時的にimage_urlをjbis_urlとして使用
-          auction_url: `#${horse.id}`, // 一時的にIDを使用
-          ...(horseHistory || {})
-        } as Horse & { is_unsold: boolean; jbis_url?: string; auction_url: string };
-      });
-      
+      const list = await fetchHorsesList();
       setData({
-        horses: horsesWithAuctionData,
-        auctionHistories,
-        metadata: responseData.metadata || {
-          last_updated: new Date().toISOString(),
-          total_horses: horsesData.length,
-          total_auction_records: auctionHistories.length
-        }
+        horses: Array.isArray(list.horses) ? list.horses as any : [],
+        auctionHistories: Array.isArray(list.auctionHistories) ? list.auctionHistories as any : [],
+        metadata: list.metadata as any,
       });
-      
-      setLoading(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '不明なエラー';
       console.error('データ取得エラー:', { error: err, errorMessage });
       setError(`データの取得中にエラーが発生しました: ${errorMessage}`);
+    } finally {
       setLoading(false);
     }
   }, [mounted]);
@@ -301,12 +201,11 @@ export default function HorsesPage() {
         ? horse.is_unsold 
         : (soldPrice === null || soldPrice === 0);
 
-      // 画像URLが相対パスの場合に絶対URLに変換
-      let imageUrl = horse.image_url || '';
-      if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-        imageUrl = `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
-      }
+      // 画像URLの正規化（相対→絶対URL）
+      const rawImage = typeof horse.image_url === 'string'
+        ? horse.image_url
+        : ((horse.image_url as ImageUrl | null)?.image_url ?? '');
+      const imageUrl = normalizeImageUrl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001', rawImage || '');
 
       return {
         ...horse,
@@ -343,60 +242,16 @@ export default function HorsesPage() {
       console.warn('フィルタリング対象の馬データがありません');
       return [];
     }
-    
-    return [...horsesWithAuctionInfo]
-      .filter(horse => {
-        if (!horse) return false;
-        const term = searchTerm.toLowerCase();
-        return (
-          horse.name.toLowerCase().includes(term) ||
-          (horse.sire || '').toLowerCase().includes(term) ||
-          (horse.dam || '').toLowerCase().includes(term) ||
-          (horse.damsire || '').toLowerCase().includes(term) ||
-          (horse.seller || '').toLowerCase().includes(term)
-        );
-      })
-      .sort((a, b) => {
-        let comparison = 0;
-        switch (sortBy) {
-          case 'name':
-            comparison = a.name.localeCompare(b.name);
-            break;
-          case 'sold_price':
-            comparison = (a.sold_price || 0) - (b.sold_price || 0);
-            break;
-          case 'age':
-            comparison = (a.age || 0) - (b.age || 0);
-            break;
-          case 'auction_date':
-            const dateA = a.auction_date ? new Date(a.auction_date).getTime() : 0;
-            const dateB = b.auction_date ? new Date(b.auction_date).getTime() : 0;
-            comparison = dateA - dateB;
-            break;
-          case 'total_prize_latest':
-            comparison = (a.total_prize_latest || 0) - (b.total_prize_latest || 0);
-            break;
-        }
-        return sortOrder === 'asc' ? comparison : -comparison;
-      });
+    const filtered = filterHorsesByTerm(horsesWithAuctionInfo, searchTerm);
+    const sorted = sortHorses(filtered, sortBy, sortOrder);
+    return sorted;
   }, [horsesWithAuctionInfo, searchTerm, sortBy, sortOrder]);
 
   // 検索とソート処理は既にuseMemoで実装済み
 
-  // 賞金表示用関数
-  // 賞金は万円単位で表示
-  const formatPrize = (val: number | string | null | undefined) => {
-    if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
-    return `${Number(val).toFixed(1)}万円`;
-  };
+  // 賞金表示は utils/format の共通関数を利用（UIは不変）
 
-  // 落札価格表示用関数
-  // 落札価格は取得値そのまま（円単位）で表示
-  const displayPrice = (price: number | null | undefined, is_unsold: boolean | undefined) => {
-    if (is_unsold === true) return '主取り';
-    if (price === null || price === undefined) return '-';
-    return '¥' + price.toLocaleString();
-  };
+  // 価格表示は utils/price の仕様化ロジックを使用（UIは不変）
 
   const getGrowthRate = (start: number, latest: number) => {
     if (start === 0) return '0.0';
@@ -545,24 +400,23 @@ export default function HorsesPage() {
                         ? 'bg-gray-100 text-gray-800' 
                         : 'bg-green-100 text-green-800'
                     }`}>
-                      {displayPrice(horse.sold_price, horse.is_unsold)}
+                      {getDisplayPrice({
+                        unsold: horse.is_unsold,
+                        sold_price: horse.sold_price,
+                        history: (data.auctionHistories?.filter((ah: UHistory) => ah.horse_id === horse.id) || []) 
+                      })}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {horse.seller || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatPrize(horse.total_prize_latest)}
+                    {formatPrizeMan(horse.total_prize_latest)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-
-        {/* JSON表示 */}
-        <div className="mt-8 bg-white p-4 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-2">JSONデータ</h2>
           <pre className="bg-gray-50 p-4 rounded overflow-auto text-xs">
             {JSON.stringify(filteredHorses, null, 2)}
           </pre>
