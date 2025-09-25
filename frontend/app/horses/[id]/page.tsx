@@ -16,30 +16,27 @@ import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
 import Badge from '@mui/material/Badge';
 import HorseImage from '@/components/HorseImage';
+import { getDisplayPrice } from '@/utils/price';
+import { formatPrizeMan } from '@/utils/format';
+import { normalizeImageUrl } from '@/utils/url';
+import { Horse as BaseHorse, AuctionHistory as BaseHistory } from '@/types/horse';
+import { getHorseData as getHorseDataFromApi } from '@/utils/horseApi';
 
-// --- 型定義 ---
-interface HorseHistory {
-  auction_date: string;
-  name: string;
-  sex: string;
-  age: string;
-  seller: string;
-  race_record: string;
-  comment: string;
-  sold_price: number | null;
-  total_prize_start: number;
-  unsold?: boolean;
-  detail_url?: string; // サラオク公式ページへのリンク
-  primary_image?: string; // 馬体画像のURL
-  disease_tags?: string; // 病歴タグ
-  weight?: number; // 体重
-}
+// --- 型定義（共有型に基づき最小拡張） ---
+type HorseHistory = Partial<BaseHistory> & {
+  name?: string;
+  sex?: string;
+  age?: string | number;
+  race_record?: string;
+  primary_image?: string;
+  disease_tags?: string;
+};
 
-interface Horse {
-  id: number;
+type Horse = Omit<Partial<BaseHorse>, 'age' | 'disease_tags'> & {
+  id: string | number;
   name: string; // 馬名
   sex: string; // 性別
-  age: string; // 年齢
+  age: string; // 年齢（表示用）
   color: string; // 毛色
   birthday: string; // 生年月日
   history: HorseHistory[];
@@ -47,15 +44,15 @@ interface Horse {
   dam: string; // 母
   dam_sire: string; // 母の父
   primary_image: string; // メイン画像URL
-  disease_tags: string; // 病歴タグ
+  disease_tags: string[]; // 病歴タグ（配列に正規化）
   jbis_url: string; // JBIS URL
-  weight?: number; // 体重（またはnull）
+  weight?: number; // 体重
   unsold_count?: number; // 主取り回数
   total_prize_latest: number; // 最新賞金
   created_at: string;
   updated_at: string;
   unsold?: boolean;
-}
+};
 
 interface HorseData {
   metadata: any;
@@ -88,13 +85,7 @@ const formatDate = (dateString: string) => {
 const toArray = (val: any) => Array.isArray(val) ? val : [val];
 const formatManYen = (val: number) => isNaN(val) ? '-' : `${(val/10000).toFixed(1)}万円`;
 
-// 落札価格表示用関数
-// 落札価格は取得値そのまま（円単位）で表示すること。データは既に円単位で格納されている。
-const displayPrice = (price: number | null | undefined, unsold: boolean | undefined) => {
-  if (unsold === true) return '主取り';
-  if (price === null || price === undefined) return '-';
-  return '¥' + price.toLocaleString();
-};
+// 価格表示は utils/price の仕様化ロジックを使用（UIは変えない）
 
 // 以前の仕様に合わせた成長率計算
 const calculateGrowthRate = (start: number, latest: number) => {
@@ -103,12 +94,7 @@ const calculateGrowthRate = (start: number, latest: number) => {
   return (latest - start >= 0 ? '+' : '') + rate;
 };
 
-// 賞金は万円単位で表示
-// 現在の総賞金はJBISからスクレイピングして取得している点に注意。
-const formatPrize = (val: number | string | null | undefined) => {
-  if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
-  return `${Number(val).toFixed(1)}万円`;
-};
+// 賞金は万円単位で表示（共通ユーティリティを使用）
 
 // エラーコンポーネント
 function ErrorMessage({ message, onRetry }: { message: string; onRetry?: () => void }) {
@@ -459,7 +445,7 @@ export default function HorseDetailPage({ params }: PageProps) {
       setError(null);
 
       try {
-        const { horse, error } = await getHorseData(horseId);
+        const { horse, error } = await getHorseDataFromApi(horseId);
         
         if (error) {
           throw new Error(error);
@@ -474,7 +460,16 @@ export default function HorseDetailPage({ params }: PageProps) {
           console.warn('不完全な馬データ:', horse);
         }
 
-        setHorse(horse);
+        // disease_tags をこのページの型に合わせて補正
+        const fixedHorse = {
+          ...horse,
+          disease_tags: Array.isArray((horse as any).disease_tags)
+            ? (horse as any).disease_tags
+            : (typeof (horse as any).disease_tags === 'string'
+                ? ((horse as any).disease_tags as string).split(',').map(s => s.trim()).filter(Boolean)
+                : []),
+        } as Horse;
+        setHorse(fixedHorse);
       } catch (err) {
         console.error('馬データの取得中にエラーが発生しました:', err);
         setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました');
@@ -579,6 +574,13 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
       sexIcon: icon 
     };
   }, [latestHistory?.sex]);
+
+  // 画像URLを正規化（相対→絶対URL）
+  const normalizedPrimaryImage = useMemo(() => {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+    const src = latestHistory?.primary_image || '';
+    return normalizeImageUrl(base, src);
+  }, [latestHistory?.primary_image]);
 
   if (!latestHistory) {
     return (
@@ -689,7 +691,7 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                   <div className="flex justify-center w-full h-64">
                     {latestHistory.primary_image ? (
                       <HorseImage
-                        src={latestHistory.primary_image}
+                        src={normalizedPrimaryImage}
                         alt={`${latestHistory.name}の画像`}
                         className="w-full h-full max-w-xs"
                       />
@@ -736,7 +738,11 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                         <div className="flex justify-between">
                           <span className="text-gray-600">落札価格:</span>
                           <span className="font-medium">
-                            {displayPrice(horse.history[0]?.sold_price, horse.history[0]?.unsold)}
+                            {getDisplayPrice({
+                              unsold: horse.history[0]?.unsold,
+                              sold_price: horse.history[0]?.sold_price,
+                              history: horse.history
+                            })}
                           </span>
                         </div>
                         {/* オークションページリンク */}
@@ -831,8 +837,8 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                           <td className="px-2 py-1 border">{h.age}</td>
                           <td className="px-2 py-1 border">{h.seller}</td>
                           <td className="px-2 py-1 border">{h.race_record}</td>
-                          <td className="px-2 py-1 border text-right">{displayPrice(h.sold_price, h.unsold)}</td>
-                          <td className="px-2 py-1 border text-right">{formatPrize(h.total_prize_start)}</td>
+                          <td className="px-2 py-1 border text-right">{getDisplayPrice({ unsold: h.unsold, sold_price: h.sold_price, history: horse.history })}</td>
+                          <td className="px-2 py-1 border text-right">{formatPrizeMan(h.total_prize_start)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -907,14 +913,14 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                 )}
                 {/* 落札価格（最新） */}
                 <div className="text-center">
-                  <span className="text-red-600 text-3xl font-extrabold align-middle">{displayPrice(toArray(latestHistory.sold_price).slice(-1)[0], latestHistory.unsold)}</span>
+                  <span className="text-red-600 text-3xl font-extrabold align-middle">{getDisplayPrice({ unsold: latestHistory.unsold, sold_price: toArray(latestHistory.sold_price).slice(-1)[0], history: horse.history })}</span>
                 </div>
                 {/* 履歴が2回以上ある場合のみ履歴表示 */}
                 {toArray(latestHistory.sold_price).length > 1 && (
                   <div className="text-center mt-2">
                     {toArray(latestHistory.sold_price).map((sp, i) => (
                       <div key={i} className="text-lg font-bold mb-1">
-                        <span className="text-red-600">{displayPrice(sp, horse.history[i]?.unsold)}</span>
+                        <span className="text-red-600">{getDisplayPrice({ unsold: horse.history[i]?.unsold, sold_price: sp, history: horse.history })}</span>
                         <span className="text-xs text-gray-500 ml-2">{toArray(latestHistory.auction_date)[i] ?? ''}</span>
                       </div>
                     ))}
@@ -932,20 +938,20 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {formatPrize(Number(latestHistory.total_prize_start))}
+                      {formatPrizeMan(Number(latestHistory?.total_prize_start ?? 0))}
                     </div>
                     <div className="text-xs text-gray-600">落札時</div>
                   </div>
                   <div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {formatPrize(Number(horse.total_prize_latest))}
+                      {formatPrizeMan(Number(horse.total_prize_latest))}
                     </div>
                     <div className="text-xs text-gray-600">現在</div>
                   </div>
                 </div>
                 <div className="border-t pt-4">
                   <div className="text-center">
-                    <div className={`text-xl font-bold ${horse.total_prize_latest - latestHistory.total_prize_start > 0 ? 'text-green-600' : horse.total_prize_latest - latestHistory.total_prize_start < 0 ? 'text-red-600' : 'text-gray-600'}`}> 
+                    <div className={`text-xl font-bold ${horse.total_prize_latest - (latestHistory?.total_prize_start ?? 0) > 0 ? 'text-green-600' : horse.total_prize_latest - (latestHistory?.total_prize_start ?? 0) < 0 ? 'text-red-600' : 'text-gray-600'}`}> 
                       {(() => {
                         const start = Number(latestHistory.total_prize_start ?? 0);
                         const latestPrize = Number(horse.total_prize_latest ?? 0);
@@ -1012,15 +1018,15 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
           <div key={index} className="border-b pb-4 last:border-b-0 last:pb-0">
             <div className="flex justify-between items-start">
               <div>
-                <Typography variant="h6" component="h4" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>{formatDate(history.auction_date)}</Typography>
+                <Typography variant="h6" component="h4" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>{formatDate(history.auction_date || '')}</Typography>
                 <p className="text-sm text-gray-500">
-                  落札価格: {displayPrice(history.sold_price, history.unsold)}
+                  落札価格: {getDisplayPrice({ unsold: history.unsold, sold_price: history.sold_price, history: horse.history })}
                 </p>
               </div>
               {history.detail_url && (
                 <Button 
                   component={Link}
-                  href={history.detail_url}
+                  href={history.detail_url || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
                   variant="outlined" 

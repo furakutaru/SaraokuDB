@@ -1,6 +1,6 @@
 export interface AuctionHistory {
-  id: string;
-  horse_id: string;
+  id: string | number;
+  horse_id: string | number;
   auction_date: string;
   sold_price: number | null;
   total_prize_start: number;
@@ -24,7 +24,7 @@ export interface ImageUrl {
 }
 
 export interface Horse {
-  id: string;  // データベースのID（数値）
+  id: string | number;  // データベースのID（数値）
   auction_id?: string;  // オークションサイトのID（文字列）
   name: string;
   sex: string;
