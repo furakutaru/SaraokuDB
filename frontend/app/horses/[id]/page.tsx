@@ -690,6 +690,16 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* 馬名（カード内の上部に表示）と性別・年齢 */}
+                  <div className="md:col-span-2 flex items-center gap-3">
+                    <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
+                      {latestHistory.name}
+                    </Typography>
+                    {/* 性別バッジ */}
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${sexColor}`}>{horse.sex || latestHistory?.sex}</span>
+                    {/* 年齢 */}
+                    <span className="text-sm text-gray-700">{latestHistory?.age}歳</span>
+                  </div>
                   {/* 画像は最新履歴から取得 */}
                   <div className="flex justify-center w-full h-64">
                     {latestHistory.primary_image ? (
@@ -707,6 +717,31 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                           <p>画像なし</p>
                         </div>
                       </div>
+                    )}
+                  </div>
+                  {/* 画像下のリンク（JBIS / サラオク） */}
+                  <div className="md:col-span-2 flex items-center justify-center gap-4 -mt-2">
+                    {horse.jbis_url && (
+                      <a
+                        href={horse.jbis_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline text-sm"
+                        title="JBIS"
+                      >
+                        JBIS
+                      </a>
+                    )}
+                    {(latestHistory.detail_url || (horse as any).auction_url) && (
+                      <a
+                        href={latestHistory.detail_url || (horse as any).auction_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline text-sm"
+                        title="サラオク"
+                      >
+                        サラオク
+                      </a>
                     )}
                   </div>
 
@@ -737,17 +772,7 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                           <span className="text-gray-600">レース成績:</span>
                           <span className="font-medium">{toArray(latestHistory.race_record).join(' / ')}</span>
                         </div>
-                        {/* 落札価格 */}
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">落札価格:</span>
-                          <span className="font-medium">
-                            {getDisplayPrice({
-                              unsold: horse.history[0]?.unsold,
-                              sold_price: horse.history[0]?.sold_price,
-                              history: horse.history
-                            })}
-                          </span>
-                        </div>
+                        {/* 落札価格は右カラムに表示するため、このセクションでは非表示に変更 */}
                         {/* オークションページリンク */}
                         {latestHistory.detail_url && (
                           <div className="flex justify-between items-center mt-2">
@@ -980,6 +1005,10 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                 <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>データ情報</Typography>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">オークション日:</span>
+                  <span>{formatDate(latestHistory?.auction_date || '')}</span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">作成日:</span>
                   <span>{formatDate(horse.created_at)}</span>
