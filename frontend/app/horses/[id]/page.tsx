@@ -578,7 +578,8 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
   // 画像URLを正規化（相対→絶対URL）
   const normalizedPrimaryImage = useMemo(() => {
     const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-    const src = latestHistory?.primary_image || '';
+    const raw = latestHistory?.primary_image as any;
+    const src = typeof raw === 'string' ? raw : (raw && typeof raw.image_url === 'string' ? raw.image_url : '');
     return normalizeImageUrl(base, src);
   }, [latestHistory?.primary_image]);
 
@@ -601,14 +602,16 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
   //   return price.toLocaleString();
   // };
 
-  // タグをレンダリングする関数
-  const renderTags = (tags: string) => {
-    if (!tags) return null;
-    const tagList = tags.split(',').map(tag => tag.trim()).filter(Boolean);
-    
+  // タグをレンダリングする関数（string | string[] 双方に対応）
+  const renderTags = (tags: string | string[]) => {
+    if (!tags || (Array.isArray(tags) && tags.length === 0)) return null;
+    const tagList: string[] = Array.isArray(tags)
+      ? tags
+      : tags.split(',').map((tag: string) => tag.trim()).filter(Boolean);
+
     return (
       <div className="flex flex-wrap gap-2 mt-2">
-        {tagList.map((tag, index) => (
+        {tagList.map((tag: string, index: number) => (
           <span key={index} className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-800">
             {tag}
           </span>
