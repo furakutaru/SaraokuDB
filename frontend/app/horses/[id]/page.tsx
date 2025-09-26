@@ -700,52 +700,56 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                     {/* 年齢 */}
                     <span className="text-sm text-gray-700">{latestHistory?.age}歳</span>
                   </div>
-                  {/* 画像は最新履歴から取得 */}
-                  <div className="flex justify-center w-full h-64">
-                    {latestHistory.primary_image ? (
-                      <HorseImage
-                        src={normalizedPrimaryImage}
-                        alt={`${latestHistory.name}の画像`}
-                        className="w-full h-full max-w-xs"
-                      />
-                    ) : (
-                      <div className="w-full max-w-xs h-64 bg-gray-200 rounded-lg flex items-center justify-center">
-                        <div className="text-center text-gray-500">
-                          <svg className="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <p>画像なし</p>
+
+                  {/* 左側: 画像とリンク */}
+                  <div className="space-y-4">
+                    {/* 画像は最新履歴から取得 */}
+                    <div className="flex justify-center w-full h-64">
+                      {latestHistory.primary_image ? (
+                        <HorseImage
+                          src={normalizedPrimaryImage}
+                          alt={`${latestHistory.name}の画像`}
+                          className="w-full h-full max-w-xs"
+                        />
+                      ) : (
+                        <div className="w-full max-w-xs h-64 bg-gray-200 rounded-lg flex items-center justify-center">
+                          <div className="text-center text-gray-500">
+                            <svg className="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <p>画像なし</p>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                  {/* 画像下のリンク（JBIS / サラオク） */}
-                  <div className="md:col-span-2 flex items-center justify-center gap-4 -mt-2">
-                    {horse.jbis_url && (
-                      <a
-                        href={horse.jbis_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm"
-                        title="JBIS"
-                      >
-                        JBIS
-                      </a>
-                    )}
-                    {(latestHistory.detail_url || (horse as any).auction_url) && (
-                      <a
-                        href={latestHistory.detail_url || (horse as any).auction_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm"
-                        title="サラオク"
-                      >
-                        サラオク
-                      </a>
-                    )}
+                      )}
+                    </div>
+                    {/* 画像下のリンク（JBIS / サラオク） */}
+                    <div className="flex items-center justify-center gap-4">
+                      {horse.jbis_url && (
+                        <a
+                          href={horse.jbis_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm"
+                          title="JBIS"
+                        >
+                          JBIS
+                        </a>
+                      )}
+                      {(latestHistory.detail_url || (horse as any).auction_url) && (
+                        <a
+                          href={latestHistory.detail_url || (horse as any).auction_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm"
+                          title="サラオク"
+                        >
+                          サラオク
+                        </a>
+                      )}
+                    </div>
                   </div>
 
-                  {/* 基本情報 */}
+                  {/* 右側: 基本情報、血統、病歴 */}
                   <div className="space-y-4">
                     <div>
                       <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>基本情報</Typography>
@@ -777,9 +781,9 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                         {latestHistory.detail_url && (
                           <div className="flex justify-between items-center mt-2">
                             <span className="text-gray-600">オークションページ:</span>
-                            <a 
-                              href={latestHistory.detail_url} 
-                              target="_blank" 
+                            <a
+                              href={latestHistory.detail_url}
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:underline text-sm flex items-center"
                             >
@@ -813,7 +817,7 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                     </div>
 
                     {/* 病歴（血統の下に1箇所のみ表示） */}
-                    {((latestHistory.disease_tags && String(latestHistory.disease_tags).trim() !== '') || 
+                    {((latestHistory.disease_tags && String(latestHistory.disease_tags).trim() !== '') ||
                       (horse.disease_tags && String(horse.disease_tags).trim() !== '')) && (
                       <div>
                         <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>病歴</Typography>
