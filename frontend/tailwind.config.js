@@ -6,7 +6,14 @@ module.exports = {
   ],
   theme: {
     extend: {
+      borderColor: {
+        DEFAULT: 'hsl(var(--border))',
+      },
       colors: {
+        border: 'hsl(var(--border))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
         primary: {
           50: '#f0f9ff',
           100: '#e0f2fe',
@@ -18,6 +25,8 @@ module.exports = {
           700: '#0369a1',
           800: '#075985',
           900: '#0c4a6e',
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
         },
       },
     },
