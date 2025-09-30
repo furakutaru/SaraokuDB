@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,29 +14,31 @@ import { Badge } from '@/components/ui/badge';
 import HorseImage from '@/components/HorseImage';
 
 // --- 型定義 ---
-interface HorseHistory {
+type HorseHistory = {
   auction_date: string;
   name: string;
   sex: string;
-  age: string;
+  age: string | number;
+  weight: number | null;
   seller: string;
-  race_record: string;
-  comment: string;
-  sold_price: number;
+  sold_price: number | null;
   total_prize_start: number;
-  unsold?: boolean;
-  detail_url?: string;
-  primary_image?: string;
-  disease_tags?: string;
-  weight?: number;
-}
+  total_prize_latest: number;
+  comment: string;
+  is_unsold: boolean;
+  created_at: string;
+  updated_at: string;
+  race_record?: string;
+  unsold?: boolean; // 互換性のため追加
+};
 
 interface Horse {
   id: string | number;
   name: string;
   sex: string;
-  color: string;
-  birthday: string;
+  color?: string;
+  birthday?: string;
+  age?: string | number;
   history: HorseHistory[];
   sire: string;
   dam: string;
@@ -49,6 +52,10 @@ interface Horse {
   created_at: string;
   updated_at: string;
   unsold?: boolean;
+  sold_price?: number | null;
+  detail_url?: string;
+  race_record?: string;
+  [key: string]: any;
 }
 
 interface HorseData {
@@ -56,32 +63,46 @@ interface HorseData {
   horses: Horse[];
 }
 
-interface CommentedHistory extends HorseHistory {
+type CommentedHistory = HorseHistory & {
   originalIndex: number;
-}
+};
 
 interface HorseDetailContentProps {
   horse: Horse;
 }
 
-interface AvailableHorse {
+type AvailableHorse = {
   id: string;
   name: string;
-}
+};
 
 // 日付フォーマット用のヘルパー関数
-function formatDate(dateString: string) {
+function formatDate(dateString: string | null | undefined) {
+  if (!dateString) return '不明';
   try {
-    return format(new Date(dateString), 'yyyy/MM/dd', { locale: ja });
+    const date = new Date(dateString);
+    // 無効な日付の場合はエラーをスロー
+    if (isNaN(date.getTime())) {
+      throw new Error('無効な日付です');
+    }
+    return format(date, 'yyyy/MM/dd', { locale: ja });
   } catch (e) {
-    console.error('日付のフォーマットに失敗しました:', e);
-    return dateString;
+    console.error(`日付のフォーマットに失敗しました: ${dateString}`, e);
+    return '不明';
   }
 }
 
-// ユーティリティ関数
 const toArray = (val: any) => (Array.isArray(val) ? val : val ? [val] : []);
-const formatManYen = (val: number) => `${(val / 10000).toFixed(1)}万`;
+const formatManYen = (val: number | null | undefined) => val ? `${(val / 10000).toFixed(1)}万` : '-';
+
+// 画像のURLを取得するヘルパー関数
+function getImageUrl(imagePath: string | undefined | null) {
+  if (!imagePath) return null;
+  // すでにフルURLの場合はそのまま返す
+  if (imagePath.startsWith('http')) return imagePath;
+  // 相対パスの場合はそのまま返す（Next.jsのImageコンポーネントはpublicフォルダを自動で解決）
+  return imagePath.startsWith('/') ? imagePath : `/images/${imagePath}`;
+}
 
 // 落札価格表示用関数
 function displayPrice(price: number | null | undefined, unsold: boolean | undefined) {
@@ -329,18 +350,26 @@ function HorseDetailContent({ horse }: HorseDetailContentProps) {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="aspect-w-3 aspect-h-2 rounded-lg overflow-hidden mb-4">
-                <HorseImage 
-                  src={horse.primary_image} 
-                  alt={horse.name}
-                  className="w-full h-full object-cover"
-                />
+              <div className="relative w-full aspect-square">
+                {getImageUrl(horse.primary_image) ? (
+                  <Image
+                    src={getImageUrl(horse.primary_image) as string}
+                    alt={horse.name}
+                    fill
+                    className="object-cover rounded-lg shadow-md"
+                    priority
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-200 rounded-lg flex items-center justify-center">
+                    <span className="text-gray-500">No Image</span>
+                  </div>
+                )}
               </div>
               
               <div className="space-y-4">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">血統</h3>
-                  <div className="mt-1">
+                  <div className="mt-1 space-y-1">
                     <p>父: {horse.sire || '不明'}</p>
                     <p>母: {horse.dam || '不明'}</p>
                     <p>母の父: {horse.dam_sire || '不明'}</p>
