@@ -1,53 +1,39 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { Button } from '@mui/material';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import CardHeader from '@mui/material/CardHeader';
-import Typography from '@mui/material/Typography';
-import Tabs from '@mui/material/Tabs';
+import { Button, Card, CardContent, CardHeader, Typography, Tabs } from '@mui/material';
 import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
 import Badge from '@mui/material/Badge';
 import HorseImage from '@/components/HorseImage';
-import { getDisplayPrice } from '@/utils/price';
-import { formatPrizeMan } from '@/utils/format';
-import { normalizeImageUrl } from '@/utils/url';
-import { Horse as BaseHorse, AuctionHistory as BaseHistory } from '@/types/horse';
-import { getHorseData as getHorseDataFromApi } from '@/utils/horseApi';
 
-// --- 型定義（共有型に基づき最小拡張）---
-// RaceRecord 型を文字列またはオブジェクトのユニオン型として定義
-type RaceRecord = string | {
-  total_races?: number;
-  wins?: number;
-  seconds?: number;  // 2着回数
-  thirds?: number;   // 3着回数
-  record_format?: string;
-  formatted_record?: string;
-  [key: string]: any; // その他のプロパティも許容
-};
+// --- 型定義 ---
+interface HorseHistory {
+  auction_date: string;
+  name: string;
+  sex: string;
+  age: string;
+  seller: string;
+  race_record: string;
+  comment: string;
+  sold_price: number | null;
+  total_prize_start: number;
+  unsold?: boolean;
+  detail_url?: string; // サラオク公式ページへのリンク
+  primary_image?: string; // 馬体画像のURL
+  disease_tags?: string; // 病歴タグ
+  weight?: number; // 体重
+}
 
-type HorseHistory = Omit<Partial<BaseHistory>, 'race_record'> & {
-  name?: string;
-  sex?: string;
-  age?: string | number;
-  race_record?: RaceRecord | string; // 文字列も受け入れる
-  primary_image?: string;
-  disease_tags?: string;
-};
-
-type Horse = Omit<Partial<BaseHorse>, 'age' | 'disease_tags'> & {
-  id: string | number;
+interface Horse {
+  id: number;
   name: string; // 馬名
   sex: string; // 性別
-  age: string; // 年齢（表示用）
+  age: string; // 年齢
   color: string; // 毛色
   birthday: string; // 生年月日
   history: HorseHistory[];
@@ -55,15 +41,15 @@ type Horse = Omit<Partial<BaseHorse>, 'age' | 'disease_tags'> & {
   dam: string; // 母
   dam_sire: string; // 母の父
   primary_image: string; // メイン画像URL
-  disease_tags: string[]; // 病歴タグ（配列に正規化）
+  disease_tags: string; // 病歴タグ
   jbis_url: string; // JBIS URL
-  weight?: number; // 体重
+  weight?: number; // 体重（またはnull）
   unsold_count?: number; // 主取り回数
   total_prize_latest: number; // 最新賞金
   created_at: string;
   updated_at: string;
   unsold?: boolean;
-};
+}
 
 interface HorseData {
   metadata: any;
@@ -96,7 +82,13 @@ const formatDate = (dateString: string) => {
 const toArray = (val: any) => Array.isArray(val) ? val : [val];
 const formatManYen = (val: number) => isNaN(val) ? '-' : `${(val/10000).toFixed(1)}万円`;
 
-// 価格表示は utils/price の仕様化ロジックを使用（UIは変えない）
+// 落札価格表示用関数
+// 落札価格は取得値そのまま（円単位）で表示すること。データは既に円単位で格納されている。
+const displayPrice = (price: number | null | undefined, unsold: boolean | undefined) => {
+  if (unsold === true) return '主取り';
+  if (price === null || price === undefined) return '-';
+  return '¥' + price.toLocaleString();
+};
 
 // 以前の仕様に合わせた成長率計算
 const calculateGrowthRate = (start: number, latest: number) => {
@@ -105,7 +97,12 @@ const calculateGrowthRate = (start: number, latest: number) => {
   return (latest - start >= 0 ? '+' : '') + rate;
 };
 
-// 賞金は万円単位で表示（共通ユーティリティを使用）
+// 賞金は万円単位で表示
+// 現在の総賞金はJBISからスクレイピングして取得している点に注意。
+const formatPrize = (val: number | string | null | undefined) => {
+  if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
+  return `${Number(val).toFixed(1)}万円`;
+};
 
 // エラーコンポーネント
 function ErrorMessage({ message, onRetry }: { message: string; onRetry?: () => void }) {
@@ -410,54 +407,6 @@ interface PageProps {
   searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-// レース成績表示用のコンポーネント
-const RaceRecordDisplay = ({ record }: { record: any }) => {
-  try {
-    // レコードが存在しない場合
-    if (!record) return <span className="font-medium">データなし</span>;
-    
-    // 文字列の場合
-    if (typeof record === 'string') {
-      // JSON文字列の可能性がある場合
-      if (record.startsWith('{') && record.endsWith('}')) {
-        try {
-          const parsed = JSON.parse(record);
-          return <RaceRecordDisplay record={parsed} />;
-        } catch (e) {
-          return <span className="font-medium">{record}</span>;
-        }
-      }
-      return <span className="font-medium">{record}</span>;
-    }
-    
-    // オブジェクトの場合
-    if (typeof record === 'object') {
-      // total_races と wins が存在する場合は新しい形式で表示
-      if (record.total_races !== undefined && record.wins !== undefined) {
-        const wins = record.wins || 0;
-        const seconds = record.seconds || 0;
-        const thirds = record.thirds || 0;
-        const others = Math.max(0, record.total_races - wins - seconds - thirds);
-        return (
-          <span className="font-medium">
-            {`${record.total_races}戦${wins}勝[${wins}-${seconds}-${thirds}-${others}]`}
-          </span>
-        );
-      }
-      // formatted_record が存在する場合
-      else if (record.formatted_record) {
-        // formatted_record が「11戦0勝」のような形式の場合、そのまま表示
-        return <span className="font-medium">{record.formatted_record}</span>;
-      }
-    }
-    
-    return <span className="font-medium">データなし</span>;
-  } catch (e) {
-    console.error('レース成績の表示中にエラーが発生しました:', e);
-    return <span className="font-medium">データなし</span>;
-  }
-};
-
 // ページコンポーネント (Client Component)
 export default function HorseDetailPage({ params }: PageProps) {
   const router = useRouter();
@@ -504,7 +453,7 @@ export default function HorseDetailPage({ params }: PageProps) {
       setError(null);
 
       try {
-        const { horse, error } = await getHorseDataFromApi(horseId);
+        const { horse, error } = await getHorseData(horseId);
         
         if (error) {
           throw new Error(error);
@@ -519,16 +468,7 @@ export default function HorseDetailPage({ params }: PageProps) {
           console.warn('不完全な馬データ:', horse);
         }
 
-        // disease_tags をこのページの型に合わせて補正
-        const fixedHorse = {
-          ...horse,
-          disease_tags: Array.isArray((horse as any).disease_tags)
-            ? (horse as any).disease_tags
-            : (typeof (horse as any).disease_tags === 'string'
-                ? ((horse as any).disease_tags as string).split(',').map(s => s.trim()).filter(Boolean)
-                : []),
-        } as Horse;
-        setHorse(fixedHorse);
+        setHorse(horse);
       } catch (err) {
         console.error('馬データの取得中にエラーが発生しました:', err);
         setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました');
@@ -634,14 +574,6 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
     };
   }, [latestHistory?.sex]);
 
-  // 画像URLを正規化（相対→絶対URL）
-  const normalizedPrimaryImage = useMemo(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-    const raw = latestHistory?.primary_image as any;
-    const src = typeof raw === 'string' ? raw : (raw && typeof raw.image_url === 'string' ? raw.image_url : '');
-    return normalizeImageUrl(base, src);
-  }, [latestHistory?.primary_image]);
-
   if (!latestHistory) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -661,16 +593,14 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
   //   return price.toLocaleString();
   // };
 
-  // タグをレンダリングする関数（string | string[] 双方に対応）
-  const renderTags = (tags: string | string[]) => {
-    if (!tags || (Array.isArray(tags) && tags.length === 0)) return null;
-    const tagList: string[] = Array.isArray(tags)
-      ? tags
-      : tags.split(',').map((tag: string) => tag.trim()).filter(Boolean);
-
+  // タグをレンダリングする関数
+  const renderTags = (tags: string) => {
+    if (!tags) return null;
+    const tagList = tags.split(',').map(tag => tag.trim()).filter(Boolean);
+    
     return (
       <div className="flex flex-wrap gap-2 mt-2">
-        {tagList.map((tag: string, index: number) => (
+        {tagList.map((tag, index) => (
           <span key={index} className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-800">
             {tag}
           </span>
@@ -749,66 +679,27 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* 馬名（カード内の上部に表示）と性別・年齢 */}
-                  <div className="md:col-span-2 flex items-center gap-3">
-                    <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
-                      {latestHistory.name}
-                    </Typography>
-                    {/* 性別バッジ */}
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${sexColor}`}>{horse.sex || latestHistory?.sex}</span>
-                    {/* 年齢 */}
-                    <span className="text-sm text-gray-700">{latestHistory?.age}歳</span>
-                  </div>
-
-                  {/* 左側: 画像とリンク */}
-                  <div className="space-y-4">
-                    {/* 画像は最新履歴から取得 */}
-                    <div className="flex justify-center w-full h-64">
-                      {latestHistory.primary_image ? (
-                        <HorseImage
-                          src={normalizedPrimaryImage}
-                          alt={`${latestHistory.name}の画像`}
-                          className="w-full h-full max-w-xs"
-                        />
-                      ) : (
-                        <div className="w-full max-w-xs h-64 bg-gray-200 rounded-lg flex items-center justify-center">
-                          <div className="text-center text-gray-500">
-                            <svg className="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <p>画像なし</p>
-                          </div>
+                  {/* 画像は最新履歴から取得 */}
+                  <div className="flex justify-center w-full h-64">
+                    {latestHistory.primary_image ? (
+                      <HorseImage
+                        src={latestHistory.primary_image}
+                        alt={`${latestHistory.name}の画像`}
+                        className="w-full h-full max-w-xs"
+                      />
+                    ) : (
+                      <div className="w-full max-w-xs h-64 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <div className="text-center text-gray-500">
+                          <svg className="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <p>画像なし</p>
                         </div>
-                      )}
-                    </div>
-                    {/* 画像下のリンク（JBIS / サラオク） */}
-                    <div className="flex items-center justify-center gap-4">
-                      {horse.jbis_url && (
-                        <a
-                          href={horse.jbis_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm"
-                          title="JBIS"
-                        >
-                          JBIS
-                        </a>
-                      )}
-                      {(latestHistory.detail_url || (horse as any).auction_url) && (
-                        <a
-                          href={latestHistory.detail_url || (horse as any).auction_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm"
-                          title="サラオク"
-                        >
-                          サラオク
-                        </a>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* 右側: 基本情報、血統、病歴 */}
+                  {/* 基本情報 */}
                   <div className="space-y-4">
                     <div>
                       <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>基本情報</Typography>
@@ -833,16 +724,22 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                         {/* レース成績履歴 */}
                         <div className="flex justify-between">
                           <span className="text-gray-600">レース成績:</span>
-                          <RaceRecordDisplay record={latestHistory.race_record} />
+                          <span className="font-medium">{toArray(latestHistory.race_record).join(' / ')}</span>
                         </div>
-                        {/* 落札価格は右カラムに表示するため、このセクションでは非表示に変更 */}
+                        {/* 落札価格 */}
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">落札価格:</span>
+                          <span className="font-medium">
+                            {displayPrice(horse.history[0]?.sold_price, horse.history[0]?.unsold)}
+                          </span>
+                        </div>
                         {/* オークションページリンク */}
                         {latestHistory.detail_url && (
                           <div className="flex justify-between items-center mt-2">
                             <span className="text-gray-600">オークションページ:</span>
-                            <a
-                              href={latestHistory.detail_url}
-                              target="_blank"
+                            <a 
+                              href={latestHistory.detail_url} 
+                              target="_blank" 
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:underline text-sm flex items-center"
                             >
@@ -876,53 +773,19 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                     </div>
 
                     {/* 病歴（血統の下に1箇所のみ表示） */}
-                    {((latestHistory.disease_tags && String(latestHistory.disease_tags).trim() !== '') ||
+                    {((latestHistory.disease_tags && String(latestHistory.disease_tags).trim() !== '') || 
                       (horse.disease_tags && String(horse.disease_tags).trim() !== '')) && (
                       <div>
                         <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>病歴</Typography>
                         <div className="flex flex-wrap gap-2">
-                          {(() => {
-                            try {
-                              // 最新の履歴からタグを取得、なければ馬の基本情報から取得
-                              const tags = latestHistory.disease_tags || horse.disease_tags || [];
-                              
-                              // タグを処理するヘルパー関数
-                              const processTag = (tag: any) => {
-                                if (tag === null || tag === undefined) return '';
-                                if (typeof tag !== 'string') return String(tag);
-                                
-                                // ユニコードエスケープシーケンスをデコード
-                                return tag
-                                  .replace(/[\"\[\]]/g, '') // 余分な文字を削除
-                                  .replace(/\\u([\dA-Fa-f]{4})/g, (match, grp) => 
-                                    String.fromCharCode(parseInt(grp, 16))
-                                  );
-                              };
-                              
-                              // タグを処理
-                              let processedTags: string[] = [];
-                              
-                              if (Array.isArray(tags)) {
-                                processedTags = tags.map(processTag).filter(Boolean);
-                              } else if (typeof tags === 'string') {
-                                // 文字列をカンマで分割し、各タグを処理
-                                processedTags = tags.split(',')
-                                  .map(tag => processTag(tag.trim()))
-                                  .filter(Boolean);
-                              }
-                              
-                              // タグを表示
-                              return processedTags.map((tag, index) => (
-                            
-                                <Badge key={index} variant="standard" className="bg-red-100 text-red-800 px-2 py-1 rounded">
-                                  {tag}
-                                </Badge>
-                              ));
-                            } catch (e) {
-                              console.error('病歴の表示中にエラーが発生しました:', e);
-                              return null;
-                            }
-                          })()}
+                          {(latestHistory.disease_tags || horse.disease_tags || '')
+                            .split(',')
+                            .filter(tag => tag.trim())
+                            .map((tag, index) => (
+                              <Badge key={index} variant="standard" className="bg-red-100 text-red-800 px-2 py-1 rounded">
+                                {tag.trim()}
+                              </Badge>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -961,9 +824,9 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                           <td className="px-2 py-1 border">{h.sex}</td>
                           <td className="px-2 py-1 border">{h.age}</td>
                           <td className="px-2 py-1 border">{h.seller}</td>
-                          <td className="px-2 py-1 border"><RaceRecordDisplay record={h.race_record} /></td>
-                          <td className="px-2 py-1 border text-right">{getDisplayPrice({ unsold: h.unsold, sold_price: h.sold_price, history: horse.history })}</td>
-                          <td className="px-2 py-1 border text-right">{formatPrizeMan(h.total_prize_start)}</td>
+                          <td className="px-2 py-1 border">{h.race_record}</td>
+                          <td className="px-2 py-1 border text-right">{displayPrice(h.sold_price, h.unsold)}</td>
+                          <td className="px-2 py-1 border text-right">{formatPrize(h.total_prize_start)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1038,14 +901,14 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                 )}
                 {/* 落札価格（最新） */}
                 <div className="text-center">
-                  <span className="text-red-600 text-3xl font-extrabold align-middle">{getDisplayPrice({ unsold: latestHistory.unsold, sold_price: toArray(latestHistory.sold_price).slice(-1)[0], history: horse.history })}</span>
+                  <span className="text-red-600 text-3xl font-extrabold align-middle">{displayPrice(toArray(latestHistory.sold_price).slice(-1)[0], latestHistory.unsold)}</span>
                 </div>
                 {/* 履歴が2回以上ある場合のみ履歴表示 */}
                 {toArray(latestHistory.sold_price).length > 1 && (
                   <div className="text-center mt-2">
                     {toArray(latestHistory.sold_price).map((sp, i) => (
                       <div key={i} className="text-lg font-bold mb-1">
-                        <span className="text-red-600">{getDisplayPrice({ unsold: horse.history[i]?.unsold, sold_price: sp, history: horse.history })}</span>
+                        <span className="text-red-600">{displayPrice(sp, horse.history[i]?.unsold)}</span>
                         <span className="text-xs text-gray-500 ml-2">{toArray(latestHistory.auction_date)[i] ?? ''}</span>
                       </div>
                     ))}
@@ -1063,20 +926,20 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {formatPrizeMan(Number(latestHistory?.total_prize_start ?? 0))}
+                      {formatPrize(Number(latestHistory.total_prize_start))}
                     </div>
                     <div className="text-xs text-gray-600">落札時</div>
                   </div>
                   <div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {formatPrizeMan(Number(horse.total_prize_latest))}
+                      {formatPrize(Number(horse.total_prize_latest))}
                     </div>
                     <div className="text-xs text-gray-600">現在</div>
                   </div>
                 </div>
                 <div className="border-t pt-4">
                   <div className="text-center">
-                    <div className={`text-xl font-bold ${horse.total_prize_latest - (latestHistory?.total_prize_start ?? 0) > 0 ? 'text-green-600' : horse.total_prize_latest - (latestHistory?.total_prize_start ?? 0) < 0 ? 'text-red-600' : 'text-gray-600'}`}> 
+                    <div className={`text-xl font-bold ${horse.total_prize_latest - latestHistory.total_prize_start > 0 ? 'text-green-600' : horse.total_prize_latest - latestHistory.total_prize_start < 0 ? 'text-red-600' : 'text-gray-600'}`}> 
                       {(() => {
                         const start = Number(latestHistory.total_prize_start ?? 0);
                         const latestPrize = Number(horse.total_prize_latest ?? 0);
@@ -1102,10 +965,6 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                 <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>データ情報</Typography>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">オークション日:</span>
-                  <span>{formatDate(latestHistory?.auction_date || '')}</span>
-                </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">作成日:</span>
                   <span>{formatDate(horse.created_at)}</span>
@@ -1147,15 +1006,15 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
           <div key={index} className="border-b pb-4 last:border-b-0 last:pb-0">
             <div className="flex justify-between items-start">
               <div>
-                <Typography variant="h6" component="h4" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>{formatDate(history.auction_date || '')}</Typography>
+                <Typography variant="h6" component="h4" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>{formatDate(history.auction_date)}</Typography>
                 <p className="text-sm text-gray-500">
-                  落札価格: {getDisplayPrice({ unsold: history.unsold, sold_price: history.sold_price, history: horse.history })}
+                  落札価格: {displayPrice(history.sold_price, history.unsold)}
                 </p>
               </div>
               {history.detail_url && (
                 <Button 
                   component={Link}
-                  href={history.detail_url || '#'}
+                  href={history.detail_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   variant="outlined" 

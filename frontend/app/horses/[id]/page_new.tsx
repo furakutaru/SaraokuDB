@@ -1,44 +1,49 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
+import Typography from '@mui/material/Typography';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Box from '@mui/material/Box';
+import Badge from '@mui/material/Badge';
 import HorseImage from '@/components/HorseImage';
 
 // --- 型定義 ---
-type HorseHistory = {
+interface HorseHistory {
   auction_date: string;
+{{ ... }}
   name: string;
   sex: string;
-  age: string | number;
-  weight: number | null;
+  age: string;
   seller: string;
+  race_record: string;
+  comment: string;
   sold_price: number | null;
   total_prize_start: number;
-  total_prize_latest: number;
-  comment: string;
-  is_unsold: boolean;
+  unsold?: boolean;
+  detail_url?: string;
+  primary_image?: string;
+  disease_tags?: string;
+  weight?: number;
   created_at: string;
   updated_at: string;
-  race_record?: string;
-  unsold?: boolean; // 互換性のため追加
-};
+}
 
 interface Horse {
-  id: string | number;
+  id: number;
   name: string;
   sex: string;
-  color?: string;
-  birthday?: string;
-  age?: string | number;
+  age: string;
+  color: string;
+  birthday: string;
   history: HorseHistory[];
   sire: string;
   dam: string;
@@ -55,7 +60,6 @@ interface Horse {
   sold_price?: number | null;
   detail_url?: string;
   race_record?: string;
-  [key: string]: any;
 }
 
 interface HorseData {
@@ -63,9 +67,9 @@ interface HorseData {
   horses: Horse[];
 }
 
-type CommentedHistory = HorseHistory & {
+interface CommentedHistory extends HorseHistory {
   originalIndex: number;
-};
+}
 
 interface HorseDetailContentProps {
   horse: Horse;
@@ -299,6 +303,11 @@ export default function HorseDetailPage({ params }: PageProps) {
 
 // 馬詳細コンテンツコンポーネント
 function HorseDetailContent({ horse }: HorseDetailContentProps) {
+  const [tabValue, setTabValue] = useState(0);
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
   // 最新のオークション履歴を取得
   const latestAuction = useMemo(() => {
     if (!horse.history || horse.history.length === 0) return null;
