@@ -45,26 +45,30 @@ type HorseHistory = Omit<Partial<BaseHistory>, 'race_record'> & {
 
 type Horse = Omit<Partial<BaseHorse>, 'age' | 'disease_tags'> & {
   id: string | number;
+  auction_id?: string; // オークションID
   name: string; // 馬名
   sex: string; // 性別
-  age: string; // 年齢（表示用）
+  age: string | number; // 年齢（表示用）
   color: string; // 毛色
   birthday: string; // 生年月日
-  history: HorseHistory[];
+  history: HorseHistory[]; // オークション履歴
   sire: string; // 父
   dam: string; // 母
-  dam_sire: string; // 母の父
-  primary_image: string; // メイン画像URL
-  disease_tags: string[]; // 病歴タグ（配列に正規化）
-  jbis_url: string; // JBIS URL
+  dam_sire?: string; // 母の父（互換性のため残す）
+  damsire?: string; // 母の父（新しい形式）
+  primary_image: string; // メイン画像
+  disease_tags: string[]; // 疾患タグ
+  jbis_url: string; // JBISリンク
+  rakuten_url?: string; // 楽天オークションリンク（優先）
+  detail_url?: string; // 楽天オークションリンク（旧形式、互換性のため）
+  auction_url?: string; // オークションURL（旧形式、互換性のため）
   weight?: number; // 体重
-  unsold_count?: number; // 主取り回数
-  total_prize_latest: number; // 最新賞金
+  unsold_count?: number; // 未出走回数
+  total_prize_latest: number; // 最新の賞金
   created_at: string;
   updated_at: string;
-  unsold?: boolean;
+  unsold?: boolean; // 未出走フラグ
 };
-
 interface HorseData {
   metadata: any;
   horses: Horse[];
@@ -323,9 +327,14 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
     }
 
     const data = await response.json();
+    console.log('[horse detail] Raw API response:', JSON.stringify(data, null, 2));
+    
     // バックエンドの単体取得は Horse モデルを返す想定。
     // 既存UIが必要とするフィールドに合わせて最小限マッピング。
     const horseBaseData = data || {};
+    
+    // URLの互換性を確保
+    const rakutenUrl = horseBaseData.rakuten_url || horseBaseData.detail_url || horseBaseData.auction_url || '';
 
     const historyEntry: HorseHistory = {
       auction_date: horseBaseData.auction_date || new Date().toISOString().split('T')[0],
@@ -338,14 +347,23 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
       sold_price: horseBaseData.sold_price ?? null,
       total_prize_start: horseBaseData.total_prize_start ?? 0,
       unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false),
-      detail_url: horseBaseData.auction_url || '',
+      detail_url: rakutenUrl, // 統一された楽天URLを使用
       primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
       disease_tags: Array.isArray(horseBaseData.disease_tags) ? horseBaseData.disease_tags.join(',') : (horseBaseData.disease_tags || ''),
       weight: horseBaseData.weight
     };
 
+    // デバッグ用にAPIレスポンスをログ出力
+    console.log('Debug - API Response data:', {
+      horseBaseData,
+      auction_id: horseBaseData.auction_id,
+      hasAuctionId: !!horseBaseData.auction_id,
+      data: data
+    });
+
     const horse: Horse = {
       id: horseBaseData.id ?? horseId,
+      auction_id: data?.auction_id || horseBaseData.auction_id, // APIレスポンスのルートからauction_idを取得
       name: horseBaseData.name || '不明',
       sex: horseBaseData.sex || '不明',
       age: String(horseBaseData.age ?? '0'),
@@ -358,6 +376,9 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
       primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
       disease_tags: Array.isArray(horseBaseData.disease_tags) ? horseBaseData.disease_tags.join(',') : (horseBaseData.disease_tags || ''),
       jbis_url: horseBaseData.jbis_url || '',
+      rakuten_url: rakutenUrl, // 統一された楽天URLを設定
+      detail_url: rakutenUrl,  // 互換性のため
+      auction_url: rakutenUrl, // 互換性のため
       weight: horseBaseData.weight,
       unsold_count: horseBaseData.unsold_count || 0,
       total_prize_latest: horseBaseData.total_prize_latest ?? 0,
@@ -365,8 +386,25 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
       updated_at: horseBaseData.updated_at || new Date().toISOString(),
       unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false)
     };
+    
+    // デバッグ用にマッピング後のデータをログ出力
+    console.log('Debug - Mapped horse data:', {
+      jbis_url: horse.jbis_url,
+      auction_id: horse.auction_id,
+      hasAuctionId: !!horse.auction_id
+    });
 
-    console.log('[horse detail] Mapped horse:', horse);
+    console.log('[horse detail] Mapped horse:', JSON.stringify({
+      ...horse,
+      // 大きなデータは省略
+      history: horse.history?.map(h => ({
+        ...h,
+        // 履歴の詳細は省略
+        auction_date: h.auction_date,
+        sold_price: h.sold_price,
+        detail_url: h.detail_url
+      }))
+    }, null, 2));
     return { horse, error: null };
   } catch (error) {
     console.error('馬データの取得中にエラーが発生しました:', error);
@@ -504,7 +542,7 @@ export default function HorseDetailPage({ params }: PageProps) {
       setError(null);
 
       try {
-        const { horse, error } = await getHorseDataFromApi(horseId);
+        const { horse, error } = await getHorseData(horseId);
         
         if (error) {
           throw new Error(error);
@@ -556,7 +594,25 @@ export default function HorseDetailPage({ params }: PageProps) {
   return <HorseDetailContent horse={horse} />;
 }
 
+// URLが有効かどうかをチェックする関数
+const isValidUrl = (url?: string | null): boolean => {
+  if (!url) return false;
+  try {
+    new URL(url);
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
 const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
+  // デバッグ用: 馬のデータをコンソールに出力
+  useEffect(() => {
+    console.log('馬データ:', horse);
+    console.log('JBIS URL:', horse?.jbis_url);
+    console.log('楽天URL:', horse?.rakuten_url);
+  }, [horse]);
+
   // タブの状態管理
   const [activeTab, setActiveTab] = useState(0);
 
@@ -1210,19 +1266,97 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
     );
   };
 
+  // URLが有効かどうかをチェックするヘルパー関数
+  const isValidUrl = (url: string | undefined | null): boolean => {
+    if (!url) return false;
+    const trimmed = url.trim();
+    return trimmed.length > 0 && trimmed !== 'undefined' && trimmed !== 'null';
+  };
+
   // 馬の基本情報セクション
   const renderBasicInfo = () => {
     if (!horse) return null;
     
+    // デバッグ用に現在のURLをログ出力
+    console.log('Debug - Current horse data:', {
+      jbis_url: horse.jbis_url,
+      rakuten_url: horse.rakuten_url,
+      detail_url: horse.detail_url,
+      auction_url: horse.auction_url,
+      auction_id: horse.id // オークションIDを確認
+    });
+    
+    // デバッグ用に現在のデータをログ出力
+    console.log('Debug - Building URLs with data:', {
+      horseId: horse.id,
+      auction_id: horse.auction_id,
+      jbis_url: horse.jbis_url,
+      rakuten_url: horse.rakuten_url,
+      detail_url: horse.detail_url,
+      auction_url: horse.auction_url
+    });
+
+    // JBIS URLを構築
+    // 1. 既存のURLがあればそれを使用
+    // 2. なければauction_idからURLを構築
+    let jbisUrl = isValidUrl(horse.jbis_url) ? horse.jbis_url.trim() : null;
+    
+    // 有効なURLがなく、auction_idがある場合はURLを構築
+    if (!jbisUrl && horse.auction_id) {
+      jbisUrl = `https://www.jbis.or.jp/horse/${horse.auction_id}/`;
+      console.log('Debug - Generated JBIS URL:', jbisUrl);
+    }
+    
+    // 楽天オークションのURLを構築
+    // 1. 既存のURLがあればそれを使用
+    // 2. なければauction_idからURLを構築
+    let rakutenUrl = [
+      horse.rakuten_url,
+      horse.detail_url,
+      horse.auction_url
+    ].find(url => url && isValidUrl(url))?.trim();
+    
+    // 有効なURLがなく、auction_idがある場合はURLを構築
+    if (!rakutenUrl && horse.auction_id) {
+      // 楽天のIDは数値のみのため、数値部分を抽出
+      const auctionId = String(horse.auction_id).replace(/\D/g, '');
+      if (auctionId) {
+        rakutenUrl = `https://furusato.rakuten.co.jp/detail/auction/${auctionId}/`;
+        console.log('Debug - Generated Rakuten URL:', rakutenUrl);
+      }
+    }
+    
     return (
       <Card className="mb-6">
         <CardHeader>
-          <div className="flex justify-between items-start">
+          <div className="flex justify-between items-start w-full">
             <div>
               <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', fontSize: '1.5rem', mb: 1 }}>{horse.name}</Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" className="mb-2">
                 {horse.sex} {horse.age}歳 | {horse.color} | {format(new Date(horse.birthday), 'yyyy年M月d日', { locale: ja })}
               </Typography>
+              <div className="flex space-x-2 mt-2">
+                {jbisUrl && (
+                  <a 
+                    href={jbisUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition-colors"
+                  >
+                    JBIS
+                  </a>
+                )}
+                {rakutenUrl && (
+                  <a 
+                    href={rakutenUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="px-3 py-1 bg-red-500 text-white text-sm font-medium rounded-full hover:bg-red-600 transition-colors"
+                  >
+                    サラオク
+                  </a>
+                )}
+              </div>
             </div>
             <div className="flex space-x-2">
               {renderBackButton()}
