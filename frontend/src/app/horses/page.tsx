@@ -11,38 +11,79 @@ import { filterHorsesByTerm, sortHorses } from '@/utils/searchSort';
 import { normalizeImageUrl } from '@/utils/url';
 
 // 型は共通定義をベースにしつつ、このページで扱う拡張フィールドを許容
-interface HorseListRow extends UHorse {
-  auction_date?: string | null;
-  total_prize_start?: number | null;
-  total_prize_latest?: number | null;
-  race_record?: string | null;
-  comment?: string | null;
+interface HorseListRow {
+  // 必須フィールド
+  id: number;
+  horse_id?: number;  // APIからのレスポンスに合わせて追加
+  name: string;
+  sex: string;
+  age: number;
+  sire: string;
+  dam: string;
+  damsire?: string;   // 念のため両方のケースに対応
+  dam_sire?: string;  // バックエンドのレスポンスに合わせて追加
+  
+  // 画像関連
+  image_url: string | { image_url: string };
   primary_image?: string | null;
+  
+  // URL関連
+  jbis_url: string;
+  auction_url?: string;
+  detail_url?: string;
+  
+  // オークション情報
+  auction_date?: string | null;
+  sold_price: number | null;
+  is_unsold?: boolean;
+  unsold?: boolean;
   seller?: string;
+  weight?: number | null;
+  
+  // 賞金関連
+  total_prize_latest?: number;
+  total_prize_start?: number;
+  prize_money?: { [key: string]: any };
+  
+  // その他の情報
+  disease_tags?: string[] | string;
+  comment?: string;
+  race_record?: string | null;
   unsold_count?: number;
+  
+  // タイムスタンプ
+  created_at?: string;
+  updated_at?: string;
+  
+  // その他のフィールド
+  [key: string]: any;
 }
 
 interface Metadata {
-  last_updated: string;
-  total_horses: number;
-  total_auction_records: number;
+  last_updated?: string;
+  total_horses?: number;
+  total_auction_records?: number;
+  [key: string]: any; // その他のプロパティも許容
 }
 
 interface HorseData {
   horses: HorseListRow[];
-  auctionHistories: UHistory[];
+  auction_histories?: any[];  // バックエンドのレスポンスに合わせて追加
+  auctionHistories: any[];    // 既存のプロパティも維持
   metadata: Metadata;
+  [key: string]: any;  // その他のプロパティも許容
 }
 
 // 初期値（空データ）
 const defaultHorseData: HorseData = {
   horses: [],
   auctionHistories: [],
+  auction_histories: [],
   metadata: {
-    last_updated: '',
+    last_updated: new Date().toISOString(),
     total_horses: 0,
-    total_auction_records: 0,
-  },
+    total_auction_records: 0
+  }
 };
 
 // 検索とソート用の型
@@ -71,17 +112,88 @@ export default function HorsesPage() {
     console.log('=== データ取得を開始します (utils/horseApi 経由) ===');
     setLoading(true);
     setError(null);
+    
     try {
-      const list = await fetchHorsesList();
-      setData({
-        horses: Array.isArray(list.horses) ? list.horses as any : [],
-        auctionHistories: Array.isArray(list.auctionHistories) ? list.auctionHistories as any : [],
-        metadata: list.metadata as any,
+      console.log('fetchHorsesList を呼び出します...');
+      const response = await fetchHorsesList();
+      console.log('fetchHorsesList のレスポンス:', response);
+      
+      // レスポンスからhorsesとauctionHistoriesを取得
+      const { horses = [], auctionHistories = [], metadata = {} } = response || {};
+      
+      console.log('取得したデータ:', {
+        horsesCount: horses?.length || 0,
+        auctionHistoriesCount: auctionHistories?.length || 0,
+        metadata
       });
+      
+      // 馬データを正規化
+      const normalizedHorses = (horses || []).map(horse => ({
+        ...horse,
+        // idがなくてhorse_idがある場合は、horse_idをidとして使用
+        id: horse.id || horse.horse_id,
+        // 必須フィールドのデフォルト値を設定
+        name: horse.name || `馬名不明 (ID: ${horse.id || horse.horse_id || '不明'})`,
+        sex: horse.sex || '不明',
+        age: horse.age || 0,
+        sire: horse.sire || '不明',
+        dam: horse.dam || '不明',
+        damsire: horse.damsire || horse.dam_sire || '不明',
+        jbis_url: horse.jbis_url || '',
+        sold_price: horse.sold_price !== undefined ? horse.sold_price : null,
+        is_unsold: horse.is_unsold || horse.unsold || false,
+        image_url: typeof horse.image_url === 'string' 
+          ? horse.image_url 
+          : (horse.image_url?.image_url || '')
+      }));
+      
+      // メタデータを安全に取得するヘルパー関数
+      const getMetadataValue = <T extends keyof Metadata>(
+        key: T, 
+        defaultValue: Metadata[T]
+      ): Metadata[T] => {
+        if (metadata && typeof metadata === 'object' && key in metadata) {
+          return (metadata as any)[key] || defaultValue;
+        }
+        return defaultValue;
+      };
+
+      // メタデータを正規化
+      const normalizedMetadata: Metadata = {
+        last_updated: getMetadataValue('last_updated', new Date().toISOString()),
+        total_horses: getMetadataValue('total_horses', normalizedHorses.length),
+        total_auction_records: getMetadataValue('total_auction_records', auctionHistories?.length || 0),
+        ...(metadata || {}) // 他のメタデータプロパティも保持
+      };
+      
+      // データを状態にセット
+      setData({
+        horses: normalizedHorses,
+        auctionHistories: auctionHistories || [],
+        metadata: normalizedMetadata
+      });
+      
+      console.log('データをセットしました:', { 
+        horsesCount: normalizedHorses.length,
+        auctionHistoriesCount: auctionHistories?.length || 0,
+        metadata: metadata
+      });
+      
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '不明なエラー';
       console.error('データ取得エラー:', { error: err, errorMessage });
       setError(`データの取得中にエラーが発生しました: ${errorMessage}`);
+      
+      // エラー時に空のデータをセット
+      setData({
+        horses: [],
+        auctionHistories: [],
+        metadata: {
+          last_updated: new Date().toISOString(),
+          total_horses: 0,
+          total_auction_records: 0,
+        },
+      });
     } finally {
       setLoading(false);
     }

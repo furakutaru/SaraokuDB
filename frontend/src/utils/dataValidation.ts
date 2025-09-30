@@ -20,7 +20,7 @@ export const checkMissingData = (horse: Horse): MissingField[] => {
     { key: 'age', label: '年齢', severity: 'error' },
     { key: 'sire', label: '父', severity: 'warning' },
     { key: 'dam', label: '母', severity: 'warning' },
-    { key: 'dam_sire', label: '母父', severity: 'warning' },
+    { key: 'damsire', label: '母父', severity: 'warning' },
     { key: 'weight', label: '馬体重', severity: 'warning' },
     { key: 'total_prize_latest', label: '獲得賞金', severity: 'info' },
     { key: 'comment', label: 'コメント', severity: 'info' },
@@ -69,7 +69,7 @@ export const getMissingDataSummary = (horses: Horse[]) => {
   horses.forEach((horse) => {
     const missingFields = checkMissingData(horse);
     if (missingFields.length > 0) {
-      summary.horsesWithMissingData.add(horse.id);
+      summary.horsesWithMissingData.add(Number(horse.id));
       missingFields.forEach(({ field }) => {
         summary.missingFields[field as keyof typeof summary.missingFields]++;
       });

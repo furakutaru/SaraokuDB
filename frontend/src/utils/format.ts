@@ -30,3 +30,39 @@ export function formatPrizeFromYen(val: number | string | { total_prize: string 
   }
   return '0万円';
 }
+
+/**
+ * 戦績をフォーマットする
+ * 例: "6\u62260\u52dd[0-0-0-6]" → "6戦0勝 [0-0-0-6]"
+ */
+export function formatRaceRecord(record: string | null | undefined): string {
+  if (!record) return '未出走';
+  
+  // Unicodeエスケープシーケンスをデコード
+  let decoded = record;
+  try {
+    // Unicodeエスケープシーケンスをデコード
+    decoded = record.replace(/\\u([\dA-Fa-f]{4})/g, (_, p1) => {
+      return String.fromCharCode(parseInt(p1, 16));
+    });
+  } catch (e) {
+    console.error('Failed to decode race record:', e);
+    return record; // デコードに失敗した場合は元の文字列を返す
+  }
+  
+  // 既に正しく表示されている場合はそのまま返す
+  if (decoded.includes('戦') || decoded === '未出走') {
+    return decoded;
+  }
+  
+  // 形式が「数字 戦 数字 勝」のパターンにマッチするか確認
+  const match = decoded.match(/(\d+)\s*[^\d]*\s*(\d+)\s*[^\d]*\s*\[(.*?)\]/);
+  if (match) {
+    const [, total, wins, details] = match;
+    // 引用符を削除して返す
+    return `${total}戦${wins}勝[${details}]`;
+  }
+  
+  // マッチしない場合は元の文字列を返す
+  return decoded;
+}

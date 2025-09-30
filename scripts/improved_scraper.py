@@ -65,13 +65,29 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
         if json_file.exists():
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
-                    existing_data = json.load(f)
-                    if not isinstance(existing_data, list):
-                        existing_data = []
+                    data = json.load(f)
+                    # 既存のデータが新しい形式かどうかをチェック
+                    if isinstance(data, dict) and 'horses' in data:
+                        existing_data = data['horses']
+                        metadata = data.get('metadata', {})
+                    else:
+                        # 古い形式（配列）の場合は変換
+                        existing_data = data if isinstance(data, list) else []
+                        metadata = {}
             except (json.JSONDecodeError, FileNotFoundError):
                 existing_data = []
+                metadata = {}
         else:
             existing_data = []
+            metadata = {}
+            
+        # メタデータを更新
+        from datetime import datetime
+        metadata.update({
+            'version': '1.0',
+            'last_updated': datetime.now().isoformat(),
+            'total_horses': len(existing_data) + (0 if updated else 1)  # 更新/追加に応じてカウントを調整
+        })
         
         # 馬IDが指定されていない場合はエラー
         horse_id = horse_data.get('id')
@@ -102,19 +118,28 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
             # 新しい馬データを追加
             existing_data.append(horse_data)
         
-        # データをJSONファイルに保存
-        with open(json_file, 'w', encoding='utf-8') as f:
-            json.dump(existing_data, f, ensure_ascii=False, indent=2)
+        # データを新しい形式で保存
+        data_to_save = {
+            'metadata': metadata,
+            'horses': existing_data
+        }
+        
+        # 一時ファイルに保存してからリネーム（アトミックな書き込みのため）
+        temp_file = json_file.with_suffix('.tmp')
+        with open(temp_file, 'w', encoding='utf-8') as f:
+            json.dump(data_to_save, f, ensure_ascii=False, indent=2)
+        
+        # アトミックなリネーム
+        temp_file.replace(json_file)
         
         print(f"[INFO] 馬データを保存しました: {horse_data.get('name')} (ID: {horse_id})")
         return {'success': True, 'id': horse_id, 'action': 'updated' if updated else 'created'}
         
     except Exception as e:
-        print(f"[ERROR] 馬データの保存中にエラーが発生しました: {str(e)}")
-        return {'error': str(e)}
-        
-    except Exception as e:
-        return {'error': str(e), 'traceback': traceback.format_exc()}
+        error_msg = f"馬データの保存中にエラーが発生しました: {str(e)}"
+        print(f"[ERROR] {error_msg}")
+        print(traceback.format_exc())
+        return {'error': error_msg, 'traceback': traceback.format_exc()}
 
 def save_auction_history(*args, **kwargs):
     print("バックエンドモジュールが利用できないため、オークション履歴は保存されません")

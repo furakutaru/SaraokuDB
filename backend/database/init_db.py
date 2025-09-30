@@ -1,7 +1,8 @@
 import os
 import sys
 from sqlalchemy import inspect
-from .models import Base, engine, SessionLocal
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from database.models import Base, engine, SessionLocal
 
 def init_database():
     """データベースとテーブルを作成する"""

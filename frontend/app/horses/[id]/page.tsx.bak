@@ -31,7 +31,7 @@ interface HorseHistory {
 }
 
 interface Horse {
-  id: number;
+  id: string | number;  // UUIDまたは数値IDをサポート
   name: string; // 馬名
   sex: string; // 性別
   color: string; // 毛色
@@ -137,60 +137,294 @@ function LoadingSpinner() {
 
 /**
  * 馬データを取得する関数
- * @param horseId 取得する馬のID
+ * @param horseId 取得する馬のID (数値または文字列)
  * @returns 馬データとエラー情報を含むオブジェクト
  */
-async function getHorseData(horseId: number): Promise<{ horse: Horse | null; error: string | null }> {
-  if (!horseId || isNaN(horseId) || horseId <= 0) {
+interface AvailableHorse {
+  id: string;
+  name: string;
+}
+
+// 馬データをフェッチするヘルパー関数
+async function fetchHorseData(horseId: string | number): Promise<Response> {
+  // horse- プレフィックスを削除
+  const id = String(horseId).replace(/^horse-/, '');
+  const timestamp = new Date().getTime();
+  const url = `/api/horses/${id}?t=${timestamp}`;
+  
+  console.log(`Fetching from: ${url}`);
+  
+  try {
+    const response = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+    
+    // レスポンスをクローンして返すことで、複数回読み取り可能にする
+    const responseClone = response.clone();
+    
+    if (!response.ok) {
+      console.error(`API Error: ${response.status} ${response.statusText}`);
+      try {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+      } catch (e) {
+        console.error('Error reading error response:', e);
+      }
+      // エラー時にもクローンしたレスポンスを返す
+      return responseClone;
+    }
+    
+    return responseClone;
+  } catch (error) {
+    console.error('Fetch error:', error);
+    throw new Error(`データの取得中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function getHorseData(horseId: string | number): Promise<{ 
+  horse: Horse | null; 
+  error: string | null;
+  availableHorses?: AvailableHorse[];
+}> {
+  if (!horseId) {
     return { horse: null, error: '無効な馬IDです' };
   }
 
+  // horse-{timestamp} 形式のIDから数値IDを抽出
+  const extractNumericId = (id: string | number): string => {
+    const idStr = String(id);
+    // horse-{timestamp} 形式の場合、最後の数値部分を抽出
+    const match = idStr.match(/horse-(\d+)$/);
+    return match ? match[1] : idStr;
+  };
+
+  const numericId = extractNumericId(horseId);
+  console.log(`Extracted numeric ID: ${numericId} from original ID: ${horseId}`);
+
   try {
-    // APIルート経由でデータを取得
-    const response = await fetch(`/api/horses/${horseId}`, {
-      next: { revalidate: 60 } // 60秒間キャッシュ
-    });
+    // 数値IDで直接APIを呼び出す
+    console.log(`Fetching horse data for ID: ${numericId}`);
+    let response = await fetchHorseData(numericId);
+    
+    // 404エラーの場合、horses.jsonから該当する馬を探す
+    if (!response.ok && response.status === 404) {
+      console.log(`Failed to fetch with ID: ${numericId}, status: ${response.status}, trying to find in horses.json...`);
+      
+      // 両方のパスを試す
+      const possiblePaths = [
+        '/static/data/horses.json',  // 古いパス
+        '/horses.json.new'           // 新しいパス
+      ];
+      
+      for (const path of possiblePaths) {
+        try {
+          const horsesResponse = await fetch(path);
+          
+          if (horsesResponse.ok) {
+            const horsesData = await horsesResponse.json();
+            // 配列形式とオブジェクト形式の両方に対応
+            const horses = Array.isArray(horsesData) 
+              ? horsesData 
+              : (horsesData.horses || []);
+            
+            console.log(`Searching in ${path}, found ${horses.length} horses`);
+            
+            // 1. 完全一致で検索（文字列比較に注意）
+            let horse = horses.find((h: any) => {
+              const hId = String(h.id || '');
+              return hId === String(numericId) || 
+                     hId === String(horseId) ||
+                     h.detail_url?.includes(String(numericId));
+            });
+            
+            // 2. detail_urlからIDを抽出して検索
+            if (!horse) {
+              horse = horses.find((h: any) => {
+                if (!h.detail_url) return false;
+                const idFromUrl = h.detail_url.match(/(?:item|horses|auction\/item|auction\/auction_item)\/(\d+)/)?.[1];
+                if (idFromUrl === String(numericId)) {
+                  console.log(`Found matching horse by detail_url: ${h.detail_url}, ID: ${h.id}, Name: ${h.name}`);
+                  return true;
+                }
+                return false;
+              });
+            }
+            
+            if (horse) {
+              // 見つかった馬のIDを使用して再試行
+              const horseIdToUse = horse.id || horse.detail_url?.match(/\/(\d+)$/)?.[1];
+              if (horseIdToUse) {
+                console.log(`Found horse in ${path}. ID: ${horseIdToUse}, Name: ${horse.name || '名前なし'}`);
+                response = await fetchHorseData(horseIdToUse);
+                if (response.ok) break; // 成功したらループを抜ける
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`Error loading ${path}:`, e);
+        }
+      }
+      
+      if (!response.ok) {
+        console.log('対応する馬が見つかりませんでした。');
+      }
     
     if (!response.ok) {
-      throw new Error(`データの取得に失敗しました (${response.status} ${response.statusText})`);
+      try {
+        const errorText = await response.text();
+        console.error('APIエラーレスポンス:', response.status, errorText);
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          
+          // 利用可能な馬の情報を取得
+          if (errorData.available_horses && errorData.available_horses.length > 0) {
+            return { 
+              horse: null, 
+              error: errorData.error || `馬が見つかりません (ID: ${horseId})`,
+              availableHorses: errorData.available_horses
+            };
+          } else if (errorData.available_ids && errorData.available_ids.length > 0) {
+            // 後方互換性のため、available_ids が存在する場合もサポート
+            const availableHorses = errorData.available_ids.map((id: string) => ({
+              id,
+              name: errorData.horse_names?.[id] || `ID: ${id}`
+            })).slice(0, 10); // 最初の10件のみ表示
+            
+            return { 
+              horse: null, 
+              error: errorData.error || `馬が見つかりません (ID: ${horseId})`,
+              availableHorses
+            };
+          }
+        } catch (e) {
+          console.error('Error parsing error response:', e);
+          return { 
+            horse: null, 
+            error: `データの取得に失敗しました (${response.status}): ${errorText.substring(0, 100)}`
+          };
+        }
+      } catch (e) {
+        console.error('Error reading error response:', e);
+        return { 
+          horse: null, 
+          error: `データの取得中にエラーが発生しました (${response.status}): ${e instanceof Error ? e.message : String(e)}`
+        };
+      }
+      
+      return { 
+        horse: null, 
+        error: `データの取得に失敗しました (${response.status})`
+      };
     }
     
     const data = await response.json();
+    console.log('APIレスポンスデータ:', data);
     
-    if (!data?.horse) {
-      throw new Error('無効なデータ形式です');
+    // データが直接返ってきているか、horseプロパティとして返ってきているかを確認
+    const horseData = data.horse || data;
+    
+    if (!horseData) {
+      throw new Error('馬のデータが見つかりません');
     }
     
-    return { horse: data.horse, error: null };
+    // 必要なフィールドを変換
+    const formattedHorse: Horse = {
+      ...horseData,
+      id: horseData.id || 0, // デフォルト値として0を設定
+      color: horseData.color || '不明',
+      birthday: horseData.birthday || '不明',
+      history: horseData.history || [],
+      primary_image: horseData.primary_image || '',
+      disease_tags: horseData.disease_tags || '',
+      jbis_url: horseData.jbis_url || '',
+      weight: horseData.weight || null,
+      unsold_count: horseData.unsold_count || 0,
+      total_prize_latest: horseData.total_prize_latest || 0,
+      created_at: horseData.created_at || new Date().toISOString(),
+      updated_at: horseData.updated_at || new Date().toISOString(),
+      // damsire が存在する場合は dam_sire として使用
+      dam_sire: horseData.dam_sire || horseData.damsire || '不明',
+      // オプショナルなフィールド
+      unsold: horseData.unsold || false
+    };
+    
+    console.log('フォーマット後の馬データ:', formattedHorse);
+    return { horse: formattedHorse, error: null };
   } catch (error) {
     console.error('馬データの取得中にエラーが発生しました:', error);
     return { 
       horse: null, 
-      error: error instanceof Error ? error.message : '不明なエラーが発生しました' 
+      error: error instanceof Error ? error.message : '不明なエラーが発生しました'
     };
   }
 }
 
 // シンプルなエラーコンポーネント
-function SimpleError({ message }: { message: string }) {
+const SimpleError: React.FC<{ 
+  message: string;
+  availableHorses?: Array<{id: string, name: string}>;
+  onSelectHorse?: (id: string) => void;
+}> = ({ 
+  message, 
+  availableHorses = [],
+  onSelectHorse 
+}) => {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
+      <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
         <h2 className="text-xl font-bold text-red-600 mb-4">エラーが発生しました</h2>
         <p className="mb-6">{message}</p>
-        <a 
-          href="/" 
-          className="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition-colors"
+        
+        {availableHorses.length > 0 && (
+          <div className="mb-6">
+            <p className="font-medium mb-2">利用可能な馬:</p>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {availableHorses.map((horse) => (
+                <div 
+                  key={horse.id} 
+                  onClick={() => onSelectHorse?.(horse.id)}
+                  className="p-2 hover:bg-gray-100 rounded cursor-pointer"
+                >
+                  <div className="font-medium">{horse.name}</div>
+                  <div className="text-sm text-gray-500">ID: {horse.id}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        <button
+          onClick={() => window.location.reload()}
+          className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors"
         >
-          トップに戻る
-        </a>
+          再読み込み
+        </button>
+      </div>
+    </div>
+  );
+};
+        
+        <div className="flex justify-center">
+          <a 
+            href="/horses" 
+            className="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition-colors"
+          >
+            馬一覧に戻る
+          </a>
+        </div>
       </div>
     </div>
   );
 }
 
 // シンプルなローディングコンポーネント
-function SimpleLoading() {
+const SimpleLoading = () => {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -199,20 +433,21 @@ function SimpleLoading() {
 }
 
 // ページのパラメータ型
-interface PageProps {
+type PageProps = {
   params: { id: string };
   searchParams?: { [key: string]: string | string[] | undefined };
-}
+};
 
 // ページコンポーネント (Client Component)
-export default function HorseDetailPage({ params }: PageProps) {
+const HorseDetailPage = ({ params }: PageProps) => {
   const router = useRouter();
   const [horse, setHorse] = useState<Horse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedTab, setSelectedTab] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [availableHorses, setAvailableHorses] = useState<Array<{id: string, name: string}>>([])
+  const [selectedTab, setSelectedTab] = useState<number>(0)
   
-  // 馬IDをパース (Next.js 14+ のparams Promise対応)
+  // 馬IDを取得 (Next.js 14+ のparams Promise対応)
   const horseId = useMemo(() => {
     try {
       // params.id を直接使用（Next.jsが自動的に解決）
@@ -223,10 +458,10 @@ export default function HorseDetailPage({ params }: PageProps) {
         throw new Error('馬IDが指定されていません');
       }
       
-      // 数値に変換
-      const id = typeof idParam === 'string' ? parseInt(idParam, 10) : 0;
+      // 文字列または数値のIDをそのまま使用
+      const id = idParam;
       
-      if (isNaN(id) || id <= 0) {
+      if (!id) {
         throw new Error('無効な馬IDです');
       }
       
@@ -235,8 +470,8 @@ export default function HorseDetailPage({ params }: PageProps) {
       const errorMessage = e instanceof Error ? e.message : '無効な馬IDです';
       setError(errorMessage);
       setIsLoading(false);
-      console.error('馬IDのパースに失敗しました:', errorMessage);
-      return 0;
+      console.error('馬IDの取得に失敗しました:', errorMessage);
+      return '';
     }
   }, [params]);
   
@@ -248,6 +483,15 @@ export default function HorseDetailPage({ params }: PageProps) {
     );
   }, [horse]);
   
+  // 馬選択ハンドラー
+  const handleSelectHorse = (id: string) => {
+    // 選択された馬のページに遷移
+    router.push(`/horses/${id}`);
+    // ローディング状態をリセット
+    setIsLoading(true);
+    setError(null);
+  };
+
   // データ取得とエラー処理
   useEffect(() => {
     const fetchHorseData = async () => {
@@ -259,11 +503,15 @@ export default function HorseDetailPage({ params }: PageProps) {
 
       setIsLoading(true);
       setError(null);
+      setAvailableHorses([]);
 
       try {
-        const { horse, error } = await getHorseData(horseId);
+        const { horse, error, availableHorses } = await getHorseData(horseId);
         
         if (error) {
+          if (availableHorses && availableHorses.length > 0) {
+            setAvailableHorses(availableHorses);
+          }
           throw new Error(error);
         } 
         
@@ -272,8 +520,16 @@ export default function HorseDetailPage({ params }: PageProps) {
         }
 
         // 必須フィールドのバリデーション
-        if (!horse.name || !horse.primary_image || !horse.history?.length) {
-          console.warn('不完全な馬データ:', horse);
+        const requiredFields: Array<keyof Horse> = ['name', 'sex', 'sire', 'dam', 'dam_sire'];
+        const missingFields = requiredFields.filter(field => {
+          const value = horse[field];
+          return value === undefined || value === null || value === '';
+        });
+        
+        if (missingFields.length > 0) {
+          console.warn(`以下の必須フィールドが不足しています: ${missingFields.join(', ')}`, horse);
+        } else {
+          console.log('馬データの検証に成功しました');
         }
 
         setHorse(horse);
@@ -288,14 +544,23 @@ export default function HorseDetailPage({ params }: PageProps) {
     fetchHorseData();
   }, [horseId]);
   
+  // ローディング中はローディングコンポーネントを表示
   if (isLoading) {
     return <SimpleLoading />;
   }
   
+  // エラーがある場合はエラーコンポーネントを表示
   if (error) {
-    return <SimpleError message={error} />;
+    return (
+      <SimpleError 
+        message={error} 
+        availableHorses={availableHorses}
+        onSelectHorse={handleSelectHorse}
+      />
+    );
   }
   
+  // 馬データがない場合はエラーを表示
   if (!horse) {
     return <SimpleError message="馬のデータが見つかりませんでした" />;
   }
@@ -847,83 +1112,5 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
         </CardContent>
       </Card>
     );
-  };
-
-  // 馬の基本情報セクション
-  const renderBasicInfo = () => {
-    if (!horse) return null;
-    
-    return (
-      <Card className="mb-6">
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="text-2xl">{horse.name}</CardTitle>
-              <CardDescription className="mt-1">
-                {horse.sex} | {horse.color} | {horse.birthday}
-              </CardDescription>
-            </div>
-            <div className="flex space-x-2">
-              {renderBackButton()}
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-    );
-  };
-
-  // メインのレンダリング
-  return (
-    <div className="container mx-auto px-4 py-8">
-      {renderBasicInfo()}
-      
-      {/* 馬の詳細情報セクション */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* 左カラム: 馬の画像 */}
-        <div className="md:col-span-1">
-          <Card className="mb-6">
-            <div className="relative aspect-square">
-              <HorseImage 
-                src={horse.primary_image} 
-                alt={horse.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div>
-                  <span className="text-sm text-gray-500">父:</span>
-                  <p className="font-medium">{horse.sire}</p>
-                </div>
-                <div>
-                  <span className="text-sm text-gray-500">母:</span>
-                  <p className="font-medium">{horse.dam}</p>
-                </div>
-                <div>
-                  <span className="text-sm text-gray-500">母の父:</span>
-                  <p className="font-medium">{horse.dam_sire}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* 右カラム: 馬の情報 */}
-        <div className="md:col-span-2">
-          {/* オークション履歴 */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>オークション履歴</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {renderAuctionHistory()}
-            </CardContent>
-          </Card>
-          
-          {/* コメントセクション */}
-          {renderCommentSection()}
-        </div>
-      </div>
-    </div>
-  );
+  }
 }
