@@ -241,7 +241,7 @@ class HorseInfoExtractor:
 
     def _extract_weight(self, horse_element: Tag) -> Optional[int]:
         """
-        馬体重を抽出する
+        馬体重を抽出する（強化版）
         
         Args:
             horse_element: 馬情報を含むBeautifulSoup要素
@@ -250,89 +250,92 @@ class HorseInfoExtractor:
             Optional[int]: 抽出された馬体重（kg）、抽出できない場合はNone
         """
         try:
-            # デバッグ用に要素のHTMLをログに出力
-            self.logger.debug(f'馬体重抽出を開始: {str(horse_element)[:200]}...')
+            self.logger.debug('馬体重抽出を開始')
             
-            # テキスト全体を取得
-            text_content = horse_element.get_text()
+            # デバッグ用にHTMLを保存
+            debug_html = str(horse_element)[:2000] + '...'  # 先頭2000文字のみ
+            self.logger.debug(f'デバッグ用HTML: {debug_html}')
             
-            # パターン1: 数値 + kg のパターン（例: 422kg, 454 kg）
-            weight_elements = horse_element.find_all(string=re.compile(r'\d+\s*kg', re.IGNORECASE))
+            # テキスト全体を正規化（全角を半角に変換）
+            text_content = unicodedata.normalize('NFKC', horse_element.get_text())
+            self.logger.debug(f'正規化済みテキスト: {text_content[:200]}...')
             
-            for elem in weight_elements:
-                # 数値と「kg」の組み合わせを検索
-                match = re.search(r'(\d+)\s*kg', str(elem), re.IGNORECASE)
-                if match:
+            # パターン1: 数値 + kg のパターン（例: 422kg, 454 kg, 422.5kg）
+            weight_matches = re.finditer(r'(\d+(?:\.\d+)?)\s*(?:kg|キロ|㎏|ｋｇ)', text_content, re.IGNORECASE)
+            for match in weight_matches:
+                try:
+                    weight = float(match.group(1))
+                    # 馬体重として妥当な範囲かチェック（300kg〜700kgに拡大）
+                    if 300 <= weight <= 700:
+                        weight_kg = int(round(weight))
+                        self.logger.debug(f'パターン1で馬体重を抽出: {weight_kg}kg')
+                        return weight_kg
+                except (ValueError, TypeError) as e:
+                    self.logger.warning(f'体重の数値変換に失敗しました: {match.group(1)}: {str(e)}')
+            
+            # パターン2: 体重表記が別の形式の場合（例: 体重:422kg, 体重：422, 馬体重 422）
+            weight_patterns = [
+                r'[馬体]?重[量]?\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(?:kg|キロ|㎏|ｋｇ)?',
+                r'(\d+(?:\.\d+)?)\s*(?:kg|キロ|㎏|ｋｇ)?\s*[\(（]?[馬体]?重[量]?[\)）]?',
+                r'最終出走馬体重[：:]\s*(\d+)\s*kg',
+                r'馬体重[：:]\s*(\d+)\s*kg',
+                r'体重[：:]\s*(\d+)\s*kg'
+            ]
+            
+            for pattern in weight_patterns:
+                for match in re.finditer(pattern, text_content, re.IGNORECASE):
                     try:
-                        weight = int(match.group(1))
-                        # 馬体重として妥当な範囲かチェック（300kg〜600kg）
-                        if 300 <= weight <= 600:
-                            self.logger.debug(f'馬体重を抽出: {weight}kg')
-                            return weight
-                    except (ValueError, TypeError) as e:
-                        self.logger.warning(f'体重の数値変換に失敗しました: {match.group(1)}')
-            
-            # パターン2: 体重表記が別の形式の場合（例: 体重:422kg）
-            weight_elems = horse_element.find_all(string=re.compile(r'体重\s*[:：]?\s*\d+'))
-            for elem in weight_elems:
-                match = re.search(r'体重\s*[:：]?\s*(\d+)', str(elem))
-                if match:
-                    try:
-                        weight = int(match.group(1))
-                        if 300 <= weight <= 600:
-                            self.logger.debug(f'体重表記から馬体重を抽出: {weight}kg')
-                            return weight
-                    except (ValueError, TypeError):
+                        weight = float(match.group(1))
+                        if 300 <= weight <= 700:
+                            weight_kg = int(round(weight))
+                            self.logger.debug(f'パターン2で馬体重を抽出: {weight_kg}kg (パターン: {pattern})')
+                            return weight_kg
+                    except (ValueError, TypeError, IndexError) as e:
                         continue
             
             # パターン3: テーブル内の体重情報
-            table_rows = horse_element.find_all('tr')
-            for row in table_rows:
-                th = row.find('th')
-                td = row.find('td')
-                if th and td and '体重' in th.get_text():
-                    match = re.search(r'(\d+)', td.get_text())
-                    if match:
-                        try:
-                            weight = int(match.group(1))
-                            if 300 <= weight <= 600:
-                                self.logger.debug(f'テーブルから馬体重を抽出: {weight}kg')
-                                return weight
-                        except (ValueError, TypeError):
-                            continue
+            for table in horse_element.find_all('table'):
+                for row in table.find_all('tr'):
+                    cells = [cell.get_text(strip=True) for cell in row.find_all(['th', 'td'])]
+                    for i, cell in enumerate(cells):
+                        if '体重' in cell and i + 1 < len(cells):
+                            match = re.search(r'(\d+(?:\.\d+)?)', cells[i+1])
+                            if match:
+                                try:
+                                    weight = float(match.group(1))
+                                    if 300 <= weight <= 700:
+                                        weight_kg = int(round(weight))
+                                        self.logger.debug(f'テーブルから馬体重を抽出: {weight_kg}kg')
+                                        return weight_kg
+                                except (ValueError, TypeError):
+                                    continue
             
-            # パターン4: 正規表現パターンで直接検索
-            patterns = [
-                (r'最終出走馬体重[：:]\s*(\d+)\s*kg', 'パターン1: 完全一致'),
-                (r'馬体重[：:]\s*(\d+)\s*kg', 'パターン2: 馬体重: 形式'),
-                (r'体重[：:]\s*(\d+)\s*kg', 'パターン3: 体重: 形式'),
-                (r'(\d+)\s*kg', 'パターン4: 数値 + kg形式')
-            ]
-            
-            for pattern, pattern_name in patterns:
-                self.logger.debug(f"試行中: {pattern_name} - {pattern}")
-                match = re.search(pattern, text_content)
-                if match:
-                    try:
-                        weight = int(match.group(1))
-                        if 300 <= weight <= 600:
-                            self.logger.info(f"{pattern_name} で馬体重を抽出: {weight}kg")
-                            return weight
-                    except (ValueError, IndexError) as e:
-                        self.logger.debug(f"{pattern_name} で数値変換エラー: {e}")
+            # パターン4: 属性値に体重が含まれる場合
+            for elem in horse_element.find_all(True):
+                for attr in elem.attrs.values():
+                    if isinstance(attr, str) and re.search(r'\b\d{3,4}\s*(?:kg|キロ|㎏|ｋｇ)?\b', attr, re.IGNORECASE):
+                        match = re.search(r'(\d{3,4})', attr)
+                        if match:
+                            try:
+                                weight = int(match.group(1))
+                                if 300 <= weight <= 700:
+                                    self.logger.debug(f'属性値から馬体重を抽出: {weight}kg')
+                                    return weight
+                            except (ValueError, TypeError):
+                                continue
             
             # デバッグ用に「体重」の前後100文字を出力
             weight_pos = text_content.find('体重')
             if weight_pos != -1:
                 start = max(0, weight_pos - 100)
                 end = min(len(text_content), weight_pos + 100)
-                self.logger.debug(f"「体重」付近のテキスト: ...{text_content[start:end]}...")
+                self.logger.debug(f'「体重」付近のテキスト: ...{text_content[start:end]}...')
             
-            self.logger.warning("馬体重を取得できませんでした")
+            self.logger.warning('馬体重の抽出に失敗しました。該当するパターンが見つかりませんでした。')
             return None
             
         except Exception as e:
-            self.logger.error(f"馬体重の抽出中にエラーが発生しました: {e}")
+            self.logger.error(f'馬体重の抽出中にエラーが発生しました: {str(e)}')
             self.logger.error(traceback.format_exc())
             return None
             
