@@ -3,86 +3,24 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { 
-  Button, 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  Typography, 
-  Tabs, 
-  Tab,
-  Box,
-  Badge
-} from '@mui/material';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-
-// 型定義
-interface HorseHistory {
-  auction_date?: string;
-  comment?: string;
-  detail_url?: string;
-  sold_price?: number | number[];
-  unsold?: boolean;
-  [key: string]: any;
-}
-
-interface Horse {
-  id: string;
-  name: string;
-  sex: string;
-  age: string;
-  color: string;
-  birthday: string;
-  history: HorseHistory[];
-  sire: string;
-  dam: string;
-  dam_sire: string;
-  primary_image: string;
-  disease_tags: string[];
-  jbis_url: string;
-  rakuten_url?: string;
-  weight?: number;
-  unsold_count?: number;
-  total_prize_latest: number;
-  created_at: string;
-  updated_at: string;
-  [key: string]: any;
-}
-
-// カスタム画像コンポーネント
-const HorseImage = ({ src, alt, width = 300, height = 200, className = '' }: { 
-  src: string; 
-  alt: string; 
-  width?: number; 
-  height?: number;
-  className?: string;
-}) => {
-  const [imgSrc, setImgSrc] = useState(src);
-
-  const handleError = () => {
-    setImgSrc('/images/default-horse.jpg'); // デフォルト画像のパスを指定
-  };
-
-  return (
-    <div className={`relative ${className}`} style={{ width, height }}>
-      <Image
-        src={imgSrc}
-        alt={alt}
-        fill
-        style={{ objectFit: 'cover' }}
-        onError={handleError}
-        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-      />
-    </div>
-  );
-};
-
-interface HorseDetailContentProps {
-  horse: Horse;
-}
+import { Button } from '@mui/material';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
+import Typography from '@mui/material/Typography';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Box from '@mui/material/Box';
+import Badge from '@mui/material/Badge';
+import HorseImage from '@/components/HorseImage';
+import { getDisplayPrice } from '@/utils/price';
+import { formatPrizeMan } from '@/utils/format';
+import { normalizeImageUrl } from '@/utils/url';
+import { Horse as BaseHorse, AuctionHistory as BaseHistory } from '@/types/horse';
+import { getHorseData as getHorseDataFromApi } from '@/utils/horseApi';
 
 // --- 型定義（共有型に基づき最小拡張）---
 // RaceRecord 型を文字列またはオブジェクトのユニオン型として定義
@@ -106,28 +44,31 @@ type HorseHistory = Omit<Partial<BaseHistory>, 'race_record'> & {
 };
 
 type Horse = Omit<Partial<BaseHorse>, 'age' | 'disease_tags'> & {
+  id: string | number;
+  auction_id?: string; // オークションID
   name: string; // 馬名
   sex: string; // 性別
-  age: string; // 年齢（表示用）
+  age: string | number; // 年齢（表示用）
   color: string; // 毛色
   birthday: string; // 生年月日
   history: HorseHistory[]; // オークション履歴
   sire: string; // 父
   dam: string; // 母
-  dam_sire: string; // 母の父
-  primary_image: string; // メイン画像URL
-  disease_tags: string[]; // 病歴タグ（配列に正規化）
-  jbis_url: string; // JBIS URL
-  rakuten_url?: string; // 楽天オークションURL
+  dam_sire?: string; // 母の父（互換性のため残す）
+  damsire?: string; // 母の父（新しい形式）
+  primary_image: string; // メイン画像
+  disease_tags: string[]; // 疾患タグ
+  jbis_url: string; // JBISリンク
+  rakuten_url?: string; // 楽天オークションリンク（優先）
+  detail_url?: string; // 楽天オークションリンク（旧形式、互換性のため）
+  auction_url?: string; // オークションURL（旧形式、互換性のため）
   weight?: number; // 体重
-  unsold_count?: number; // 主取り回数
-  total_prize_latest: number; // 最新の獲得賞金
-  created_at: string; // 作成日時
-  updated_at: string; // 更新日時
-  unsold?: boolean; // 主取りフラグ
-  [key: string]: any; // その他のプロパティも許容
+  unsold_count?: number; // 未出走回数
+  total_prize_latest: number; // 最新の賞金
+  created_at: string;
+  updated_at: string;
+  unsold?: boolean; // 未出走フラグ
 };
-
 interface HorseData {
   metadata: any;
   horses: Horse[];
@@ -386,9 +327,14 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
     }
 
     const data = await response.json();
+    console.log('[horse detail] Raw API response:', JSON.stringify(data, null, 2));
+    
     // バックエンドの単体取得は Horse モデルを返す想定。
     // 既存UIが必要とするフィールドに合わせて最小限マッピング。
     const horseBaseData = data || {};
+    
+    // URLの互換性を確保
+    const rakutenUrl = horseBaseData.rakuten_url || horseBaseData.detail_url || horseBaseData.auction_url || '';
 
     const historyEntry: HorseHistory = {
       auction_date: horseBaseData.auction_date || new Date().toISOString().split('T')[0],
@@ -401,14 +347,23 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
       sold_price: horseBaseData.sold_price ?? null,
       total_prize_start: horseBaseData.total_prize_start ?? 0,
       unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false),
-      detail_url: horseBaseData.auction_url || '',
+      detail_url: rakutenUrl, // 統一された楽天URLを使用
       primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
       disease_tags: Array.isArray(horseBaseData.disease_tags) ? horseBaseData.disease_tags.join(',') : (horseBaseData.disease_tags || ''),
       weight: horseBaseData.weight
     };
 
+    // デバッグ用にAPIレスポンスをログ出力
+    console.log('Debug - API Response data:', {
+      horseBaseData,
+      auction_id: horseBaseData.auction_id,
+      hasAuctionId: !!horseBaseData.auction_id,
+      data: data
+    });
+
     const horse: Horse = {
       id: horseBaseData.id ?? horseId,
+      auction_id: data?.auction_id || horseBaseData.auction_id, // APIレスポンスのルートからauction_idを取得
       name: horseBaseData.name || '不明',
       sex: horseBaseData.sex || '不明',
       age: String(horseBaseData.age ?? '0'),
@@ -421,6 +376,9 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
       primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
       disease_tags: Array.isArray(horseBaseData.disease_tags) ? horseBaseData.disease_tags.join(',') : (horseBaseData.disease_tags || ''),
       jbis_url: horseBaseData.jbis_url || '',
+      rakuten_url: rakutenUrl, // 統一された楽天URLを設定
+      detail_url: rakutenUrl,  // 互換性のため
+      auction_url: rakutenUrl, // 互換性のため
       weight: horseBaseData.weight,
       unsold_count: horseBaseData.unsold_count || 0,
       total_prize_latest: horseBaseData.total_prize_latest ?? 0,
@@ -428,8 +386,25 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
       updated_at: horseBaseData.updated_at || new Date().toISOString(),
       unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false)
     };
+    
+    // デバッグ用にマッピング後のデータをログ出力
+    console.log('Debug - Mapped horse data:', {
+      jbis_url: horse.jbis_url,
+      auction_id: horse.auction_id,
+      hasAuctionId: !!horse.auction_id
+    });
 
-    console.log('[horse detail] Mapped horse:', horse);
+    console.log('[horse detail] Mapped horse:', JSON.stringify({
+      ...horse,
+      // 大きなデータは省略
+      history: horse.history?.map(h => ({
+        ...h,
+        // 履歴の詳細は省略
+        auction_date: h.auction_date,
+        sold_price: h.sold_price,
+        detail_url: h.detail_url
+      }))
+    }, null, 2));
     return { horse, error: null };
   } catch (error) {
     console.error('馬データの取得中にエラーが発生しました:', error);
@@ -567,7 +542,7 @@ export default function HorseDetailPage({ params }: PageProps) {
       setError(null);
 
       try {
-        const { horse, error } = await getHorseDataFromApi(horseId);
+        const { horse, error } = await getHorseData(horseId);
         
         if (error) {
           throw new Error(error);
@@ -619,7 +594,25 @@ export default function HorseDetailPage({ params }: PageProps) {
   return <HorseDetailContent horse={horse} />;
 }
 
+// URLが有効かどうかをチェックする関数
+const isValidUrl = (url?: string | null): boolean => {
+  if (!url) return false;
+  try {
+    new URL(url);
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
 const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
+  // デバッグ用: 馬のデータをコンソールに出力
+  useEffect(() => {
+    console.log('馬データ:', horse);
+    console.log('JBIS URL:', horse?.jbis_url);
+    console.log('楽天URL:', horse?.rakuten_url);
+  }, [horse]);
+
   // タブの状態管理
   const [activeTab, setActiveTab] = useState(0);
 
@@ -719,8 +712,13 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
     );
   }
 
+  // 落札価格フォーマット（円単位で保存されているので、そのまま表示）
+  // const formatPrice = (price: number) => {
+  //   return price.toLocaleString();
+  // };
+
   // タグをレンダリングする関数（string | string[] 双方に対応）
-  const renderTags = useCallback((tags: string | string[]) => {
+  const renderTags = (tags: string | string[]) => {
     if (!tags || (Array.isArray(tags) && tags.length === 0)) return null;
     const tagList: string[] = Array.isArray(tags)
       ? tags
@@ -735,159 +733,9 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
         ))}
       </div>
     );
-  }, []);
-
-  // 画像URLを正規化する関数
-  const normalizeImageUrl = (base: string, url: string): string => {
-    if (!url) return '';
-    if (url.startsWith('http')) return url;
-    return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
-  // 最新のオークション履歴を取得
-  const latestHistory = useMemo(() => {
-    if (!horse?.history?.length) return null;
-    return horse.history[0];
-  }, [horse?.history]);
-
-  // 価格表示用のヘルパー関数
-  const getDisplayPrice = ({ unsold, sold_price, history }: { unsold?: boolean; sold_price: any; history: any[] }): string => {
-    if (unsold) return '主取り';
-    if (!sold_price) return '未定';
-    const price = Array.isArray(sold_price) ? sold_price[0] : sold_price;
-    return `${Number(price).toLocaleString()}万円`;
-  };
-
-  // 賞金表示用のヘルパー関数
-  const formatPrizeMan = (amount: number): string => {
-    if (amount === 0) return '0万円';
-    return `${(amount / 10000).toLocaleString()}万円`;
-  };
-
-  // コメントの有無をチェック
-  const hasComments = useMemo(() => {
-    return horse?.history?.some(h => h.comment?.trim()) || false;
-  }, [horse?.history]);
-  
-  // コメントがある履歴のみをフィルタリング
-  const tabsWithComments = useMemo(() => {
-    if (!horse?.history?.length) return [];
-    return horse.history.reduce<Array<HorseHistory & { originalIndex: number }>>((acc, history, index) => {
-      if (history.comment?.trim()) {
-        acc.push({ ...history, originalIndex: index });
-      }
-      return acc;
-    }, []);
-  }, [horse?.history]);
-  
-  // 初期表示時に最初のコメントがあるタブを選択
-  useEffect(() => {
-    if (tabsWithComments.length > 0) {
-      setActiveTab(tabsWithComments[0].originalIndex);
-    }
-  }, [tabsWithComments]);
-  };
-
-    // 価格表示用のヘルパー関数
-  const getDisplayPrice = useCallback(({ 
-    unsold, 
-    sold_price 
-  }: { 
-    unsold?: boolean; 
-    sold_price?: number | number[];
-  }): string => {
-    if (unsold) return '主取り';
-    if (!sold_price) return '未定';
-    const price = Array.isArray(sold_price) ? sold_price[0] : sold_price;
-    return `${Number(price).toLocaleString()}万円`;
-  }, []);
-
-  // 日付フォーマット用のヘルパー関数
-  const formatDate = useCallback((dateString: string): string => {
-    if (!dateString) return '';
-    try {
-      return format(new Date(dateString), 'yyyy年M月d日', { locale: ja });
-    } catch (error) {
-      console.error('日付のフォーマットに失敗しました:', error);
-      return dateString;
-    }
-  }, []);
-
-  // 最新のオークション履歴を取得
-  const latestHistory = useMemo(() => {
-    if (!horse?.history?.length) return null;
-    return horse.history[0];
-  }, [horse?.history]);
-
-  // コメントの有無をチェック
-  const hasComments = useMemo(() => {
-    return horse?.history?.some(h => h.comment?.trim()) || false;
-  }, [horse?.history]);
-  
-  // コメントがある履歴のみをフィルタリング
-  const tabsWithComments = useMemo(() => {
-    if (!horse?.history?.length) return [];
-    return horse.history.reduce<CommentedHistory[]>((acc, history, index) => {
-      if (history.comment?.trim()) {
-        acc.push({ ...history, originalIndex: index });
-      }
-      return acc;
-    }, []);
-  }, [horse?.history]);
-
-  // タブの変更ハンドラー
-  const handleTabChange = useCallback((event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-  }, []);
-
-  // オークション履歴をレンダリング
-  const renderAuctionHistory = useCallback(() => {
-    if (!horse?.history?.length) {
-      return <p className="text-gray-500">オークション履歴がありません</p>;
-    }
-
-    return (
-      <div className="space-y-4">
-        {horse.history.map((history, index) => (
-          <div key={index} className="border-b pb-4 last:border-b-0 last:pb-0">
-            <div className="flex justify-between items-start">
-              <div>
-                <Typography variant="h6" component="h4" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>
-                  {formatDate(history.auction_date || '')}
-                </Typography>
-                <p className="text-sm text-gray-500">
-                  落札価格: {getDisplayPrice({ 
-                    unsold: history.unsold, 
-                    sold_price: history.sold_price
-                  })}
-                </p>
-              </div>
-              {history.detail_url && (
-                <Button 
-                  component="a"
-                  href={history.detail_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  variant="outlined" 
-                  size="small"
-                  className="whitespace-nowrap"
-                >
-                  詳細を見る
-                </Button>
-              )}
-            </div>
-            {history.comment && (
-              <div className="mt-2 p-3 bg-gray-50 rounded">
-                <Typography variant="body2" color="textSecondary" component="p">
-                  {history.comment}
-                </Typography>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    );
-  }, [horse?.history, formatDate, getDisplayPrice]);
+  // 以前の仕様に合わせた成長率計算
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
@@ -990,18 +838,15 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                       )}
                     </div>
                     {/* 画像下のリンク（JBIS / サラオク） */}
-                    <div className="flex flex-wrap gap-4 mt-2">
+                    <div className="flex items-center justify-center gap-4">
                       {horse.jbis_url && (
                         <a
                           href={horse.jbis_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-blue-600 hover:underline text-sm bg-blue-50 px-3 py-1.5 rounded-md"
-                          title="JBISで詳細を見る"
+                          className="text-blue-600 hover:underline text-sm"
+                          title="JBIS"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
                           JBIS
                         </a>
                       )}
@@ -1010,16 +855,12 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                           href={latestHistory.detail_url || (horse as any).auction_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-red-600 hover:underline text-sm bg-red-50 px-3 py-1.5 rounded-md"
-                          title="サラオクで詳細を見る"
+                          className="text-blue-600 hover:underline text-sm"
+                          title="サラオク"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
                           サラオク
                         </a>
                       )}
-                      </div>
                     </div>
                   </div>
 
@@ -1091,30 +932,15 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                     </div>
 
                     {/* 病歴（血統の下に1箇所のみ表示） */}
-                    {((latestHistory?.disease_tags && (Array.isArray(latestHistory.disease_tags) ? latestHistory.disease_tags.length > 0 : String(latestHistory.disease_tags).trim() !== '')) ||
-                      (horse?.disease_tags && (Array.isArray(horse.disease_tags) ? horse.disease_tags.length > 0 : String(horse.disease_tags).trim() !== ''))) && (
+                    {((latestHistory.disease_tags && String(latestHistory.disease_tags).trim() !== '') ||
+                      (horse.disease_tags && String(horse.disease_tags).trim() !== '')) && (
                       <div>
                         <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>病歴</Typography>
                         <div className="flex flex-wrap gap-2">
                           {(() => {
                             try {
                               // 最新の履歴からタグを取得、なければ馬の基本情報から取得
-                              const tags = (() => {
-                                const tags = latestHistory?.disease_tags || horse?.disease_tags;
-                                if (Array.isArray(tags)) {
-                                  return tags;
-                                }
-                                if (typeof tags === 'string' && tags.trim() !== '') {
-                                  try {
-                                    // 文字列を配列に変換してみる
-                                    const parsed = JSON.parse(tags);
-                                    return Array.isArray(parsed) ? parsed : [String(tags)];
-                                  } catch {
-                                    return [String(tags)];
-                                  }
-                                }
-                                return [];
-                              })();
+                              const tags = latestHistory.disease_tags || horse.disease_tags || [];
                               
                               // タグを処理するヘルパー関数
                               const processTag = (tag: any) => {
@@ -1440,19 +1266,79 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
     );
   };
 
+  // URLが有効かどうかをチェックするヘルパー関数
+  const isValidUrl = (url: string | undefined | null): boolean => {
+    if (!url) return false;
+    const trimmed = url.trim();
+    return trimmed.length > 0 && trimmed !== 'undefined' && trimmed !== 'null';
+  };
+
   // 馬の基本情報セクション
   const renderBasicInfo = () => {
     if (!horse) return null;
     
+    // デバッグ用に現在のURLをログ出力
+    console.log('Debug - Current horse data:', {
+      jbis_url: horse.jbis_url,
+      rakuten_url: horse.rakuten_url,
+      detail_url: horse.detail_url,
+      auction_url: horse.auction_url,
+      auction_id: horse.id // オークションIDを確認
+    });
+    
+    // デバッグ用に現在のデータをログ出力
+    console.log('Debug - Building URLs with data:', {
+      horseId: horse.id,
+      auction_id: horse.auction_id,
+      jbis_url: horse.jbis_url,
+      rakuten_url: horse.rakuten_url,
+      detail_url: horse.detail_url,
+      auction_url: horse.auction_url
+    });
+
+    // JBIS URLを構築
+    // データベースから取得したURLを使用
+    const jbisUrl = horse.jbis_url?.trim() || '';
+    const rakutenUrl = horse.auction_url?.trim() || '';
+    
+    console.log('Using URLs from database:', { 
+      jbisUrl, 
+      rakutenUrl, 
+      hasJbisUrl: !!horse.jbis_url,
+      hasAuctionUrl: !!horse.auction_url
+    });
+    
     return (
       <Card className="mb-6">
         <CardHeader>
-          <div className="flex justify-between items-start">
+          <div className="flex justify-between items-start w-full">
             <div>
               <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', fontSize: '1.5rem', mb: 1 }}>{horse.name}</Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" className="mb-2">
                 {horse.sex} {horse.age}歳 | {horse.color} | {format(new Date(horse.birthday), 'yyyy年M月d日', { locale: ja })}
               </Typography>
+              <div className="flex space-x-2 mt-2">
+                {jbisUrl && (
+                  <a 
+                    href={jbisUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition-colors"
+                  >
+                    JBIS
+                  </a>
+                )}
+                {rakutenUrl && (
+                  <a 
+                    href={rakutenUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="px-3 py-1 bg-red-500 text-white text-sm font-medium rounded-full hover:bg-red-600 transition-colors"
+                  >
+                    サラオク
+                  </a>
+                )}
+              </div>
             </div>
             <div className="flex space-x-2">
               {renderBackButton()}
@@ -1463,311 +1349,58 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
     );
   };
 
-            <button
-              onClick={() => window.history.back()}
-              className="rounded-md bg-white border border-black text-black px-4 py-2 hover:bg-gray-100 transition-colors"
-            >
-              <svg className="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              戻る
-            </button>
-            <div className="flex gap-4">
-              <Button 
-                component={Link} 
-                href="/" 
-                className="text-gray-700 hover:text-gray-900"
-              >
-                トップに戻る
-              </Button>
+  // メインのレンダリング
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {renderBasicInfo()}
+      
+      {/* 馬の詳細情報セクション */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* 左カラム: 馬の画像 */}
+        <div className="md:col-span-1">
+          <Card className="mb-6">
+            <div className="relative aspect-square">
+              <HorseImage 
+                src={horse.primary_image} 
+                alt={horse.name}
+                className="w-full h-full object-cover"
+              />
             </div>
-          </div>
+            <CardContent className="p-4">
+              <div className="space-y-2">
+                <div>
+                  <span className="text-sm text-gray-500">父:</span>
+                  <p className="font-medium">{horse.sire}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">母:</span>
+                  <p className="font-medium">{horse.dam}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">母の父:</span>
+                  <p className="font-medium">{horse.dam_sire}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* メインコンテンツ */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* 左カラム - 馬の基本情報 */}
-          <div className="lg:col-span-3">
-            <Card className="mb-6">
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row gap-6">
-                  {/* 馬の画像 */}
-                  <div className="w-full md:w-1/3">
-                    <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                      {normalizedPrimaryImage ? (
-                        <Image
-                          src={normalizedPrimaryImage}
-                          alt={`${horse.name}の画像`}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 100vw, 33vw"
-                          priority
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-400">
-                          <span>画像なし</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 馬の基本情報 */}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-4">
-                      <h1 className="text-2xl font-bold text-gray-900">{horse.name}</h1>
-                      {sexIcon && (
-                        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${sexColor} text-white font-bold`}>
-                          {sexIcon}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <p className="text-sm text-gray-500">性別・年齢</p>
-                        <p className="font-medium">{horse.sex} {horse.age}歳</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">毛色</p>
-                        <p className="font-medium">{horse.color}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">誕生日</p>
-                        <p className="font-medium">{formatDate(horse.birthday)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">主取り回数</p>
-                        <p className="font-medium">{horse.unsold_count || 0}回</p>
-                      </div>
-                    </div>
-
-                    {/* 血統情報 */}
-                    <div className="mt-6">
-                      <h3 className="text-lg font-semibold mb-2">血統情報</h3>
-                      <div className="space-y-2">
-                        <div className="flex items-baseline">
-                          <span className="w-16 text-sm text-gray-500">父:</span>
-                          <span className="font-medium">{horse.sire}</span>
-                        </div>
-                        <div className="flex items-baseline">
-                          <span className="w-16 text-sm text-gray-500">母:</span>
-                          <span className="font-medium">{horse.dam}</span>
-                        </div>
-                        <div className="flex items-baseline">
-                          <span className="w-16 text-sm text-gray-500">母の父:</span>
-                          <span className="font-medium">{horse.dam_sire}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* オークション履歴 */}
-            <Card className="mb-6">
-              <CardHeader>
-                <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>オークション履歴</Typography>
-              </CardHeader>
-              <CardContent>
-                {renderAuctionHistory()}
-              </CardContent>
-            </Card>
-
-            {/* コメント履歴 */}
-            {hasComments && (
-              <Card className="mb-6">
-                <CardHeader>
-                  <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>コメント履歴</Typography>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-                    {horse.history.map((h, i) => {
-                      const hasComment = h.comment && h.comment.trim() !== '';
-                      return (
-                        <button
-                          key={i}
-                          className={`px-3 py-1 rounded whitespace-nowrap ${
-                            activeTab === i 
-                              ? 'bg-blue-600 text-white' 
-                              : hasComment 
-                                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
-                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          }`}
-                          onClick={() => setActiveTab(i)}
-                          disabled={!hasComment}
-                        >
-                          {i + 1}回目 {!hasComment && '(コメントなし)'}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="border p-4 bg-gray-50 rounded-b min-h-[100px]">
-                    {horse.history[activeTab]?.comment && horse.history[activeTab].comment.trim() !== '' ? (
-                      <div className="prose max-w-none">
-                        <p className="whitespace-pre-line text-gray-800">
-                          {horse.history[activeTab].comment}
-                        </p>
-                        <div className="mt-2 text-sm text-gray-500">
-                          {toArray(horse.history[activeTab]?.auction_date).join(' / ')}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <p className="text-gray-500 italic">この回のコメントはありません</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* 右カラム - サイドバー */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* 落札価格 */}
-            <Card>
-              <CardHeader>
-                <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>落札価格</Typography>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-red-600">
-                    {getDisplayPrice({ 
-                      unsold: latestHistory.unsold, 
-                      sold_price: toArray(latestHistory.sold_price).slice(-1)[0], 
-                      history: horse.history 
-                    })}
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {toArray(latestHistory.auction_date).slice(-1)[0]}
-                  </div>
-                </div>
-
-                {toArray(latestHistory.sold_price).length > 1 && (
-                  <div className="border-t pt-4">
-                    <h4 className="text-sm font-medium text-center text-gray-500 mb-2">価格変動</h4>
-                    <div className="space-y-2">
-                      {toArray(latestHistory.sold_price).map((sp, i) => (
-                        <div key={i} className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">
-                            {toArray(latestHistory.auction_date)[i] || '不明な日付'}
-                          </span>
-                          <span className="font-medium">
-                            {getDisplayPrice({ 
-                              unsold: horse.history[i]?.unsold, 
-                              sold_price: sp, 
-                              history: horse.history 
-                            })}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* 賞金情報 */}
-            <Card>
-              <CardHeader>
-                <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>賞金情報</Typography>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center">
-                    <div className="text-xl font-bold">
-                      {formatManYen(Number(latestHistory?.total_prize_start ?? 0))}
-                    </div>
-                    <div className="text-sm text-gray-500">落札時</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold">
-                      {formatManYen(Number(horse.total_prize_latest))}
-                    </div>
-                    <div className="text-sm text-gray-500">現在</div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4 text-center">
-                  <div className={`text-2xl font-bold ${
-                    horse.total_prize_latest - (latestHistory?.total_prize_start ?? 0) > 0 
-                      ? 'text-green-600' 
-                      : horse.total_prize_latest - (latestHistory?.total_prize_start ?? 0) < 0 
-                        ? 'text-red-600' 
-                        : 'text-gray-600'
-                  }`}>
-                    {(() => {
-                      const start = Number(latestHistory?.total_prize_start ?? 0);
-                      const latest = Number(horse.total_prize_latest ?? 0);
-                      const diff = latest - start;
-                      if (diff === 0) return '±0';
-                      return (diff > 0 ? '+' : '') + formatManYen(diff);
-                    })()}
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">オークション後の活躍</div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* データ情報 */}
-            <Card>
-              <CardHeader>
-                <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>データ情報</Typography>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">オークション日:</span>
-                  <span>{formatDate(latestHistory?.auction_date || '')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">作成日:</span>
-                  <span>{formatDate(horse.created_at)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">更新日:</span>
-                  <span>{formatDate(horse.updated_at)}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 外部リンク */}
-            <Card>
-              <CardHeader>
-                <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>外部リンク</Typography>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {horse.jbis_url && (
-                  <Button
-                    component="a"
-                    href={horse.jbis_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    fullWidth
-                    startIcon={<OpenInNewIcon fontSize="small" />}
-                  >
-                    JBIS 競走馬情報
-                  </Button>
-                )}
-                {horse.rakuten_url && (
-                  <Button
-                    component="a"
-                    href={horse.rakuten_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    fullWidth
-                    startIcon={<OpenInNewIcon fontSize="small" />}
-                  >
-                    楽天競馬
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+        
+        {/* 右カラム: 馬の情報 */}
+        <div className="md:col-span-2">
+          {/* オークション履歴 */}
+          <Card className="mb-6">
+            <CardHeader>
+              <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>オークション履歴</Typography>
+            </CardHeader>
+            <CardContent>
+              {renderAuctionHistory()}
+            </CardContent>
+          </Card>
+          
+          {/* コメントセクション */}
+          {renderCommentSection()}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

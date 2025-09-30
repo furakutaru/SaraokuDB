@@ -306,27 +306,31 @@ def extract_prize_from_auction(html_content: str, horse_name: str) -> Dict[str, 
         Dict[str, any]: 抽出した賞金情報を含む辞書
     """
     result = {
-        'current_prize': 0.0,  # 万円単位
-        'auction_prize': 0.0,  # 万円単位
-        'is_breeding_mare': False,
-        'is_unraced': False
+        'total_prize_start': 0.0,   # オークション時点の総賞金（万円単位）
+        'is_breeding_mare': False   # 繁殖牝馬フラグ
     }
     
     try:
-        # 現在の賞金情報を抽出
-        current_extractor = CurrentPrizeExtractor()
-        current_result = current_extractor.extract(html_content, horse_name)
-        result.update(current_result)
+        from bs4 import BeautifulSoup
+        import re
         
-        # オークション時の賞金情報を抽出
-        auction_extractor = AuctionPrizeExtractor()
-        auction_result = auction_extractor.extract(html_content, horse_name)
-        result.update(auction_result)
+        soup = BeautifulSoup(html_content, 'html.parser')
         
-        # 未出走馬のチェック
-        if '未出走' in html_content:
-            result['is_unraced'] = True
-            logger.info(f"馬名 '{horse_name}' は未出走のため賞金は0円です")
+        # 1. 繁殖牝馬のチェック
+        title_tag = soup.find('title')
+        if title_tag and '繁殖牝馬' in title_tag.get_text():
+            result['is_breeding_mare'] = True
+            logger.info(f"馬名 '{horse_name}' は繁殖牝馬のため賞金は0円です")
+            return result
+        
+        # 2. 賞金情報を抽出
+        prize_section = soup.find('div', class_=lambda c: c and 'prize' in (c or '').lower())
+        if prize_section:
+            # オークション時の賞金を抽出
+            prize_text = prize_section.get_text()
+            prize = _extract_prize_value(prize_text, horse_name)
+            if prize is not None:
+                result['total_prize_start'] = prize
         
         logger.info(f"馬名 '{horse_name}' の賞金情報を抽出: {result}")
         return result
@@ -335,6 +339,35 @@ def extract_prize_from_auction(html_content: str, horse_name: str) -> Dict[str, 
         logger.error(f"賞金情報の抽出中にエラーが発生しました（馬名: {horse_name}）: {str(e)}")
         logger.error(traceback.format_exc())
         return result
+
+def _extract_prize_value(text: str, horse_name: str = '') -> Optional[float]:
+    """
+    テキストから賞金額を抽出する
+    
+    Args:
+        text: 賞金情報を含むテキスト
+        horse_name: 馬名（ログ出力用）
+        
+    Returns:
+        抽出した賞金額（万円単位）、抽出できない場合はNone
+    """
+    if not text:
+        return None
+        
+    try:
+        # 数字とカンマ、小数点を抽出（例: 1,234.56万円 → 1234.56）
+        import re
+        match = re.search(r'([\d,]+(?:\.[\d,]+)?)', text.replace(',', ''))
+        if match:
+            return float(match.group(1).replace(',', ''))
+            
+        logger.debug(f"馬名 '{horse_name}': 賞金の数値が見つかりませんでした: {text}")
+        return None
+        
+    except (ValueError, TypeError) as e:
+        logger.error(f"馬名 '{horse_name}': 賞金の抽出中にエラーが発生しました: {e}")
+        return None
+
 
 def _extract_disease_tags(comment: str) -> str:
     """
@@ -1377,6 +1410,15 @@ class ImprovedRakutenScraper:
                         key = cols[0].get_text(strip=True).replace(':', '')
                         value = cols[1].get_text(strip=True)
                         horse_info[key] = value
+            
+            # 賞金情報を抽出
+            try:
+                prize_info = extract_prize_from_auction(detail_html, name)
+                if prize_info:
+                    horse_info.update(prize_info)
+                    self.logger.debug(f'賞金情報を抽出しました: {prize_info}')
+            except Exception as e:
+                self.logger.warning(f'賞金情報の抽出中にエラーが発生しました: {e}')
             
             # 性別と年齢を抽出
             try:

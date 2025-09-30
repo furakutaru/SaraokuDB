@@ -58,20 +58,35 @@ def test_scraper():
         return True
         
     except Exception as e:
-        print(f"エラーが発生しました: {str(e)}", file=sys.stderr)
+        print(f"エラーが発生しました: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
 
 if __name__ == "__main__":
-    print("=== 楽天競馬オークション スクレイパーテスト ===")
-    print("本番モードで実行します（キャッシュなし）\n")
+    import sys
     
-    success = test_scraper()
-    
-    if success:
-        print("\nテストが正常に完了しました！")
-        sys.exit(0)
+    # コマンドライン引数を確認
+    if len(sys.argv) > 1 and sys.argv[1] == '--horse-id':
+        # 特定の馬IDを指定して実行
+        if len(sys.argv) < 3:
+            print("エラー: 馬IDを指定してください")
+            sys.exit(1)
+            
+        horse_id = sys.argv[2]
+        print(f"=== 馬ID: {horse_id} の情報を取得します ===")
+        if not scrape_specific_horse(horse_id):
+            sys.exit(1)
+    else:
+        # 通常のテスト実行
+        print("=== 楽天競馬オークション スクレイパーテスト ===")
+        print("本番モードで実行します（キャッシュなし）\n")
+        
+        if test_scraper():
+            print("\nスクレイピングが正常に完了しました")
+{{ ... }}
+            print("\nスクレイピング中にエラーが発生しました")
+            sys.exit(1)
     else:
         print("\nテストが失敗しました。詳細はログファイルを確認してください。", file=sys.stderr)
         sys.exit(1)

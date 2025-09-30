@@ -256,23 +256,42 @@ class RakutenScraper(BaseScraper):
         """賞金をパースする
         
         Args:
-            text: 賞金が含まれるテキスト（例: "1,234.5万円"）
+            text: 賞金が含まれるテキスト（例: "中央獲得賞金：575.0万円　　　地方獲得賞金：0.0万円"）
             
         Returns:
-            float: 賞金（万円単位）
+            float: 賞金の合計（万円単位）
         """
         if not text:
             return 0.0
             
-        # 数字と小数点のみを抽出
-        match = re.search(r'[\d,.]+', text.replace(',', ''))
-        if match:
+        total_prize = 0.0
+        
+        # 中央獲得賞金を抽出
+        central_match = re.search(r'中央獲得賞金[：:]([\d,.]+)', text)
+        if central_match:
             try:
-                return float(match.group())
+                total_prize += float(central_match.group(1).replace(',', ''))
             except (ValueError, TypeError):
                 pass
                 
-        return 0.0
+        # 地方獲得賞金を抽出
+        local_match = re.search(r'地方獲得賞金[：:]([\d,.]+)', text)
+        if local_match:
+            try:
+                total_prize += float(local_match.group(1).replace(',', ''))
+            except (ValueError, TypeError):
+                pass
+        
+        # 中央・地方の賞金が見つからない場合は、単一の数値を探す
+        if total_prize == 0.0:
+            match = re.search(r'([\d,.]+)', text.replace(',', ''))
+            if match:
+                try:
+                    total_prize = float(match.group(1))
+                except (ValueError, TypeError):
+                    pass
+                
+        return total_prize
     
     def _parse_price(self, text: str) -> float:
         """価格をパースする

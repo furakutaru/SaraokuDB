@@ -605,10 +605,9 @@ const isValidUrl = (url?: string | null): boolean => {
   }
 };
 
-const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
-  // デバッグ用: 馬のデータをコンソールに出力
+const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
   useEffect(() => {
-    console.log('馬データ:', horse);
+    console.log('馬データ:', JSON.stringify(horse, null, 2));
     console.log('JBIS URL:', horse?.jbis_url);
     console.log('楽天URL:', horse?.rakuten_url);
   }, [horse]);
@@ -1018,7 +1017,13 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
                           <td className="px-2 py-1 border">{h.age}</td>
                           <td className="px-2 py-1 border">{h.seller}</td>
                           <td className="px-2 py-1 border"><RaceRecordDisplay record={h.race_record} /></td>
-                          <td className="px-2 py-1 border text-right">{getDisplayPrice({ unsold: h.unsold, sold_price: h.sold_price, history: horse.history })}</td>
+                          <td className="px-2 py-1 border text-right">{
+                            getDisplayPrice({ 
+                              unsold: h.unsold, 
+                              sold_price: h.sold_price, 
+                              history: horse.history 
+                            })
+                          }</td>
                           <td className="px-2 py-1 border text-right">{formatPrizeMan(h.total_prize_start)}</td>
                         </tr>
                       ))}
@@ -1087,25 +1092,94 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
               <CardHeader>
                 <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>落札価格</Typography>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* 主取り回数表示 */}
-                {horse.unsold_count && horse.unsold_count > 0 && (
-                  <div className="text-center text-blue-600 font-bold mb-2">主取り{horse.unsold_count}回</div>
-                )}
-                {/* 落札価格（最新） */}
-                <div className="text-center">
-                  <span className="text-red-600 text-3xl font-extrabold align-middle">{getDisplayPrice({ unsold: latestHistory.unsold, sold_price: toArray(latestHistory.sold_price).slice(-1)[0], history: horse.history })}</span>
+              <CardContent className="relative">
+                {(() => {
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('latestHistory:', JSON.stringify({
+                      sold_price: latestHistory?.sold_price,
+                      unsold: latestHistory?.unsold,
+                      history: latestHistory,
+                      horse_history: horse.history
+                    }, null, 2));
+                  }
+                  return null;
+                })()}
+                <div className="space-y-4">
+                  {/* 主取り回数表示（1回以上の場合のみ表示） */}
+                  {horse.unsold_count > 0 && (
+                    <div className="text-center text-blue-600 font-bold">主取り{horse.unsold_count}回</div>
+                  )}
+                  
+                  {/* 落札価格（最新） */}
+                  <div className="text-center">
+                    <div className="text-sm text-gray-600 mb-1">落札価格</div>
+                    <div className="text-red-600 text-3xl font-extrabold">
+                      {(() => {
+                      // 主取りの場合は「主取り」と表示
+                      if (latestHistory?.unsold) {
+                        return '主取り';
+                      }
+                      
+                      // sold_price が配列の場合は最後の有効な価格を使用
+                      if (Array.isArray(latestHistory?.sold_price)) {
+                        const validPrices = latestHistory.sold_price
+                          .map(price => Number(price))
+                          .filter(price => !isNaN(price) && price > 0);
+                        
+                        if (validPrices.length > 0) {
+                          return `¥${validPrices[validPrices.length - 1].toLocaleString()}`;
+                        }
+                      } 
+                      // sold_price が数値の場合
+                      else if (latestHistory?.sold_price) {
+                        const price = Number(latestHistory.sold_price);
+                        if (!isNaN(price) && price > 0) {
+                          return `¥${price.toLocaleString()}`;
+                        }
+                      }
+                      
+                      // 上記のいずれにも該当しない場合は何も表示しない
+                      return null;
+                      })()}
+                    </div>
+                  </div>
                 </div>
                 {/* 履歴が2回以上ある場合のみ履歴表示 */}
-                {toArray(latestHistory.sold_price).length > 1 && (
+                {horse.history.length > 1 && (
                   <div className="text-center mt-2">
-                    {toArray(latestHistory.sold_price).map((sp, i) => (
-                      <div key={i} className="text-lg font-bold mb-1">
-                        <span className="text-red-600">{getDisplayPrice({ unsold: horse.history[i]?.unsold, sold_price: sp, history: horse.history })}</span>
-                        <span className="text-xs text-gray-500 ml-2">{toArray(latestHistory.auction_date)[i] ?? ''}</span>
-                      </div>
-                    ))}
-                    <div className="text-sm text-gray-600">落札価格履歴</div>
+                    <div className="text-sm text-gray-600 mb-2">落札価格履歴</div>
+                    {horse.history
+                      .filter((h, i) => {
+                        // 有効な価格がある履歴のみを表示
+                        const prices = toArray(h.sold_price)
+                          .map(Number)
+                          .filter(price => !isNaN(price) && price > 0);
+                        return prices.length > 0;
+                      })
+                      .map((h, i, filteredHistory) => {
+                        // 最新の有効な価格を取得
+                        const prices = toArray(h.sold_price)
+                          .map(Number)
+                          .filter(price => !isNaN(price) && price > 0);
+                        
+                        if (prices.length === 0) return null;
+                        
+                        const latestPrice = prices[prices.length - 1];
+                        const date = toArray(h.auction_date)[0] || '';
+                        
+                        return (
+                          <div key={i} className="text-lg font-bold mb-1">
+                            <span className="text-red-600">
+                              ¥{latestPrice.toLocaleString()}
+                            </span>
+                            {date && (
+                              <span className="text-xs text-gray-500 ml-2">
+                                {date}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 )}
               </CardContent>
