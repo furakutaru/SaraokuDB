@@ -99,8 +99,13 @@ async def get_horses(
 
 @router.get("/horses/{horse_id}", response_model=HorseResponse)
 async def get_horse(horse_id: str, db: Session = Depends(get_db)):
-    """馬IDで馬データを取得"""
-    # horse_id が数値なら内部ID検索、そうでなければ auction_id で検索
+    """馬IDで馬データを取得
+    
+    検索順:
+    1. 内部ID (horse_idが数値の場合)
+    2. auction_id で検索
+    3. detail_url に含まれる数値IDで検索
+    """
     horse = None
     # 1) 数値として内部ID検索
     try:
@@ -108,11 +113,30 @@ async def get_horse(horse_id: str, db: Session = Depends(get_db)):
         horse = db.query(Horse).filter(Horse.id == num_id).first()
     except Exception:
         pass
+        
     # 2) 見つからなければ auction_id で検索（文字列一致）
     if not horse:
         horse = db.query(Horse).filter(Horse.auction_id == horse_id).first()
+        
+    # 3) まだ見つからなければ、auction_id で部分一致検索
+    if not horse and horse_id.isdigit():
+        horse = db.query(Horse).filter(
+            Horse.auction_id.like(f'%{horse_id}%')
+        ).first()
+        
     if not horse:
-        raise HTTPException(status_code=404, detail="Horse not found")
+        # 利用可能な馬の一覧を取得（IDと名前）
+        available_horses = db.query(Horse.id, Horse.name).order_by(Horse.id.desc()).limit(10).all()
+        raise HTTPException(
+            status_code=404, 
+            detail={
+                "error": f"馬が見つかりません (ID: {horse_id})",
+                "available_horses": [
+                    {"id": str(h.id), "name": h.name} 
+                    for h in available_horses
+                ]
+            }
+        )
 
     # 正規化と辞書構築は専用サービスに委譲
     return serialize_horse(horse)

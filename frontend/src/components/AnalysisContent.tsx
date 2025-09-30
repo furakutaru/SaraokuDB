@@ -34,7 +34,8 @@ const transformHorseData = (horses: any[]): AnalysisHorse[] => {
   if (!horses || !Array.isArray(horses)) return [];
   
   return horses.filter(horse => horse !== null).map((horse, index) => {
-    const horseId = horse.id || `horse-${Date.now()}`;
+    // IDを明示的に文字列に変換
+    const horseId = horse.id ? String(horse.id) : `horse-${Date.now()}`;
     
     // オークション履歴を取得（historyまたはauction_historyのいずれかを使用）
     const auctionHistory = Array.isArray(horse.history) 
@@ -917,7 +918,19 @@ export default function AnalysisContent() {
                   className="hover:bg-blue-50"
                 >
                   <td className="px-3 py-2 font-medium text-gray-900">
-                    <Link href={`/horses/${String((horse as any).auction_id || horse.id)}`} className="hover:underline text-blue-700">{horse.name}</Link>
+                    {horse.id ? (
+                      <Link 
+                        href={`/horses/${horse.id}`} 
+                        className="hover:underline text-blue-700"
+                        onClick={(e) => {
+                          console.log('Navigating to horse:', horse.id, 'Name:', horse.name);
+                        }}
+                      >
+                        {horse.name}
+                      </Link>
+                    ) : (
+                      <span>{horse.name}</span>
+                    )}
                   </td>
                   <td className="px-3 py-2">{horse.sex}</td>
                   <td className="px-3 py-2">{displayAge(horse.age)}</td>

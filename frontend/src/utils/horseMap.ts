@@ -27,7 +27,7 @@ export interface HorseUI {
   dam: string;
   dam_sire: string;
   primary_image: string;
-  disease_tags: string;
+  disease_tags: string[];
   jbis_url: string;
   weight?: number;
   unsold_count?: number;
@@ -66,7 +66,7 @@ export function buildUIHorse(base: any, fallbackId: string): HorseUI {
     dam: base.dam || '不明',
     dam_sire: base.dam_sire || base.damsire || '不明',
     primary_image: base.primary_image || base.image_url || '',
-    disease_tags: Array.isArray(base.disease_tags) ? base.disease_tags.join(',') : (base.disease_tags || ''),
+    disease_tags: Array.isArray(base.disease_tags) ? base.disease_tags : (base.disease_tags ? [base.disease_tags] : []),
     jbis_url: base.jbis_url || '',
     weight: base.weight,
     unsold_count: base.unsold_count || 0,

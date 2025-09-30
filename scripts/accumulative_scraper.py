@@ -772,11 +772,44 @@ class AccumulativeScraper:
                     existing_horses.append(new_horse)
                     added_count += 1
             
-            # データを保存
-            self.save_data(existing_horses)
+            # データを保存（完全な形式で保存）
+            from datetime import datetime
+            data_to_save = {
+                "metadata": {
+                    "version": "1.0",
+                    "last_updated": datetime.now().isoformat(),
+                    "total_horses": len(existing_horses)
+                },
+                "horses": existing_horses
+            }
+            self.save_data(data_to_save)
             
             print(f"\n=== スクレイピング完了 ===")
             print(f"追加: {added_count}頭, 更新: {updated_count}頭")
+            
+            # データベースを更新
+            print("\n=== データベースを更新中... ===")
+            try:
+                # update_database.py を実行してデータベースを更新
+                import subprocess
+                script_path = os.path.join(os.path.dirname(__file__), 'update_database.py')
+                result = subprocess.run(
+                    ['python3', script_path],
+                    capture_output=True,
+                    text=True
+                )
+                
+                if result.returncode == 0:
+                    print("✅ データベースの更新が完了しました")
+                    print(result.stdout)
+                else:
+                    print("❌ データベースの更新中にエラーが発生しました")
+                    print(f"エラー: {result.stderr}")
+                    
+            except Exception as e:
+                print(f"❌ データベース更新スクリプトの実行中にエラーが発生しました: {str(e)}")
+                import traceback
+                print(traceback.format_exc())
             
             return True
             

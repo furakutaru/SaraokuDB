@@ -38,6 +38,8 @@ export interface Horse {
   disease_tags?: string[];
   created_at?: string;
   updated_at?: string;
+  total_prize_latest?: number;
+  comment?: string;
   detail_url: string;
   prize_money?: PrizeMoney;
   is_unsold?: boolean;

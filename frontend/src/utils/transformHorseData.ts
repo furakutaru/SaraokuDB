@@ -28,6 +28,8 @@ export function transformHorseData(apiData: any): Horse {
           ? apiData.disease_tags 
           : [apiData.disease_tags]) 
       : [],
+    detail_url: apiData.detail_url || `#/horse/${horseId}`,
+    sold_price: apiData.sold_price || null,
     created_at: apiData.created_at || new Date().toISOString(),
     updated_at: apiData.updated_at || new Date().toISOString(),
     auction_history: []
