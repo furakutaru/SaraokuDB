@@ -1297,34 +1297,16 @@ const HorseDetailContent = ({ horse }: HorseDetailContentProps) => {
     });
 
     // JBIS URLを構築
-    // 1. 既存のURLがあればそれを使用
-    // 2. なければauction_idからURLを構築
-    let jbisUrl = isValidUrl(horse.jbis_url) ? horse.jbis_url.trim() : null;
+    // データベースから取得したURLを使用
+    const jbisUrl = horse.jbis_url?.trim() || '';
+    const rakutenUrl = horse.auction_url?.trim() || '';
     
-    // 有効なURLがなく、auction_idがある場合はURLを構築
-    if (!jbisUrl && horse.auction_id) {
-      jbisUrl = `https://www.jbis.or.jp/horse/${horse.auction_id}/`;
-      console.log('Debug - Generated JBIS URL:', jbisUrl);
-    }
-    
-    // 楽天オークションのURLを構築
-    // 1. 既存のURLがあればそれを使用
-    // 2. なければauction_idからURLを構築
-    let rakutenUrl = [
-      horse.rakuten_url,
-      horse.detail_url,
-      horse.auction_url
-    ].find(url => url && isValidUrl(url))?.trim();
-    
-    // 有効なURLがなく、auction_idがある場合はURLを構築
-    if (!rakutenUrl && horse.auction_id) {
-      // 楽天のIDは数値のみのため、数値部分を抽出
-      const auctionId = String(horse.auction_id).replace(/\D/g, '');
-      if (auctionId) {
-        rakutenUrl = `https://furusato.rakuten.co.jp/detail/auction/${auctionId}/`;
-        console.log('Debug - Generated Rakuten URL:', rakutenUrl);
-      }
-    }
+    console.log('Using URLs from database:', { 
+      jbisUrl, 
+      rakutenUrl, 
+      hasJbisUrl: !!horse.jbis_url,
+      hasAuctionUrl: !!horse.auction_url
+    });
     
     return (
       <Card className="mb-6">

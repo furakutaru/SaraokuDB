@@ -55,6 +55,14 @@
         "chunks": [],
         "async": false
       }
+    },
+    "(app-client)/./app/page.tsx": {
+      "*": {
+        "id": "(sc_client)/./app/page.tsx",
+        "name": "*",
+        "chunks": [],
+        "async": false
+      }
     }
   },
   "edgeSSRModuleMapping": {},
@@ -139,6 +147,22 @@
       ],
       "async": false
     },
+    "/Users/yum.ishii/SaraokuDB/frontend/node_modules/next/font/google/target.css?{\"path\":\"app/layout.tsx\",\"import\":\"Inter\",\"arguments\":[{\"subsets\":[\"latin\"]}],\"variableName\":\"inter\"}": {
+      "id": "(app-client)/./node_modules/next/font/google/target.css?{\"path\":\"app/layout.tsx\",\"import\":\"Inter\",\"arguments\":[{\"subsets\":[\"latin\"]}],\"variableName\":\"inter\"}",
+      "name": "*",
+      "chunks": [
+        "app/layout:static/chunks/app/layout.js"
+      ],
+      "async": false
+    },
+    "/Users/yum.ishii/SaraokuDB/frontend/app/globals.css": {
+      "id": "(app-client)/./app/globals.css",
+      "name": "*",
+      "chunks": [
+        "app/layout:static/chunks/app/layout.js"
+      ],
+      "async": false
+    },
     "/Users/yum.ishii/SaraokuDB/frontend/app/horses/error.tsx": {
       "id": "(app-client)/./app/horses/error.tsx",
       "name": "*",
@@ -155,31 +179,24 @@
       ],
       "async": false
     },
-    "/Users/yum.ishii/SaraokuDB/frontend/node_modules/next/font/google/target.css?{\"path\":\"app/layout.tsx\",\"import\":\"Inter\",\"arguments\":[{\"subsets\":[\"latin\"]}],\"variableName\":\"inter\"}": {
-      "id": "(app-client)/./node_modules/next/font/google/target.css?{\"path\":\"app/layout.tsx\",\"import\":\"Inter\",\"arguments\":[{\"subsets\":[\"latin\"]}],\"variableName\":\"inter\"}",
+    "/Users/yum.ishii/SaraokuDB/frontend/app/page.tsx": {
+      "id": "(app-client)/./app/page.tsx",
       "name": "*",
       "chunks": [
-        "app/layout:static/chunks/app/layout.js"
-      ],
-      "async": false
-    },
-    "/Users/yum.ishii/SaraokuDB/frontend/app/globals.css": {
-      "id": "(app-client)/./app/globals.css",
-      "name": "*",
-      "chunks": [
-        "app/layout:static/chunks/app/layout.js"
+        "app/page:static/chunks/app/page.js"
       ],
       "async": false
     }
   },
   "entryCSSFiles": {
-    "/Users/yum.ishii/SaraokuDB/frontend/app/loading": [],
-    "/Users/yum.ishii/SaraokuDB/frontend/app/horses/error": [],
-    "/Users/yum.ishii/SaraokuDB/frontend/app/horses/layout": [],
-    "/Users/yum.ishii/SaraokuDB/frontend/app/horses/loading": [],
-    "/Users/yum.ishii/SaraokuDB/frontend/app/horses/[id]/page": [],
     "/Users/yum.ishii/SaraokuDB/frontend/app/layout": [
       "static/css/app/layout.css"
-    ]
+    ],
+    "/Users/yum.ishii/SaraokuDB/frontend/app/loading": [],
+    "/Users/yum.ishii/SaraokuDB/frontend/app/horses/layout": [],
+    "/Users/yum.ishii/SaraokuDB/frontend/app/horses/error": [],
+    "/Users/yum.ishii/SaraokuDB/frontend/app/horses/loading": [],
+    "/Users/yum.ishii/SaraokuDB/frontend/app/horses/[id]/page": [],
+    "/Users/yum.ishii/SaraokuDB/frontend/app/page": []
   }
 }
