@@ -16,11 +16,11 @@ import {
   Box,
   Badge,
 } from '@mui/material';
-import HorseImage from '@/components/HorseImage';
-import { formatPrizeMan } from '@/utils/format';
-import { normalizeImageUrl } from '@/utils/url';
-import { Horse as BaseHorse, AuctionHistory as BaseHistory } from '@/types/horse';
-import { getHorseData as getHorseDataFromApi } from '@/utils/horseApi';
+import HorseImage from '@/src/components/HorseImage';
+import { formatPrizeMan } from '@/src/utils/format';
+import { normalizeImageUrl } from '@/src/utils/url';
+import { Horse as BaseHorse, AuctionHistory as BaseHistory } from '@/src/types/horse';
+import { getHorseData as getHorseDataFromApi } from '@/src/utils/horseApi';
 
 // 馬体重をフォーマットする関数（整数値のみを想定）
 function formatWeight(weight: number | string | null | undefined): string {
@@ -689,7 +689,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
     console.log('Processed weight:', {
       value: weight,
       type: typeof weight,
-      isNaN: weight !== undefined ? isNaN(weight) : 'undefined'
+      isNaN: weight !== null && weight !== undefined ? isNaN(Number(weight)) : 'undefined'
     });
 
     return weight;
@@ -1145,7 +1145,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
                 })()}
                 <div className="space-y-4">
                   {/* 主取り回数表示（1回以上の場合のみ表示） */}
-                  {horse.unsold_count > 0 && (
+                  {(horse.unsold_count ?? 0) > 0 && (
                     <div className="text-center text-blue-600 font-bold">主取り{horse.unsold_count}回</div>
                   )}
                   
