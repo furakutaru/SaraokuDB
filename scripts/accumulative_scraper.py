@@ -52,6 +52,11 @@ class AccumulativeScraper:
         # テストモードの設定（development/testモードの場合はTrue、productionモードの場合はFalse）
         test_mode = mode in ['development', 'dev', 'test']
         
+        # プロジェクトルートからの絶対パスを設定
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        self.history_file = os.path.join(project_root, "static-frontend", "public", "data", "horses_history.json")
+        
         # スクレイパーを初期化
         if mode == 'test':
             from improved_scraper import TestConfig
@@ -62,10 +67,15 @@ class AccumulativeScraper:
             
         self.scraper = ImprovedRakutenScraper(config=config)
         
-        # プロジェクトルートからの絶対パスを使用
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(script_dir)
-        self.history_file = os.path.join(project_root, "static-frontend", "public", "data", "horses_history.json")
+        # HTML保存を有効化（本番モードと開発モードの両方で有効）
+        html_dump_dir = os.path.join(project_root, 'html_dump')
+        self.scraper.enable_html_saving(html_dump_dir)
+        self.logger.info(f"HTML保存が有効化されました: {os.path.abspath(html_dump_dir)}")
+        self.logger.info(f"詳細ページは {os.path.abspath(os.path.join(html_dump_dir, 'details'))} に保存されます")
+        
+        # テストモードの場合はログに通知
+        if test_mode:
+            self.logger.info("テストモード: サンプルデータを返します")
         
         # 履歴管理の制御設定
         self.mode = mode

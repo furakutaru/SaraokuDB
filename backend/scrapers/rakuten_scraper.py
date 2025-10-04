@@ -99,6 +99,14 @@ class RakutenAuctionScraper:
             # ページを取得
             response = self.session.get(detail_url)
             response.raise_for_status()
+            
+            # デバッグ用: 最初の馬のHTMLをファイルに保存
+            if not hasattr(self, '_debug_html_saved'):
+                with open('debug_horse_page.html', 'w', encoding='utf-8') as f:
+                    f.write(response.text)
+                print(f"[デバッグ] HTMLを debug_horse_page.html に保存しました")
+                self._debug_html_saved = True
+                
             soup = BeautifulSoup(response.text, 'html.parser')
         except Exception as e:
             print(f"ページの取得中にエラーが発生しました: {e}")
@@ -130,17 +138,71 @@ class RakutenAuctionScraper:
                     except (ValueError, TypeError) as e:
                         print(f"[警告] 年齢の数値変換に失敗: {age_match.group(1)} - {str(e)}")
 
-            # 3. 馬体重の抽出
-            weight_elem = soup.find(class_=re.compile(r'weight|horse-weight|wt|kg'))
-            if weight_elem:
-                weight_text = weight_elem.get_text(strip=True)
+            # 3. 馬体重の抽出（詳細なデバッグログ付き）
+            print("[デバッグ] 馬体重の抽出を開始")
+            
+            # テキスト全体から体重を検索（全角・半角の「kg」や「kg」表記に対応）
+            full_text = soup.get_text()
+            weight_matches = re.finditer(r'(\d+(?:\.\d+)?)\s*(?:kg|キロ|㎏|ｋｇ|KG|Kg|kG|KG)', full_text, re.IGNORECASE)
+            
+            for match in weight_matches:
                 try:
-                    # 数字のみを抽出
-                    weight_match = re.search(r'(\d+\.?\d*)', weight_text)
-                    if weight_match:
-                        auction_data['weight'] = float(weight_match.group(1))
+                    weight_value = float(match.group(1))
+                    # 馬体重として妥当な範囲かチェック（300kg〜700kg）
+                    if 300 <= weight_value <= 700:
+                        auction_data['weight'] = int(round(weight_value))
+                        print(f"[成功] テキストから馬体重を抽出: {auction_data['weight']}kg (マッチ: {match.group(0)})")
+                        break
                 except (ValueError, TypeError) as e:
-                    print(f"[警告] 馬体重の数値変換に失敗: {weight_text} - {str(e)}")
+                    print(f"[警告] 馬体重の数値変換に失敗: {match.group(1)} - {str(e)}")
+            
+            # 体重がまだ見つかっていない場合、要素ベースで検索
+            if 'weight' not in auction_data:
+                print("[デバッグ] テキストからの抽出に失敗したため、要素ベースで検索します")
+                weight_elems = soup.find_all(class_=re.compile(r'weight|horse[-_]?weight|wt|kg|馬体重|体重|バルク', re.IGNORECASE))
+                print(f"[デバッグ] 体重関連の要素を {len(weight_elems)} 件発見")
+            
+            for i, elem in enumerate(weight_elems, 1):
+                weight_text = elem.get_text(strip=True)
+                print(f"[デバッグ] 要素 {i}: テキスト='{weight_text}'")
+                
+                # 数字 + kg のパターンを検索
+                weight_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:kg|キロ|㎏|ｋｇ|KG|Kg|kG)?', weight_text)
+                if weight_match:
+                    try:
+                        weight_value = float(weight_match.group(1))
+                        # 馬体重として妥当な範囲かチェック（300kg〜700kg）
+                        if 300 <= weight_value <= 700:
+                            auction_data['weight'] = int(round(weight_value))
+                            print(f"[成功] 馬体重を抽出: {auction_data['weight']}kg (元テキスト: '{weight_text}')")
+                            break  # 最初に見つかった有効な値を使用
+                        else:
+                            print(f"[警告] 馬体重の値が範囲外です: {weight_value}kg (元テキスト: '{weight_text}')")
+                    except (ValueError, TypeError) as e:
+                        print(f"[警告] 馬体重の数値変換に失敗: {weight_text} - {str(e)}")
+            
+            # 体重が見つからなかった場合、テーブル形式のデータを確認
+            if 'weight' not in auction_data:
+                print("[デバッグ] 通常の要素で体重が見つからなかったため、テーブルを確認します")
+                tables = soup.find_all('table')
+                for table in tables:
+                    rows = table.find_all('tr')
+                    for row in rows:
+                        th = row.find('th')
+                        td = row.find('td')
+                        if th and td and '体重' in th.get_text():
+                            weight_text = td.get_text(strip=True)
+                            print(f"[デバッグ] テーブルから体重を発見: {weight_text}")
+                            weight_match = re.search(r'(\d+(?:\.\d+)?)', weight_text)
+                            if weight_match:
+                                try:
+                                    weight_value = float(weight_match.group(1))
+                                    if 300 <= weight_value <= 700:
+                                        auction_data['weight'] = int(round(weight_value))
+                                        print(f"[成功] テーブルから馬体重を抽出: {auction_data['weight']}kg")
+                                        break
+                                except (ValueError, TypeError) as e:
+                                    print(f"[警告] テーブルからの馬体重抽出に失敗: {weight_text} - {str(e)}")
 
             # 4. 売り手情報の取得
             seller_elem = soup.find(class_=re.compile(r'seller|vendor'))
@@ -200,10 +262,14 @@ class RakutenAuctionScraper:
                             'name', 'sex', 'age', 'sire', 'dam', 'damsire', 'seller',
                             'auction_date', 'sold_price', 'bid_num', 'weight', 'comment', 'unsold'
                         ]:
-                            if key in detail_data[1]:
+                            if key in detail_data[1]:  # auction_data
                                 horse[key] = detail_data[1][key]
-                            elif key in detail_data[0]:
+                                if key == 'weight' and detail_data[1][key] is not None:
+                                    print(f"[デバッグ] 馬体重をauction_dataから設定: {detail_data[1][key]}kg")
+                            elif key in detail_data[0]:  # horse_data
                                 horse[key] = detail_data[0][key]
+                                if key == 'weight' and detail_data[0][key] is not None:
+                                    print(f"[デバッグ] 馬体重をhorse_dataから設定: {detail_data[0][key]}kg")
 
                 processed_horses.append(horse)
 
@@ -233,12 +299,13 @@ def get_horse_links():
         horse_links = []
         
         # 馬の詳細ページへのリンクを取得
-        for link in soup.select('a[href*="/auction/"]'):
+        for link in soup.find_all('a'):
             href = link.get('href')
-            if href and 'detail' in href:  # 詳細ページへのリンクのみを対象
+            if href and '/item/' in href:  # 詳細ページへのリンクを検出
                 full_url = urljoin(base_url, href)
                 if full_url not in horse_links:  # 重複を避ける
                     horse_links.append(full_url)
+                    print(f"  - 発見: {full_url}")
         
         print(f"{len(horse_links)}件の馬の詳細ページURLを取得しました")
         return horse_links
@@ -273,3 +340,19 @@ if __name__ == "__main__":
                 print(f"エラーが発生しました: {e}")
     
     print("\n=== スクレイピング完了 ===")
+    
+    # データベースを更新
+    print("\n=== データベースを更新しています... ===")
+    try:
+        db_script = os.path.join(project_root, 'scripts', 'update_database.py')
+        if os.path.exists(db_script):
+            import subprocess
+            result = subprocess.run(['python3', db_script], capture_output=True, text=True)
+            print("データベース更新結果:")
+            print(result.stdout)
+            if result.stderr:
+                print("エラー:", result.stderr)
+        else:
+            print(f"警告: データベース更新スクリプトが見つかりません: {db_script}")
+    except Exception as e:
+        print(f"データベース更新中にエラーが発生しました: {e}")

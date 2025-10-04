@@ -33,6 +33,13 @@ class HorseService:
             ValueError: 必須フィールドが不足している場合
         """
         try:
+            # デバッグ用に馬体重データをログに出力
+            weight = horse_data.get('weight')
+            if weight is not None:
+                print(f"[HorseService] 馬体重データを検出: {weight}kg (型: {type(weight)})")
+            else:
+                print("[HorseService] 警告: 馬体重データが見つかりません")
+                
             print(f"[HorseService] 受信データ: {horse_data}")
             
             # レースレコードが辞書型の場合はJSON文字列に変換
