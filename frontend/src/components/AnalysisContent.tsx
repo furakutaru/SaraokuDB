@@ -7,7 +7,20 @@ import { Horse, ImageUrl, HorseData, AuctionHistory, HorseWithCalculations as Ba
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { getDisplayPrice } from '@/utils/price';
-import { formatWeight, formatPrizeFromYen } from '@/utils/format';
+import { formatPrizeFromYen } from '@/utils/format';
+
+// 馬体重をフォーマットする関数（整数値のみを想定）
+function formatWeight(weight: number | string | null | undefined): string {
+  console.log('formatWeight called with:', weight, 'type:', typeof weight);
+  if (weight === null || weight === undefined || weight === '') {
+    return '-';
+  }
+  // 数値に変換して整数に丸める
+  const num = typeof weight === 'string' ? parseInt(weight, 10) : Math.floor(Number(weight));
+  console.log('formatted weight:', num);
+  return isNaN(num) ? '-' : `${num}kg`;
+}
+
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { normalizeImageUrl } from '@/utils/url';
 
@@ -30,10 +43,52 @@ interface AnalysisData {
 type ShowType = 'all' | 'sold' | 'unsold' | 'roi' | 'value';
 
 // 馬データを変換する関数
-const transformHorseData = (horses: any[]): AnalysisHorse[] => {
-  if (!horses || !Array.isArray(horses)) return [];
+const transformHorseData = (data: any): AnalysisHorse[] => {
+  console.log('=== transformHorseData called ===');
+  console.log('Input data:', data);
   
-  return horses.filter(horse => horse !== null).map((horse, index) => {
+  // データ構造の検証
+  if (!data || typeof data !== 'object') {
+    console.error('Invalid data format: Expected an object', data);
+    return [];
+  }
+  
+  // 馬データの配列を取得
+  const horsesArray = Array.isArray(data) ? data : 
+                     (data.horses && Array.isArray(data.horses) ? data.horses : []);
+  
+  // メタデータを保持
+  const metadata = data.metadata || {};
+  
+  console.log(`Transforming ${horsesArray.length} horses`);
+  if (horsesArray.length > 0) {
+    console.log('First horse keys:', Object.keys(horsesArray[0]));
+    console.log('First horse data:', JSON.stringify(horsesArray[0], null, 2));
+  }
+  
+  try {
+    console.log('Starting to process horses...');
+    
+    const filteredHorses = horsesArray.filter(horse => {
+      if (!horse) {
+        console.log('Found null or undefined horse, filtering out');
+        return false;
+      }
+      
+      console.log(`Processing horse: ${horse.name || 'No name'} (ID: ${horse.id || 'No ID'})`);
+      
+      if (!horse.id && !horse.name) {
+        console.log('Horse missing required fields (id and name):', JSON.stringify(horse, null, 2));
+        return false;
+      }
+      
+      return true;
+    });
+    
+    console.log(`Filtered ${horsesArray.length - filteredHorses.length} invalid horses`);
+    
+    const result = filteredHorses.map((horse, index) => {
+      console.log(`[${index}] Mapping horse:`, horse.name || 'No name');
     // IDを明示的に文字列に変換
     const horseId = horse.id ? String(horse.id) : `horse-${Date.now()}`;
     
@@ -46,27 +101,45 @@ const transformHorseData = (horses: any[]): AnalysisHorse[] => {
     
     // 馬体重を取得するヘルパー関数
     const getEffectiveWeight = (): number | null => {
-      // 馬オブジェクトの体重を確認
-      if (horse.weight !== undefined && horse.weight !== null && Number(horse.weight) > 0) {
-        return Number(horse.weight);
-      }
-      
-      // オークション履歴から最新の体重を確認
-      if (auctionHistory.length > 0) {
-        const validAuction = auctionHistory.find((auction: any) => 
-          auction.weight !== undefined && 
-          auction.weight !== null && 
-          Number(auction.weight) > 0
-        );
-        if (validAuction) {
-          return Number(validAuction.weight);
+      // 1. 馬オブジェクトの体重を確認
+      if (horse.weight !== undefined && horse.weight !== null && horse.weight !== '') {
+        // 数値に変換してチェック
+        const weight = Number(horse.weight);
+        if (!isNaN(weight) && weight > 0) {
+          console.log(`[${index}] ${horse.name} - Using horse.weight:`, weight);
+          return Math.floor(weight); // 整数に丸める
         }
       }
       
+      // 2. オークション履歴から最新の体重を確認
+      if (auctionHistory.length > 0) {
+        // 日付でソート（最新が先頭）
+        const sortedAuctions = [...auctionHistory].sort((a, b) => 
+          new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime()
+        );
+        
+        // 有効な体重を持つ最初のオークションを探す
+        const validAuction = sortedAuctions.find(auction => {
+          if (auction.weight !== undefined && auction.weight !== null && auction.weight !== '') {
+            const weight = Number(auction.weight);
+            return !isNaN(weight) && weight > 0;
+          }
+          return false;
+        });
+        
+        if (validAuction) {
+          const weight = Number(validAuction.weight);
+          console.log(`[${index}] ${horse.name} - Using auction weight (${validAuction.auction_date}):`, weight);
+          return weight;
+        }
+      }
+      console.log(`[${index}] ${horse.name} - No valid weight found`);
       return null;
     };
     
     const horseWeight = getEffectiveWeight();
+    const displayWeight = horseWeight !== null ? `${horseWeight}kg` : '不明';
+    console.log(`[${index}] ${horse.name} - Final effective weight:`, horseWeight);
     
     // デフォルトのオークションデータ
     const defaultAuction: AuctionHistory = {
@@ -93,14 +166,19 @@ const transformHorseData = (horses: any[]): AnalysisHorse[] => {
     // 最新のオークション情報を取得（なければデフォルト値を使用）
     const latestAuction = sortedAuctions[0] || defaultAuction;
     
+    // デバッグ用ログ
+    console.log(`[${index}] ${horse.name} - latestAuction:`, {
+      id: latestAuction?.id,
+      auction_date: latestAuction?.auction_date,
+      sold_price: latestAuction?.sold_price,
+      weight: latestAuction?.weight
+    });
+    
     // 販売価格を取得（馬オブジェクト直下のsold_priceを優先）
     // 馬オブジェクトにsold_priceがなく、オークション履歴にsold_priceがある場合はそれを使用
     // どちらにも値がない場合はnullを設定
     let soldPrice: number | null = null;
     let priceSource: string = 'none';
-    
-    // 馬体重を表示用にフォーマット
-    const displayWeight = horseWeight !== null ? `${horseWeight}kg` : '不明';
     
     // 1. 馬オブジェクトのsold_priceを確認
     if (horse.sold_price !== undefined && horse.sold_price !== null) {
@@ -155,58 +233,83 @@ const transformHorseData = (horses: any[]): AnalysisHorse[] => {
     
     // 馬体重を適切に取得（馬オブジェクトまたはオークション履歴から）
     const effectiveWeight = (() => {
+      // デバッグ用に値を確認
+      console.log(`[${index}] ${horse.name} - Raw weight values:`, {
+        horseWeight: horse.weight,
+        horseWeightType: typeof horse.weight,
+        latestAuctionWeight: latestAuction?.weight,
+        latestAuctionWeightType: typeof latestAuction?.weight
+      });
+
+      // 数値に変換するヘルパー関数
+      const toNumber = (val: any): number | null => {
+        if (val === undefined || val === null) return null;
+        const num = Number(val);
+        return !isNaN(num) ? num : null;
+      };
+
       // 馬オブジェクトの体重を取得
-      const horseWeight = horse.weight !== undefined && horse.weight !== null 
-        ? Number(horse.weight)
-        : null;
+      const horseWeight = toNumber(horse.weight);
       
       // オークション履歴の体重を取得
-      const auctionWeight = latestAuction && latestAuction.weight !== undefined && latestAuction.weight !== null 
-        ? Number(latestAuction.weight)
-        : null;
-      
-      // デバッグ用ログ
-      console.log(`[${index}] ${horse.name} - weights:`, {
-        horseWeight,
-        auctionWeight,
-        horse_weight: horse.weight,
-        auction_weight: latestAuction?.weight,
-        horse: JSON.stringify(horse, null, 2), // 馬オブジェクト全体を出力
-        latestAuction: latestAuction ? JSON.stringify(latestAuction, null, 2) : 'No latestAuction',
-        horseRaw: horse,
-        latestAuctionRaw: latestAuction
-      });
+      const auctionWeight = latestAuction ? toNumber(latestAuction.weight) : null;
       
       // 有効な体重を返す（0より大きい値のみ有効）
-      const result = (horseWeight !== null && horseWeight > 0) ? horseWeight :
-                   (auctionWeight !== null && auctionWeight > 0) ? auctionWeight :
-                   null;
+      const result = (horseWeight !== null && horseWeight > 0) 
+        ? horseWeight 
+        : (auctionWeight !== null && auctionWeight > 0) 
+          ? auctionWeight 
+          : undefined;
       
-      console.log(`[${index}] ${horse.name} - effectiveWeight:`, result);
+      console.log(`[${index}] ${horse.name} - Processed weight:`, {
+        horseWeight,
+        auctionWeight,
+        effectiveWeight: result,
+        type: typeof result
+      });
+      
       return result;
     })();
     
     // 馬の基本情報と最新のオークション情報をマージ
     // 馬オブジェクト直下の情報を優先し、なければオークション履歴の情報を使用
-    const effectiveAuction: AuctionHistory = {
-      // オークション履歴の情報（最新のもの）
-      ...latestAuction,
-      // 馬オブジェクト直下の情報で上書き
-      id: latestAuction.id || horseId,
+    // デフォルト値で初期化
+    const defaultAuctionData = {
+      id: horseId,
       horse_id: horseId,
-      auction_date: horse.auction_date || latestAuction.auction_date || '',
-      // sold_priceは必ず数値またはnullに正規化
+      auction_date: '',
       sold_price: soldPrice,
-      total_prize_start: horse.total_prize_start || latestAuction.total_prize_start || 0,
-      total_prize_latest: horse.total_prize_latest || latestAuction.total_prize_latest || 0,
+      total_prize_start: 0,
+      total_prize_latest: 0,
       weight: effectiveWeight,
-      seller: horse.seller || latestAuction.seller || '',
+      seller: '',
       is_unsold: isHorseUnsold,
       unsold: isHorseUnsold, // 互換性のため
-      comment: horse.comment || latestAuction.comment || '',
-      created_at: latestAuction.created_at || new Date().toISOString(),
-      detail_url: latestAuction.detail_url || horse.auction_url || '',
-      auction_url: latestAuction.auction_url || horse.auction_url || ''
+      comment: '',
+      created_at: new Date().toISOString(),
+      detail_url: horse.auction_url || '',
+      auction_url: horse.auction_url || ''
+    };
+
+    // オークション履歴の情報をマージ（最新のものから順に上書き）
+    const effectiveAuction: AuctionHistory = {
+      ...defaultAuctionData,
+      ...(latestAuction || {}),
+      // 馬オブジェクト直下の情報で上書き
+      id: latestAuction?.id || horseId,
+      horse_id: horseId,
+      auction_date: horse.auction_date || latestAuction?.auction_date || '',
+      sold_price: soldPrice,
+      total_prize_start: horse.total_prize_start || latestAuction?.total_prize_start || 0,
+      total_prize_latest: horse.total_prize_latest || latestAuction?.total_prize_latest || 0,
+      weight: effectiveWeight,
+      seller: horse.seller || latestAuction?.seller || '',
+      is_unsold: isHorseUnsold,
+      unsold: isHorseUnsold,
+      comment: horse.comment || latestAuction?.comment || '',
+      created_at: latestAuction?.created_at || new Date().toISOString(),
+      detail_url: latestAuction?.detail_url || horse.auction_url || '',
+      auction_url: latestAuction?.auction_url || horse.auction_url || ''
     };
     
     console.log(`[${index}] ${horse.name} - effectiveAuction:`, {
@@ -296,7 +399,8 @@ const transformHorseData = (horses: any[]): AnalysisHorse[] => {
       console.groupEnd();
     }
                     
-    const weight = effectiveWeight ?? 0;
+    // 体重を取得（undefinedの場合は0を返す）
+    const weight = effectiveWeight !== undefined ? effectiveWeight : 0;
     
     // 賞金情報を取得（prize_money.total_prize または latestAuction.total_prize_latest から取得）
     let prizeMoney = 0;
@@ -407,7 +511,7 @@ const transformHorseData = (horses: any[]): AnalysisHorse[] => {
       ? baseHorse.sold_price 
       : 0;
     // 重量あたりの価格を計算するための重み（0除算を防ぐため1kgをデフォルト値に）
-    const weightForCalc = effectiveWeight && effectiveWeight > 0 ? effectiveWeight : 1;
+    const weightForCalc = effectiveWeight !== undefined && effectiveWeight > 0 ? effectiveWeight : 1;
     
     // ROI計算
     const calculatedRoiValue = soldPriceValue > 0 
@@ -427,7 +531,9 @@ const transformHorseData = (horses: any[]): AnalysisHorse[] => {
         sold_price: soldPrice,
         history: auctionHistory
       }),
-      display_weight: formatWeight(effectiveWeight),
+      // 馬体重を数値のみで保持（表示時にkgを付与）
+      weight: horseWeight,  // 数値のみを保持
+      display_weight: horseWeight !== null ? `${horseWeight}kg` : '-',
       display_prize: formatPrizeFromYen(prizeMoneyValue),
       display_roi: calculatedRoiValue > 0 ? `${calculatedRoiValue.toFixed(1)}%` : '-',
       sort_price: soldPriceValue,
@@ -439,7 +545,55 @@ const transformHorseData = (horses: any[]): AnalysisHorse[] => {
       comment: latestAuction?.comment || '',
       effectiveAuction: effectiveAuction
     } as AnalysisHorse;
-  });
+    });
+    
+    // Filter out any null values and ensure we have AnalysisHorse[] type
+    const filteredHorsesResult = result.filter((horse): horse is AnalysisHorse => horse !== null);
+    
+    console.log(`=== Transformation Summary ===`);
+    console.log(`Total input horses: ${horsesArray.length}`);
+    console.log(`Successfully transformed: ${filteredHorsesResult.length}`);
+    console.log(`Failed to transform: ${horsesArray.length - filteredHorsesResult.length}`);
+    
+    if (filteredHorsesResult.length === 0 && horsesArray.length > 0) {
+console.error('No horses were transformed successfully. First horse data:', JSON.stringify(horsesArray[0], null, 2));
+      
+      // デバッグ用に最初の馬のデータを簡易変換して返す
+      const debugHorse = {
+        ...horsesArray[0],
+        id: String(horsesArray[0].id || 'debug-id'),
+        name: horsesArray[0].name || 'Unknown',
+        sex: horsesArray[0].sex || '不明',
+        age: horsesArray[0].age || 0,
+        sire: horsesArray[0].sire || '不明',
+        dam: horsesArray[0].dam || '不明',
+        damsire: horsesArray[0].damsire || '不明',
+        effectiveAuction: {
+          id: 'debug-' + (horsesArray[0].id || '1'),
+          horse_id: String(horsesArray[0].id || '1'),
+          auction_date: horsesArray[0].auction_date || new Date().toISOString().split('T')[0],
+          sold_price: 1000, // デバッグ用の適当な値
+          total_prize_start: 0,
+          total_prize_latest: 0,
+          weight: horsesArray[0].weight || 450, // 平均的な馬体重
+          seller: horsesArray[0].seller || '不明',
+          is_unsold: false,
+          comment: 'デバッグ用データ',
+          created_at: new Date().toISOString(),
+          detail_url: horsesArray[0].detail_url || '',
+          auction_url: horsesArray[0].auction_url || ''
+        }
+      };
+      
+      console.log('Debug horse data to return:', debugHorse);
+      return [debugHorse as AnalysisHorse];
+    }
+    
+    return filteredHorsesResult;
+  } catch (error) {
+    console.error('Error in transformHorseData:', error);
+    return [];
+  }
 };
 
 const formatPrice = (price: number | string | null | undefined, isUnsold: boolean = false) => {
@@ -655,9 +809,26 @@ export default function AnalysisContent() {
       detail_url: ''
     };
 
+    // 有効な体重を計算
+    const effectiveWeight = (() => {
+      // 馬オブジェクトの体重を取得
+      const horseWeight = Number(horse.weight) || 0;
+      
+      // オークション履歴の体重を取得
+      const auctionWeight = latestAuction ? (Number(latestAuction.weight) || 0) : 0;
+      
+      // 有効な体重を返す（0より大きい値のみ有効）
+      return (horseWeight > 0) 
+        ? Math.floor(horseWeight)
+        : (auctionWeight > 0)
+          ? Math.floor(auctionWeight)
+          : undefined;
+    })();
+
     return {
       ...horse,
       ...latestAuction,
+      effectiveWeight, // 有効な体重を追加
       unsold_count: auctionHistory.filter(a => a.is_unsold).length,
       detail_url: latestAuction.detail_url || latestAuction.auction_url || horse.detail_url || horse.auction_url || '',
       total_prize_start: latestAuction.total_prize_start,
@@ -785,7 +956,7 @@ export default function AnalysisContent() {
       total_prize_start: latestAuction.total_prize_start,
       total_prize_latest: latestAuction.total_prize_latest || 0,
       weight: latestAuction.weight,
-      display_weight: latestAuction.weight ? `${latestAuction.weight}kg` : '不明',
+      display_weight: latestAuction.weight !== null ? `${latestAuction.weight}kg` : '-',
       sold_price: latestAuction.sold_price !== null ? latestAuction.sold_price : (horse.sold_price || 0),
       unsold: isUnsold,
       is_unsold: isUnsold
@@ -935,7 +1106,12 @@ export default function AnalysisContent() {
                   <td className="px-3 py-2">{horse.sex}</td>
                   <td className="px-3 py-2">{displayAge(horse.age)}</td>
                   <td className="px-3 py-2">{horse.sire}</td>
-                  <td className="px-3 py-2 text-right">{formatWeight(horse.weight)}</td>
+                  <td className="px-3 py-2 text-right">
+                    {horse.effectiveWeight !== undefined ? `${horse.effectiveWeight}kg` : '-'}
+                    {process.env.NODE_ENV === 'development' && false && (
+                      <span className="text-xs text-red-500 ml-1">({horse.effectiveWeight}, type: {typeof horse.effectiveWeight})</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     {horse.display_price}
                   </td>

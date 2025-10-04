@@ -1,27 +1,34 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { Button } from '@mui/material';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import CardHeader from '@mui/material/CardHeader';
-import Typography from '@mui/material/Typography';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
-import Box from '@mui/material/Box';
-import Badge from '@mui/material/Badge';
+import {
+  Button,
+  Typography,
+  Card,
+  CardContent,
+  CardHeader,
+  Tabs,
+  Tab,
+  Box,
+  Badge,
+} from '@mui/material';
 import HorseImage from '@/components/HorseImage';
-import { getDisplayPrice } from '@/utils/price';
-import { formatPrizeMan } from '@/utils/format';
+import { getDisplayPrice, formatPrizeMan } from '@/utils/format';
 import { normalizeImageUrl } from '@/utils/url';
 import { Horse as BaseHorse, AuctionHistory as BaseHistory } from '@/types/horse';
 import { getHorseData as getHorseDataFromApi } from '@/utils/horseApi';
 
+// 馬体重をフォーマットする関数（整数値のみを想定）
+function formatWeight(weight: number | string | null | undefined): string {
+  if (weight === null || weight === undefined || weight === '') {
+    return '-';
+  }
+  // 数値チェックのみ行い、そのまま表示
+  return isNaN(Number(weight)) ? '-' : `${weight}kg`;
+}
 // --- 型定義（共有型に基づき最小拡張）---
 // RaceRecord 型を文字列またはオブジェクトのユニオン型として定義
 type RaceRecord = string | {
@@ -665,6 +672,28 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
     return horse.history[horse.history.length - 1];
   }, [horse.history]);
 
+  // 有効な体重を取得（horse.weight を優先し、なければ最新履歴の weight を使用）
+  const effectiveWeight = useMemo(() => {
+    // デバッグ用に値を確認
+    console.log('Raw weight values:', {
+      horseWeight: horse.weight,
+      historyWeight: latestHistory?.weight,
+      horseWeightType: typeof horse.weight,
+      historyWeightType: typeof latestHistory?.weight
+    });
+
+    // 数値に変換（余分な変換を避ける）
+    const weight = horse.weight ?? latestHistory?.weight;
+
+    console.log('Processed weight:', {
+      value: weight,
+      type: typeof weight,
+      isNaN: weight !== undefined ? isNaN(weight) : 'undefined'
+    });
+
+    return weight;
+  }, [horse.weight, latestHistory?.weight]);
+
   // 性別の色とアイコンをメモ化
   const { sexColor, sexIcon } = useMemo(() => {
     // 馬の基本情報から性別を取得（履歴がなければデフォルトで空文字）
@@ -874,7 +903,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
                         <div className="flex justify-between">
                           <span className="text-gray-600">体重:</span>
                           <span className="font-medium">
-                            {horse.weight ? `${horse.weight}kg` : '-'}
+                            {formatWeight(effectiveWeight)}
                           </span>
                         </div>
                         {/* 販売者履歴 */}
