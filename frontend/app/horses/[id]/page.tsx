@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import {
@@ -16,7 +17,7 @@ import {
   Badge,
 } from '@mui/material';
 import HorseImage from '@/components/HorseImage';
-import { getDisplayPrice, formatPrizeMan } from '@/utils/format';
+import { formatPrizeMan } from '@/utils/format';
 import { normalizeImageUrl } from '@/utils/url';
 import { Horse as BaseHorse, AuctionHistory as BaseHistory } from '@/types/horse';
 import { getHorseData as getHorseDataFromApi } from '@/utils/horseApi';
@@ -697,21 +698,28 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
   // 性別の色とアイコンをメモ化
   const { sexColor, sexIcon } = useMemo(() => {
     // 馬の基本情報から性別を取得（履歴がなければデフォルトで空文字）
-    const sex = horse.sex || latestHistory?.sex || '';
+    let sex = horse.sex || latestHistory?.sex || '';
+    // 配列の場合は最初の要素を取得
+    if (Array.isArray(sex)) {
+      sex = sex[0] || '';
+    }
     let color = 'text-white';
     let bgColor = 'bg-gray-200';
     let icon = '';
 
-    if (sex === '牡') {
+    if (sex === '牡' || sex === '牡馬') {
       bgColor = 'bg-blue-600';
       icon = '♂';
-    } else if (sex === '牝') {
+      sex = '牡';
+    } else if (sex === '牝' || sex === '牝馬') {
       bgColor = 'bg-pink-500';
       icon = '♀';
-    } else if (sex === 'セ' || sex === 'せん' || sex === 'セン') {
+      sex = '牝';
+    } else if (sex === 'セ' || sex === 'せん' || sex === 'セン' || sex === 'せん馬') {
       bgColor = 'bg-green-600';
       color = 'text-white';
       icon = '⚥';
+      sex = 'セ';
     }
 
     return { 
@@ -813,7 +821,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
                     {/* 性別・年齢 */}
                     <div className="flex items-center gap-2">
                       <Badge className={sexColor}>
-                        {horse.sex || latestHistory?.sex} {latestHistory?.age}歳
+                        {Array.isArray(horse.sex) ? horse.sex[0] : (horse.sex || latestHistory?.sex || '')} {latestHistory?.age}歳
                       </Badge>
                     </div>
                   </div>
@@ -841,7 +849,9 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
                       {latestHistory.name}
                     </Typography>
                     {/* 性別バッジ */}
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${sexColor}`}>{horse.sex || latestHistory?.sex}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${sexColor}`}>
+                      {Array.isArray(horse.sex) ? horse.sex[0] : (horse.sex || latestHistory?.sex || '')}
+                    </span>
                     {/* 年齢 */}
                     <span className="text-sm text-gray-700">{latestHistory?.age}歳</span>
                   </div>
@@ -1044,16 +1054,14 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
                           <td className="px-2 py-1 border text-center">{i + 1}</td>
                           <td className="px-2 py-1 border">{h.auction_date}</td>
                           <td className="px-2 py-1 border">{h.name}</td>
-                          <td className="px-2 py-1 border">{h.sex}</td>
+                          <td className="px-2 py-1 border">
+                            {Array.isArray(h.sex) ? h.sex[0] : (h.sex || '')}
+                          </td>
                           <td className="px-2 py-1 border">{h.age}</td>
                           <td className="px-2 py-1 border">{h.seller}</td>
                           <td className="px-2 py-1 border"><RaceRecordDisplay record={h.race_record} /></td>
                           <td className="px-2 py-1 border text-right">{
-                            getDisplayPrice({ 
-                              unsold: h.unsold, 
-                              sold_price: h.sold_price, 
-                              history: horse.history 
-                            })
+                            h.unsold ? '不成立' : formatPrizeMan(h.sold_price || 0)
                           }</td>
                           <td className="px-2 py-1 border text-right">{formatPrizeMan(h.total_prize_start)}</td>
                         </tr>
@@ -1310,7 +1318,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
               <div>
                 <Typography variant="h6" component="h4" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>{formatDate(history.auction_date || '')}</Typography>
                 <p className="text-sm text-gray-500">
-                  落札価格: {getDisplayPrice({ unsold: history.unsold, sold_price: history.sold_price, history: horse.history })}
+                  落札価格: {history.unsold ? '不成立' : formatPrizeMan(history.sold_price || 0)}
                 </p>
               </div>
               {history.detail_url && (
@@ -1420,7 +1428,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
             <div>
               <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', fontSize: '1.5rem', mb: 1 }}>{horse.name}</Typography>
               <Typography variant="body2" color="text.secondary" className="mb-2">
-                {horse.sex} {horse.age}歳 | {horse.color} | {format(new Date(horse.birthday), 'yyyy年M月d日', { locale: ja })}
+                {Array.isArray(horse.sex) ? horse.sex[0] : (horse.sex || '')} {horse.age}歳 | {horse.color} | {format(new Date(horse.birthday), 'yyyy年M月d日', { locale: ja })}
               </Typography>
               <div className="flex space-x-2 mt-2">
                 {jbisUrl && (
