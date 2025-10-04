@@ -2,9 +2,11 @@
 
 export function formatWeight(weight: number | string | null | undefined): string {
   if (weight === null || weight === undefined || weight === '') return '-';
-  const num = typeof weight === 'string' ? parseFloat(weight.replace(/[^0-9.]/g, '')) : Number(weight);
+  // 文字列の場合は数値に変換（カンマや余分な文字を削除）
+  const num = typeof weight === 'string' ? parseFloat(weight.toString().replace(/[^0-9.]/g, '')) : Number(weight);
   if (!Number.isFinite(num) || num <= 0) return '-';
-  const formatted = Number.isInteger(num) ? String(num) : num.toFixed(1);
+  // 数値が整数の場合は小数点以下を表示しない
+  const formatted = Number.isInteger(num) ? num.toString() : num.toFixed(1);
   return `${formatted}kg`;
 }
 
