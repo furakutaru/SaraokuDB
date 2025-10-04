@@ -23,6 +23,7 @@ export interface HistoryLike {
 
 export interface HorseLikeForPrice {
   unsold?: boolean;
+  is_unsold?: boolean;
   sold_price?: number | string | null;
   history?: HistoryLike[];
   price?: number | string | null;
@@ -31,22 +32,20 @@ export interface HorseLikeForPrice {
 export function getDisplayPrice(horse: HorseLikeForPrice): string {
   try {
     // 1) 主取りフラグがtrueの場合は「主取り」を返す
-    if (horse?.unsold === true) return '主取り';
+    if (horse?.unsold === true || horse?.is_unsold === true) return '主取り';
 
-    // 2) 馬オブジェクト直下の価格（配列の場合は最後の有効な価格を使用）
-    if (Array.isArray(horse?.sold_price) && horse.sold_price.length > 0) {
-      // 配列の最後の価格を取得
-      const lastPrice = Number(horse.sold_price[horse.sold_price.length - 1]);
-      
-      // 有効な価格があれば表示
-      if (Number.isFinite(lastPrice) && lastPrice > 0) {
-        return formatPrice(lastPrice);
+    // 2) 馬オブジェクト直下の価格を確認
+    if (horse?.sold_price !== undefined && horse.sold_price !== null) {
+      // 数値の場合はそのままフォーマット
+      if (typeof horse.sold_price === 'number' && horse.sold_price > 0) {
+        return formatPrice(horse.sold_price);
       }
-    } else if (typeof horse?.sold_price !== 'undefined' && horse.sold_price !== null) {
-      // 配列でない場合
-      const price = Number(horse.sold_price);
-      if (Number.isFinite(price) && price > 0) {
-        return formatPrice(price);
+      // 文字列の場合は数値に変換してフォーマット
+      if (typeof horse.sold_price === 'string') {
+        const price = Number(horse.sold_price);
+        if (!isNaN(price) && price > 0) {
+          return formatPrice(price);
+        }
       }
     }
 

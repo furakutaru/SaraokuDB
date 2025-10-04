@@ -1,11 +1,16 @@
 'use client';
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { 
+  useState, 
+  useEffect, 
+  useCallback, 
+  useMemo,
+  useRef
+} from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 // Import UI components with optional chaining to prevent errors if they don't exist
-let Card, CardContent, CardHeader, CardTitle, Badge, Button, HorseImage, getDisplayPrice;
+let Card: any, CardContent: any, CardHeader: any, CardTitle: any, Badge: any, Button: any, getDisplayPrice: any;
 
 try {
   ({ Card, CardContent, CardHeader, CardTitle } = require('@/components/ui/card') || {});
@@ -54,42 +59,95 @@ try {
   );
 }
 
+// HorseImage コンポーネントの型定義
+type HorseImageProps = {
+  src: string | { image_url: string } | null;
+  alt?: string;
+  className?: string;
+  [key: string]: any;
+};
+
+// HorseImage コンポーネントの宣言
+let HorseImage: React.ComponentType<HorseImageProps>;
+
 try {
   HorseImage = require('@/components/HorseImage').default || (() => null);
 } catch (e) {
   console.warn('HorseImage component not found, using fallback');
-  HorseImage = ({ src, alt, className = '', ...props }) => (
-    <div className={`bg-gray-200 flex items-center justify-center ${className}`} {...props}>
-      {src ? (
-        <img 
-          src={typeof src === 'string' ? src : src?.image_url} 
-          alt={alt} 
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            // Fallback to a placeholder if image fails to load
-            e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xOCAxM2gxLjY4M2MuNTU5IDAgLjk1Mi0uNTgxIC43ODctMS4xNDNsLTEuNjUxLTQuODU0YTEuNSAxLjUgMCAwIDAtMS40MDItMS4wNDNoLTguMzE0YTEuNSAxLjUgMCAwIDAtMS40MDIgMS4wNDNsLTEuNjUgNC44NTRjLS4xNjUuNTYyLjIyOCAxLjE0My43ODcgMS4xNDNIM2ExIDEgMCAwIDAtMSAxdjhhMSAxIDAgMCAwIDEgMWgxNGExIDEgMCAwIDAgMS0xdi04YTEgMSAwIDAgMC0xLTF6Ij48L3BhdGg+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMCIgcj0iMyI+PC9jaXJjbGU+PC9zdmc+'
-          }}
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 13h1.683c.559 0 .952-.581.787-1.143l-1.651-4.854a1.5 1.5 0 0 0-1.402-1.043h-8.314a1.5 1.5 0 0 0-1.402 1.043l-1.65 4.854c-.165.562.228 1.143.787 1.143H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1z"></path>
-            <circle cx="12" cy="10" r="3"></circle>
-          </svg>
-        </div>
-      )}
-    </div>
-  );
+  HorseImage = ({ src, alt = 'Horse image', className = '', ...props }: HorseImageProps) => {
+    const [imgSrc, setImgSrc] = React.useState<string>('');
+    
+    React.useEffect(() => {
+      if (src) {
+        setImgSrc(typeof src === 'string' ? src : src?.image_url || '');
+      }
+    }, [src]);
+
+    return (
+      <div className={`relative w-full aspect-[3/2] bg-gray-100 rounded-t-lg overflow-hidden ${className}`} {...props}>
+        {imgSrc ? (
+          <img 
+            src={imgSrc}
+            alt={alt}
+            className="absolute inset-0 w-full h-full object-cover"
+            width={300}
+            height={200}
+            onError={(e) => {
+              // Fallback to a placeholder if image fails to load
+              const target = e.target as HTMLImageElement;
+              target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0idz0iNiIgaGVpZ2h0PSI2Ij48cGF0aCBkPSJNMTggMTNoMS42ODNjLjU1OSAwIC45NTItLjU4MS43ODctMS4xNDNsLTEuNjUxLTQuODU0YTEuNSAxLjUgMCAwIDAtMS40MDItMS4wNDNoLTguMzE0YTEuNSAxLjUgMCAwIDAtMS40MDIgMS4wNDNsLTEuNjUgNC44NTRjLS4xNjUuNTYyLjIyOCAxLjE0My43ODcgMS4xNDNIM2ExIDEgMCAwIDAtMSAxdjhhMSAxIDAgMCAwIDEgMWgxNGExIDEgMCAwIDAgMS0xdi04YTEgMSAwIDAgMC0xLTF6Ij48L3BhdGg+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMCIgcj0iMyI+PC9jaXJjbGU+PC9zdmc+';
+            }}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13h1.683c.559 0 .952-.581.787-1.143l-1.651-4.854a1.5 1.5 0 0 0-1.402-1.043h-8.314a1.5 1.5 0 0 0-1.402 1.043l-1.65 4.854c-.165.562.228 1.143.787 1.143H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+          </div>
+        )}
+      </div>
+    );
+  };
 }
 
 try {
   ({ getDisplayPrice } = require('@/utils/price') || {});
 } catch (e) {
   console.warn('getDisplayPrice function not found, using fallback');
-  getDisplayPrice = ({ unsold, sold_price, history = [] }) => {
-    if (unsold) return '未落札';
-    if (sold_price === null || sold_price === undefined) return '価格未設定';
-    return `${sold_price.toLocaleString()}万円`;
+  getDisplayPrice = (horse: any) => {
+    try {
+      console.log('Horse data:', horse); // デバッグ用
+      
+      // 主取りフラグがtrueの場合は「主取り」を返す
+      if (horse?.unsold === true || horse?.is_unsold === true) {
+        console.log('主取りフラグあり');
+        return '主取り';
+      }
+
+      // 馬オブジェクト直下の価格を確認
+      let price = horse?.sold_price;
+      console.log('sold_price:', price); // デバッグ用
+      
+      // 価格がnullやundefinedでないか確認
+      if (price != null) {
+        // 数値に変換を試みる
+        const numPrice = Number(price);
+        console.log('数値変換後:', numPrice); // デバッグ用
+        
+        // 有効な数値で0より大きい場合はフォーマットして返す
+        if (!isNaN(numPrice) && numPrice > 0) {
+          return `¥${numPrice.toLocaleString('ja-JP')}`;
+        }
+      }
+
+      // 価格が無効な場合は「価格未設定」を返す
+      console.log('有効な価格が見つかりませんでした');
+      return '価格未設定';
+    } catch (e) {
+      console.error('価格のフォーマット中にエラーが発生しました:', e);
+      return '価格未設定';
+    }
   };
 }
 
@@ -460,16 +518,34 @@ export default function HorsesPage() {
     return ((latest - start) / start * 100).toFixed(1);
   };
 
+  // メインのレンダリング
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <h1 className="text-xl font-semibold text-gray-900">サラオクDB</h1>
-            <div className="flex space-x-4">
-              <Link href="/horses/new" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                新規登録
+            <button
+              onClick={() => window.history.back()}
+              className="rounded-md bg-white border border-black text-black px-4 py-2 hover:bg-gray-100 transition-colors flex items-center"
+            >
+              <svg className="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              戻る
+            </button>
+            <div className="flex gap-4">
+              <Link 
+                href="/analysis" 
+                className="rounded-md bg-white border border-black text-black px-4 py-2 hover:bg-gray-100 transition-colors"
+              >
+                解析
+              </Link>
+              <Link 
+                href="/recent" 
+                className="rounded-md bg-white border border-black text-black px-4 py-2 hover:bg-gray-100 transition-colors"
+              >
+                直近の追加
               </Link>
             </div>
           </div>
@@ -595,17 +671,16 @@ export default function HorsesPage() {
                             ? 'bg-gray-100 text-gray-800' 
                             : 'bg-blue-100 text-blue-800'
                         }`}>
-                          {getDisplayPrice({
-                            unsold: horse.is_unsold,
-                            sold_price: horse.sold_price,
-                            history: []
-                          })}
+                          {getDisplayPrice(horse) === '主取り' 
+                      ? '主取り' 
+                      : getDisplayPrice(horse) !== '-' 
+                        ? getDisplayPrice(horse) 
+                        : '価格未設定'}      }
                         </span>
                         
                         {horse.disease_tags && horse.disease_tags.length > 0 && (
                           <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-pink-800 bg-pink-100 rounded">
                             病歴: {horse.disease_tags[0]}
-                            {horse.disease_tags.length > 1 && ` +${horse.disease_tags.length - 1}`}
                           </span>
                         )}
                       </div>
