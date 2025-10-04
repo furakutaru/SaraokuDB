@@ -150,45 +150,44 @@ const fetchHorsesList = async (): Promise<HorseData> => {
 
 // 性別と年齢を適切に表示するためのヘルパー関数
 const formatAge = (sex: any, age: any): string => {
-  let sexStr = '';
-  let ageStr = '';
-
   // 性別の処理
-  if (Array.isArray(sex)) {
-    // 配列内の各要素を処理
-    sexStr = sex
-      .map(s => {
-        if (typeof s === 'string') {
-          // Unicodeエスケープシーケンスをデコード
-          return s.replace(/\\u([\dA-Fa-f]{4})/g, (_, p1) => {
-            return String.fromCharCode(parseInt(p1, 16));
-          });
-        }
-        return String(s);
-      })
-      .join(' ');
-  } else if (sex) {
-    sexStr = String(sex);
-  }
+  const getSexString = (s: any): string => {
+    if (!s) return '';
+    
+    // 配列の場合は最初の要素を使用
+    const sexValue = Array.isArray(s) ? s[0] : s;
+    
+    // 文字列に変換
+    let sexStr = String(sexValue);
+    
+    // Unicodeエスケープシーケンスをデコード
+    sexStr = sexStr.replace(/\\u([\dA-Fa-f]{4})/g, (_, p1) => {
+      return String.fromCharCode(parseInt(p1, 16));
+    });
+    
+    // 性別の正規化
+    if (sexStr.includes('牡') || sexStr === '牡馬') return '牡';
+    if (sexStr.includes('牝') || sexStr === '牝馬') return '牝';
+    if (sexStr.includes('セ') || sexStr === 'せん' || sexStr === 'セン') return 'セ';
+    
+    return sexStr;
+  };
 
   // 年齢の処理
-  if (Array.isArray(age)) {
-    // 配列内の各要素を処理
-    ageStr = age
-      .map(a => {
-        const str = String(a);
-        // 数字のみを抽出して「歳」を追加
-        const num = str.replace(/\D/g, '');
-        return num ? `${num}歳` : '';
-      })
-      .filter(Boolean)
-      .join(' ');
-  } else if (age) {
-    const str = String(age);
-    const num = str.replace(/\D/g, '');
-    ageStr = num ? `${num}歳` : '';
-  }
+  const getAgeString = (a: any): string => {
+    if (a === null || a === undefined) return '';
+    
+    // 配列の場合は最初の要素を使用
+    const ageValue = Array.isArray(a) ? a[0] : a;
+    
+    // 文字列に変換して数字のみを抽出
+    const num = String(ageValue).replace(/\D/g, '');
+    return num ? `${num}歳` : '';
+  };
 
+  const sexStr = getSexString(sex);
+  const ageStr = getAgeString(age);
+  
   return [sexStr, ageStr].filter(Boolean).join(' ');
 };
 
@@ -566,11 +565,8 @@ export default function HorsesPage() {
 
                   {/* 馬情報エリア */}
                   <div className="p-4 flex-1 flex flex-col">
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="mb-2">
                       <h3 className="text-lg font-semibold">{horse.name}</h3>
-                      <div className="text-sm text-gray-600 ml-2">
-                        {formatAge(horse.sex, horse.age)}
-                      </div>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2 text-sm text-gray-700 mb-3">

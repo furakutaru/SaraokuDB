@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 // バックエンドのベースURL
-const BACKEND_URL = 'http://localhost:8000';
+const BACKEND_URL = 'http://localhost:8001';
 
 // バックエンドのAPIを呼び出す関数
 async function fetchFromBackend(url: string) {
