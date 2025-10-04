@@ -213,6 +213,7 @@ from scripts.components.comment_extractor import CommentExtractor
 from scripts.components.race_record_extractor import RaceRecordExtractor
 from scripts.components.price_extractor import PriceExtractor
 from scripts.components.horse_info_extractor import HorseInfoExtractor
+from scripts.components.horse_weight_extractor import HorseWeightExtractor
 from scripts.components.seller_info_extractor import SellerInfoExtractor
 from scripts.components.prize_info_extractor import PrizeInfoExtractor
 from scripts.components.price_info_extractor import PriceInfoExtractor
@@ -656,6 +657,7 @@ class ImprovedRakutenScraper:
         """抽出コンポーネントを初期化する"""
         extractors = {
             'horse_info_extractor': HorseInfoExtractor,
+            'horse_weight_extractor': HorseWeightExtractor,
             # JBIS関連の抽出器を一時的に無効化（BOT判定回避のため）
             # 'jbis_link_extractor': JbisLinkExtractor,
             'prize_info_extractor': PrizeInfoExtractor,
@@ -772,6 +774,9 @@ class ImprovedRakutenScraper:
         # キャッシュの設定
         self._setup_cache()
             
+        # 抽出コンポーネントの初期化
+        self.horse_info_extractor = HorseInfoExtractor(logger=self.logger.getChild('horse_info_extractor'))
+        
         # セッションの初期化
         self.timeout = config.timeout  # timeoutをインスタンス変数として設定
         self.session = self._create_session(
@@ -895,10 +900,10 @@ class ImprovedRakutenScraper:
         self.enable_html_saving(date_dir)
         
         self.logger.info(f"HTML保存先: {date_dir}")
+        
         return date_dir, detail_dir
         
-        # 抽出コンポーネントの初期化
-        self.horse_info_extractor = HorseInfoExtractor()
+        # その他のコンポーネントの初期化（既存コードを維持）
         self.jbis_link_extractor = JbisLinkExtractor()
         self.pedigree_extractor = PedigreeExtractor()
         # 2回目の初期化を削除（既に初期化済み）
@@ -1436,6 +1441,22 @@ class ImprovedRakutenScraper:
             except Exception as e:
                 self.logger.warning(f"血統情報の抽出中にエラーが発生しました: {e}")
             
+            # 馬体重を抽出
+            try:
+                # 馬体重が含まれている可能性のある要素を検索
+                weight_element = detail_soup.find(lambda tag: '馬体重' in tag.get_text() or '体重' in tag.get_text())
+                if weight_element:
+                    weight_kg = self.horse_info_extractor._extract_weight(weight_element)
+                    if weight_kg is not None:
+                        horse_info['weight'] = weight_kg
+                        self.logger.info(f'馬体重を抽出: {weight_kg}kg (馬名: {name})')
+                    else:
+                        self.logger.debug(f'馬体重の抽出に失敗しました (馬名: {name})')
+                else:
+                    self.logger.debug(f'馬体重要素が見つかりませんでした (馬名: {name})')
+            except Exception as e:
+                self.logger.warning(f'馬体重の抽出中にエラーが発生しました: {str(e)} (馬名: {name})', exc_info=True)
+            
             # 必須フィールドの確認
             required_fields = ['name', 'age', 'sex']
             missing_required = [f for f in required_fields if f not in horse_info or not horse_info.get(f)]
@@ -1627,13 +1648,26 @@ class ImprovedRakutenScraper:
             
             # 5. 馬体重を抽出
             if 'weight' not in basic_info:
+                self.logger.debug(f'馬体重を抽出開始 (馬名: {basic_info.get("name", "不明")})')
                 try:
-                    weight = self.horse_info_extractor._extract_weight(horse_element)
-                    if weight is not None:
-                        basic_info['weight'] = weight
-                        self.logger.debug(f'馬体重を抽出: {weight}kg (馬名: {basic_info["name"]})')
+                    # HorseInfoExtractorの_extract_weightメソッドを使用して馬体重を抽出
+                    self.logger.debug('_extract_weightメソッドを呼び出します')
+                    weight_kg = self.horse_info_extractor._extract_weight(horse_element)
+                    self.logger.debug(f'_extract_weightメソッドの結果: {weight_kg}')
+                    
+                    if weight_kg is not None:
+                        basic_info['weight'] = weight_kg
+                        self.logger.info(f'馬体重を抽出: {basic_info["weight"]}kg (馬名: {basic_info["name"]})')
+                    else:
+                        self.logger.debug(f'馬体重の抽出に失敗しました (馬名: {basic_info["name"]})')
+                        # デバッグ用にHTMLをログに出力
+                        debug_html = str(horse_element)[:1000] + '...'  # 先頭1000文字のみ
+                        self.logger.debug(f'デバッグ用HTML: {debug_html}')
                 except Exception as e:
-                    self.logger.warning(f'馬体重の抽出中にエラーが発生しました: {str(e)}')
+                    self.logger.error(f'馬体重の抽出中にエラーが発生しました: {str(e)} (馬名: {basic_info.get("name", "不明")})', exc_info=True)
+                    # エラーが発生した場合もHTMLをログに出力
+                    debug_html = str(horse_element)[:1000] + '...'  # 先頭1000文字のみ
+                    self.logger.error(f'エラー発生時のHTML: {debug_html}')
             
             # 6. 必須フィールドの確認
             required_fields = ['name', 'age', 'sex', 'sire', 'dam']

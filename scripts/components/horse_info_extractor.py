@@ -262,9 +262,16 @@ class HorseInfoExtractor:
             
             # パターン1: 数値 + kg のパターン（例: 422kg, 454 kg, 422.5kg）
             weight_matches = re.finditer(r'(\d+(?:\.\d+)?)\s*(?:kg|キロ|㎏|ｋｇ)', text_content, re.IGNORECASE)
-            for match in weight_matches:
+            self.logger.debug(f'パターン1でマッチングを開始: マッチ数={len(list(weight_matches))}')
+            
+            # イテレータをリセット
+            weight_matches = re.finditer(r'(\d+(?:\.\d+)?)\s*(?:kg|キロ|㎏|ｋｇ)', text_content, re.IGNORECASE)
+            
+            for i, match in enumerate(weight_matches, 1):
                 try:
-                    weight = float(match.group(1))
+                    weight_str = match.group(1)
+                    self.logger.debug(f'パターン1-{i}: マッチング文字列={match.group(0)}, 抽出した数値={weight_str}')
+                    weight = float(weight_str)
                     # 馬体重として妥当な範囲かチェック（300kg〜700kgに拡大）
                     if 300 <= weight <= 700:
                         weight_kg = int(round(weight))
@@ -275,25 +282,57 @@ class HorseInfoExtractor:
             
             # パターン2: 体重表記が別の形式の場合（例: 体重:422kg, 体重：422, 馬体重 422）
             weight_patterns = [
-                r'[馬体]?重[量]?\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(?:kg|キロ|㎏|ｋｇ)?',
-                r'(\d+(?:\.\d+)?)\s*(?:kg|キロ|㎏|ｋｇ)?\s*[\(（]?[馬体]?重[量]?[\)）]?',
-                r'最終出走馬体重[：:]\s*(\d+)\s*kg',
-                r'馬体重[：:]\s*(\d+)\s*kg',
-                r'体重[：:]\s*(\d+)\s*kg'
+                # パターン2-1: 未登録 体高：157cm 胸囲：179cm 管囲：18.8cm 馬体重：454kg 形式
+                (r'馬体重[：:]\s*(\d+)\s*kg', 'パターン2-1'),
+                # パターン2-2: 一般的な体重表記
+                (r'[馬体]?重[量]?\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(?:kg|キロ|㎏|ｋｇ)?', 'パターン2-2'),
+                (r'(\d+(?:\.\d+)?)\s*(?:kg|キロ|㎏|ｋｇ)?\s*[\(（]?[馬体]?重[量]?[\)）]?', 'パターン2-3'),
+                (r'最終出走馬体重[：:]\s*(\d+)\s*kg', 'パターン2-4'),
+                (r'体重[：:]\s*(\d+)\s*kg', 'パターン2-5'),
+                # パターン2-6: コメント内の体重表記
+                (r'馬体重は(\d+)kg', 'パターン2-6'),
+                (r'馬体重(\d+)kg', 'パターン2-7')
             ]
             
-            for pattern in weight_patterns:
-                for match in re.finditer(pattern, text_content, re.IGNORECASE):
+            self.logger.debug('パターン2でマッチングを開始')
+            
+            # パターン3: 複数の測定値が並んでいる場合（例: 体高：157cm 胸囲：179cm 馬体重：454kg）
+            multi_measure_pattern = r'(?:[^\d]|^)(\d+)kg(?:[^\d]|$)'
+            multi_measure_matches = list(re.finditer(multi_measure_pattern, text_content))
+            self.logger.debug(f'パターン3: マッチ数={len(multi_measure_matches)}')
+            
+            if len(multi_measure_matches) > 0:
+                # 最後のマッチを体重とみなす（通常、体重は最後に来ることが多い）
+                last_match = multi_measure_matches[-1]
+                try:
+                    weight_str = last_match.group(1)
+                    self.logger.debug(f'パターン3: 最終マッチ文字列={last_match.group(0)}, 抽出した数値={weight_str}')
+                    weight = float(weight_str)
+                    if 300 <= weight <= 700:
+                        weight_kg = int(round(weight))
+                        self.logger.debug(f'複数測定値パターンで馬体重を抽出: {weight_kg}kg (マッチ: {last_match.group(0).strip()})')
+                        return weight_kg
+                except (ValueError, TypeError) as e:
+                    self.logger.debug(f'複数測定値パターンでの体重抽出に失敗: {str(e)}')
+            
+            for pattern, pattern_name in weight_patterns:
+                matches = list(re.finditer(pattern, text_content, re.IGNORECASE))
+                self.logger.debug(f'{pattern_name} マッチ数: {len(matches)}')
+                
+                for i, match in enumerate(matches, 1):
                     try:
-                        weight = float(match.group(1))
+                        weight_str = match.group(1)
+                        self.logger.debug(f'{pattern_name}-{i}: マッチング文字列={match.group(0)}, 抽出した数値={weight_str}')
+                        weight = float(weight_str)
                         if 300 <= weight <= 700:
                             weight_kg = int(round(weight))
-                            self.logger.debug(f'パターン2で馬体重を抽出: {weight_kg}kg (パターン: {pattern})')
+                            self.logger.debug(f'パターン2で馬体重を抽出: {weight_kg}kg (パターン: {pattern_name})')
                             return weight_kg
                     except (ValueError, TypeError, IndexError) as e:
+                        self.logger.debug(f'{pattern_name}-{i}: 数値変換エラー: {str(e)}')
                         continue
             
-            # パターン3: テーブル内の体重情報
+            # パターン4: テーブル内の体重情報
             for table in horse_element.find_all('table'):
                 for row in table.find_all('tr'):
                     cells = [cell.get_text(strip=True) for cell in row.find_all(['th', 'td'])]

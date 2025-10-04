@@ -155,6 +155,7 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
   try {
     const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
     const url = `${apiBase}/api/horses/${encodeURIComponent(horseId)}?_=${Date.now()}`;
+    console.log('API Request URL:', url);  // デバッグ用
     console.log('[horse detail] Fetch:', url);
 
     const response = await fetch(url, {
@@ -170,6 +171,7 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
         const apiBaseList = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
         // limit を大きくして取りこぼしを防ぐ
         const listUrl = `${apiBaseList}/api/horses?limit=10000&_=${Date.now()}`;
+        console.log('Fallback API Request URL:', listUrl);  // デバッグ用
         const listRes = await fetch(listUrl, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
         if (listRes.ok) {
           const listJson = await listRes.json();

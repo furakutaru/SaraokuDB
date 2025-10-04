@@ -37,18 +37,22 @@ def init_db():
 def update_database(session, horses_data):
     """データベースを更新する"""
     try:
+        print(f"[デバッグ] 更新を開始します。合計{len(horses_data)}件の馬データを処理します。")
         updated_count = 0
         created_count = 0
         
         for horse_data in horses_data:
             # 既存のデータを検索
-            horse = session.query(Horse).filter_by(
-                auction_id=str(horse_data.get('id', horse_data.get('auction_id', '')))
-            ).first()
+            auction_id = str(horse_data.get('id', horse_data.get('auction_id', '')))
+            horse = session.query(Horse).filter_by(auction_id=auction_id).first()
+            
+            # デバッグ用: 馬体重データを確認
+            weight = horse_data.get('weight')
+            print(f"[デバッグ] 馬ID: {auction_id}, 馬名: {horse_data.get('name', '不明')}, 馬体重: {weight} (型: {type(weight) if weight is not None else 'None'})")
             
             # 必要なフィールドを準備
             horse_dict = {
-                'auction_id': str(horse_data.get('id', horse_data.get('auction_id', ''))),
+                'auction_id': auction_id,
                 'name': horse_data.get('name', ''),
                 'sex': json.dumps([horse_data.get('sex', '')]),
                 'age': horse_data.get('age'),
@@ -56,13 +60,12 @@ def update_database(session, horses_data):
                 'dam': horse_data.get('dam', ''),
                 'dam_sire': horse_data.get('dam_sire', horse_data.get('damsire', '')),
                 'race_record': json.dumps(horse_data.get('race_record', horse_data.get('race_records', {}))),
-                'weight': horse_data.get('weight'),
+                'weight': int(weight) if weight is not None and str(weight).isdigit() else None,
                 'total_prize_start': horse_data.get('total_prize_start'),
                 'total_prize_latest': horse_data.get('total_prize_latest'),
                 'sold_price': json.dumps([horse_data.get('sold_price')]) if 'sold_price' in horse_data else None,
                 'auction_date': json.dumps([horse_data.get('auction_date')]) if 'auction_date' in horse_data else None,
                 'seller': json.dumps([horse_data.get('seller', '')]),
-                'disease_tags': json.dumps(horse_data.get('disease_tags', [])),
                 'comment': json.dumps([horse_data.get('comment', '')]),
                 'image_url': horse_data.get('image_url', {}).get('image_url', '') if isinstance(horse_data.get('image_url'), dict) else horse_data.get('image_url', ''),
                 'primary_image': horse_data.get('primary_image', ''),
@@ -104,7 +107,17 @@ def main():
     try:
         # JSONデータを読み込む
         print(f"ファイルを読み込んでいます: {json_file}")
-        horses_data = load_json_data(json_file)
+        data = load_json_data(json_file)
+        
+        # データが配列の場合はそのまま使用、オブジェクトの場合は'horses'キーを確認
+        if isinstance(data, list):
+            horses_data = data
+        elif isinstance(data, dict) and 'horses' in data:
+            horses_data = data['horses']
+        else:
+            print("エラー: 無効なデータ形式です。配列または'horses'キーが含まれたオブジェクトを期待しています。")
+            return 1
+        print(f"馬のデータを {len(horses_data)} 件読み込みました。")
         
         # データベースを初期化
         print("データベースに接続しています...")
@@ -119,6 +132,8 @@ def main():
         
     except Exception as e:
         print(f"エラーが発生しました: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return 1
 
 if __name__ == '__main__':
