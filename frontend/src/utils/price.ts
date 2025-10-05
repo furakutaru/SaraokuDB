@@ -31,8 +31,29 @@ export interface HorseLikeForPrice {
 
 export function getDisplayPrice(horse: HorseLikeForPrice): string {
   try {
+    // デバッグ用ログ
+    console.log('getDisplayPrice - horse data:', {
+      is_unsold: horse?.is_unsold,
+      unsold: horse?.unsold,
+      sold_price: horse?.sold_price,
+      type_of_is_unsold: typeof horse?.is_unsold,
+      horse_data: JSON.stringify(horse, null, 2)
+    });
+
     // 1) 主取りフラグがtrueの場合は「主取り」を返す
-    if (horse?.unsold === true || horse?.is_unsold === true) return '主取り';
+    const isUnsold = horse?.unsold === true || 
+                   horse?.is_unsold === true || 
+                   (typeof horse?.is_unsold === 'string' && horse.is_unsold.toLowerCase() === 'true') ||
+                   (typeof horse?.sold_price === 'string' && horse.sold_price === '[null]');
+    
+    if (isUnsold) {
+      console.log('主取りと判定されました:', { 
+        is_unsold: horse?.is_unsold, 
+        unsold: horse?.unsold,
+        sold_price: horse?.sold_price 
+      });
+      return '主取り';
+    }
 
     // 2) 馬オブジェクト直下の価格を確認
     if (horse?.sold_price !== undefined && horse.sold_price !== null) {
