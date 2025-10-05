@@ -1,9 +1,10 @@
-// Price display logic per spec (MEMORY: 落札価格表示ロジック仕様)
+// 数値に変換するユーティリティ関数
 export function toNumber(val: unknown): number | null {
   const n = Number(val);
   return Number.isFinite(n) ? n : null;
 }
 
+// 有効な正の数値かどうかをチェックする関数
 export function isValidPositive(n: unknown): n is number {
   if (Array.isArray(n) && n.length > 0) {
     // 配列の場合は最後の要素をチェック
@@ -16,89 +17,122 @@ export function isValidPositive(n: unknown): n is number {
   return Number.isFinite(num) && num > 0;
 }
 
+// 履歴データの型定義
 export interface HistoryLike {
   auction_date?: string;
   sold_price?: number | string | null;
+  unsold?: boolean;
+  is_unsold?: boolean | string;
 }
 
+// 馬データの型定義
 export interface HorseLikeForPrice {
   unsold?: boolean;
-  is_unsold?: boolean;
+  is_unsold?: boolean | string;
   sold_price?: number | string | null;
   history?: HistoryLike[];
   price?: number | string | null;
 }
 
-export function getDisplayPrice(horse: HorseLikeForPrice): string {
-  try {
-    // デバッグ用ログ
-    console.log('getDisplayPrice - horse data:', {
-      is_unsold: horse?.is_unsold,
-      unsold: horse?.unsold,
-      sold_price: horse?.sold_price,
-      type_of_is_unsold: typeof horse?.is_unsold,
-      horse_data: JSON.stringify(horse, null, 2)
-    });
+// 価格を表示用の文字列に変換する関数
+export function getDisplayPrice(horse: HorseLikeForPrice | null | undefined): string {
+  if (!horse) return '価格未設定';
 
-    // 1) 主取りフラグがtrueの場合は「主取り」を返す
-    const isUnsold = horse?.unsold === true || 
-                   horse?.is_unsold === true || 
-                   (typeof horse?.is_unsold === 'string' && horse.is_unsold.toLowerCase() === 'true') ||
-                   (typeof horse?.sold_price === 'string' && horse.sold_price === '[null]');
-    
-    if (isUnsold) {
-      console.log('主取りと判定されました:', { 
-        is_unsold: horse?.is_unsold, 
-        unsold: horse?.unsold,
-        sold_price: horse?.sold_price 
-      });
-      return '主取り';
-    }
+  // 主取りの判定
+  const isUnsold = horse.unsold === true ||
+                 horse.is_unsold === true ||
+                 (typeof horse.is_unsold === 'string' && horse.is_unsold.toLowerCase() === 'true') ||
+                 horse.sold_price === null ||
+                 horse.sold_price === undefined ||
+                 horse.sold_price === '[null]' ||
+                 horse.sold_price === 'null';
 
-    // 2) 馬オブジェクト直下の価格を確認
-    if (horse?.sold_price !== undefined && horse.sold_price !== null) {
-      // 配列の場合（例："[300000]"）の処理を追加
-      if (Array.isArray(horse.sold_price) && horse.sold_price.length > 0) {
-        const priceStr = String(horse.sold_price[0]).replace(/[^\d]/g, '');
-        const price = Number(priceStr);
-        if (!isNaN(price) && price > 0) {
-          return formatPrice(price);
-        }
-      }
-      // 数値の場合はそのままフォーマット
-      else if (typeof horse.sold_price === 'number' && horse.sold_price > 0) {
-        return formatPrice(horse.sold_price);
-      }
-      // 文字列の場合は数値に変換してフォーマット
-      else if (typeof horse.sold_price === 'string') {
-        const price = Number(horse.sold_price.replace(/[^\d]/g, ''));
-        if (!isNaN(price) && price > 0) {
-          return formatPrice(price);
-        }
-      }
-    }
-
-    // 3) 履歴から最新の有効価格
-    if (Array.isArray(horse?.history) && horse!.history!.length > 0) {
-      const sorted = [...horse!.history!].sort((a, b) => {
-        const ad = new Date(a.auction_date || '').getTime();
-        const bd = new Date(b.auction_date || '').getTime();
-        return bd - ad;
-      });
-      const hit = sorted.find(h => isValidPositive(h.sold_price));
-      if (hit) return formatPrice(Number(hit.sold_price));
-    }
-
-    // 4) トップレベル price
-    if (isValidPositive(horse?.price)) {
-      return formatPrice(Number(horse!.price));
-    }
-
-    // 5) デフォルト
-    return '-';
-  } catch {
-    return '-';
+  if (isUnsold) {
+    return '主取り';
   }
+
+  // 配列の場合の処理
+  if (Array.isArray(horse.sold_price)) {
+    const validPrices = horse.sold_price
+      .map(price => Number(price))
+      .filter(price => !isNaN(price) && price > 0);
+
+    if (validPrices.length > 0) {
+      return `¥${validPrices[validPrices.length - 1].toLocaleString()}`;
+    }
+    return '主取り';
+  }
+
+  // 文字列の価格の場合
+  if (typeof horse.sold_price === 'string') {
+    const price = Number(horse.sold_price.replace(/[^0-9.-]+/g, ''));
+    if (!isNaN(price) && price > 0) {
+      return `¥${price.toLocaleString()}`;
+    }
+    return '主取り';
+  }
+  // 数値の価格の場合
+  if (typeof horse.sold_price === 'number') {
+    return `¥${horse.sold_price.toLocaleString()}`;
+  }
+
+  // 履歴から価格を取得
+  if (horse.history && horse.history.length > 0) {
+    const latestHistory = horse.history[0];
+    if (latestHistory) {
+      // 履歴内の主取りフラグをチェック
+      const isHistoryUnsold = latestHistory.unsold === true ||
+                            latestHistory.is_unsold === true ||
+                            (typeof latestHistory.is_unsold === 'string' && latestHistory.is_unsold.toLowerCase() === 'true');
+      
+      if (isHistoryUnsold) {
+        return '主取り';
+      }
+
+      // 履歴内の価格をチェック
+      if (latestHistory.sold_price) {
+        if (Array.isArray(latestHistory.sold_price)) {
+          const validPrices = latestHistory.sold_price
+            .map(price => Number(price))
+            .filter(price => !isNaN(price) && price > 0);
+          
+          if (validPrices.length > 0) {
+            return `¥${validPrices[validPrices.length - 1].toLocaleString()}`;
+          }
+        } else if (typeof latestHistory.sold_price === 'string') {
+          const price = Number(latestHistory.sold_price.replace(/[^0-9.-]+/g, ''));
+          if (!isNaN(price) && price > 0) {
+            return `¥${price.toLocaleString()}`;
+          }
+        } else if (typeof latestHistory.sold_price === 'number' && latestHistory.sold_price > 0) {
+          return `¥${latestHistory.sold_price.toLocaleString()}`;
+        }
+      }
+    }
+  }
+
+  // トップレベルのpriceをチェック
+  if (horse.price) {
+    if (Array.isArray(horse.price)) {
+      const validPrices = horse.price
+        .map(price => Number(price))
+        .filter(price => !isNaN(price) && price > 0);
+      
+      if (validPrices.length > 0) {
+        return `¥${validPrices[validPrices.length - 1].toLocaleString()}`;
+      }
+    } else if (typeof horse.price === 'string') {
+      const price = Number(horse.price.replace(/[^0-9.-]+/g, ''));
+      if (!isNaN(price) && price > 0) {
+        return `¥${price.toLocaleString()}`;
+      }
+    } else if (typeof horse.price === 'number' && horse.price > 0) {
+      return `¥${horse.price.toLocaleString()}`;
+    }
+  }
+
+  // デフォルト
+  return '価格未設定';
 }
 
 export function formatPrice(val: number): string {

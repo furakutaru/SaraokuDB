@@ -1155,7 +1155,10 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
                     <div className="text-red-600 text-3xl font-extrabold">
                       {(() => {
                       // 主取りの場合は「主取り」と表示
-                      if (latestHistory?.unsold) {
+                      if (latestHistory?.unsold || 
+                          latestHistory?.sold_price === null ||
+                          latestHistory?.sold_price === '[null]' || 
+                          latestHistory?.sold_price === 'null') {
                         return '主取り';
                       }
                       
@@ -1169,6 +1172,18 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
                           return `¥${validPrices[validPrices.length - 1].toLocaleString()}`;
                         }
                       } 
+                      // sold_price が文字列の場合
+                      else if (typeof latestHistory?.sold_price === 'string') {
+                        // "[null]" または "null" の場合は主取りと表示
+                        if (latestHistory.sold_price === '[null]' || latestHistory.sold_price === 'null') {
+                          return '主取り';
+                        }
+                        // 数値に変換可能な場合は数値として表示
+                        const price = Number(latestHistory.sold_price.replace(/[^0-9.-]+/g, ''));
+                        if (!isNaN(price) && price > 0) {
+                          return `¥${price.toLocaleString()}`;
+                        }
+                      }
                       // sold_price が数値の場合
                       else if (latestHistory?.sold_price) {
                         const price = Number(latestHistory.sold_price);
@@ -1177,8 +1192,8 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
                         }
                       }
                       
-                      // 上記のいずれにも該当しない場合は何も表示しない
-                      return null;
+                      // 上記のいずれにも該当しない場合は価格未設定
+                      return '価格未設定';
                       })()}
                     </div>
                   </div>
