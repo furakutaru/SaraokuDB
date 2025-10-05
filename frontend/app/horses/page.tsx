@@ -117,32 +117,54 @@ try {
   console.warn('getDisplayPrice function not found, using fallback');
   getDisplayPrice = (horse: any) => {
     try {
-      console.log('Horse data:', horse); // デバッグ用
-      
+      // デバッグ用に馬のデータをログに出力
+      console.log('getDisplayPrice - horse data:', {
+        id: horse.id,
+        name: horse.name,
+        sold_price: horse.sold_price,
+        is_unsold: horse.is_unsold
+      });
+
       // 主取りフラグがtrueの場合は「主取り」を返す
       if (horse?.unsold === true || horse?.is_unsold === true) {
         console.log('主取りフラグあり');
         return '主取り';
       }
 
-      // 馬オブジェクト直下の価格を確認
+      // sold_priceを取得
       let price = horse?.sold_price;
-      console.log('sold_price:', price); // デバッグ用
       
-      // 価格がnullやundefinedでないか確認
-      if (price != null) {
+      // 価格が配列の場合は最初の要素を使用
+      if (Array.isArray(price) && price.length > 0) {
+        price = price[0];
+      }
+      
+      // 価格が文字列で角括弧で囲まれている場合（例: "[300000]"）を処理
+      if (typeof price === 'string') {
+        // 角括弧を除去
+        if (price.startsWith('[') && price.endsWith(']')) {
+          price = price.slice(1, -1);
+        }
+        
+        // "null"の場合は主取りとして扱う
+        if (price === 'null') {
+          return '主取り';
+        }
+        
         // 数値に変換を試みる
         const numPrice = Number(price);
-        console.log('数値変換後:', numPrice); // デバッグ用
         
         // 有効な数値で0より大きい場合はフォーマットして返す
         if (!isNaN(numPrice) && numPrice > 0) {
           return `¥${numPrice.toLocaleString('ja-JP')}`;
         }
+      } else if (typeof price === 'number' && price > 0) {
+        // 数値で0より大きい場合はフォーマットして返す
+        return `¥${price.toLocaleString('ja-JP')}`;
       }
-
-      // 価格が無効な場合は「価格未設定」を返す
-      console.log('有効な価格が見つかりませんでした');
+      
+      // 上記のいずれにも該当しない場合は「価格未設定」を返す
+      console.log('有効な価格が見つかりませんでした:', price);
       return '価格未設定';
     } catch (e) {
       console.error('価格のフォーマット中にエラーが発生しました:', e);
@@ -616,6 +638,16 @@ export default function HorsesPage() {
             const history = data.auctionHistories?.filter(h => h.horse_id === horse.id) || [];
             const latestHistory = history[0];
             
+            // デバッグ用: 馬のデータをログに出力
+            console.log('Horse data:', {
+              id: horse.id,
+              name: horse.name,
+              sold_price: horse.sold_price,
+              is_unsold: horse.is_unsold,
+              auctionHistories: history,
+              latestHistory: latestHistory
+            });
+            
             return (
               <Link href={`/horses/${horse.id}`} key={horse.id} className="group">
                 <div className="bg-white overflow-hidden shadow rounded-lg h-full flex flex-col hover:shadow-lg transition-shadow duration-200">
@@ -672,10 +704,10 @@ export default function HorsesPage() {
                             : 'bg-blue-100 text-blue-800'
                         }`}>
                           {getDisplayPrice(horse) === '主取り' 
-                      ? '主取り' 
-                      : getDisplayPrice(horse) !== '-' 
-                        ? getDisplayPrice(horse) 
-                        : '価格未設定'}      }
+                            ? '主取り' 
+                            : getDisplayPrice(horse) !== '-' 
+                              ? getDisplayPrice(horse) 
+                              : '価格未設定'}
                         </span>
                         
                         {horse.disease_tags && horse.disease_tags.length > 0 && (

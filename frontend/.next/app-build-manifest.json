@@ -1,5 +1,10 @@
 {
   "pages": {
+    "/horses/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/horses/layout.js"
+    ],
     "/horses/error": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -35,11 +40,6 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/horses/[id]/page.js"
-    ],
-    "/horses/layout": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/horses/layout.js"
     ]
   }
 }
