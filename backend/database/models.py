@@ -29,6 +29,7 @@ class Horse(Base):
     comment = Column(Text)  # コメント履歴（JSON配列文字列: ["1回目コメント", ...]）
     image_url = Column(String(500))  # 馬画像URL
     primary_image = Column(String(500))  # 馬体写真1枚目のURL
+    jbis_url = Column(String(500))  # JBISの馬情報ページURL
     unsold_count = Column(Integer, default=0)  # 主取り回数
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
