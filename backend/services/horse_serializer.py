@@ -79,6 +79,10 @@ def serialize_horse(horse: Any) -> Dict[str, Any]:
         "disease_tags": getattr(horse, 'disease_tags', None),
         "comment": comment_norm,
         "image_url": getattr(horse, 'image_url', None),
+        "jbis_url": getattr(horse, 'jbis_url', ''),
+        "detail_url": getattr(horse, 'detail_url', ''),
+        "rakuten_url": getattr(horse, 'rakuten_url', ''),
+        "auction_url": getattr(horse, 'auction_url', ''),
         "created_at": getattr(horse, 'created_at', None) or datetime.utcnow().isoformat(),
         "updated_at": getattr(horse, 'updated_at', None) or datetime.utcnow().isoformat(),
     }

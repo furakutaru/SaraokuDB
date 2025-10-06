@@ -36,7 +36,6 @@ class HorseCreate(HorseBase):
 
 class HorseUpdate(HorseBase):
     total_prize_latest: Optional[float] = None
-    jbis_url: Optional[str] = None
 
 class HorseResponse(HorseBase):
     id: int

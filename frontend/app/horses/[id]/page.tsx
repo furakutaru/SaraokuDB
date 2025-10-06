@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import ExternalLinks from './components/ExternalLinks';
 import {
   Button,
   Typography,
@@ -68,7 +69,7 @@ type Horse = Omit<Partial<BaseHorse>, 'age' | 'disease_tags'> & {
   disease_tags: string[]; // 疾患タグ
   jbis_url: string; // JBISリンク
   rakuten_url?: string; // 楽天オークションリンク（優先）
-  detail_url?: string; // 楽天オークションリンク（旧形式、互換性のため）
+  detail_url: string; // 楽天オークションリンク（旧形式、互換性のため）
   auction_url?: string; // オークションURL（旧形式、互換性のため）
   weight?: number; // 体重
   unsold_count?: number; // 未出走回数
@@ -172,6 +173,10 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
       cache: 'no-store',
       credentials: 'same-origin'
     });
+    
+    // レスポンスの生データを取得
+    const responseData = await response.clone().json();
+    console.log('API Response Data:', JSON.stringify(responseData, null, 2));
     if (!response.ok) {
       // 404 の場合は一覧からフォールバック検索
       if (response.status === 404) {
@@ -252,6 +257,7 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
 
                   const horse: Horse = {
                     id: staticBase.id ?? horseId,
+                    auction_id: staticBase.auction_id,
                     name: staticBase.name || '不明',
                     sex: staticBase.sex || '不明',
                     age: String(staticBase.age ?? '0'),
@@ -261,9 +267,13 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
                     sire: staticBase.sire || '不明',
                     dam: staticBase.dam || '不明',
                     dam_sire: staticBase.dam_sire || staticBase.damsire || '不明',
+                    damsire: staticBase.dam_sire || staticBase.damsire || '不明',
                     primary_image: staticBase.primary_image || staticBase.image_url || '',
-                    disease_tags: Array.isArray(staticBase.disease_tags) ? staticBase.disease_tags.join(',') : (staticBase.disease_tags || ''),
+                    disease_tags: Array.isArray(staticBase.disease_tags) ? staticBase.disease_tags : (staticBase.disease_tags || '').split(',').filter(Boolean),
                     jbis_url: staticBase.jbis_url || '',
+                    detail_url: staticBase.detail_url || staticBase.auction_url || '',
+                    rakuten_url: staticBase.detail_url || staticBase.auction_url || '',
+                    auction_url: staticBase.detail_url || staticBase.auction_url || '',
                     weight: staticBase.weight,
                     unsold_count: staticBase.unsold_count || 0,
                     total_prize_latest: staticBase.total_prize_latest ?? 0,
@@ -297,6 +307,7 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
             comment: horseBaseData.comment || '',
             sold_price: horseBaseData.sold_price ?? null,
             total_prize_start: horseBaseData.total_prize_start ?? 0,
+            detail_url: horseBaseData.detail_url || horseBaseData.auction_url || '',
             unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false) || (horseBaseData.unsold_count > 0),
             detail_url: horseBaseData.auction_url || '',
             primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
@@ -306,6 +317,7 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
 
           const horse: Horse = {
             id: horseBaseData.id ?? horseId,
+            auction_id: horseBaseData.auction_id,
             name: horseBaseData.name || '不明',
             sex: horseBaseData.sex || '不明',
             age: String(horseBaseData.age ?? '0'),
@@ -315,9 +327,13 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
             sire: horseBaseData.sire || '不明',
             dam: horseBaseData.dam || '不明',
             dam_sire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
+            damsire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
             primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
-            disease_tags: Array.isArray(horseBaseData.disease_tags) ? horseBaseData.disease_tags.join(',') : (horseBaseData.disease_tags || ''),
+            disease_tags: Array.isArray(horseBaseData.disease_tags) ? horseBaseData.disease_tags : (horseBaseData.disease_tags || '').split(',').filter(Boolean),
             jbis_url: horseBaseData.jbis_url || '',
+            detail_url: horseBaseData.detail_url || horseBaseData.auction_url || '',
+            rakuten_url: horseBaseData.detail_url || horseBaseData.auction_url || '',
+            auction_url: horseBaseData.detail_url || horseBaseData.auction_url || '',
             weight: horseBaseData.weight,
             unsold_count: horseBaseData.unsold_count || 0,
             total_prize_latest: horseBaseData.total_prize_latest ?? 0,
@@ -343,8 +359,26 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
     // 既存UIが必要とするフィールドに合わせて最小限マッピング。
     const horseBaseData = data || {};
     
-    // URLの互換性を確保
-    const rakutenUrl = horseBaseData.rakuten_url || horseBaseData.detail_url || horseBaseData.auction_url || '';
+    // デバッグ用に元のデータをログ出力
+    console.log('Debug - horseBaseData URLs:', {
+      detail_url: horseBaseData.detail_url,
+      rakuten_url: horseBaseData.rakuten_url,
+      auction_url: horseBaseData.auction_url,
+      allKeys: Object.keys(horseBaseData)
+    });
+    
+    // APIから受け取った値をそのまま使用
+    const detailUrl = horseBaseData.detail_url || '';
+    const rakutenUrl = horseBaseData.rakuten_url || '';
+    const auctionUrl = horseBaseData.auction_url || '';
+    
+    // デバッグ用にURLの値をログ出力
+    console.log('Debug - Raw URLs from API:', {
+      detail_url: detailUrl,
+      rakuten_url: rakutenUrl,
+      auction_url: auctionUrl,
+      jbis_url: horseBaseData.jbis_url
+    });
 
     const historyEntry: HorseHistory = {
       auction_date: horseBaseData.auction_date || new Date().toISOString().split('T')[0],
@@ -357,7 +391,7 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
       sold_price: horseBaseData.sold_price ?? null,
       total_prize_start: horseBaseData.total_prize_start ?? 0,
       unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false),
-      detail_url: rakutenUrl, // 統一された楽天URLを使用
+      detail_url: detailUrl,
       primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
       disease_tags: Array.isArray(horseBaseData.disease_tags) ? horseBaseData.disease_tags.join(',') : (horseBaseData.disease_tags || ''),
       weight: horseBaseData.weight
@@ -371,6 +405,13 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
       data: data
     });
 
+    // デバッグ用にデータをログ出力
+    console.log('Debug - horseBaseData:', horseBaseData);
+    console.log('Debug - data:', data);
+
+    // APIから受け取ったJBIS URLをそのまま使用
+    const jbisUrl = horseBaseData.jbis_url || '';
+
     const horse: Horse = {
       id: horseBaseData.id ?? horseId,
       auction_id: data?.auction_id || horseBaseData.auction_id, // APIレスポンスのルートからauction_idを取得
@@ -383,12 +424,16 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
       sire: horseBaseData.sire || '不明',
       dam: horseBaseData.dam || '不明',
       dam_sire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
+      damsire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
       primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
-      disease_tags: Array.isArray(horseBaseData.disease_tags) ? horseBaseData.disease_tags.join(',') : (horseBaseData.disease_tags || ''),
-      jbis_url: horseBaseData.jbis_url || '',
-      rakuten_url: rakutenUrl, // 統一された楽天URLを設定
-      detail_url: rakutenUrl,  // 互換性のため
-      auction_url: rakutenUrl, // 互換性のため
+      disease_tags: Array.isArray(horseBaseData.disease_tags) 
+        ? horseBaseData.disease_tags 
+        : (horseBaseData.disease_tags || '').split(',').filter(Boolean),
+      jbis_url: jbisUrl,
+      // APIから受け取ったURLをそのまま使用
+      detail_url: detailUrl,
+      rakuten_url: rakutenUrl,
+      auction_url: auctionUrl,
       weight: horseBaseData.weight,
       unsold_count: horseBaseData.unsold_count || 0,
       total_prize_latest: horseBaseData.total_prize_latest ?? 0,
@@ -396,6 +441,15 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
       updated_at: horseBaseData.updated_at || new Date().toISOString(),
       unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false)
     };
+    
+    console.log('Debug - Mapped horse URLs:', {
+      detail_url: horse.detail_url,
+      rakuten_url: horse.rakuten_url,
+      auction_url: horse.auction_url,
+      jbis_url: horse.jbis_url
+    });
+
+    console.log('Debug - Generated horse object:', horse);
     
     // デバッグ用にマッピング後のデータをログ出力
     console.log('Debug - Mapped horse data:', {
@@ -619,7 +673,11 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
   useEffect(() => {
     console.log('馬データ:', JSON.stringify(horse, null, 2));
     console.log('JBIS URL:', horse?.jbis_url);
-    console.log('楽天URL:', horse?.rakuten_url);
+    console.log('Detail URL:', horse?.detail_url);
+    console.log('Rakuten URL:', horse?.rakuten_url);
+    console.log('Auction URL:', horse?.auction_url);
+    console.log('All horse properties:', Object.keys(horse as object));
+    console.log('楽天URL:', horse?.rakuten_url || horse?.detail_url);
   }, [horse]);
 
   // タブの状態管理
@@ -878,29 +936,18 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
                       )}
                     </div>
                     {/* 画像下のリンク（JBIS / サラオク） */}
-                    <div className="flex items-center justify-center gap-4">
-                      {horse.jbis_url && (
-                        <a
-                          href={horse.jbis_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm"
-                          title="JBIS"
-                        >
-                          JBIS
-                        </a>
-                      )}
-                      {(latestHistory.detail_url || (horse as any).auction_url) && (
-                        <a
-                          href={latestHistory.detail_url || (horse as any).auction_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm"
-                          title="サラオク"
-                        >
-                          サラオク
-                        </a>
-                      )}
+                    <div className="flex items-center justify-center">
+                      {console.log('Horse URLs:', {
+                        jbis_url: horse.jbis_url,
+                        detail_url: horse.detail_url,
+                        rakuten_url: horse.rakuten_url,
+                        auction_url: horse.auction_url
+                      })}
+                      <ExternalLinks 
+                        jbisUrl={horse.jbis_url}
+                        auctionUrl={horse.auction_url}
+                        className="text-sm"
+                      />
                     </div>
                   </div>
 
@@ -1411,7 +1458,8 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
       rakuten_url: horse.rakuten_url,
       detail_url: horse.detail_url,
       auction_url: horse.auction_url,
-      auction_id: horse.id // オークションIDを確認
+      auction_id: horse.id, // オークションIDを確認
+      all_props: Object.keys(horse) // 利用可能なプロパティを確認
     });
     
     // デバッグ用に現在のデータをログ出力
