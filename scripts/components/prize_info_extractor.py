@@ -153,26 +153,39 @@ class PrizeInfoExtractor:
                 
                 # テキスト内から賞金情報を検索
                 text_patterns = [
-                    r'(?:総?賞金[：: ]*)?([\d,.]+)万(?:円|\s*円)',  # 日本語表記
-                    r'(?:総?賞金[：: ]*)?([\d,]+)(?:\s*円|円)',     # 通常表記
-                    r'([\d,.]+)万円',                                # 数値 + 万円
-                    r'([\d,]+)円'                                    # 数値 + 円
+                    # 日本語フォーマット（「987万6,543円」形式）
+                    r'(?:総?賞金[：: ]*)?([\d,]+)万([\d,]+)円',
+                    # 日本語表記（「1,234.5万円」形式）
+                    r'(?:総?賞金[：: ]*)?([\d,.]+)万(?:円|\s*円)',
+                    # 通常の数値表記（「5,678,900円」形式）
+                    r'(?:総?賞金[：: ]*)?([\d,]+)(?:\s*円|円)',
+                    # テキスト内の賞金表記
+                    r'賞金[：: ]*([\d,.]+)(?:\s*万円?|円)',
+                    # 数値 + 単位（「1,234万円」形式）
+                    r'([\d,]+)(?:\s*万円?|円)'
                 ]
                 
                 for pattern in text_patterns:
                     match = re.search(pattern, full_text)
                     if match:
                         try:
-                            prize_value = match.group(1).replace(',', '')
-                            
-                            # パターンに応じて処理を分岐
-                            if '万' in match.group(0):
-                                if '.' in prize_value:
-                                    prize_amount = int(float(prize_value) * 10000)
-                                else:
-                                    prize_amount = int(prize_value) * 10000
+                            # 日本語フォーマット（「987万6,543円」形式）の処理
+                            if len(match.groups()) >= 2 and match.group(2):
+                                man_part = match.group(1).replace(',', '')
+                                yen_part = match.group(2).replace(',', '')
+                                prize_amount = int(man_part) * 10000 + int(yen_part)
                             else:
-                                prize_amount = int(prize_value)
+                                # 通常の数値部分を抽出して正規化
+                                prize_value = match.group(1).replace(',', '')
+                                
+                                # パターンに応じて処理を分岐
+                                if '万' in match.group(0):
+                                    if '.' in prize_value:
+                                        prize_amount = int(float(prize_value) * 10000)
+                                    else:
+                                        prize_amount = int(prize_value) * 10000
+                                else:
+                                    prize_amount = int(prize_value)
                             
                             result = {
                                 'total_prize': prize_amount,
