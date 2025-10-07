@@ -174,16 +174,31 @@ try {
 }
 
 // API functions
-const fetchHorsesList = async (): Promise<HorseData> => {
+const fetchHorsesList = async (latestOnly: boolean = false): Promise<HorseData> => {
   try {
-    console.log('[fetchHorsesList] APIリクエストを開始します...');
-    const response = await fetch('/api/horses', {
+    console.log(`[fetchHorsesList] ${latestOnly ? '最新のオークションの馬' : '全ての馬'}を取得します...`);
+    // URLSearchParams を使用してパラメータを正しくエンコード
+    const params = new URLSearchParams();
+    params.append('latest_auction', latestOnly ? 'true' : 'false');
+    params.append('limit', '1000');
+    params.append('skip', '0');
+    
+    console.log('[fetchHorsesList] リクエストパラメータ:', {
+      latest_auction: latestOnly ? 'true' : 'false',
+      url: `/api/horses?${params.toString()}`
+    });
+    
+    const response = await fetch(`/api/horses?${params.toString()}`, {
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
-      }
+      },
+      credentials: 'same-origin'
     });
+    
+    console.log('[fetchHorsesList] レスポンスステータス:', response.status);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -376,8 +391,19 @@ export default function HorsesPage() {
         setError(null);
         console.log('[useEffect] データ取得を開始します...');
         
-        const result = await fetchHorsesList();
+        // 現在のパスを取得（/horses または / の場合に最新のオークションの馬を表示）
+        const isRecentPage = window.location.pathname === '/horses' || window.location.pathname === '/';
+        
+        console.log('[useEffect] 現在のパス:', {
+          pathname: window.location.pathname,
+          isRecentPage,
+          search: window.location.search
+        });
+        
+        // 最新のオークションの馬のみを取得するかどうかを決定
+        const result = await fetchHorsesList(isRecentPage);
         console.log('[useEffect] 取得したデータ:', {
+          isRecentPage,
           horsesCount: result.horses.length,
           auctionHistoriesCount: result.auctionHistories.length,
           metadata: result.metadata

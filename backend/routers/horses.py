@@ -1,6 +1,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional, Dict, Any
 from database.models import Horse, get_db
 from database.schemas import HorseResponse
@@ -9,32 +10,87 @@ from services.horses_list_mapper import map_horses_list
 
 router = APIRouter(prefix="/api", tags=["horses"])
 
+from fastapi import Request
+import logging
+
+# ロガーの設定
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(handler)
+
 @router.get("/horses", response_model=Dict[str, Any])
 async def get_horses(
+    request: Request,
     skip: int = 0,
     limit: int = 100,
     auction_date: Optional[str] = None,
+    latest_auction: str = 'false',  # 文字列として受け取るように変更
     db: Session = Depends(get_db)
 ):
-    """馬の一覧を取得するエンドポイント"""
+    """馬の一覧を取得するエンドポイント
+    
+    Args:
+        skip: スキップするレコード数
+        limit: 取得する最大レコード数
+        auction_date: オークション日でフィルタリング（部分一致）
+        latest_auction: 'true'の場合、最新のオークション日でフィルタリング
+    """
     try:
-        print("=== Starting get_horses endpoint ===")
-        print(f"Parameters - skip: {skip}, limit: {limit}, auction_date: {auction_date}")
+        logger.info("\n=== Starting get_horses endpoint ===")
+        logger.info(f"Request URL: {request.url}")
+        logger.info(f"Query params: {request.query_params}")
+        logger.info(f"latest_auction: {latest_auction}, type: {type(latest_auction)}")
         
-        # 1. Queryオブジェクトの作成
-        print("\n1. Creating query object...")
+        latest_auction_bool = latest_auction.lower() == 'true' or request.query_params.get('latest_auction', '').lower() == 'true'
+        
+        # クエリオブジェクトの初期化
         query = db.query(Horse)
         print(f"Query object created: {query}")
         
-        # 2. フィルタリング
-        if auction_date:
-            print(f"\n2. Applying auction_date filter: {auction_date}")
-            from sqlalchemy import text
-            query = query.filter(Horse.auction_date.like(f'%{auction_date}%'))
-            print(f"Filter applied. Query: {query}")
+        # 1. 最新のオークション日を取得（必要な場合）
+        latest_date = None
+        if latest_auction_bool:
+            print("\n1.1 Getting latest auction date...")
+            
+            # 最新のオークション日を取得（NULLでないもののみ）
+            latest_date_result = db.query(
+                func.max(Horse.auction_date)
+            ).filter(
+                Horse.auction_date.isnot(None)
+            ).scalar()
+            
+            if latest_date_result:
+                latest_date = latest_date_result
+                print(f"Latest auction date: {latest_date}")
+                
+                # 最新のオークション日でフィルタリング
+                query = query.filter(Horse.auction_date == latest_date)
+                print(f"Filtering by latest auction date: {latest_date}")
+                
+                # 念のため、オークション日がNULLのレコードを除外
+                query = query.filter(Horse.auction_date.isnot(None))
+                print("Excluding records with NULL auction_date")
+                
+                # デバッグ用: フィルタリング後のクエリを表示
+                print("\n=== Filtered Query ===")
+                print(str(query.statement.compile(compile_kwargs={"literal_binds": True})))
+            else:
+                print("Warning: No valid auction dates found in the database")
+                return {"items": [], "total": 0}  # オークション日が1つもない場合は空のリストを返す
         
-        # 3. 総レコード数の取得
-        print("\n3. Getting total count...")
+        # 3. フィルタリング
+        print("\n3. Applying filters...")
+        if auction_date and not latest_auction_bool:
+            print(f"- Filtering by auction_date: {auction_date}")
+            # オークション日を部分一致で検索（JSON配列内のいずれかの要素と一致）
+            query = query.filter(
+                Horse.auction_date.like(f'%{auction_date}%')
+            )
+        
+        # 4. 総レコード数の取得
+        print("\n4. Getting total count...")
         try:
             total_count = query.count()
             print(f"Total count: {total_count}")
@@ -46,20 +102,74 @@ async def get_horses(
         print("\n4. Fetching and processing data...")
         try:
             # データベースから取得
+            print("\n=== 実行するSQLクエリ ===")
+            print(str(query.statement.compile(compile_kwargs={"literal_binds": True})))
+            
             horses = query.offset(skip).limit(limit).all()
-            print(f"Retrieved {len(horses)} horses")
+            print(f"\n取得した馬の数: {len(horses)}頭")
+            
+            # 取得した馬の詳細を表示
+            print("\n=== 取得した馬の一覧 ===")
+            name_list = {}
+            for i, horse in enumerate(horses, 1):
+                name = horse.name
+                name_list[name] = name_list.get(name, 0) + 1
+                print("{0:3d}. ID: {1}, 馬名: {2}, 重複回数: {3}".format(
+                    i, horse.id, name, name_list[name]))
+            
+            # 重複している馬名を表示
+            final_duplicates = {name: count for name, count in name_list.items() if count > 1}
+            if final_duplicates:
+                print("\n!!! 最終結果に重複する馬名を検出 !!!")
+                for name, count in final_duplicates.items():
+                    print(f"- {name}: {count}回")
+            else:
+                print("\n最終結果に重複する馬名は見つかりませんでした。")
             # サービスでフロントエンド用の配列へ変換
+            print("\n=== フロントエンド用データ変換前の馬一覧 ===")
+            for i, horse in enumerate(horses, 1):
+                print(f"{i:3d}. ID: {horse.id}, 馬名: {horse.name}, オークション日: {horse.auction_date}")
+            
             horses_data, auction_histories = map_horses_list(horses)
-
+            
+            print(f"\n=== フロントエンド用データ変換後 ===")
+            print(f"変換された馬の数: {len(horses_data)}頭")
+            print(f"オークション履歴の数: {len(auction_histories)}件")
+            
+            # 変換後のデータで重複をチェック
             if horses_data:
-                print("\nSample horse data:")
+                converted_names = {}
+                print("\n=== 変換後の馬一覧 ===")
+                for i, horse in enumerate(horses_data, 1):
+                    name = horse.get('name')
+                    converted_names[name] = converted_names.get(name, 0) + 1
+                    print("{0:3d}. ID: {1}, 馬名: {2}, 重複回数: {3}".format(
+                        i, horse.get('id'), name, converted_names[name]))
+                
+                # 変換後の重複をチェック
+                converted_duplicates = {name: count for name, count in converted_names.items() if count > 1}
+                if converted_duplicates:
+                    print("\n!!! 変換後のデータに重複する馬名を検出 !!!")
+                    for name, count in converted_duplicates.items():
+                        print(f"- {name}: {count}回")
+                else:
+                    print("\n変換後のデータに重複する馬名は見つかりませんでした。")
+                
+                # サンプルデータを表示
+                print("\n=== サンプルデータ ===")
                 sample = horses_data[0]
                 print(f"  - ID: {sample.get('id')}")
-                print(f"  - Name: {sample.get('name')}")
-                print(f"  - Sex: {sample.get('sex')}")
-                print(f"  - Sire: {sample.get('sire')}")
-                print(f"  - Dam: {sample.get('dam')}")
-                print(f"  - Auction Date: {sample.get('auction_date')}")
+                print(f"  - 馬名: {sample.get('name')}")
+                print(f"  - 性別: {sample.get('sex')}")
+                print(f"  - 父: {sample.get('sire')}")
+                print(f"  - 母: {sample.get('dam')}")
+                print(f"  - 母父: {sample.get('damsire')}")
+                print(f"  - オークション日: {sample.get('auction_date')}")
+                print(f"  - セール: {sample.get('auction')}")
+                print(f"  - 落札価格: {sample.get('price')}")
+                print(f"  - 馬主: {sample.get('owner')}")
+                print(f"  - 調教師: {sample.get('trainer')}")
+                print(f"  - 生産者: {sample.get('breeder')}")
         except Exception as e:
             print(f"Error fetching/processing horses: {str(e)}")
             import traceback

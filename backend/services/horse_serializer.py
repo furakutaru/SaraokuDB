@@ -48,6 +48,22 @@ def _parse_first_str(value: Any) -> Optional[str]:
     return str(value)
 
 
+def _parse_last_str(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        s = value.strip()
+        if s.startswith("[") and s.endswith("]"):
+            try:
+                arr = json.loads(s)
+                if isinstance(arr, list) and len(arr) > 0:
+                    return str(arr[-1])  # 最後の要素を返す
+            except Exception:
+                return None
+        return value
+    return str(value)
+
+
 def serialize_horse(horse: Any) -> Dict[str, Any]:
     """
     Convert a Horse ORM object into a response dict matching HorseResponse
@@ -55,7 +71,7 @@ def serialize_horse(horse: Any) -> Dict[str, Any]:
     """
     age_norm = _parse_first_int(getattr(horse, 'age', None))
     sold_price_norm = _parse_first_int(getattr(horse, 'sold_price', None))
-    auction_date_norm = _parse_first_str(getattr(horse, 'auction_date', None))
+    auction_date_norm = _parse_last_str(getattr(horse, 'auction_date', None))
     seller_norm = _parse_first_str(getattr(horse, 'seller', None))
     sex_norm = _parse_first_str(getattr(horse, 'sex', None))
     comment_norm = _parse_first_str(getattr(horse, 'comment', None))
