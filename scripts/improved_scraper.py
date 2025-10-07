@@ -213,6 +213,7 @@ from scripts.components.comment_extractor import CommentExtractor
 from scripts.components.race_record_extractor import RaceRecordExtractor
 from scripts.components.price_extractor import PriceExtractor
 from scripts.components.horse_info_extractor import HorseInfoExtractor
+from scripts.components.auction_date_extractor import AuctionDateExtractor
 from scripts.components.horse_weight_extractor import HorseWeightExtractor
 from scripts.components.seller_info_extractor import SellerInfoExtractor
 from scripts.components.prize_info_extractor import PrizeInfoExtractor
@@ -671,6 +672,7 @@ class ImprovedRakutenScraper:
             'seller_info_extractor': SellerInfoExtractor,
             'race_record_extractor': RaceRecordExtractor,
             'image_extractor': ImageExtractor,
+            'auction_date_extractor': AuctionDateExtractor,
         }
         
         # 各extractorを初期化してインスタンス変数に設定
@@ -683,6 +685,56 @@ class ImprovedRakutenScraper:
                 setattr(self, name, None)  # エラーが発生した場合はNoneを設定
                 
         self.logger.debug("抽出コンポーネントの初期化が完了しました")
+
+    def get_auction_date(self, html_content: str = None, url: str = None) -> Optional[str]:
+        """
+        オークションの開催日を取得する
+        
+        Args:
+            html_content: オプションでHTMLコンテンツを直接指定
+            url: オプションでURLを指定（html_contentが指定されていない場合に使用）
+            
+        Returns:
+            str: オークション日（YYYY-MM-DD形式）、取得できない場合はNone
+        """
+        try:
+            # キャッシュキーを生成
+            cache_key = f"auction_date_{url}" if url else "auction_date"
+            
+            # キャッシュから取得を試みる
+            if self.config.use_cache and hasattr(self, 'cache_manager') and self.cache_manager:
+                cached_date = self.cache_manager.get(cache_key)
+                if cached_date:
+                    self.logger.debug(f"キャッシュからオークション日を取得: {cached_date}")
+                    return cached_date
+            
+            # HTMLコンテンツが指定されていない場合はURLから取得
+            if not html_content and url:
+                self.logger.debug(f"オークションページからHTMLを取得中: {url}")
+                response = self.session.get(url)
+                response.raise_for_status()
+                html_content = response.text
+            
+            if not html_content:
+                self.logger.warning("HTMLコンテンツが指定されていません")
+                return None
+                
+            # オークション日を抽出
+            if hasattr(self, 'auction_date_extractor') and self.auction_date_extractor:
+                auction_date = self.auction_date_extractor.extract_from_html(html_content)
+                
+                # キャッシュに保存
+                if auction_date and hasattr(self, 'cache_manager') and self.cache_manager:
+                    self.cache_manager.set(cache_key, auction_date, expire_seconds=86400)  # 24時間キャッシュ
+                
+                return auction_date
+            else:
+                self.logger.warning("AuctionDateExtractorが初期化されていません")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"オークション日の取得中にエラーが発生しました: {e}", exc_info=True)
+            return None
 
     def _setup_logger(self) -> logging.Logger:
         """ロガーを設定する
@@ -1983,6 +2035,22 @@ class ImprovedRakutenScraper:
             image_url, image_success = self.image_extractor.extract(html_content)
             if image_success and image_url:
                 horse_info['image_url'] = image_url
+            
+            # オークション日を取得
+            auction_date = self.get_auction_date(html_content=html_content, url=detail_url)
+            if auction_date:
+                horse_info['auction_date'] = auction_date
+                self.logger.info(f"オークション日を抽出しました: {auction_date}")
+            else:
+                self.logger.warning("オークション日の抽出に失敗しました")
+                
+            # 販売者情報を抽出
+            seller_info, seller_success = self.seller_info_extractor.extract(soup)
+            if seller_success and seller_info:
+                horse_info.update(seller_info)
+                self.logger.info(f'販売者情報を抽出しました: {seller_info}')
+            else:
+                self.logger.warning('販売者情報の抽出に失敗しました')
             
             self.logger.info(f"馬の詳細情報を抽出しました: {horse_info.get('name', '不明')}")
             return horse_info

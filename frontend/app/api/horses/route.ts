@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 // バックエンドのベースURL
-const BACKEND_URL = 'http://localhost:8001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 // バックエンドのAPIを呼び出す関数
 async function fetchFromBackend(url: string) {
@@ -26,11 +26,15 @@ async function fetchFromBackend(url: string) {
   return response.json();
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    console.log('Fetching horses from backend...');
+    const { searchParams } = new URL(request.url);
+    const queryString = searchParams.toString();
+    const apiUrl = queryString ? `/api/horses?${queryString}` : '/api/horses';
+    
+    console.log('Fetching horses from backend...', { apiUrl });
     // バックエンドから馬の一覧を取得
-    const data = await fetchFromBackend('/api/horses');
+    const data = await fetchFromBackend(apiUrl);
     console.log('Received data from backend:', {
       hasHorses: !!data.horses,
       horsesCount: data.horses?.length || 0,
