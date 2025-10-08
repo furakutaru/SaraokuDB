@@ -843,7 +843,16 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
           {/* メイン情報 */}
           <div className="lg:col-span-2">
             <Card className="mb-6">
-              <CardHeader>
+              <CardHeader 
+                sx={{
+                  padding: 0,
+                  margin: 0,
+                  '& .MuiCardHeader-content': {
+                    padding: 0,
+                    margin: 0
+                  }
+                }}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', fontSize: '1.5rem', mb: 1 }}>{latestHistory.name}</Typography>
@@ -1047,7 +1056,16 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
 
             {/* 履歴テーブル表示 */}
             <Card className="mb-6">
-              <CardHeader>
+              <CardHeader 
+                sx={{
+                  padding: 0,
+                  margin: 0,
+                  '& .MuiCardHeader-content': {
+                    padding: 0,
+                    margin: 0
+                  }
+                }}
+              >
                 <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>全履歴</Typography>
               </CardHeader>
               <CardContent>
@@ -1092,7 +1110,16 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
 
             {/* コメント履歴（タブ切り替え） */}
             <Card className="mb-6">
-              <CardHeader>
+              <CardHeader 
+                sx={{
+                  padding: 0,
+                  margin: 0,
+                  '& .MuiCardHeader-content': {
+                    padding: 0,
+                    margin: 0
+                  }
+                }}
+              >
                 <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>コメント履歴</Typography>
               </CardHeader>
               <CardContent>
@@ -1146,7 +1173,16 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
           {/* サイドバー - 価格・賞金情報 */}
           <div className="lg:col-span-1">
             <Card className="mb-6">
-              <CardHeader>
+              <CardHeader 
+                sx={{
+                  padding: 0,
+                  margin: 0,
+                  '& .MuiCardHeader-content': {
+                    padding: 0,
+                    margin: 0
+                  }
+                }}
+              >
                 <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>落札価格</Typography>
               </CardHeader>
               <CardContent className="relative">
@@ -1258,7 +1294,16 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
             </Card>
 
             <Card className="mb-6">
-              <CardHeader>
+              <CardHeader 
+                sx={{
+                  padding: 0,
+                  margin: 0,
+                  '& .MuiCardHeader-content': {
+                    padding: 0,
+                    margin: 0
+                  }
+                }}
+              >
                 <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>賞金情報</Typography>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1299,7 +1344,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
             </Card>
 
             {/* データ更新日 */}
-            <Card>
+            <Card sx={{ '& .MuiCardHeader-root': { padding: 0, margin: 0 } }}>
               <CardHeader>
                 <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>データ情報</Typography>
               </CardHeader>
