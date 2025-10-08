@@ -1,51 +1,42 @@
 'use client';
-import React, { 
-  useState, 
-  useEffect, 
-  useCallback, 
-  useMemo,
-  useRef
-} from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow, 
+  Paper, 
+  Modal, 
+  Box, 
+  Typography,
+  Skeleton,
+  Tooltip
+} from '@mui/material';
+import { format } from 'date-fns';
+import { ja } from 'date-fns/locale';
+import HeaderCard from './[id]/components/HeaderCard';
 
-// Import UI components with optional chaining to prevent errors if they don't exist
-let Card: any, CardContent: any, CardHeader: any, CardTitle: any, Badge: any, Button: any, getDisplayPrice: any;
+// Button component type
+type ButtonProps = {
+  children: React.ReactNode;
+  className?: string;
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  [key: string]: any;
+};
 
-try {
-  ({ Card, CardContent, CardHeader, CardTitle } = require('@/components/ui/card') || {});
-} catch (e) {
-  console.warn('Card components not found, using fallback');
-  // Simple fallback components
-  Card = ({ children, className = '' }) => <div className={`border rounded-lg p-4 ${className}`}>{children}</div>;
-  CardContent = ({ children, className = '' }) => <div className={`p-4 ${className}`}>{children}</div>;
-  CardHeader = ({ children, className = '' }) => <div className={`border-b pb-2 ${className}`}>{children}</div>;
-  CardTitle = ({ children, className = '' }) => <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>;
-}
-
-try {
-  ({ Badge } = require('@/components/ui/badge') || {});
-} catch (e) {
-  console.warn('Badge component not found, using fallback');
-  Badge = ({ children, variant = 'default', className = '', ...props }) => (
-    <span 
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-        variant === 'destructive' 
-          ? 'bg-red-100 text-red-800' 
-          : 'bg-gray-100 text-gray-800'
-      } ${className}`}
-      {...props}
-    >
-      {children}
-    </span>
-  );
-}
+let Button: React.FC<ButtonProps>;
 
 try {
-  ({ Button } = require('@/components/ui/button') || {});
+  const ButtonComponent = require("@/components/ui/button").Button;
+  Button = ButtonComponent as React.FC<ButtonProps>;
 } catch (e) {
   console.warn('Button component not found, using fallback');
-  Button = ({ children, className = '', variant = 'default', ...props }) => (
+  Button = ({ children, className = '', variant = 'default', ...props }: ButtonProps) => (
     <button 
       className={`px-4 py-2 rounded-md ${
         variant === 'destructive' 
@@ -111,67 +102,85 @@ try {
   };
 }
 
-try {
-  ({ getDisplayPrice } = require('@/utils/price') || {});
-} catch (e) {
-  console.warn('getDisplayPrice function not found, using fallback');
-  getDisplayPrice = (horse: any) => {
-    try {
-      // デバッグ用に馬のデータをログに出力
-      console.log('getDisplayPrice - horse data:', {
-        id: horse.id,
-        name: horse.name,
-        sold_price: horse.sold_price,
-        is_unsold: horse.is_unsold
-      });
-
-      // 主取りフラグがtrueの場合は「主取り」を返す
-      if (horse?.unsold === true || horse?.is_unsold === true) {
-        console.log('主取りフラグあり');
-        return '主取り';
-      }
-
-      // sold_priceを取得
-      let price = horse?.sold_price;
-      
-      // 価格が配列の場合は最初の要素を使用
-      if (Array.isArray(price) && price.length > 0) {
-        price = price[0];
-      }
-      
-      // 価格が文字列で角括弧で囲まれている場合（例: "[300000]"）を処理
-      if (typeof price === 'string') {
-        // 角括弧を除去
-        if (price.startsWith('[') && price.endsWith(']')) {
-          price = price.slice(1, -1);
-        }
-        
-        // "null"の場合は主取りとして扱う
-        if (price === 'null') {
-          return '主取り';
-        }
-        
-        // 数値に変換を試みる
-        const numPrice = Number(price);
-        
-        // 有効な数値で0より大きい場合はフォーマットして返す
-        if (!isNaN(numPrice) && numPrice > 0) {
-          return `¥${numPrice.toLocaleString('ja-JP')}`;
-        }
-      } else if (typeof price === 'number' && price > 0) {
-        // 数値で0より大きい場合はフォーマットして返す
-        return `¥${price.toLocaleString('ja-JP')}`;
-      }
-      
-      // 上記のいずれにも該当しない場合は「価格未設定」を返す
-      console.log('有効な価格が見つかりませんでした:', price);
-      return '価格未設定';
-    } catch (e) {
-      console.error('価格のフォーマット中にエラーが発生しました:', e);
-      return '価格未設定';
+// 価格表示用のユーティリティ関数
+const getDisplayPrice = (horse: any): string => {
+  if (!horse) return '-';
+  
+  // 落札価格がある場合はそれを表示
+  if (horse.sold_price !== undefined && horse.sold_price !== null) {
+    return `${horse.sold_price.toLocaleString()}万円`;
+  }
+  
+  // オークション履歴から最新の価格を取得
+  if (horse.auction_histories && horse.auction_histories.length > 0) {
+    const latestHistory = horse.auction_histories[0];
+    if (latestHistory.sold_price !== undefined && latestHistory.sold_price !== null) {
+      return `${latestHistory.sold_price.toLocaleString()}万円`;
     }
-  };
-}
+  }
+  
+  return '-';
+};
+
+// コンポーネントの型定義
+type Horse = {
+  id: string;
+  name: string;
+  sold_price?: number;
+  is_unsold?: boolean;
+  auction_histories?: Array<{
+    sold_price?: number;
+    [key: string]: any;
+  }>;
+  [key: string]: any;
+};
+
+type AuctionHistory = {
+  horse_id: string;
+  sold_price?: number;
+  [key: string]: any;
+};
+
+// 主取りフラグをチェックするヘルパー関数
+const isUnsoldHorse = (horse: Horse): boolean => {
+  return horse?.unsold === true || horse?.is_unsold === true;
+};
+
+// 価格を表示用にフォーマットする関数
+const formatPrice = (price: any): string => {
+  if (price === null || price === undefined) return '-';
+  
+  // 価格が配列の場合は最初の要素を使用
+  if (Array.isArray(price) && price.length > 0) {
+    price = price[0];
+  }
+  
+  // 価格が文字列で角括弧で囲まれている場合（例: "[300000]"）を処理
+  if (typeof price === 'string') {
+    // 角括弧を除去
+    if (price.startsWith('[') && price.endsWith(']')) {
+      price = price.slice(1, -1);
+    }
+    
+    // "null"の場合は主取りとして扱う
+    if (price === 'null') {
+      return '主取り';
+    }
+    
+    // 数値に変換を試みる
+    const numPrice = Number(price);
+    
+    // 有効な数値で0より大きい場合はフォーマットして返す
+    if (!isNaN(numPrice) && numPrice > 0) {
+      return `¥${numPrice.toLocaleString('ja-JP')}`;
+    }
+  } else if (typeof price === 'number' && price > 0) {
+    // 数値で0より大きい場合はフォーマットして返す
+    return `¥${price.toLocaleString('ja-JP')}`;
+  }
+  
+  return '-';
+};
 
 // API functions
 const fetchHorsesList = async (latestOnly: boolean = false): Promise<HorseData> => {
@@ -570,35 +579,7 @@ export default function HorsesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ヘッダー */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <button
-              onClick={() => window.history.back()}
-              className="rounded-md bg-white border border-black text-black px-4 py-2 hover:bg-gray-100 transition-colors flex items-center"
-            >
-              <svg className="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              戻る
-            </button>
-            <div className="flex gap-4">
-              <Link 
-                href="/analysis" 
-                className="rounded-md bg-white border border-black text-black px-4 py-2 hover:bg-gray-100 transition-colors"
-              >
-                解析
-              </Link>
-              <Link 
-                href="/recent" 
-                className="rounded-md bg-white border border-black text-black px-4 py-2 hover:bg-gray-100 transition-colors"
-              >
-                直近の追加
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+      <HeaderCard jbisUrl="" auctionUrl="" />
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {/* 検索バー */}
