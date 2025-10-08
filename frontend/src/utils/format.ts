@@ -1,4 +1,6 @@
 // Common formatting utilities (no-UI-change)
+import { format } from 'date-fns';
+import { ja } from 'date-fns/locale';
 
 export function formatWeight(weight: number | string | null | undefined): string {
   if (weight === null || weight === undefined || weight === '') return '-';
@@ -8,6 +10,38 @@ export function formatWeight(weight: number | string | null | undefined): string
   // 数値が整数の場合は小数点以下を表示しない
   const formatted = Number.isInteger(num) ? num.toString() : num.toFixed(1);
   return `${formatted}kg`;
+}
+
+// 日付フォーマット用のヘルパー関数
+export function formatDate(dateString: string): string {
+  if (!dateString) return '-';
+  try {
+    const date = new Date(dateString);
+    return format(date, 'yyyy/MM/dd', { locale: ja });
+  } catch (e) {
+    console.error('日付のフォーマットに失敗しました:', e);
+    return dateString;
+  }
+}
+
+// 配列に変換するユーティリティ
+export function toArray<T>(val: T | T[] | undefined | null): T[] {
+  if (val === null || val === undefined) return [];
+  return Array.isArray(val) ? val : [val];
+}
+
+// 成長率を計算する関数
+export function calculateGrowthRate(start: number, latest: number): string {
+  if (start === 0) return '-';
+  const rate = ((latest - start) / start * 100).toFixed(1);
+  return (latest - start >= 0 ? '+' : '') + rate;
+}
+
+// 数値を「○万円」形式の文字列に変換する関数
+export function formatManYen(value: number): string {
+  if (value === 0) return '0万円';
+  if (!value) return '-';
+  return `${(value / 10000).toFixed(1)}万円`;
 }
 
 // For values already expressed in "万円" units (e.g., 123.4 means 123.4万円)
