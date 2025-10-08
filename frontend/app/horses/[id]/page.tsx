@@ -8,6 +8,7 @@ import { ja } from 'date-fns/locale';
 import { HeaderCard } from './components';
 import ExternalLinks from './components/ExternalLinks';
 import { ErrorMessage, SimpleError } from './components/ErrorDisplay';
+import { LoadingSpinner, SimpleLoading } from './components/LoadingSpinner';
 import {
   Button,
   Typography,
@@ -122,14 +123,6 @@ const calculateGrowthRate = (start: number, latest: number) => {
 
 // 賞金は万円単位で表示（共通ユーティリティを使用）
 
-// ローディングコンポーネント
-function LoadingSpinner() {
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-    </div>
-  );
-}
 
 /**
  * 馬データを取得する関数
@@ -459,14 +452,6 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
   }
 }
 
-// シンプルなローディングコンポーネント
-function SimpleLoading() {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-    </div>
-  );
-}
 
 // ページのパラメータ型
 interface PageProps {
