@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { HeaderCard } from './components';
 import ExternalLinks from './components/ExternalLinks';
+import { ErrorMessage, SimpleError } from './components/ErrorDisplay';
 import {
   Button,
   Typography,
@@ -120,28 +121,6 @@ const calculateGrowthRate = (start: number, latest: number) => {
 };
 
 // 賞金は万円単位で表示（共通ユーティリティを使用）
-
-// エラーコンポーネント
-function ErrorMessage({ message, onRetry }: { message: string; onRetry?: () => void }) {
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', fontSize: '1.5rem', mb: 1, color: 'text-red-600' }}>エラー</Typography>
-        <p className="text-gray-700 mb-6">{message}</p>
-        <div className="flex justify-center gap-4">
-          <Button component={Link} href="/">
-            トップに戻る
-          </Button>
-          {onRetry && (
-            <Button variant="outlined" onClick={onRetry}>
-              再試行
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ローディングコンポーネント
 function LoadingSpinner() {
@@ -478,24 +457,6 @@ async function getHorseData(horseId: string): Promise<{ horse: Horse | null; err
       error: error instanceof Error ? error.message : '不明なエラーが発生しました' 
     };
   }
-}
-
-// シンプルなエラーコンポーネント
-function SimpleError({ message }: { message: string }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full text-center">
-        <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', fontSize: '1.5rem', mb: 1, color: 'text-red-600' }}>エラーが発生しました</Typography>
-        <p className="mb-6">{message}</p>
-        <a 
-          href="/" 
-          className="inline-block bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition-colors"
-        >
-          トップに戻る
-        </a>
-      </div>
-    </div>
-  );
 }
 
 // シンプルなローディングコンポーネント
