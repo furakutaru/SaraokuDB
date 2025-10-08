@@ -5,6 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { 
+  formatWeight, 
+  formatManYen, 
+  calculateGrowthRate, 
+  toArray, 
+  formatDate,
+  formatPrizeMan 
+} from '@/src/utils/format';
 import { HeaderCard } from './components';
 import ExternalLinks from './components/ExternalLinks';
 import { ErrorMessage, SimpleError } from './components/ErrorDisplay';
@@ -21,19 +29,10 @@ import {
   Badge,
 } from '@mui/material';
 import HorseImage from '@/src/components/HorseImage';
-import { formatPrizeMan } from '@/src/utils/format';
 import { normalizeImageUrl } from '@/src/utils/url';
 import { Horse as BaseHorse, AuctionHistory as BaseHistory } from '@/src/types/horse';
 import { getHorseData as getHorseDataFromApi } from '@/src/utils/horseApi';
 
-// 馬体重をフォーマットする関数（整数値のみを想定）
-function formatWeight(weight: number | string | null | undefined): string {
-  if (weight === null || weight === undefined || weight === '') {
-    return '-';
-  }
-  // 数値チェックのみ行い、そのまま表示
-  return isNaN(Number(weight)) ? '-' : `${weight}kg`;
-}
 // --- 型定義（共有型に基づき最小拡張）---
 // RaceRecord 型を文字列またはオブジェクトのユニオン型として定義
 type RaceRecord = string | {
@@ -99,30 +98,7 @@ interface PageProps {
   searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-// 日付フォーマット用のヘルパー関数
-const formatDate = (dateString: string) => {
-  try {
-    return format(new Date(dateString), 'yyyy年M月d日', { locale: ja });
-  } catch (e) {
-    return dateString; // 日付が不正な場合はそのまま返す
-  }
-};
-
-// --- 追加ユーティリティ ---
-const toArray = (val: any) => Array.isArray(val) ? val : [val];
-const formatManYen = (val: number) => isNaN(val) ? '-' : `${(val/10000).toFixed(1)}万円`;
-
 // 価格表示は utils/price の仕様化ロジックを使用（UIは変えない）
-
-// 以前の仕様に合わせた成長率計算
-const calculateGrowthRate = (start: number, latest: number) => {
-  if (start === 0) return '-';
-  const rate = ((latest - start) / start * 100).toFixed(1);
-  return (latest - start >= 0 ? '+' : '') + rate;
-};
-
-// 賞金は万円単位で表示（共通ユーティリティを使用）
-
 
 /**
  * 馬データを取得する関数
