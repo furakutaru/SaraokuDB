@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { 
@@ -17,7 +17,7 @@ import { BaseAuctionHistory, Horse, AuctionHistory } from '@/src/types/horse';
 import { HeaderCard } from './components';
 import ExternalLinks from './components/ExternalLinks';
 import { ErrorMessage, SimpleError } from './components/ErrorDisplay';
-import { LoadingSpinner, SimpleLoading } from './components/LoadingSpinner';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import {
   Button,
   Typography,
@@ -589,12 +589,11 @@ const RaceRecordDisplay = ({ record }: { record: any }) => {
 // ページコンポーネント (Client Component)
 export default function HorseDetailPage({ params }: PageProps) {
   const router = useRouter();
-  const [horse, setHorse] = useState<Horse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<number>(0);
+  const [horse, setHorse] = useState<Horse | null>(null);
+  const [error, setError] = useState<string | null>(null);
   
-  // 馬IDをパース (Next.js 14+ のparams Promise対応)
+  // 馬IDをパース
   const horseId = useMemo(() => {
     try {
       const idParam = params?.id;
@@ -604,81 +603,59 @@ export default function HorseDetailPage({ params }: PageProps) {
       return idParam;
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : '無効な馬IDです';
-      setError(errorMessage);
-      setIsLoading(false);
       console.error('馬IDのパースに失敗しました:', errorMessage);
+      setError(errorMessage);
       return '';
     }
   }, [params]);
-  
-  // コメントの有無をチェック
-  const hasComments = useMemo(() => {
-    if (!horse?.history) return false;
-    return horse.history.some(history => 
-      history.comment && history.comment.trim().length > 0
-    );
-  }, [horse]);
-  
-  // データ取得とエラー処理
+
+  // データ取得
   useEffect(() => {
+    if (!horseId) return;
+
     const fetchHorseData = async () => {
-      if (!horseId) {
-        setError('馬IDが指定されていません');
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-
       try {
         const { horse, error } = await getHorseData(horseId);
         
         if (error) {
           throw new Error(error);
-        } 
+        }
         
         if (!horse) {
           throw new Error('馬のデータが見つかりませんでした');
         }
 
-        // 必須フィールドのバリデーション
-        if (!horse.name || !horse.primary_image || !horse.history?.length) {
-          console.warn('不完全な馬データ:', horse);
-        }
-
-        // disease_tags をこのページの型に合わせて補正
-        const fixedHorse = {
-          ...horse,
-          disease_tags: Array.isArray((horse as any).disease_tags)
-            ? (horse as any).disease_tags
-            : (typeof (horse as any).disease_tags === 'string'
-                ? ((horse as any).disease_tags as string).split(',').map(s => s.trim()).filter(Boolean)
-                : []),
-        } as Horse;
-        setHorse(fixedHorse);
+        setHorse(horse);
       } catch (err) {
         console.error('馬データの取得中にエラーが発生しました:', err);
         setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました');
-      } finally {
-        setIsLoading(false);
       }
     };
 
     fetchHorseData();
   }, [horseId]);
-  
-  if (isLoading) {
-    return <SimpleLoading />;
-  }
-  
+
   if (error) {
     return <SimpleError message={error} />;
   }
-  
+
   if (!horse) {
-    return <SimpleError message="馬のデータが見つかりませんでした" />;
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner />
+      </div>
+    );
   }
+  
+  // 必須フィールドのバリデーション
+  if (!horse.name || !horse.primary_image || !horse.history?.length) {
+    console.warn('不完全な馬データ:', horse);
+  }
+  
+  // コメントの有無をチェック
+  const hasComments = horse?.history?.some(history => 
+    history.comment && history.comment.trim().length > 0
+  ) || false;
   
   // 馬詳細コンポーネントを表示
   const horseWithPageProps = (() => {
