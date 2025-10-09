@@ -64,7 +64,17 @@ export const CommentCard: React.FC<CommentCardProps> = ({
             displayComment.comment?.trim() ? (
               <div className="prose max-w-none">
                 <p className="whitespace-pre-line text-gray-800">
-                  {displayComment.comment || ''}
+                  {displayComment.comment 
+                    ? displayComment.comment
+                        // Remove square brackets and quotes at the beginning and end
+                        .replace(/^\s*[\[\]"]+|[\]"\s]+$/g, '')
+                        // Decode Unicode escape sequences
+                        .replace(/\\u([\dA-Fa-f]{4})/g, (match, grp) => 
+                          String.fromCharCode(parseInt(grp, 16))
+                        )
+                        // Replace escaped newlines with actual newlines
+                        .replace(/\\n/g, '\n')
+                    : ''}
                 </p>
                 <div className="mt-2 text-sm text-gray-500">
                 </div>

@@ -34,13 +34,47 @@ import {
 // ユーティリティ関数をインポート
 import { 
   isUnsoldHorse,
-  formatPrice,
-  formatAge,
   formatSeller,
   getDisplayPrice,
   formatPrize,
   getGrowthRate
 } from './utils/formatters'; // utils/formatters.ts からインポート
+import { formatAge } from './utils/formatAge';
+import SexBadge from '@/app/horses/components/SexBadge';
+
+// 性別データを正規化する関数
+const normalizeHorseSex = (sex: any): string => {
+  if (!sex) return '';
+  
+  try {
+    // 文字列で、JSON配列の形式になっている場合
+    if (typeof sex === 'string' && sex.startsWith('[')) {
+      const parsed = JSON.parse(sex);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // 配列の最初の要素を取得し、エスケープシーケンスを処理
+        const firstItem = parsed[0];
+        if (typeof firstItem === 'string') {
+          // Unicodeエスケープシーケンスをデコード
+          return firstItem.replace(/\\u([\dA-Fa-f]{4})/g, (match, p1) => {
+            return String.fromCharCode(parseInt(p1, 16));
+          });
+        }
+        return String(firstItem);
+      }
+    }
+    // 配列の場合
+    if (Array.isArray(sex) && sex.length > 0) {
+      return String(sex[0]);
+    }
+    // その他の場合
+    return String(sex);
+  } catch (e) {
+    console.error('性別データの正規化に失敗しました:', e, '元の値:', sex);
+    return String(sex);
+  }
+};
+
+// formatAge は別ファイルからインポート
 
 // API関数をインポート
 import { fetchHorsesList, getAuctionHistories } from './api/horsesApi';
@@ -495,8 +529,8 @@ export default function HorsesPage() {
                       alt={horse.name}
                       className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                     />
-                    <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                      {formatAge(horse.sex, horse.age)}
+                    <div className="absolute top-2 right-2">
+                      <SexBadge sex={normalizeHorseSex(horse.sex)} age={horse.age} className="text-xs" />
                     </div>
                     {horse.disease_tags && horse.disease_tags.length > 0 && (
                       <div className="absolute top-2 left-2">
@@ -514,44 +548,31 @@ export default function HorsesPage() {
                       <h3 className="text-lg font-semibold">{horse.name}</h3>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-2 text-sm text-gray-700 mb-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{horse.sire} × {horse.dam}</span>
-                          {horse.disease_tags && horse.disease_tags.length > 0 && (
-                            <div className="border border-red-300 text-red-500 px-2 py-0.5 rounded text-xs">
-                              {horse.disease_tags[0]}
-                            </div>
-                          )}
+                    <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 mb-3">
+                      <div className="text-gray-600 space-y-1">
+                        <div className="flex">
+                          <span className="w-12 flex-shrink-0">父</span>
+                          <span className="truncate">{horse.sire || '不明'}</span>
                         </div>
-                        <div className="text-gray-500 text-xs">母父</div>
-                        <div className="truncate">{horse.damsire || '不明'}</div>
+                        <div className="flex">
+                          <span className="w-12 flex-shrink-0">母</span>
+                          <span className="truncate">{horse.dam || '不明'}</span>
+                        </div>
+                        <div className="flex">
+                          <span className="w-12 flex-shrink-0">母父</span>
+                          <span className="truncate">{horse.damsire || '不明'}</span>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-gray-500 text-xs">売主</div>
-                        <div className="truncate">{formatSeller(horse.seller)}</div>
+                      <div className="text-gray-600 border-l border-gray-200 pl-4">
+                        <div className="text-sm text-gray-500 mb-1">販売者</div>
+                        <div className="font-medium truncate">{latestHistory?.seller || '不明'}</div>
                       </div>
-                    </div>
-                    
-                    <div className="mt-auto pt-2 border-t border-gray-100">
-                      <div className="flex justify-between items-center">
-                        <span className={`inline-block px-2 py-1 text-xs rounded ${
-                          horse.is_unsold
-                            ? 'bg-gray-100 text-gray-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {getDisplayPrice(horse) === '主取り' 
-                            ? '主取り' 
-                            : getDisplayPrice(horse) !== '-' 
-                              ? getDisplayPrice(horse) 
-                              : '価格未設定'}
-                        </span>
-                        
-                        {horse.disease_tags && horse.disease_tags.length > 0 && (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-pink-800 bg-pink-100 rounded">
-                            病歴: {horse.disease_tags[0]}
-                          </span>
-                        )}
+                      <div className="mt-2">
+                        {isUnsoldHorse(horse) 
+                          ? <span className="text-red-600 font-medium">主取り</span>
+                          : getDisplayPrice(horse) !== '-' 
+                            ? getDisplayPrice(horse) 
+                            : '価格未設定'}
                       </div>
                     </div>
                   </div>
@@ -561,7 +582,6 @@ export default function HorsesPage() {
           })}
         </div>
 
-        {/* 結果件数 */}
         <div className="mt-8 text-center text-gray-600">
           {filteredHorses.length}頭の馬を表示中
         </div>

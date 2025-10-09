@@ -1,4 +1,5 @@
 import { Horse } from '../types';
+import { formatAge } from './formatAge';
 
 // Horse型を拡張してunsoldプロパティを追加
 declare module '../types' {
@@ -57,132 +58,7 @@ export const formatPrice = (price: any): string => {
   return `¥${priceValue.toLocaleString()}`;
 };
 
-/**
- * 性別と年齢を適切に表示するためのヘルパー関数
- * @param sex 性別
- * @param age 年齢
- * @returns フォーマットされた性別と年齢の文字列
- */
-export const formatAge = (sex: string | string[] | null | undefined, age: number | string | null | undefined): string => {
-  // デバッグ用に値をログに出力
-  console.log('formatAge - raw sex:', sex, 'age:', age);
-  
-  // 性別と年齢の両方がない場合はハイフンを返す
-  if ((!sex || (Array.isArray(sex) && sex.length === 0)) && (age === undefined || age === null)) {
-    return '-';
-  }
-  
-  // 性別のマッピング
-  const sexMap: Record<string, string> = {
-    '牡': '牡',
-    '牝': '牝',
-    'セ': 'セ',
-    '牡馬': '牡',
-    '牝馬': '牝',
-    'セニ': 'セ',
-    'filly': '牝',
-    'colt': '牡',
-    'mare': '牝',
-    'horse': '牡',
-    'gelding': 'セ',
-    'male': '牡',
-    'female': '牝',
-    '7261': '牡',  // '牡' の Unicode コードポイント
-    '725d': '牝',  // '牝' の Unicode コードポイント
-    '30bb': 'セ'   // 'セ' の Unicode コードポイント
-  };
-
-  // 性別の処理
-  let sexValue: string | string[] = '';
-  
-  try {
-    // 文字列でJSON配列の可能性がある場合
-    if (typeof sex === 'string' && sex.startsWith('[') && sex.endsWith(']')) {
-      try {
-        // JSON配列としてパースを試みる
-        const parsed = JSON.parse(sex);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          sexValue = parsed[0];
-        }
-      } catch (e) {
-        console.warn('Failed to parse sex as JSON:', sex);
-        sexValue = sex;
-      }
-    } 
-    // 配列の場合は最初の要素を使用
-    else if (Array.isArray(sex)) {
-      // 配列の最初の要素を取得（nullやundefinedでない最初の要素）
-      const firstValid = sex.find(s => s !== null && s !== undefined);
-      if (firstValid !== undefined) {
-        sexValue = firstValid;
-      }
-    } 
-    // それ以外の場合はそのまま使用
-    else if (sex !== undefined && sex !== null) {
-      sexValue = sex;
-    }
-    
-    // 文字列の場合は不要な文字を削除して正規化
-    if (typeof sexValue === 'string') {
-      // Unicodeエスケープシーケンスをデコード
-      let decoded = sexValue;
-      
-      // Unicodeエスケープシーケンスを処理 (\u725d のような形式)
-      if (decoded.includes('\\u')) {
-        decoded = decoded.replace(/\\u([0-9a-fA-F]{4})/g, (match, p1) => {
-          return String.fromCharCode(parseInt(p1, 16));
-        });
-      }
-      
-      // 角括弧、引用符、バックスラッシュ、uなどの不要な文字を削除
-      decoded = decoded
-        .replace(/[\[\]"\\]/g, '') // 角括弧、引用符、バックスラッシュを削除
-        .trim();
-      
-      // 4桁の16進数コードを確認
-      const hexMatch = decoded.match(/^([0-9a-fA-F]{4})$/);
-      if (hexMatch) {
-        const code = hexMatch[1].toLowerCase();
-        if (sexMap[code]) {
-          return `${sexMap[code]}${age ? ` ${age}歳` : ''}`.trim() || '-';
-        }
-      }
-      
-      // マッピングに存在する場合は変換、それ以外はそのまま表示
-      sexValue = sexMap[decoded.toLowerCase()] || decoded || '不明';
-    } 
-    // 数値の場合は文字列に変換
-    else if (typeof sexValue === 'number') {
-      sexValue = String(sexValue);
-    }
-    // nullまたはundefinedの場合は不明に設定
-    else if (sexValue === null || sexValue === undefined) {
-      sexValue = '不明';
-    }
-    
-    // 年齢の処理
-    let ageText = '';
-    if (age !== undefined && age !== null && age !== '') {
-      const ageNum = Number(age);
-      if (!isNaN(ageNum)) {
-        ageText = `${ageNum}歳`;
-      } else if (typeof age === 'string' && age.trim() !== '') {
-        // 数値に変換できないが空でない文字列の場合はそのまま表示
-        ageText = age;
-      }
-    }
-    
-    // 性別と年齢を結合して返す（両方ある場合はスペースで区切る）
-    const sexText = Array.isArray(sexValue) ? sexValue[0] || '' : sexValue;
-    const result = [sexText, ageText].filter(Boolean).join(' ');
-    console.log('formatAge - result:', result);
-    return result || '-';
-    
-  } catch (error) {
-    console.error('Error in formatAge:', error, { sex, age });
-    return age ? `${age}歳` : '-';
-  }
-};
+// formatAge is now imported from './formatAge'
 
 /**
  * 売り主情報を適切に表示するためのヘルパー関数

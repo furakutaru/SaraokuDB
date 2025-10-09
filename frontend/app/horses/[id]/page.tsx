@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
+import SexBadge from '@/app/horses/components/SexBadge';
 import DateInfoCard from './components/DateInfoCard';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -807,7 +808,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
     return weight;
   }, [horse.weight, latestHistory?.weight]);
 
-  // 性別の色とアイコンをメモ化
+  // 性別の色とアイコンをメモ化（互換性のため残すが、直接は使用しない）
   const { sexColor, sexIcon } = useMemo(() => {
     // 馬の基本情報から性別を取得（履歴がなければデフォルトで空文字）
     let sex = horse.sex || latestHistory?.sex || '';
@@ -911,9 +912,11 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                     <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', fontSize: '1.5rem', mb: 1 }}>{latestHistory.name}</Typography>
                     {/* 性別・年齢 */}
                     <div className="flex items-center gap-2">
-                      <Badge className={sexColor}>
-                        {Array.isArray(horse.sex) ? horse.sex[0] : (horse.sex || latestHistory?.sex || '')} {latestHistory?.age}歳
-                      </Badge>
+                      <SexBadge 
+                        sex={horse.sex || latestHistory?.sex} 
+                        age={latestHistory?.age ? Number(latestHistory.age) : undefined} 
+                        className="text-xs"
+                      />
                     </div>
                   </div>
                   {/* JBISリンク */}
@@ -939,12 +942,12 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                     <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
                       {latestHistory.name}
                     </Typography>
-                    {/* 性別バッジ */}
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${sexColor}`}>
-                      {Array.isArray(horse.sex) ? horse.sex[0] : (horse.sex || latestHistory?.sex || '')}
-                    </span>
-                    {/* 年齢 */}
-                    <span className="text-sm text-gray-700">{latestHistory?.age}歳</span>
+                    {/* 性別バッジと年齢 */}
+                    <SexBadge 
+                      sex={horse.sex || latestHistory?.sex} 
+                      age={latestHistory?.age ? Number(latestHistory.age) : undefined} 
+                      className="text-xs"
+                    />
                   </div>
 
                   {/* 左側: 画像とリンク */}
@@ -1115,8 +1118,22 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                           <td className="px-2 py-1 border text-center">{i + 1}</td>
                           <td className="px-2 py-1 border">{h.auction_date}</td>
                           <td className="px-2 py-1 border">{h.name}</td>
-                          <td className="px-2 py-1 border">
-                            {Array.isArray(h.sex) ? h.sex[0] : (h.sex || '')}
+                          <td className="px-2 py-1 border text-black">
+                            {(() => {
+                              try {
+                                const sex = Array.isArray(h.sex) ? h.sex[0] : h.sex || '';
+                                if (typeof sex === 'string') {
+                                  // ユニコードエスケープシーケンスをデコード
+                                  return sex.replace(/\\u([\dA-Fa-f]{4})/g, (match, grp) => 
+                                    String.fromCharCode(parseInt(grp, 16))
+                                  ).replace(/[\"\[\]]/g, '');
+                                }
+                                return sex;
+                              } catch (e) {
+                                console.error('性別の表示中にエラーが発生しました:', e);
+                                return '-';
+                              }
+                            })()}
                           </td>
                           <td className="px-2 py-1 border">{h.age}</td>
                           <td className="px-2 py-1 border">{h.seller}</td>
