@@ -37,18 +37,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({
             )}
           </div>
           <div className="flex gap-4">
-            <Link
-              href="/"
-              className="rounded-md bg-white border border-black text-black px-4 py-2 hover:bg-gray-100 transition-colors"
-            >
-              解析
-            </Link>
-            <Link
-              href="/horses"
-              className="rounded-md bg-white border border-black text-black px-4 py-2 hover:bg-gray-100 transition-colors"
-            >
-              直近の追加
-            </Link>
+            {/* ボタンはHorseHeaderに移動しました */}
           </div>
         </div>
       </div>

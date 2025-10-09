@@ -1,108 +1,52 @@
 import React from 'react';
-import { Typography, Button, Box, CardHeader } from '@mui/material';
-import { format } from 'date-fns';
-import { ja } from 'date-fns/locale';
+import { Button } from '@mui/material';
+import Link from 'next/link';
 
 interface HorseHeaderProps {
-  name: string;
-  sex: string | string[];
-  age: number | string;
-  color?: string;
-  birthday?: string;
-  jbis_url?: string | string[];
-  rakuten_url?: string | string[];
-  detail_url?: string | string[];
-  auction_url?: string | string[];
-  id?: string | number;
+  // シンプルなヘッダーなので、必要なプロパティのみを保持
+  title?: string;
 }
 
+/**
+ * 馬の詳細ページ用のシンプルなヘッダーコンポーネント
+ */
 export const HorseHeader: React.FC<HorseHeaderProps> = ({
-  name,
-  sex,
-  age,
-  color,
-  birthday,
-  jbis_url,
-  rakuten_url,
-  detail_url,
-  auction_url,
-  id
+  title = '馬の詳細'
 }) => {
-  // デバッグ用ログ
-  console.log('HorseHeader - Debug:', {
-    jbis_url,
-    rakuten_url,
-    detail_url,
-    auction_url,
-    id,
-    all_props: { name, sex, age, color, birthday }
-  });
-
-  // URLを正規化するヘルパー関数
-  const normalizeUrl = (url: string | string[] | undefined): string => {
-    if (!url) return '';
-    const urlStr = Array.isArray(url) ? url[0] : url;
-    return urlStr.startsWith('http') ? urlStr : `https://${urlStr}`;
-  };
-
-  // JBIS URLを構築
-  const jbisUrl = normalizeUrl(jbis_url);
-  const rakutenUrl = normalizeUrl(rakuten_url || auction_url);
-  const detailUrl = normalizeUrl(detail_url);
-
   return (
-    <CardHeader>
-      <div className="flex justify-between items-start w-full">
-        <div>
-          <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', fontSize: '1.5rem', mb: 1 }}>
-            {name}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" className="mb-2">
-            {Array.isArray(sex) ? sex[0] : sex || ''} {age}歳 | {color} | {birthday ? format(new Date(birthday), 'yyyy年M月d日', { locale: ja }) : '生年月日不明'}
-          </Typography>
-          <div className="flex space-x-2 mt-2">
-            {jbisUrl && (
-              <a 
-                href={jbisUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition-colors"
-              >
-                JBIS
-              </a>
-            )}
-            {rakutenUrl && (
-              <a 
-                href={rakutenUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="px-3 py-1 bg-red-600 text-white text-sm font-medium rounded-full hover:bg-red-700 transition-colors"
-              >
-                楽天オークション
-              </a>
-            )}
-            {detailUrl && (
-              <a 
-                href={detailUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-full hover:bg-green-700 transition-colors"
-              >
-                詳細ページ
-              </a>
-            )}
-          </div>
+    <header className="bg-white shadow-sm border-b p-4">
+      <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
+        
+        <div className="flex items-center gap-2">
+          <Link
+            href="/"
+            className="rounded-md bg-white border border-black text-black px-3 py-1.5 text-sm hover:bg-gray-100 transition-colors flex items-center"
+          >
+            解析
+          </Link>
+          <Link
+            href="/horses"
+            className="rounded-md bg-white border border-black text-black px-3 py-1.5 text-sm hover:bg-gray-100 transition-colors flex items-center"
+          >
+            直近の追加
+          </Link>
+          <Button 
+            variant="outlined"
+            size="small"
+            onClick={() => window.history.back()}
+            className="self-center"
+            startIcon={
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            }
+          >
+            戻る
+          </Button>
         </div>
-        <Button 
-          variant="outlined" 
-          size="small"
-          onClick={() => window.history.back()}
-          className="rounded-md bg-white border border-black text-black hover:bg-gray-100"
-        >
-          戻る
-        </Button>
       </div>
-    </CardHeader>
+    </header>
   );
 };
 
