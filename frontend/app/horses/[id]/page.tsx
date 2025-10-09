@@ -13,13 +13,15 @@ import {
   formatDate,
   formatPrizeMan 
 } from '@/src/utils/format';
-import { BaseAuctionHistory, Horse, AuctionHistory } from '@/src/types/horse';
+import { Horse, AuctionHistory } from '@/src/types/horse';
+import { ExtendedAuctionHistory, RaceRecord } from './types';
 import { HeaderCard } from './components';
 import ExternalLinks from './components/ExternalLinks';
 import { ErrorMessage, SimpleError } from './components/ErrorDisplay';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { HorseHeader } from './components/HorseHeader';
 import AuctionHistoryCard from './components/AuctionHistoryCard';
+import { CommentCard } from './components/CommentCard';
 import {
   Button,
   Typography,
@@ -35,29 +37,7 @@ import HorseImage from '@/src/components/HorseImage';
 import { normalizeImageUrl } from '@/src/utils/url';
 import { getHorseData as getHorseDataFromApi } from '@/src/utils/horseApi';
 
-// --- 型定義（共有型に基づき最小拡張）---
-// RaceRecord 型を文字列またはオブジェクトのユニオン型として定義
-type RaceRecord = string | {
-  total_races?: number;
-  wins?: number;
-  seconds?: number;  // 2着回数
-  thirds?: number;   // 3着回数
-  record_format?: string;
-  formatted_record?: string;
-  [key: string]: any; // その他のプロパティも許容
-};
-
-// オークション履歴の拡張型
-interface ExtendedAuctionHistory extends Omit<BaseAuctionHistory, 'race_record'> {
-  name?: string;
-  sex?: string;
-  age?: string | number;
-  race_record?: RaceRecord | string; // 文字列も受け入れる
-  primary_image?: string;
-  disease_tags?: string;
-  detail_url?: string; // 詳細URL
-  unsold?: boolean; // 未落札フラグ（互換性のため）
-}
+// 型定義は ./types.ts に移動しました
 
 // Horse 型を拡張して、ページ固有のプロパティを追加
 type HorseWithPageProps = Omit<Horse, 'history' | 'disease_tags' | 'auction_history'> & {
@@ -770,7 +750,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
     console.log('楽天URL:', horse?.rakuten_url || horse?.detail_url);
   }, [horse]);
 
-  // タブの状態管理
+  // タブの状態管理（初期値は最後の履歴を指すように設定）
   const [activeTab, setActiveTab] = useState(0);
 
   // タブ変更ハンドラー
@@ -778,23 +758,21 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
     setActiveTab(newValue);
   };
 
-  // コメントがある履歴のみをフィルタリング
-  const tabsWithComments = useMemo<CommentedHistory[]>(() => {
+  // コメントがある履歴のインデックスを取得
+  const commentIndices = useMemo(() => {
     if (!horse?.history?.length) return [];
-    return horse.history.reduce<CommentedHistory[]>((acc, history, index) => {
-      if (history.comment?.trim()) {
-        acc.push({ ...history, originalIndex: index });
-      }
-      return acc;
-    }, []);
+    return horse.history
+      .map((h, i) => (h.comment?.trim() ? i : -1))
+      .filter(i => i !== -1);
   }, [horse?.history]);
   
-  // 初期表示時に最初のコメントがあるタブを選択
+  // 初期表示時に最後のコメントがあるタブを選択
   useEffect(() => {
-    if (tabsWithComments.length > 0) {
-      setActiveTab(tabsWithComments[0].originalIndex);
+    if (commentIndices.length > 0) {
+      // 最後のコメントがあるインデックスを設定
+      setActiveTab(commentIndices[commentIndices.length - 1]);
     }
-  }, [tabsWithComments]);
+  }, [commentIndices]);
   
   // 馬のデータがない場合のエラー表示
   if (!horse) {
@@ -1160,65 +1138,12 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
             </Card>
 
             {/* コメント履歴（タブ切り替え） */}
-            <Card className="mb-6">
-              <CardHeader 
-                sx={{
-                  padding: 0,
-                  margin: 0,
-                  '& .MuiCardHeader-content': {
-                    padding: 0,
-                    margin: 0
-                  }
-                }}
-              >
-                <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>コメント履歴</Typography>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
-                  {horse.history.map((h, i) => {
-                    const hasComment = h.comment && h.comment.trim() !== '';
-                    return (
-                      <button
-                        key={i}
-                        className={`px-3 py-1 rounded whitespace-nowrap ${
-                          activeTab === i 
-                            ? 'bg-blue-600 text-white' 
-                            : hasComment 
-                              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
-                              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        }`}
-                        onClick={() => setActiveTab(i)}
-                        disabled={!hasComment}
-                      >
-                        {i + 1}回目 {!hasComment && '(コメントなし)'}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="border p-4 bg-gray-50 rounded-b min-h-[100px]">
-                  {hasComments ? (
-                    horse.history[activeTab]?.comment && horse.history[activeTab].comment.trim() !== '' ? (
-                      <div className="prose max-w-none">
-                        <p className="whitespace-pre-line text-gray-800">
-                          {horse.history[activeTab].comment}
-                        </p>
-                        <div className="mt-2 text-sm text-gray-500">
-                          {toArray(horse.history[activeTab]?.auction_date).join(' / ')}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <p className="text-gray-500 italic">この回のコメントはありません</p>
-                      </div>
-                    )
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <p className="text-gray-500 italic">この馬のコメントは登録されていません</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <CommentCard 
+              history={horse.history}
+              activeTab={activeTab}
+              hasComments={hasComments}
+              onTabChange={setActiveTab}
+            />
           </div>
 
           {/* サイドバー - 価格・賞金情報 */}
