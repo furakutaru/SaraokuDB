@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
+import DateInfoCard from './components/DateInfoCard';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { 
@@ -1299,26 +1300,13 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
             
             {/* 賞金情報カード */}
             <PrizeCard horse={horse} latestHistory={latestHistory} /> 
-            <Card sx={{ '& .MuiCardHeader-root': { padding: 0, margin: 0 } }}>
-              <CardHeader>
-                <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>データ情報</Typography>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">オークション日:</span>
-                  <span>{formatDate(latestHistory?.auction_date || '')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">作成日:</span>
-                  <span>{formatDate(horse.created_at || new Date().toISOString())}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">更新日:</span>
-                  <span>{formatDate(horse.updated_at || horse.created_at || new Date().toISOString())}</span>
-                </div>
-
-              </CardContent>
-            </Card>
+            
+            {/* 日付情報カード */}
+            <DateInfoCard 
+              auctionDate={latestHistory?.auction_date}
+              createdAt={horse.created_at || new Date().toISOString()}
+              updatedAt={horse.updated_at}
+            />
           </div>
         </div>
       </div>
