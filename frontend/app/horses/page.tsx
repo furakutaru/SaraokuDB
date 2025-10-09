@@ -106,40 +106,85 @@ try {
 const getDisplayPrice = (horse: any): string => {
   if (!horse) return '-';
   
+  // 主取りフラグをチェック
+  if (horse.is_unsold === true || horse.unsold === true) {
+    return '主取り';
+  }
+  
   // 落札価格がある場合はそれを表示
   if (horse.sold_price !== undefined && horse.sold_price !== null) {
-    return `${horse.sold_price.toLocaleString()}万円`;
+    // 文字列の場合は角括弧を削除
+    const priceStr = String(horse.sold_price).replace(/[\[\]]/g, '');
+    const price = Number(priceStr);
+    
+    if (!isNaN(price) && price > 0) {
+      return `¥${price.toLocaleString()}`;
+    }
   }
   
   // オークション履歴から最新の価格を取得
   if (horse.auction_histories && horse.auction_histories.length > 0) {
     const latestHistory = horse.auction_histories[0];
     if (latestHistory.sold_price !== undefined && latestHistory.sold_price !== null) {
-      return `${latestHistory.sold_price.toLocaleString()}万円`;
+      // 文字列の場合は角括弧を削除
+      const priceStr = String(latestHistory.sold_price).replace(/[\[\]]/g, '');
+      const price = Number(priceStr);
+      
+      if (!isNaN(price) && price > 0) {
+        return `¥${price.toLocaleString()}`;
+      }
     }
   }
   
   return '-';
 };
 
+// Badge コンポーネントは使用しないためコメントアウト
+// import { Badge } from "@/components/ui/badge";
+
 // コンポーネントの型定義
-type Horse = {
+interface Horse {
   id: string;
   name: string;
-  sold_price?: number;
-  is_unsold?: boolean;
-  auction_histories?: Array<{
-    sold_price?: number;
-    [key: string]: any;
-  }>;
+  sex: string;
+  age: number;
+  sire: string;
+  dam: string;
+  damsire: string;
+  image_url: string;
+  jbis_url: string;
+  auction_url: string;
+  disease_tags: string[];
+  weight: number | null;
+  race_record: string;
+  comment: string;
+  created_at: string;
+  updated_at: string;
+  sold_price?: number | string | null;
+  seller?: string;
+  auction_date?: string;
+  total_prize_start?: number;
+  total_prize_latest?: number;
+  is_unsold?: boolean | string;
+  unsold?: boolean;
+  auction_histories?: AuctionHistory[];
   [key: string]: any;
-};
+}
 
-type AuctionHistory = {
+interface AuctionHistory {
+  id: string;
   horse_id: string;
-  sold_price?: number;
+  auction_date: string;
+  sold_price: number | string | null;
+  total_prize_start: number;
+  total_prize_latest: number;
+  weight: number | null;
+  seller: string;
+  is_unsold: boolean | string;
+  comment: string;
+  created_at: string;
   [key: string]: any;
-};
+}
 
 // 主取りフラグをチェックするヘルパー関数
 const isUnsoldHorse = (horse: Horse): boolean => {
@@ -334,24 +379,26 @@ interface Horse {
   comment: string;
   created_at: string;
   updated_at: string;
-  sold_price?: number | null;
+  sold_price?: number | string | null;
   seller?: string;
   auction_date?: string;
   total_prize_start?: number;
   total_prize_latest?: number;
-  is_unsold?: boolean;
+  is_unsold?: boolean | string;
+  unsold?: boolean;
 }
 
 interface AuctionHistory {
   id: string;
   horse_id: string;
   auction_date: string;
-  sold_price: number | null;
+  sold_price: number | string | null;
   total_prize_start: number;
   total_prize_latest: number;
   weight: number | null;
   seller: string;
-  is_unsold: boolean;
+  is_unsold: boolean | string;
+  unsold?: boolean;
   comment: string;
   created_at: string;
 }
@@ -411,17 +458,19 @@ export default function HorsesPage() {
         
         // 最新のオークションの馬のみを取得するかどうかを決定
         const result = await fetchHorsesList(isRecentPage);
+        const auctionHistories = result.auctionHistories || result.auction_histories || [];
+        
         console.log('[useEffect] 取得したデータ:', {
           isRecentPage,
           horsesCount: result.horses.length,
-          auctionHistoriesCount: result.auctionHistories.length,
+          auctionHistoriesCount: auctionHistories.length,
           metadata: result.metadata
         });
         
         if (isMounted) {
           setData({
             horses: result.horses,
-            auctionHistories: result.auctionHistories,
+            auctionHistories,
             metadata: result.metadata
           });
         }
@@ -641,7 +690,7 @@ export default function HorsesPage() {
         {/* 馬一覧 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4 sm:px-0">
           {filteredHorses.map((horse) => {
-            const history = data.auctionHistories?.filter(h => h.horse_id === horse.id) || [];
+            const history = (data?.auctionHistories || []).filter((h: any) => h.horse_id === horse.id);
             const latestHistory = history[0];
             
             // デバッグ用: 馬のデータをログに出力
@@ -669,10 +718,10 @@ export default function HorsesPage() {
                     </div>
                     {horse.disease_tags && horse.disease_tags.length > 0 && (
                       <div className="absolute top-2 left-2">
-                        <Badge variant="destructive" className="text-xs">
+                        <div className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
                           病歴: {horse.disease_tags[0]}
                           {horse.disease_tags.length > 1 && ` +${horse.disease_tags.length - 1}`}
-                        </Badge>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -688,9 +737,9 @@ export default function HorsesPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{horse.sire} × {horse.dam}</span>
                           {horse.disease_tags && horse.disease_tags.length > 0 && (
-                            <Badge variant="outline" className="text-red-500 border-red-300">
+                            <div className="border border-red-300 text-red-500 px-2 py-0.5 rounded text-xs">
                               {horse.disease_tags[0]}
-                            </Badge>
+                            </div>
                           )}
                         </div>
                         <div className="text-gray-500 text-xs">母父</div>

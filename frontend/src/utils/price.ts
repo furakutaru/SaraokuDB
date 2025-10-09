@@ -51,26 +51,42 @@ export function getDisplayPrice(horse: HorseLikeForPrice | null | undefined): st
     return '主取り';
   }
 
-  // 配列の場合の処理
+  // 配列の場合の処理（例: [1020000] のような形式）
   if (Array.isArray(horse.sold_price)) {
-    const validPrices = horse.sold_price
-      .map(price => Number(price))
-      .filter(price => !isNaN(price) && price > 0);
+    // 配列内の最後の有効な価格を取得
+    const lastValidPrice = horse.sold_price
+      .map(price => {
+        // 文字列の場合は数値に変換を試みる
+        if (typeof price === 'string') {
+          // 角括弧で囲まれた文字列を処理（例: "[1020000]"）
+          const cleanPrice = price.replace(/[\[\]"\s]/g, '');
+          const num = Number(cleanPrice);
+          return isNaN(num) ? null : num;
+        }
+        return Number(price);
+      })
+      .filter((price): price is number => price !== null && !isNaN(price) && price > 0)
+      .pop();
 
-    if (validPrices.length > 0) {
-      return `¥${validPrices[validPrices.length - 1].toLocaleString()}`;
+    if (lastValidPrice !== undefined) {
+      return `¥${lastValidPrice.toLocaleString()}`;
     }
     return '主取り';
   }
 
-  // 文字列の価格の場合
+  // 文字列の価格の場合（例: "310000" または "[310000]"）
   if (typeof horse.sold_price === 'string') {
-    const price = Number(horse.sold_price.replace(/[^0-9.-]+/g, ''));
+    // 角括弧を削除して数値に変換
+    const cleanPrice = horse.sold_price.replace(/[\[\]]/g, '');
+    const price = Number(cleanPrice);
+    
     if (!isNaN(price) && price > 0) {
+      // 3桁区切りの数値にフォーマット（例: 310000 → 310,000）
       return `¥${price.toLocaleString()}`;
     }
     return '主取り';
   }
+  
   // 数値の価格の場合
   if (typeof horse.sold_price === 'number') {
     return `¥${horse.sold_price.toLocaleString()}`;
