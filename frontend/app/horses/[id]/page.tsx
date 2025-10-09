@@ -1001,11 +1001,6 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
                           <span className="text-gray-600">販売者:</span>
                           <span className="font-medium">{toArray(latestHistory.seller).join(' / ')}</span>
                         </div>
-                        {/* オークション日履歴 */}
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">オークション日:</span>
-                          <span className="font-medium">{toArray(latestHistory.auction_date).join(' / ')}</span>
-                        </div>
                         {/* レース成績履歴 */}
                         <div className="flex justify-between">
                           <span className="text-gray-600">レース成績:</span>
