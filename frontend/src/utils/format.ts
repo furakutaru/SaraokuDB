@@ -44,10 +44,16 @@ export function formatManYen(value: number): string {
   return `${(value / 10000).toFixed(1)}万円`;
 }
 
-// For values already expressed in "万円" units (e.g., 123.4 means 123.4万円)
+// 数値を3桁区切りでフォーマットする
+function formatNumberWithCommas(num: number): string {
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// 円単位の数値をフォーマットする
 export function formatPrizeMan(val: number | string | null | undefined): string {
   if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
-  return `${Number(val).toFixed(1)}万円`;
+  const num = Math.round(Number(val));
+  return `¥${formatNumberWithCommas(num)}`;
 }
 
 // For values in Yen (number/string/object), display as 万円
