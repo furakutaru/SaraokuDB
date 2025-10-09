@@ -18,6 +18,7 @@ import { HeaderCard } from './components';
 import ExternalLinks from './components/ExternalLinks';
 import { ErrorMessage, SimpleError } from './components/ErrorDisplay';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { HorseHeader } from './components/HorseHeader';
 import {
   Button,
   Typography,
@@ -1007,23 +1008,6 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
                           <RaceRecordDisplay record={latestHistory.race_record} />
                         </div>
                         {/* 落札価格は右カラムに表示するため、このセクションでは非表示に変更 */}
-                        {/* オークションページリンク */}
-                        {latestHistory.detail_url && (
-                          <div className="flex justify-between items-center mt-2">
-                            <span className="text-gray-600">オークションページ:</span>
-                            <a
-                              href={latestHistory.detail_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline text-sm flex items-center"
-                            >
-                              詳細を見る
-                              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                              </svg>
-                            </a>
-                          </div>
-                        )}
                       </div>
                     </div>
 
@@ -1532,142 +1516,14 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
     );
   };
 
-  // URLが有効かどうかをチェックするヘルパー関数
-  const isValidUrl = (url: string | undefined | null): boolean => {
-    if (!url) return false;
-    const trimmed = url.trim();
-    return trimmed.length > 0 && trimmed !== 'undefined' && trimmed !== 'null';
-  };
-
-  // 馬の基本情報セクション
-  const renderBasicInfo = () => {
-    if (!horse) return null;
-    
-    // デバッグ用に現在のURLをログ出力
-    console.log('Debug - Current horse data:', {
-      jbis_url: horse.jbis_url,
-      rakuten_url: horse.rakuten_url,
-      detail_url: horse.detail_url,
-      auction_url: horse.auction_url,
-      auction_id: horse.id, // オークションIDを確認
-      all_props: Object.keys(horse) // 利用可能なプロパティを確認
-    });
-    
-    // デバッグ用に現在のデータをログ出力
-    console.log('Debug - Building URLs with data:', {
-      horseId: horse.id,
-      auction_id: horse.auction_id,
-      jbis_url: horse.jbis_url,
-      rakuten_url: horse.rakuten_url,
-      detail_url: horse.detail_url,
-      auction_url: horse.auction_url
-    });
-
-    // JBIS URLを構築
-    // データベースから取得したURLを使用
-    const jbisUrl = horse.jbis_url?.trim() || '';
-    const rakutenUrl = horse.auction_url?.trim() || '';
-    
-    console.log('Using URLs from database:', { 
-      jbisUrl, 
-      rakutenUrl, 
-      hasJbisUrl: !!horse.jbis_url,
-      hasAuctionUrl: !!horse.auction_url
-    });
-    
-    return (
-      <Card className="mb-6">
-        <CardHeader>
-          <div className="flex justify-between items-start w-full">
-            <div>
-              <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', fontSize: '1.5rem', mb: 1 }}>{horse.name}</Typography>
-              <Typography variant="body2" color="text.secondary" className="mb-2">
-                {Array.isArray(horse.sex) ? horse.sex[0] : (horse.sex || '')} {horse.age}歳 | {horse.color} | {horse.birthday ? format(new Date(horse.birthday), 'yyyy年M月d日', { locale: ja }) : '生年月日不明'}
-              </Typography>
-              <div className="flex space-x-2 mt-2">
-                {jbisUrl && (
-                  <a 
-                    href={jbisUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 transition-colors"
-                  >
-                    JBIS
-                  </a>
-                )}
-                {rakutenUrl && (
-                  <a 
-                    href={rakutenUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="px-3 py-1 bg-red-500 text-white text-sm font-medium rounded-full hover:bg-red-600 transition-colors"
-                  >
-                    サラオク
-                  </a>
-                )}
-              </div>
-            </div>
-            <div className="flex space-x-2">
-              {renderBackButton()}
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-    );
-  };
-
   // メインのレンダリング
   return (
     <div className="container mx-auto px-4 py-8">
-      {renderBasicInfo()}
-      
-      {/* 馬の詳細情報セクション */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* 左カラム: 馬の画像 */}
-        <div className="md:col-span-1">
-          <Card className="mb-6">
-            <div className="relative aspect-square">
-              <HorseImage 
-                src={horse.primary_image} 
-                alt={horse.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div>
-                  <span className="text-sm text-gray-500">父:</span>
-                  <p className="font-medium">{horse.sire}</p>
-                </div>
-                <div>
-                  <span className="text-sm text-gray-500">母:</span>
-                  <p className="font-medium">{horse.dam}</p>
-                </div>
-                <div>
-                  <span className="text-sm text-gray-500">母の父:</span>
-                  <p className="font-medium">{horse.dam_sire}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* 右カラム: 馬の情報 */}
-        <div className="md:col-span-2">
-          {/* オークション履歴 */}
-          <Card className="mb-6">
-            <CardHeader>
-              <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>オークション履歴</Typography>
-            </CardHeader>
-            <CardContent>
-              {renderAuctionHistory()}
-            </CardContent>
-          </Card>
-          
-          {/* コメントセクション */}
-          {renderCommentSection()}
-        </div>
-      </div>
+      <HorseDetailContent 
+        horse={horse} 
+        hasComments={hasComments} 
+        latestHistory={latestHistory} 
+      />
     </div>
   );
 }
