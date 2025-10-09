@@ -190,8 +190,6 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
                     name: staticBase.name || '不明',
                     sex: staticBase.sex || '不明',
                     age: Number(staticBase.age) || 0,
-                    color: staticBase.color || '不明',
-                    birthday: staticBase.birthday || '不明',
                     history: [historyEntry],
                     sire: staticBase.sire || '不明',
                     dam: staticBase.dam || '不明',
@@ -264,8 +262,6 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
             name: horseBaseData.name || '不明',
             sex: horseBaseData.sex || '不明',
             age: Number(horseBaseData.age) || 0,
-            color: horseBaseData.color || '不明',
-            birthday: horseBaseData.birthday || '不明',
             // history は必ず配列で、ExtendedAuctionHistory の配列である必要がある
             history: [{
               ...historyEntry,
@@ -398,8 +394,6 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
       name: horseBaseData.name || '不明',
       sex: horseBaseData.sex || '不明',
       age: Number(horseBaseData.age) || 0, // 数値に変換
-      color: horseBaseData.color || '不明',
-      birthday: horseBaseData.birthday || '不明',
       history: [historyEntry],
       sire: horseBaseData.sire || '不明',
       dam: horseBaseData.dam || '不明',

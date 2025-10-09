@@ -14,10 +14,6 @@ export interface BasicInfo {
   dam: string;
   /** 母父名 */
   damsire: string;
-  /** 毛色（オプショナル） */
-  color?: string;
-  /** 生年月日（YYYY-MM-DD形式、オプショナル） */
-  birthday?: string;
   /** 馬の画像URL（オプショナル） */
   image_url?: string;
   /** JBISの詳細ページURL（オプショナル） */

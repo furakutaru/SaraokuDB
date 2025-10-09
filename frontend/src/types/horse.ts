@@ -56,8 +56,6 @@ export interface BaseHorse {
  */
 export interface Horse extends BaseHorse {
   // オプショナルな基本情報
-  color?: string;
-  birthday?: string;
   disease_tags?: string[];
   created_at?: string;
   updated_at?: string;
