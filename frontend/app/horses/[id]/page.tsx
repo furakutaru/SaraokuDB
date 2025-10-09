@@ -19,6 +19,7 @@ import ExternalLinks from './components/ExternalLinks';
 import { ErrorMessage, SimpleError } from './components/ErrorDisplay';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { HorseHeader } from './components/HorseHeader';
+import AuctionHistoryCard from './components/AuctionHistoryCard';
 import {
   Button,
   Typography,
@@ -81,6 +82,8 @@ interface CommentedHistory extends ExtendedAuctionHistory {
 
 interface HorseDetailContentProps {
   horse: HorseWithPageProps;
+  hasComments: boolean;
+  latestHistory: ExtendedAuctionHistory | null;
 }
 
 interface PageProps {
@@ -593,6 +596,7 @@ export default function HorseDetailPage({ params }: PageProps) {
   const [selectedTab, setSelectedTab] = useState<number>(0);
   const [horse, setHorse] = useState<Horse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   
   // 馬IDをパース
   const horseId = useMemo(() => {
@@ -606,6 +610,7 @@ export default function HorseDetailPage({ params }: PageProps) {
       const errorMessage = e instanceof Error ? e.message : '無効な馬IDです';
       console.error('馬IDのパースに失敗しました:', errorMessage);
       setError(errorMessage);
+      setIsLoading(false);
       return '';
     }
   }, [params]);
@@ -615,6 +620,7 @@ export default function HorseDetailPage({ params }: PageProps) {
     if (!horseId) return;
 
     const fetchHorseData = async () => {
+      setIsLoading(true);
       try {
         const { horse, error } = await getHorseData(horseId);
         
@@ -627,36 +633,49 @@ export default function HorseDetailPage({ params }: PageProps) {
         }
 
         setHorse(horse);
+        setError(null);
       } catch (err) {
         console.error('馬データの取得中にエラーが発生しました:', err);
         setError(err instanceof Error ? err.message : 'データの取得中にエラーが発生しました');
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchHorseData();
   }, [horseId]);
 
-  if (error) {
-    return <SimpleError message={error} />;
-  }
+  // コメントの有無と最新履歴を計算
+  const { hasComments, latestHistory } = useMemo(() => {
+    if (!horse) return { hasComments: false, latestHistory: null };
+    
+    const history = Array.isArray(horse.history) ? horse.history : [];
+    const latest = history[0] || null;
+    const hasComments = history.some(h => h.comment?.trim().length > 0);
+    
+    return { hasComments, latestHistory: latest };
+  }, [horse]);
 
-  if (!horse) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <LoadingSpinner />
       </div>
     );
   }
+
+  if (error) {
+    return <SimpleError message={error} />;
+  }
+
+  if (!horse) {
+    return <SimpleError message="馬のデータが見つかりませんでした" />;
+  }
   
   // 必須フィールドのバリデーション
   if (!horse.name || !horse.primary_image || !horse.history?.length) {
     console.warn('不完全な馬データ:', horse);
   }
-  
-  // コメントの有無をチェック
-  const hasComments = horse?.history?.some(history => 
-    history.comment && history.comment.trim().length > 0
-  ) || false;
   
   // 馬詳細コンポーネントを表示
   const horseWithPageProps = (() => {
@@ -716,7 +735,13 @@ export default function HorseDetailPage({ params }: PageProps) {
     };
   })();
   
-  return <HorseDetailContent horse={horseWithPageProps} />;
+  return (
+    <HorseDetailContent 
+      horse={horseWithPageProps} 
+      hasComments={hasComments}
+      latestHistory={latestHistory}
+    />
+  );
 }
 
 // URLが有効かどうかをチェックする関数
@@ -730,7 +755,11 @@ const isValidUrl = (url?: string | null): boolean => {
   }
 };
 
-const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
+const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ 
+  horse, 
+  hasComments, 
+  latestHistory 
+}) => {
   useEffect(() => {
     console.log('馬データ:', JSON.stringify(horse, null, 2));
     console.log('JBIS URL:', horse?.jbis_url);
@@ -749,11 +778,6 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
     setActiveTab(newValue);
   };
 
-  // コメントの有無をチェック
-  const hasComments = useMemo(() => {
-    return horse?.history?.some(h => h.comment?.trim()) || false;
-  }, [horse?.history]);
-  
   // コメントがある履歴のみをフィルタリング
   const tabsWithComments = useMemo<CommentedHistory[]>(() => {
     if (!horse?.history?.length) return [];
@@ -786,12 +810,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
     );
   }
 
-  // 最新の履歴をメモ化
-  const latestHistory = useMemo(() => {
-    if (!horse.history || horse.history.length === 0) return null;
-    return horse.history[horse.history.length - 1];
-  }, [horse.history]);
-
+  // 最新の履歴は props から取得するため、ここでの宣言は不要
   // 有効な体重を取得（horse.weight を優先し、なければ最新履歴の weight を使用）
   const effectiveWeight = useMemo(() => {
     // デバッグ用に値を確認
@@ -1443,38 +1462,12 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ horse }) => {
 
   // オークション履歴をレンダリング
   const renderAuctionHistory = () => {
-    if (!horse?.history?.length) {
-      return <p className="text-gray-500">オークション履歴がありません</p>;
-    }
-
     return (
-      <div className="space-y-4">
-        {horse.history.map((history, index) => (
-          <div key={index} className="border-b pb-4 last:border-b-0 last:pb-0">
-            <div className="flex justify-between items-start">
-              <div>
-                <Typography variant="h6" component="h4" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>{formatDate(history.auction_date || '')}</Typography>
-                <p className="text-sm text-gray-500">
-                  落札価格: {history.unsold ? '不成立' : formatPrizeMan(history.sold_price || 0)}
-                </p>
-              </div>
-              {history.detail_url && (
-                <Button 
-                  component={Link}
-                  href={history.detail_url || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  variant="outlined" 
-                  size="small"
-                  className="whitespace-nowrap"
-                >
-                  詳細を見る
-                </Button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+      <AuctionHistoryCard 
+        history={horse?.history || []} 
+        formatDate={formatDate}
+        formatPrizeMan={formatPrizeMan}
+      />
     );
   };
 
