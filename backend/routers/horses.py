@@ -8,7 +8,7 @@ from database.schemas import HorseResponse
 from services.horse_serializer import serialize_horse
 from services.horses_list_mapper import map_horses_list
 
-router = APIRouter(prefix="/api", tags=["horses"])
+router = APIRouter(tags=["horses"])
 
 from fastapi import Request
 import logging
@@ -20,7 +20,26 @@ handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(handler)
 
-@router.get("/horses", response_model=Dict[str, Any])
+# デバッグ用に現在のモジュールのパスをログに出力
+logger.info(f"Loading {__name__} module")
+
+# デバッグ用に現在のファイルのパスを表示
+import os
+logger.info(f"Current file path: {os.path.abspath(__file__)}")
+logger.info(f"Current working directory: {os.getcwd()}")
+
+@router.get("/api/horses/latest", response_model=Dict[str, Any])
+async def get_latest_horses(
+    request: Request,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """最新のオークションの馬一覧を取得するエンドポイント"""
+    logger.info("Calling /horses/latest endpoint")
+    return await get_horses(request, skip, limit, None, 'true', db)
+
+@router.get("/api/horses", response_model=Dict[str, Any])
 async def get_horses(
     request: Request,
     skip: int = 0,

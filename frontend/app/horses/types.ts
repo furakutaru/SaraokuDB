@@ -23,10 +23,14 @@ export interface Horse {
   total_prize_latest?: number;
   is_unsold?: boolean;
   auction_histories?: AuctionHistory[];
+  latestHistory?: {
+    sex?: string;
+    [key: string]: any;
+  };
 }
 
 // オークション履歴
-interface AuctionHistory {
+export interface AuctionHistory {
   id: string;
   horse_id: string;
   auction_date: string;
@@ -38,6 +42,25 @@ interface AuctionHistory {
   is_unsold: boolean;
   comment: string;
   created_at: string;
+}
+
+// オークション履歴の配列型
+export type AuctionHistories = AuctionHistory[] | undefined;
+
+// 馬データのレスポンス型
+export interface HorseData {
+  horses: Horse[];
+  auctionHistories?: AuctionHistory[];
+  auction_histories?: AuctionHistory[];
+  metadata?: {
+    last_updated?: string;
+    total_horses?: number;
+    total_auction_records?: number;
+    [key: string]: any;
+  };
+  last_updated?: string;
+  total_horses?: number;
+  total_auction_records?: number;
 }
 
 // ページネーション情報
@@ -59,8 +82,11 @@ interface FilterOptions {
 }
 
 // ソートオプション
-type SortOption = 'name' | 'price' | 'age' | 'date';
-type SortOrder = 'asc' | 'desc';
+export type SortOption = 'name' | 'price' | 'age' | 'date';
+export type SortOrder = 'asc' | 'desc';
+
+// ソート可能なフィールド
+export type SortableField = keyof Horse;
 
 // テーブルのカラム定義
 export interface TableColumn {

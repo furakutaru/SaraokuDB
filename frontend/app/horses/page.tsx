@@ -21,6 +21,30 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import HeaderCard from './[id]/components/HeaderCard';
 
+// 型定義をインポート
+import { 
+  Horse, 
+  AuctionHistory, 
+  HorseData, 
+  AuctionHistories,
+  SortOrder,
+  SortableField
+} from './types';
+
+// ユーティリティ関数をインポート
+import { 
+  isUnsoldHorse,
+  formatPrice,
+  formatAge,
+  formatSeller,
+  getDisplayPrice,
+  formatPrize,
+  getGrowthRate
+} from './utils/formatters'; // utils/formatters.ts からインポート
+
+// API関数をインポート
+import { fetchHorsesList, getAuctionHistories } from './api/horsesApi';
+
 // Button component type
 type ButtonProps = {
   children: React.ReactNode;
@@ -102,330 +126,18 @@ try {
   };
 }
 
-// 価格表示用のユーティリティ関数
-const getDisplayPrice = (horse: any): string => {
-  if (!horse) return '-';
-  
-  // 主取りフラグをチェック
-  if (horse.is_unsold === true || horse.unsold === true) {
-    return '主取り';
-  }
-  
-  // 落札価格がある場合はそれを表示
-  if (horse.sold_price !== undefined && horse.sold_price !== null) {
-    // 文字列の場合は角括弧を削除
-    const priceStr = String(horse.sold_price).replace(/[\[\]]/g, '');
-    const price = Number(priceStr);
-    
-    if (!isNaN(price) && price > 0) {
-      return `¥${price.toLocaleString()}`;
-    }
-  }
-  
-  // オークション履歴から最新の価格を取得
-  if (horse.auction_histories && horse.auction_histories.length > 0) {
-    const latestHistory = horse.auction_histories[0];
-    if (latestHistory.sold_price !== undefined && latestHistory.sold_price !== null) {
-      // 文字列の場合は角括弧を削除
-      const priceStr = String(latestHistory.sold_price).replace(/[\[\]]/g, '');
-      const price = Number(priceStr);
-      
-      if (!isNaN(price) && price > 0) {
-        return `¥${price.toLocaleString()}`;
-      }
-    }
-  }
-  
-  return '-';
-};
-
 // Badge コンポーネントは使用しないためコメントアウト
 // import { Badge } from "@/components/ui/badge";
 
-// コンポーネントの型定義
-interface Horse {
-  id: string;
-  name: string;
-  sex: string;
-  age: number;
-  sire: string;
-  dam: string;
-  damsire: string;
-  image_url: string;
-  jbis_url: string;
-  auction_url: string;
-  disease_tags: string[];
-  weight: number | null;
-  race_record: string;
-  comment: string;
-  created_at: string;
-  updated_at: string;
-  sold_price?: number | string | null;
-  seller?: string;
-  auction_date?: string;
-  total_prize_start?: number;
-  total_prize_latest?: number;
-  is_unsold?: boolean | string;
-  unsold?: boolean;
-  auction_histories?: AuctionHistory[];
-  [key: string]: any;
-}
+// コンポーネントの型定義は types/index.ts からインポート済み
 
-interface AuctionHistory {
-  id: string;
-  horse_id: string;
-  auction_date: string;
-  sold_price: number | string | null;
-  total_prize_start: number;
-  total_prize_latest: number;
-  weight: number | null;
-  seller: string;
-  is_unsold: boolean | string;
-  comment: string;
-  created_at: string;
-  [key: string]: any;
-}
+// ユーティリティ関数は utils/formatters.ts からインポート済み
 
-// 主取りフラグをチェックするヘルパー関数
-const isUnsoldHorse = (horse: Horse): boolean => {
-  return horse?.unsold === true || horse?.is_unsold === true;
-};
+// API関数は api/horsesApi.ts からインポート済み
 
-// 価格を表示用にフォーマットする関数
-const formatPrice = (price: any): string => {
-  if (price === null || price === undefined) return '-';
-  
-  // 価格が配列の場合は最初の要素を使用
-  if (Array.isArray(price) && price.length > 0) {
-    price = price[0];
-  }
-  
-  // 価格が文字列で角括弧で囲まれている場合（例: "[300000]"）を処理
-  if (typeof price === 'string') {
-    // 角括弧を除去
-    if (price.startsWith('[') && price.endsWith(']')) {
-      price = price.slice(1, -1);
-    }
-    
-    // "null"の場合は主取りとして扱う
-    if (price === 'null') {
-      return '主取り';
-    }
-    
-    // 数値に変換を試みる
-    const numPrice = Number(price);
-    
-    // 有効な数値で0より大きい場合はフォーマットして返す
-    if (!isNaN(numPrice) && numPrice > 0) {
-      return `¥${numPrice.toLocaleString('ja-JP')}`;
-    }
-  } else if (typeof price === 'number' && price > 0) {
-    // 数値で0より大きい場合はフォーマットして返す
-    return `¥${price.toLocaleString('ja-JP')}`;
-  }
-  
-  return '-';
-};
+// ユーティリティ関数は utils/formatters.ts からインポート済み
 
-// API functions
-const fetchHorsesList = async (latestOnly: boolean = false): Promise<HorseData> => {
-  try {
-    console.log(`[fetchHorsesList] ${latestOnly ? '最新のオークションの馬' : '全ての馬'}を取得します...`);
-    // URLSearchParams を使用してパラメータを正しくエンコード
-    const params = new URLSearchParams();
-    params.append('latest_auction', latestOnly ? 'true' : 'false');
-    params.append('limit', '1000');
-    params.append('skip', '0');
-    
-    console.log('[fetchHorsesList] リクエストパラメータ:', {
-      latest_auction: latestOnly ? 'true' : 'false',
-      url: `/api/horses?${params.toString()}`
-    });
-    
-    const response = await fetch(`/api/horses?${params.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      },
-      credentials: 'same-origin'
-    });
-    
-    console.log('[fetchHorsesList] レスポンスステータス:', response.status);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const responseData = await response.json();
-    console.log('[fetchHorsesList] APIレスポンス:', {
-      hasHorses: !!responseData.horses,
-      horsesCount: responseData.horses?.length || 0,
-      hasAuctionHistories: !!(responseData.auction_histories || responseData.auctionHistories),
-      auctionHistoriesCount: (responseData.auction_histories || responseData.auctionHistories || []).length,
-      metadata: responseData.metadata
-    });
-
-    // データの正規化
-    const horses = Array.isArray(responseData.horses) ? responseData.horses : [];
-    const auctionHistories = Array.isArray(responseData.auction_histories) 
-      ? responseData.auction_histories 
-      : (Array.isArray(responseData.auctionHistories) ? responseData.auctionHistories : []);
-
-    return {
-      horses,
-      auctionHistories,
-      metadata: {
-        last_updated: responseData.metadata?.last_updated || new Date().toISOString(),
-        total_horses: responseData.metadata?.total_horses || horses.length,
-        total_auction_records: responseData.metadata?.total_auction_records || auctionHistories.length
-      }
-    };
-  } catch (error) {
-    console.error('[fetchHorsesList] エラーが発生しました:', error);
-    // エラー時に空のデータを返す
-    return {
-      horses: [],
-      auctionHistories: [],
-      metadata: {
-        last_updated: new Date().toISOString(),
-        total_horses: 0,
-        total_auction_records: 0
-      }
-    };
-  }
-};
-
-// 性別と年齢を適切に表示するためのヘルパー関数
-const formatAge = (sex: any, age: any): string => {
-  // 性別の処理
-  const getSexString = (s: any): string => {
-    if (!s) return '';
-    
-    // 配列の場合は最初の要素を使用
-    const sexValue = Array.isArray(s) ? s[0] : s;
-    
-    // 文字列に変換
-    let sexStr = String(sexValue);
-    
-    // Unicodeエスケープシーケンスをデコード
-    sexStr = sexStr.replace(/\\u([\dA-Fa-f]{4})/g, (_, p1) => {
-      return String.fromCharCode(parseInt(p1, 16));
-    });
-    
-    // 性別の正規化
-    if (sexStr.includes('牡') || sexStr === '牡馬') return '牡';
-    if (sexStr.includes('牝') || sexStr === '牝馬') return '牝';
-    if (sexStr.includes('セ') || sexStr === 'せん' || sexStr === 'セン') return 'セ';
-    
-    return sexStr;
-  };
-
-  // 年齢の処理
-  const getAgeString = (a: any): string => {
-    if (a === null || a === undefined) return '';
-    
-    // 配列の場合は最初の要素を使用
-    const ageValue = Array.isArray(a) ? a[0] : a;
-    
-    // 文字列に変換して数字のみを抽出
-    const num = String(ageValue).replace(/\D/g, '');
-    return num ? `${num}歳` : '';
-  };
-
-  const sexStr = getSexString(sex);
-  const ageStr = getAgeString(age);
-  
-  return [sexStr, ageStr].filter(Boolean).join(' ');
-};
-
-// 売り主情報を適切に表示するためのヘルパー関数
-const formatSeller = (seller: any): string => {
-  if (!seller) return '不明';
-  
-  // 配列の場合は最初の要素を使用
-  const sellerStr = Array.isArray(seller) ? seller[0] : seller;
-  
-  // 文字列に変換
-  let result = String(sellerStr);
-  
-  // 不要な文字列を削除
-  result = result
-    .replace(/^\s*\[\s*'([^']*)'\s*\]\s*$/, '$1') // ['文字列'] の形式を削除
-    .replace(/^\s*'([^']*)'\s*$/, '$1') // '文字列' の形式を削除
-    .replace(/^\s*\["']?([^"'\]]*)["']?\s*\]\s*$/, '$1') // ["文字列"] の形式を削除
-    .replace(/^\s*\{\s*\$\$hashKey\s*:\s*[^}]*\s*\}\s*$/, '') // {$$hashKey: ...} の形式を削除
-    .trim();
-  
-  // 空文字列の場合は「不明」を返す
-  return result || '不明';
-};
-
-interface Horse {
-  id: string;
-  name: string;
-  sex: string;
-  age: number;
-  sire: string;
-  dam: string;
-  damsire: string;
-  image_url: string;
-  jbis_url: string;
-  auction_url: string;
-  disease_tags: string[];
-  weight: number | null;
-  race_record: string;
-  comment: string;
-  created_at: string;
-  updated_at: string;
-  sold_price?: number | string | null;
-  seller?: string;
-  auction_date?: string;
-  total_prize_start?: number;
-  total_prize_latest?: number;
-  is_unsold?: boolean | string;
-  unsold?: boolean;
-}
-
-interface AuctionHistory {
-  id: string;
-  horse_id: string;
-  auction_date: string;
-  sold_price: number | string | null;
-  total_prize_start: number;
-  total_prize_latest: number;
-  weight: number | null;
-  seller: string;
-  is_unsold: boolean | string;
-  unsold?: boolean;
-  comment: string;
-  created_at: string;
-}
-
-// Union type to handle both camelCase and snake_case property names
-type AuctionHistories = any[] | undefined;
-
-interface HorseData {
-  horses: any[];
-  // Support both camelCase and snake_case for API compatibility
-  auctionHistories?: AuctionHistories;
-  auction_histories?: AuctionHistories;
-  metadata?: {
-    last_updated?: string;
-    total_horses?: number;
-    total_auction_records?: number;
-    [key: string]: any; // Allow additional metadata properties
-  };
-  [key: string]: any; // Allow additional properties
-}
-
-// プロパティ名に関わらずオークション履歴を取得するヘルパー関数
-const getAuctionHistories = (data: HorseData | null): any[] => {
-  if (!data) return [];
-  // どちらのプロパティ名でも取得できるようにする
-  return data.auctionHistories || data.auction_histories || [];
-};
+// 型定義は types/index.ts からインポート済み
 
 export default function HorsesPage() {
   const router = useRouter();
@@ -518,18 +230,41 @@ export default function HorsesPage() {
   }
 
   if (error) {
+    // エラーメッセージを安全に表示するための処理
+    const safeErrorMessage = (error: any): string => {
+      try {
+        if (typeof error === 'string') return error;
+        if (error && typeof error.message === 'string') return error.message;
+        return '不明なエラーが発生しました';
+      } catch (e) {
+        return 'エラーメッセージの処理中にエラーが発生しました';
+      }
+    };
+
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center p-6 max-w-md mx-auto bg-white rounded-xl shadow-md">
           <div className="text-red-500 text-5xl mb-4">⚠️</div>
           <h2 className="text-xl font-semibold text-gray-800 mb-2">エラーが発生しました</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            再読み込み
-          </button>
+          <div className="text-gray-600 mb-4 overflow-auto max-h-40">
+            <pre className="text-xs text-left whitespace-pre-wrap break-words">
+              {safeErrorMessage(error)}
+            </pre>
+          </div>
+          <div className="mt-4 space-x-2">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              再読み込み
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+            >
+              トップに戻る
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -537,13 +272,53 @@ export default function HorsesPage() {
 
   if (!data || !data.horses || data.horses.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">表示するデータがありません</p>
-        </div>
+      <div className="min-h-screen bg-gray-50">
+        <HeaderCard />
+        <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <div className="text-sm text-yellow-700">
+                  <p>表示するデータがありません。</p>
+                  <p className="mt-1">以下のいずれかの理由が考えられます：</p>
+                  <ul className="list-disc list-inside mt-1 space-y-1 text-sm">
+                    <li>検索条件に一致する馬がいません</li>
+                    <li>データがまだ登録されていません</li>
+                    <li>APIからのデータ取得に失敗しました</li>
+                  </ul>
+                </div>
+                <div className="mt-3">
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    再読み込み
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
+
+  // 文字列を安全に比較するヘルパー関数
+  const safeStringCompare = (str1: any, str2: string): boolean => {
+    try {
+      const s1 = String(str1 || '').normalize('NFC').toLowerCase();
+      const s2 = String(str2 || '').normalize('NFC').toLowerCase();
+      return s1.includes(s2);
+    } catch (e) {
+      console.error('文字列比較エラー:', e);
+      return false;
+    }
+  };
 
   // フィルタリングとソート
   const filteredHorses = (data?.horses || [])
@@ -552,11 +327,13 @@ export default function HorsesPage() {
       if (!horse) return false;
       
       const term = searchTerm.toLowerCase();
-      const name = String(horse.name || '').toLowerCase();
-      const sire = String(horse.sire || '').toLowerCase();
-      const dam = String(horse.dam || '').toLowerCase();
-      const damsire = String(horse.damsire || '').toLowerCase();
-      const seller = String(horse.seller || '').toLowerCase();
+      
+      // 各フィールドのnull/undefinedチェックと文字列化を安全に行う
+      const name = String(horse.name || '');
+      const sire = String(horse.sire || '');
+      const dam = String(horse.dam || '');
+      const damsire = String(horse.damsire || '');
+      const seller = String(horse.seller || '');
       
       // 病歴タグの処理
       const diseaseTags = Array.isArray(horse.disease_tags) 
@@ -567,14 +344,19 @@ export default function HorsesPage() {
         String(tag || '').toLowerCase().includes(term)
       );
       
-      return (
-        name.includes(term) ||
-        sire.includes(term) ||
-        dam.includes(term) ||
-        damsire.includes(term) ||
-        seller.includes(term) ||
-        hasMatchingDiseaseTag
-      );
+      try {
+        return (
+          safeStringCompare(name, term) ||
+          safeStringCompare(sire, term) ||
+          safeStringCompare(dam, term) ||
+          safeStringCompare(damsire, term) ||
+          safeStringCompare(seller, term) ||
+          hasMatchingDiseaseTag
+        );
+      } catch (e) {
+        console.error('フィルタリングエラー:', e, horse);
+        return false;
+      }
     })
     .sort((a, b) => {
       if (!a || !b) return 0;
