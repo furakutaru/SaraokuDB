@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import PageHeader from './components/PageHeader';
+import HeaderCard from './[id]/components/HeaderCard';
 
 // Button component type
 type ButtonProps = {
@@ -578,13 +578,9 @@ export default function HorsesPage() {
   // メインのレンダリング
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* ページヘッダー */}
-      <PageHeader 
-        title="サラオクDB"
-        subtitle="次回更新: 毎週木・日 24:00"
-      />
+      <HeaderCard />
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {/* 検索バー */}
         <div className="px-4 sm:px-0 mb-6">
           <div className="relative">
