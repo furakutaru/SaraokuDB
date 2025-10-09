@@ -22,16 +22,19 @@ import { ja } from 'date-fns/locale';
 import HeaderCard from './[id]/components/HeaderCard';
 
 // 型定義をインポート
-import { 
+import type { 
   Horse, 
   AuctionHistory, 
   HorseData, 
-  AuctionHistories,
   SortOrder,
   SortableField
 } from './types';
 
-// ユーティリティ関数をインポート
+// コンポーネントの型定義をインポート
+import type { ButtonProps } from './types/components/Button.types';
+import type { HorseImageProps } from './types/components/HorseImage.types';
+
+// HorseImage コンポーネントの動的インポート
 import { 
   isUnsoldHorse,
   formatSeller,
@@ -73,56 +76,37 @@ const normalizeHorseSex = (sex: any): string => {
     return String(sex);
   }
 };
-
 // formatAge は別ファイルからインポート
 
 // API関数をインポート
 import { fetchHorsesList, getAuctionHistories } from './api/horsesApi';
 
-// Button component type
-type ButtonProps = {
-  children: React.ReactNode;
-  className?: string;
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-  [key: string]: any;
-};
-
+// Button コンポーネントの動的インポート
 let Button: React.FC<ButtonProps>;
 
 try {
   const ButtonComponent = require("@/components/ui/button").Button;
-  Button = ButtonComponent as React.FC<ButtonProps>;
+  Button = ButtonComponent;
 } catch (e) {
-  console.warn('Button component not found, using fallback');
-  Button = ({ children, className = '', variant = 'default', ...props }: ButtonProps) => (
-    <button 
-      className={`px-4 py-2 rounded-md ${
-        variant === 'destructive' 
-          ? 'bg-red-600 hover:bg-red-700 text-white' 
-          : 'bg-blue-600 hover:bg-blue-700 text-white'
-      } ${className}`}
-      {...props}
-    >
-      {children}
-    </button>
-  );
+  // フォールバックのボタンコンポーネント
+  Button = ({ children, className = '', variant = 'default', ...props }: ButtonProps) => {
+    return (
+      <button className={`px-4 py-2 rounded ${className}`} {...props}>
+        {children}
+      </button>
+    );
+  };
 }
 
-// HorseImage コンポーネントの型定義
-type HorseImageProps = {
-  src: string | { image_url: string } | null;
-  alt?: string;
-  className?: string;
-  [key: string]: any;
-};
-
-// HorseImage コンポーネントの宣言
-let HorseImage: React.ComponentType<HorseImageProps>;
+// HorseImage コンポーネントの動的インポート
+let HorseImage: React.FC<HorseImageProps>;
 
 try {
-  HorseImage = require('@/components/HorseImage').default || (() => null);
+  const HorseImageComponent = require('@/components/HorseImage').default;
+  HorseImage = HorseImageComponent;
 } catch (e) {
   console.warn('HorseImage component not found, using fallback');
+  // フォールバックのHorseImageコンポーネント
   HorseImage = ({ src, alt = 'Horse image', className = '', ...props }: HorseImageProps) => {
     const [imgSrc, setImgSrc] = React.useState<string>('');
     
