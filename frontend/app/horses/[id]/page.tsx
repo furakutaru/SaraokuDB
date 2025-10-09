@@ -22,6 +22,7 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { HorseHeader } from './components/HorseHeader';
 import AuctionHistoryCard from './components/AuctionHistoryCard';
 import { CommentCard } from './components/CommentCard';
+import PrizeCard from './components/PrizeCard';
 import {
   Button,
   Typography,
@@ -1216,7 +1217,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                         const validPrices = latestHistory.sold_price
                           .map(price => Number(price))
                           .filter(price => !isNaN(price) && price > 0);
-                        
+                          
                         if (validPrices.length > 0) {
                           return `¥${validPrices[validPrices.length - 1].toLocaleString()}`;
                         }
@@ -1295,58 +1296,9 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                 )}
               </CardContent>
             </Card>
-
-            <Card className="mb-6">
-              <CardHeader 
-                sx={{
-                  padding: 0,
-                  margin: 0,
-                  '& .MuiCardHeader-content': {
-                    padding: 0,
-                    margin: 0
-                  }
-                }}
-              >
-                <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>賞金情報</Typography>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-center">
-                  <div>
-                    <div className="text-lg font-semibold text-gray-900">
-                      {formatPrizeMan(Number(latestHistory?.total_prize_start ?? 0))}
-                    </div>
-                    <div className="text-xs text-gray-600">落札時</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold text-gray-900">
-                      {formatPrizeMan(Number(horse.total_prize_latest))}
-                    </div>
-                    <div className="text-xs text-gray-600">現在</div>
-                  </div>
-                </div>
-                <div className="border-t pt-4">
-                  <div className="text-center">
-                    <div className={`text-xl font-bold ${(horse.total_prize_latest ?? 0) - (latestHistory?.total_prize_start ?? 0) > 0 ? 'text-green-600' : (horse.total_prize_latest ?? 0) - (latestHistory?.total_prize_start ?? 0) < 0 ? 'text-red-600' : 'text-gray-600'}`}> 
-                      {(() => {
-                        const start = Number(latestHistory?.total_prize_start ?? 0);
-                        const latestPrize = Number(horse.total_prize_latest ?? 0);
-                        const diff = latestPrize - start;
-                        if (diff === 0) {
-                          return '0万円';
-                        } else if (diff > 0) {
-                          return `+${formatManYen(diff)}`;
-                        } else {
-                          return `-${formatManYen(Math.abs(diff))}`;
-                        }
-                      })()}
-                    </div>
-                    <div className="text-sm text-gray-600">オークション後の活躍</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* データ更新日 */}
+            
+            {/* 賞金情報カード */}
+            <PrizeCard horse={horse} latestHistory={latestHistory} /> 
             <Card sx={{ '& .MuiCardHeader-root': { padding: 0, margin: 0 } }}>
               <CardHeader>
                 <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>データ情報</Typography>
