@@ -113,10 +113,7 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, onHorseClick }) => {
             <Typography variant="h6" className="font-bold text-gray-900 truncate" title={horse.name}>
               {horse.name}
             </Typography>
-            <Box className="flex items-center space-x-2">
-              <SexBadge sex={sex} />
-              {age && <span className="text-sm text-gray-500">{age}</span>}
-            </Box>
+            <SexBadge sex={sex} age={horse.age} />
           </Box>
 
           {/* 血統情報 */}

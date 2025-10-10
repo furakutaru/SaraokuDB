@@ -44,6 +44,7 @@ import {
 } from './utils/formatters';
 import { formatAge } from './utils/formatAge';
 import SexBadge from '@/app/horses/components/SexBadge';
+import FilterControls from './components/FilterControls';
 
 // 性別データを正規化する関数
 const normalizeHorseSex = (sex: any): string => {
@@ -157,6 +158,8 @@ try {
 
 // コンポーネントをインポート
 import HorseCard from './components/HorseCard/HorseCard';
+import SortControls from './components/SortControls';
+import SearchBar from './components/SearchBar';
 
 // 型定義は types/index.ts からインポート済み
 
@@ -166,8 +169,15 @@ export default function HorsesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<keyof Horse>('name');
+  const [sortField, setSortField] = useState<SortableField>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [showFilters, setShowFilters] = useState(false);
+  const [sexFilter, setSexFilter] = useState({
+    male: true,
+    female: true,
+    gelding: true,
+  });
+  const [ageRange, setAgeRange] = useState<[number, number]>([0, 10]);
   const [selectedHorse, setSelectedHorse] = useState<Horse | null>(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -341,43 +351,79 @@ export default function HorsesPage() {
     }
   };
 
+  // 性別フィルターに一致するかチェック
+  const matchesSexFilter = (horse: any) => {
+    if (!sexFilter.male && !sexFilter.female && !sexFilter.gelding) {
+      return false; // すべての性別が無効な場合は何も表示しない
+    }
+    
+    const sex = normalizeHorseSex(horse.sex);
+    
+    if (sex.includes('牡')) return sexFilter.male;
+    if (sex.includes('牝')) return sexFilter.female;
+    if (sex.includes('セ')) return sexFilter.gelding;
+    
+    return true; // 性別が不明な場合は表示
+  };
+  
+  // 年齢フィルターに一致するかチェック
+  const matchesAgeFilter = (horse: any) => {
+    if (!horse.age) return true; // 年齢が不明な場合は表示
+    
+    const age = typeof horse.age === 'string' 
+      ? parseInt(horse.age.replace(/[^0-9]/g, ''), 10) 
+      : horse.age;
+      
+    return age >= ageRange[0] && age <= ageRange[1];
+  };
+
   // フィルタリングとソート
   const filteredHorses = (data?.horses || [])
     .filter(horse => {
-      if (!searchTerm) return true;
       if (!horse) return false;
       
-      const term = searchTerm.toLowerCase();
+      // 性別フィルター
+      if (!matchesSexFilter(horse)) return false;
       
-      // 各フィールドのnull/undefinedチェックと文字列化を安全に行う
-      const name = String(horse.name || '');
-      const sire = String(horse.sire || '');
-      const dam = String(horse.dam || '');
-      const damsire = String(horse.damsire || '');
-      const seller = String(horse.seller || '');
+      // 年齢フィルター
+      if (!matchesAgeFilter(horse)) return false;
       
-      // 病歴タグの処理
-      const diseaseTags = Array.isArray(horse.disease_tags) 
-        ? horse.disease_tags 
-        : horse.disease_tags ? [horse.disease_tags] : [];
-      
-      const hasMatchingDiseaseTag = diseaseTags.some((tag: any) => 
-        String(tag || '').toLowerCase().includes(term)
-      );
-      
-      try {
-        return (
-          safeStringCompare(name, term) ||
-          safeStringCompare(sire, term) ||
-          safeStringCompare(dam, term) ||
-          safeStringCompare(damsire, term) ||
-          safeStringCompare(seller, term) ||
-          hasMatchingDiseaseTag
+      // 検索キーワードによるフィルター
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        
+        // 各フィールドのnull/undefinedチェックと文字列化を安全に行う
+        const name = String(horse.name || '');
+        const sire = String(horse.sire || '');
+        const dam = String(horse.dam || '');
+        const damsire = String(horse.damsire || '');
+        const seller = String(horse.seller || '');
+        
+        // 病歴タグの処理
+        const diseaseTags = Array.isArray(horse.disease_tags) 
+          ? horse.disease_tags 
+          : horse.disease_tags ? [horse.disease_tags] : [];
+        
+        const hasMatchingDiseaseTag = diseaseTags.some((tag: any) => 
+          String(tag || '').toLowerCase().includes(term)
         );
-      } catch (e) {
-        console.error('フィルタリングエラー:', e, horse);
-        return false;
+        
+        try {
+          return (
+            safeStringCompare(name, term) ||
+            safeStringCompare(sire, term) ||
+            safeStringCompare(dam, term) ||
+            safeStringCompare(damsire, term) ||
+            safeStringCompare(seller, term) ||
+            hasMatchingDiseaseTag
+          );
+        } catch (e) {
+          console.error('フィルタリングエラー:', e, horse);
+          return false;
+        }
       }
+      
+      return true;
     })
     .sort((a, b) => {
       if (!a || !b) return 0;
@@ -408,12 +454,12 @@ export default function HorsesPage() {
           }
         }
       } catch (e) {
-        console.error('Error during sort:', e);
-        return 0;
+        console.error('ソートエラー:', e, { a, b, sortField });
+        comparison = 0;
       }
 
       return sortOrder === 'asc' ? comparison : -comparison;
-    });
+    })
 
   // 賞金表示用関数
   // 賞金は万円単位で表示
@@ -433,61 +479,46 @@ export default function HorsesPage() {
       <HeaderCard />
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {/* 検索バー */}
-        <div className="px-4 sm:px-0 mb-6">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-              </svg>
+        <div className="mb-6 space-y-4">
+          {/* 検索バーとフィルターボタン */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <SearchBar
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                placeholder="馬名、父、母、母父、売主、病歴 などで検索"
+              />
             </div>
-            <input
-              type="text"
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="馬名、父、母、母父、売主、病歴 などで検索"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <Button 
+              variant="outline" 
+              className="shrink-0"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              {showFilters ? 'フィルターを隠す' : 'フィルターを表示'}
+            </Button>
           </div>
+          
+          {/* フィルターコントロール */}
+          {showFilters && (
+            <div className="bg-white p-4 rounded-lg shadow-sm border">
+              <FilterControls
+                sexFilter={sexFilter}
+                ageRange={ageRange}
+                onSexFilterChange={setSexFilter}
+                onAgeRangeChange={setAgeRange}
+              />
+            </div>
+          )}
         </div>
 
         {/* ソートコントロール */}
-        <div className="px-4 sm:px-0 mb-4 flex items-center space-x-4">
-          <div>
-            <label htmlFor="sort-field" className="block text-sm font-medium text-gray-700 mb-1">
-              並べ替え
-            </label>
-            <select
-              id="sort-field"
-              className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-              value={sortField}
-              onChange={(e) => setSortField(e.target.value as keyof Horse)}
-            >
-              <option value="name">馬名</option>
-              <option value="sold_price">落札価格</option>
-              <option value="auction_date">オークション日</option>
-              <option value="total_prize_latest">総賞金</option>
-              <option value="age">年齢</option>
-            </select>
-          </div>
-          <div className="mt-6">
-            <button
-              type="button"
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            >
-              {sortOrder === 'asc' ? '昇順' : '降順'}
-              {sortOrder === 'asc' ? (
-                <svg className="ml-2 -mr-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <svg className="ml-2 -mr-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              )}
-            </button>
-          </div>
+        <div className="px-4 sm:px-0 mb-4">
+          <SortControls
+            sortField={sortField}
+            sortOrder={sortOrder}
+            onSortFieldChange={setSortField}
+            onSortOrderChange={setSortOrder}
+          />
         </div>
 
         {/* 馬一覧 */}
@@ -500,7 +531,7 @@ export default function HorsesPage() {
                 // オークション履歴をマージ
                 auction_histories: (data?.auctionHistories || []).filter((h: any) => h.horse_id === horse.id)
               }}
-              onHorseClick={(horse) => {
+              onHorseClick={() => {
                 // クリック時の処理（必要に応じて実装）
                 console.log('Horse clicked:', horse);
               }}
