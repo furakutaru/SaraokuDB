@@ -155,9 +155,6 @@ try {
 
 // ユーティリティ関数は utils/formatters.ts からインポート済み
 
-// コンポーネントをインポート
-import HorseCard from './components/HorseCard/HorseCard';
-
 // 型定義は types/index.ts からインポート済み
 
 export default function HorsesPage() {
@@ -492,20 +489,81 @@ export default function HorsesPage() {
 
         {/* 馬一覧 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4 sm:px-0">
-          {filteredHorses.map((horse) => (
-            <HorseCard 
-              key={horse.id}
-              horse={{
-                ...horse,
-                // オークション履歴をマージ
-                auction_histories: (data?.auctionHistories || []).filter((h: any) => h.horse_id === horse.id)
-              }}
-              onHorseClick={(horse) => {
-                // クリック時の処理（必要に応じて実装）
-                console.log('Horse clicked:', horse);
-              }}
-            />
-          ))}
+          {filteredHorses.map((horse) => {
+            const history = (data?.auctionHistories || []).filter((h: any) => h.horse_id === horse.id);
+            const latestHistory = history[0];
+            
+            // デバッグ用: 馬のデータをログに出力
+            console.log('Horse data:', {
+              id: horse.id,
+              name: horse.name,
+              sold_price: horse.sold_price,
+              is_unsold: horse.is_unsold,
+              auctionHistories: history,
+              latestHistory: latestHistory
+            });
+            
+            return (
+              <Link href={`/horses/${horse.id}`} key={horse.id} className="group">
+                <div className="bg-white overflow-hidden shadow rounded-lg h-full flex flex-col hover:shadow-lg transition-shadow duration-200">
+                  {/* 画像エリア */}
+                  <div className="relative h-48 bg-gray-200 overflow-hidden">
+                    <HorseImage 
+                      src={horse.image_url} 
+                      alt={horse.name}
+                      className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    />
+                    <div className="absolute top-2 right-2">
+                      <SexBadge sex={normalizeHorseSex(horse.sex)} age={horse.age} className="text-xs" />
+                    </div>
+                    {horse.disease_tags && horse.disease_tags.length > 0 && (
+                      <div className="absolute top-2 left-2">
+                        <div className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
+                          病歴: {horse.disease_tags[0]}
+                          {horse.disease_tags.length > 1 && ` +${horse.disease_tags.length - 1}`}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 馬情報エリア */}
+                  <div className="p-4 flex-1 flex flex-col">
+                    <div className="mb-2">
+                      <h3 className="text-lg font-semibold">{horse.name}</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 mb-3">
+                      <div className="text-gray-600 space-y-1">
+                        <div className="flex">
+                          <span className="w-12 flex-shrink-0">父</span>
+                          <span className="truncate">{horse.sire || '不明'}</span>
+                        </div>
+                        <div className="flex">
+                          <span className="w-12 flex-shrink-0">母</span>
+                          <span className="truncate">{horse.dam || '不明'}</span>
+                        </div>
+                        <div className="flex">
+                          <span className="w-12 flex-shrink-0">母父</span>
+                          <span className="truncate">{horse.damsire || '不明'}</span>
+                        </div>
+                      </div>
+                      <div className="text-gray-600 border-l border-gray-200 pl-4">
+                        <div className="text-sm text-gray-500 mb-1">販売者</div>
+                        <div className="font-medium truncate">{latestHistory?.seller || '不明'}</div>
+                      </div>
+                      <div className="mt-2">
+                        {isUnsoldHorse(horse) 
+                          ? <span className="text-red-600 font-medium">主取り</span>
+                          : getDisplayPrice(horse) !== '-' 
+                            ? getDisplayPrice(horse) 
+                            : '価格未設定'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
 
         <div className="mt-8 text-center text-gray-600">
