@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -22,26 +22,26 @@ import { ja } from 'date-fns/locale';
 import HeaderCard from './[id]/components/HeaderCard';
 
 // 型定義をインポート
-import type { 
-  Horse, 
-  AuctionHistory, 
-  HorseData, 
-  SortOrder,
-  SortableField
-} from './types';
+import type { Horse, SortableField, HorseData } from './types';
+import { useEffect } from 'react';
 
 // コンポーネントの型定義をインポート
 import type { ButtonProps } from './types/components/Button.types';
 import type { HorseImageProps } from './types/components/HorseImage.types';
 
-// HorseImage コンポーネントの動的インポート
+// カスタムフックをインポート
+import { useHorsesData } from './hooks/useHorsesData';
+import { useSorting } from './hooks/useSorting';
+import { useFilters } from './hooks/useFilters';
+
+// ユーティリティ関数をインポート
 import { 
   isUnsoldHorse,
   formatSeller,
   getDisplayPrice,
   formatPrize,
   getGrowthRate
-} from './utils/formatters'; // utils/formatters.ts からインポート
+} from './utils/formatters';
 import { formatAge } from './utils/formatAge';
 import SexBadge from '@/app/horses/components/SexBadge';
 
