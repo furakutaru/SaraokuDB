@@ -39,21 +39,18 @@ export interface ImageUrl {
 export interface BaseHorse {
   id: string | number;
   auction_id?: string;
-  name: string;
   sex: string;
-  age: number;
   sire: string;
   dam: string;
   damsire: string;
   image_url: ImageUrl | string;
-  jbis_url: string;
-  detail_url: string;
+  jbis_url?: string | undefined;  // オプショナルに変更
+  detail_url?: string | undefined;  // オプショナルに変更  // オプショナルに変更
 }
 
 /**
  * 馬の情報を表すインターフェース
- * データベースとAPIの両方で使用される
- */
+{{ ... }}
 export interface Horse extends BaseHorse {
   // オプショナルな基本情報
   disease_tags?: string[];

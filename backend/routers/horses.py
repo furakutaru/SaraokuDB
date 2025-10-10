@@ -287,5 +287,15 @@ async def get_horse(horse_id: str, db: Session = Depends(get_db)):
             }
         )
 
+    # 明示的に必要なフィールドをロード
+    db.refresh(horse)
+    
+    # デバッグ用にレスポンスデータをログに出力
+    import json
+    logger.info(f"Horse data before serialization: {json.dumps({c.name: getattr(horse, c.name) for c in horse.__table__.columns}, default=str)}")
+    
     # 正規化と辞書構築は専用サービスに委譲
-    return serialize_horse(horse)
+    serialized = serialize_horse(horse)
+    logger.info(f"Serialized horse data: {json.dumps(serialized, default=str)}")
+    
+    return serialized

@@ -185,6 +185,32 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, onHorseClick }) => {
                 </Typography>
               </Box>
             )}
+
+            {/* 外部リンク */}
+            <Box className="mt-2 pt-2 border-t border-gray-100 flex justify-between text-xs">
+              {horse.detail_url && (
+                <a 
+                  href={horse.detail_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  楽天オークション
+                </a>
+              )}
+              {horse.jbis_url && (
+                <a 
+                  href={horse.jbis_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline ml-4"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  JBIS
+                </a>
+              )}
+            </Box>
           </Box>
         </Box>
       </Box>

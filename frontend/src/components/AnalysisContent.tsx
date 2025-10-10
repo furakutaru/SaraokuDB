@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Horse, AuctionHistory, HorseWithCalculations as BaseHorseWithCalculations, ImageUrl } from '../types/horse';
+import { AuctionHistory, HorseWithCalculations as BaseHorseWithCalculations, ImageUrl } from '../types/horse';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { formatPrice, getDisplayPrice } from '../utils/price';
@@ -26,9 +26,52 @@ function formatWeight(weight: number | string | null | undefined): string {
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { normalizeImageUrl } from '../utils/url';
 
-// 共有型に、このコンポーネント固有のフィールドを追加
-interface AnalysisHorse extends BaseHorseWithCalculations {
+// 基本情報を含む拡張型
+interface AnalysisHorse extends Omit<BaseHorseWithCalculations, 'jbis_url' | 'detail_url' | 'weight' | 'is_unsold'> {
+  // 基本情報
+  id: string | number;  // 馬の一意の識別子
+  name: string;  // 馬名
+  sex: string;
+  age: number;
+  sire: string;
+  dam: string;
+  damsire: string;
+  weight?: number | null;  // 馬体重
+  
+  // オークション情報
   effectiveAuction: AuctionHistory;
+  sold_price?: number | null;
+  total_prize_start: number;
+  total_prize_latest: number;
+  unsold?: boolean;  // is_unsold のエイリアス
+  is_unsold?: boolean;  // 互換性のため
+  unsold_count: number;
+  auction_history?: AuctionHistory[];
+  
+  // 賞金情報
+  prize_money?: {
+    total_prize: string;
+  };
+  
+  // 疾患タグ
+  disease_tags?: string[];
+  
+  // 画像関連
+  primary_image: string;
+  
+  // 外部リンク
+  jbis_url?: string;
+  detail_url?: string;  // 楽天競馬の詳細ページURL
+  rakuten_url?: string; // 楽天競馬のURL（detail_urlと同一の可能性あり）
+  auction_url?: string; // オークションURL（存在しない場合はdetail_urlを使用）
+  
+  // 表示用プロパティ（BaseHorseWithCalculations から継承）
+  // display_weight: string;
+  // display_prize: string;
+  // display_roi: string;
+  // sort_price: number;
+  // sort_prize: number;
+  // sort_roi: number;
 }
 
 interface AnalysisData {
@@ -554,7 +597,14 @@ const transformHorseData = (data: any): AnalysisHorse[] => {
       seller: latestAuction?.seller || '',
       auction_date: latestAuction?.auction_date || '',
       comment: latestAuction?.comment || '',
-      effectiveAuction: effectiveAuction
+      effectiveAuction: effectiveAuction,
+      // 外部リンクを追加（データに合わせて調整）
+      jbis_url: horse.jbis_url,
+      detail_url: horse.detail_url,
+      // rakuten_urlが存在しない場合はdetail_urlを使用
+      rakuten_url: horse.rakuten_url || horse.detail_url,
+      // auction_urlが存在しない場合はdetail_urlを使用
+      auction_url: horse.auction_url || horse.detail_url
     } as AnalysisHorse;
     });
     

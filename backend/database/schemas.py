@@ -30,6 +30,10 @@ class HorseBase(BaseModel):
     disease_tags: Optional[str] = None
     comment: Optional[str] = None
     image_url: Optional[str] = None
+    jbis_url: Optional[str] = None
+    detail_url: Optional[str] = None
+    rakuten_url: Optional[str] = None
+    auction_url: Optional[str] = None
 
 class HorseCreate(HorseBase):
     pass

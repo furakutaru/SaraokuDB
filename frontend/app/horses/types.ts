@@ -26,6 +26,7 @@ export interface Horse {
   damsire: string;
   image_url: string;
   jbis_url: string;
+  detail_url: string;
   auction_url: string;
   disease_tags?: string[];
   weight: number | null;

@@ -15,7 +15,8 @@ import {
   formatDate,
   formatPrizeMan 
 } from '@/src/utils/format';
-import { Horse, AuctionHistory } from '@/src/types/horse';
+import { AuctionHistory } from '@/src/types/horse';
+import { HorseWithCalculations } from '@/src/types/horse';
 import { ExtendedAuctionHistory, RaceRecord } from './types';
 import { HeaderCard } from './components';
 import ExternalLinks from './components/ExternalLinks';
@@ -42,17 +43,58 @@ import { getHorseData as getHorseDataFromApi } from '@/src/utils/horseApi';
 
 // 型定義は ./types.ts に移動しました
 
-// Horse 型を拡張して、ページ固有のプロパティを追加
-type HorseWithPageProps = Omit<Horse, 'history' | 'disease_tags' | 'auction_history'> & {
-  auction_id?: string; // オークションID
-  history: ExtendedAuctionHistory[]; // オークション履歴
-  disease_tags: string[]; // 疾患タグ（文字列配列に上書き）
-  rakuten_url?: string; // 楽天オークションリンク
-  auction_url?: string; // オークションURL（互換性のため）
-  unsold_count?: number; // 未出走回数
-  primary_image: string; // メイン画像（必須）
-  detail_url: string; // 詳細URL（必須）
-  dam_sire?: string; // 母父名（互換性のため）
+// HorseWithCalculations を拡張して、ページ固有のプロパティを追加
+type HorseWithPageProps = Omit<HorseWithCalculations, 'history' | 'disease_tags' | 'auction_history'> & {
+  // 基本情報
+  id: string | number;
+  name: string;
+  sex: string;
+  age: number;
+  sire: string;
+  dam: string;
+  damsire: string;
+  weight?: number | null;
+  
+  // オークション情報
+  auction_id?: string;
+  history: ExtendedAuctionHistory[];
+  auction_history?: ExtendedAuctionHistory[];
+  sold_price?: number | null;
+  total_prize_start: number;
+  total_prize_latest: number | null;
+  is_unsold?: boolean;
+  unsold?: boolean;
+  unsold_count: number;
+  seller?: string;
+  
+  // 画像関連
+  image_url: string | { image_url: string };
+  primary_image: string;
+  
+  // URL関連
+  jbis_url?: string;
+  detail_url: string;
+  rakuten_url?: string;
+  auction_url?: string;
+  
+  // その他
+  disease_tags: string[];
+  created_at?: string;
+  updated_at?: string;
+  dam_sire?: string;
+  
+  // 表示用（HorseWithCalculations から継承されるが、明示的に再宣言）
+  display_price: string;
+  display_weight: string;
+  display_prize: string;
+  display_roi: string;
+  sort_price: number;
+  sort_prize: number;
+  sort_roi: number;
+  
+  // HorseWithCalculations から必要な追加プロパティ
+  roi: number;
+  price_per_kg: number;
 };
 interface HorseData {
   metadata: any;
@@ -102,6 +144,17 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
     // レスポンスの生データを取得
     const responseData = await response.clone().json();
     console.log('API Response Data:', JSON.stringify(responseData, null, 2));
+    
+    // デバッグ用: レスポンスに含まれるプロパティをログ出力
+    if (responseData) {
+      console.log('Response data properties:', Object.keys(responseData));
+      if (responseData.horse) {
+        console.log('Horse data properties:', Object.keys(responseData.horse));
+        console.log('Horse URLs - jbis:', responseData.horse.jbis_url, 
+                   'detail:', responseData.horse.detail_url, 
+                   'rakuten:', responseData.horse.rakuten_url);
+      }
+    }
     if (!response.ok) {
       // 404 の場合は一覧からフォールバック検索
       if (response.status === 404) {
@@ -186,35 +239,57 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
                   };
 
                   const horse: HorseWithPageProps = {
+                    // 基本情報 (BaseHorse から継承)
                     id: staticBase.id ?? horseId,
                     auction_id: staticBase.auction_id,
-                    name: staticBase.name || '不明',
                     sex: staticBase.sex || '不明',
-                    age: Number(staticBase.age) || 0,
-                    history: [historyEntry],
                     sire: staticBase.sire || '不明',
                     dam: staticBase.dam || '不明',
-                    dam_sire: staticBase.dam_sire || staticBase.damsire || '不明',
                     damsire: staticBase.dam_sire || staticBase.damsire || '不明',
-                    primary_image: staticBase.primary_image || staticBase.image_url || '',
+                    image_url: staticBase.primary_image || staticBase.image_url || '',
+                    jbis_url: staticBase.jbis_url,
+                    detail_url: staticBase.detail_url || staticBase.auction_url || '',
+                    
+                    // Horse インターフェースのプロパティ
                     disease_tags: Array.isArray(staticBase.disease_tags) 
                       ? staticBase.disease_tags 
                       : (staticBase.disease_tags || '').split(',').filter(Boolean),
-                    jbis_url: staticBase.jbis_url || '',
-                    detail_url: staticBase.detail_url || staticBase.auction_url || '',
-                    rakuten_url: staticBase.detail_url || staticBase.auction_url || '',
-                    auction_url: staticBase.detail_url || staticBase.auction_url || '',
-                    weight: typeof staticBase.weight === 'string' ? parseFloat(staticBase.weight) : staticBase.weight || null,
-                    unsold_count: typeof staticBase.unsold_count === 'string' 
-                      ? parseInt(staticBase.unsold_count, 10) 
-                      : (staticBase.unsold_count || 0),
+                    created_at: staticBase.created_at || new Date().toISOString(),
+                    updated_at: staticBase.updated_at || new Date().toISOString(),
+                    sold_price: staticBase.sold_price ?? null,
+                    is_unsold: staticBase.is_unsold ?? false,
+                    seller: staticBase.seller || '不明',
                     total_prize_latest: typeof staticBase.total_prize_latest === 'string' 
                       ? parseFloat(staticBase.total_prize_latest) 
                       : (staticBase.total_prize_latest ?? 0),
-                    created_at: staticBase.created_at || new Date().toISOString(),
-                    updated_at: staticBase.updated_at || new Date().toISOString(),
+                    auction_url: staticBase.auction_url,
                     unsold: (staticBase.unsold ?? false) || (staticBase.is_unsold ?? false),
-                    image_url: staticBase.primary_image || staticBase.image_url || ''
+                    primary_image: staticBase.primary_image || staticBase.image_url || '',
+                    rakuten_url: staticBase.rakuten_url,
+                    unsold_count: typeof staticBase.unsold_count === 'string' 
+                      ? parseInt(staticBase.unsold_count, 10) 
+                      : (staticBase.unsold_count || 0),
+                    weight: typeof staticBase.weight === 'string' 
+                      ? parseFloat(staticBase.weight) 
+                      : (staticBase.weight || null),
+                    
+                    // HorseWithCalculations のプロパティ
+                    total_prize_start: staticBase.total_prize_start ?? 0,
+                    roi: 0,
+                    price_per_kg: 0,
+                    display_price: formatManYen(staticBase.sold_price || 0),
+                    display_weight: formatWeight(staticBase.weight),
+                    display_prize: formatManYen(staticBase.total_prize_latest ?? 0),
+                    display_roi: '0%',
+                    sort_price: Number(staticBase.sold_price) || 0,
+                    sort_prize: staticBase.total_prize_latest ?? 0,
+                    sort_roi: 0,
+                    
+                    // その他のプロパティ
+                    name: staticBase.name || '不明',
+                    age: Number(staticBase.age) || 0,
+                    history: [historyEntry],
+                    auction_history: [historyEntry]
                   };
 
                   console.log('[horse detail] Use static horses.json mapped horse:', horse);
@@ -258,15 +333,58 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
 
           // HorseWithPageProps に合わせてオブジェクトを構築
           const horse: HorseWithPageProps = {
+            // BaseHorse プロパティ
             id: horseBaseData.id ?? horseId,
             auction_id: horseBaseData.auction_id,
-            name: horseBaseData.name || '不明',
             sex: horseBaseData.sex || '不明',
+            sire: horseBaseData.sire || '不明',
+            dam: horseBaseData.dam || '不明',
+            damsire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
+            image_url: horseBaseData.primary_image || horseBaseData.image_url || '',
+            jbis_url: horseBaseData.jbis_url,
+            detail_url: horseBaseData.detail_url || horseBaseData.auction_url || '',
+            
+            // Horse インターフェースのプロパティ
+            disease_tags: Array.isArray(horseBaseData.disease_tags) 
+              ? horseBaseData.disease_tags 
+              : (horseBaseData.disease_tags || '').split(',').filter(Boolean),
+            created_at: horseBaseData.created_at || new Date().toISOString(),
+            updated_at: horseBaseData.updated_at || new Date().toISOString(),
+            sold_price: horseBaseData.sold_price ?? null,
+            is_unsold: horseBaseData.is_unsold ?? false,
+            seller: horseBaseData.seller || '不明',
+            total_prize_latest: typeof horseBaseData.total_prize_latest === 'string' 
+              ? parseFloat(horseBaseData.total_prize_latest) 
+              : (horseBaseData.total_prize_latest ?? 0),
+            auction_url: horseBaseData.auction_url,
+            primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
+            rakuten_url: horseBaseData.rakuten_url,
+            unsold_count: typeof horseBaseData.unsold_count === 'string' 
+              ? parseInt(horseBaseData.unsold_count, 10) 
+              : (horseBaseData.unsold_count || 0),
+            weight: typeof horseBaseData.weight === 'string' 
+              ? parseFloat(horseBaseData.weight) 
+              : (horseBaseData.weight || null),
+            
+            // HorseWithCalculations のプロパティ
+            total_prize_start: horseBaseData.total_prize_start ?? 0,
+            roi: 0,
+            price_per_kg: 0,
+            display_price: formatManYen(horseBaseData.sold_price || 0),
+            display_weight: formatWeight(horseBaseData.weight),
+            display_prize: formatManYen(horseBaseData.total_prize_latest ?? 0),
+            display_roi: '0%',
+            sort_price: Number(horseBaseData.sold_price) || 0,
+            sort_prize: horseBaseData.total_prize_latest ?? 0,
+            sort_roi: 0,
+            
+            // その他のプロパティ
+            name: horseBaseData.name || '不明',
             age: Number(horseBaseData.age) || 0,
-            // history は必ず配列で、ExtendedAuctionHistory の配列である必要がある
             history: [{
+              // 基本プロパティ
               ...historyEntry,
-              // 不足している可能性のある必須プロパティを追加
+              // 必須プロパティのデフォルト値を設定
               id: historyEntry.id || `temp-${Date.now()}`,
               horse_id: historyEntry.horse_id || `horse-${Date.now()}`,
               auction_date: historyEntry.auction_date || new Date().toISOString().split('T')[0],
@@ -283,32 +401,8 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
               sex: historyEntry.sex || horseBaseData.sex || '不明',
               age: historyEntry.age || horseBaseData.age || 0
             }],
-            sire: horseBaseData.sire || '不明',
-            dam: horseBaseData.dam || '不明',
-            damsire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
-            image_url: horseBaseData.primary_image || horseBaseData.image_url || '',
-            primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
-            disease_tags: Array.isArray(horseBaseData.disease_tags) 
-              ? horseBaseData.disease_tags 
-              : (horseBaseData.disease_tags || '').split(',').filter(Boolean),
-            jbis_url: horseBaseData.jbis_url || '',
-            detail_url: horseBaseData.detail_url || horseBaseData.auction_url || '',
-            rakuten_url: horseBaseData.detail_url || horseBaseData.auction_url || '',
-            auction_url: horseBaseData.detail_url || horseBaseData.auction_url || '',
-            weight: typeof horseBaseData.weight === 'string' 
-              ? parseFloat(horseBaseData.weight) 
-              : horseBaseData.weight || null,
-            unsold_count: typeof horseBaseData.unsold_count === 'string' 
-              ? parseInt(horseBaseData.unsold_count, 10) 
-              : (horseBaseData.unsold_count || 0),
-            total_prize_latest: typeof horseBaseData.total_prize_latest === 'string' 
-              ? parseFloat(horseBaseData.total_prize_latest) 
-              : (horseBaseData.total_prize_latest ?? 0),
-            created_at: horseBaseData.created_at || new Date().toISOString(),
-            updated_at: horseBaseData.updated_at || new Date().toISOString(),
-            unsold: (horseBaseData.unsold ?? false) || 
-                   (horseBaseData.is_unsold ?? false) || 
-                   (horseBaseData.unsold_count > 0)
+            // 未落札回数が0より大きい場合にのみunsoldをtrueに設定
+            unsold: (horseBaseData.unsold_count > 0) || (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false)
           };
 
           console.log('[horse detail] Fallback mapped horse:', horse);
@@ -324,8 +418,8 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
     const data = await response.json();
     console.log('[horse detail] Raw API response:', JSON.stringify(data, null, 2));
     
-    // バックエンドの単体取得は Horse モデルを返す想定。
-    // 既存UIが必要とするフィールドに合わせて最小限マッピング。
+    // バックエンドの単体取得は HorseWithPageProps に変換されたデータを返す想定。
+    // 既存UIが必要とするフィールドに合わせてマッピング。
     const horseBaseData = data || {};
     
     // デバッグ用に元のデータをログ出力
@@ -389,32 +483,61 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
     // APIから受け取ったJBIS URLをそのまま使用
     const jbisUrl = horseBaseData.jbis_url || '';
 
-    const horse: Horse = {
+    const horse: HorseWithPageProps = {
+      // 基本情報
       id: horseBaseData.id ?? horseId,
-      auction_id: data?.auction_id || horseBaseData.auction_id, // APIレスポンスのルートからauction_idを取得
       name: horseBaseData.name || '不明',
       sex: horseBaseData.sex || '不明',
       age: Number(horseBaseData.age) || 0, // 数値に変換
-      history: [historyEntry],
       sire: horseBaseData.sire || '不明',
       dam: horseBaseData.dam || '不明',
       damsire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
+      weight: typeof horseBaseData.weight === 'string' ? parseFloat(horseBaseData.weight) : horseBaseData.weight || null,
+      
+      // オークション情報
+      auction_id: data?.auction_id || horseBaseData.auction_id, // APIレスポンスのルートからauction_idを取得
+      history: [historyEntry],
+      sold_price: horseBaseData.sold_price ?? null,
+      total_prize_start: horseBaseData.total_prize_start ?? 0,
+      total_prize_latest: typeof horseBaseData.total_prize_latest === 'string' 
+        ? parseFloat(horseBaseData.total_prize_latest) 
+        : (horseBaseData.total_prize_latest ?? 0),
+      is_unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false),
+      unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false),
+      unsold_count: typeof horseBaseData.unsold_count === 'string' 
+        ? parseInt(horseBaseData.unsold_count, 10) 
+        : (horseBaseData.unsold_count || 0),
+      seller: horseBaseData.seller || '不明',
+      
+      // 画像関連
       image_url: horseBaseData.primary_image || horseBaseData.image_url || '',
       primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
-      disease_tags: Array.isArray(horseBaseData.disease_tags) 
-        ? horseBaseData.disease_tags 
-        : (horseBaseData.disease_tags || '').split(',').filter(Boolean),
+      
+      // URL関連
       jbis_url: jbisUrl,
-      // APIから受け取ったURLをそのまま使用
       detail_url: detailUrl,
       rakuten_url: rakutenUrl,
       auction_url: auctionUrl,
-      weight: typeof horseBaseData.weight === 'string' ? parseFloat(horseBaseData.weight) : horseBaseData.weight || null,
-      unsold_count: typeof horseBaseData.unsold_count === 'string' ? parseInt(horseBaseData.unsold_count, 10) : (horseBaseData.unsold_count || 0),
-      total_prize_latest: typeof horseBaseData.total_prize_latest === 'string' ? parseFloat(horseBaseData.total_prize_latest) : (horseBaseData.total_prize_latest ?? 0),
+      
+      // その他
+      disease_tags: Array.isArray(horseBaseData.disease_tags) 
+        ? horseBaseData.disease_tags 
+        : (horseBaseData.disease_tags || '').split(',').filter(Boolean),
       created_at: horseBaseData.created_at || new Date().toISOString(),
       updated_at: horseBaseData.updated_at || new Date().toISOString(),
-      unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false)
+      
+      // 表示用
+      display_price: formatManYen(horseBaseData.sold_price || 0),
+      display_weight: formatWeight(horseBaseData.weight),
+      display_prize: formatManYen(horseBaseData.total_prize_latest ?? 0),
+      display_roi: '0%',
+      sort_price: Number(horseBaseData.sold_price) || 0,
+      sort_prize: horseBaseData.total_prize_latest ?? 0,
+      sort_roi: 0,
+      
+      // HorseWithCalculations から必要な追加プロパティ
+      roi: 0,
+      price_per_kg: 0
     };
     
     console.log('Debug - Mapped horse URLs:', {
@@ -424,8 +547,8 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
       jbis_url: horse.jbis_url
     });
 
-    // Horse から HorseWithPageProps に変換するヘルパー関数
-    const toHorseWithPageProps = (horse: Horse): HorseWithPageProps => ({
+    // HorseWithPageProps に変換するヘルパー関数
+    const toHorseWithPageProps = (horse: HorseWithPageProps): HorseWithPageProps => ({
       ...horse,
       // 必須プロパティを上書き
       history: Array.isArray(horse.history) 
@@ -571,7 +694,7 @@ const RaceRecordDisplay = ({ record }: { record: any }) => {
 export default function HorseDetailPage({ params }: PageProps) {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<number>(0);
-  const [horse, setHorse] = useState<Horse | null>(null);
+  const [horse, setHorse] = useState<HorseWithPageProps | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   
@@ -971,11 +1094,12 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                         </div>
                       )}
                     </div>
-                    {/* 画像下のリンク（JBIS / サラオク） */}
+                    {/* 画像下のリンク（JBIS / サラオク / 楽天） */}
                     <div className="flex items-center justify-center">
                       <ExternalLinks 
                         jbisUrl={horse.jbis_url}
                         auctionUrl={horse.auction_url}
+                        rakutenUrl={horse.rakuten_url}
                         className="text-sm"
                       />
                     </div>

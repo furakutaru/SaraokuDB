@@ -24,12 +24,14 @@ class Horse(Base):
     total_prize_latest = Column(Float)  # 最新の地方賞金
     sold_price = Column(Text)  # 落札価格履歴（JSON配列文字列: [10000000, ...]）
     auction_date = Column(Text)  # 開催日履歴（JSON配列文字列: ["YYYY-MM-DD", ...]）
-    seller = Column(Text)  # 販売申込者履歴（JSON配列文字列: ["社台", ...]）
+    seller = Column(Text)  # 販売申込者（JSON配列文字列: ["社台", ...]）
     disease_tags = Column(Text)  # 疾病カテゴリ
     comment = Column(Text)  # コメント履歴（JSON配列文字列: ["1回目コメント", ...]）
     image_url = Column(String(500))  # 馬画像URL
     primary_image = Column(String(500))  # 馬体写真1枚目のURL
     jbis_url = Column(String(500))  # JBISの馬情報ページURL
+    detail_url = Column(String(500))  # 楽天競馬オークションの詳細ページURL
+    rakuten_url = Column(String(500))  # 楽天オークションのURL
     unsold_count = Column(Integer, default=0)  # 主取り回数
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
