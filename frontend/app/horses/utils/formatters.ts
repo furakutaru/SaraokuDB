@@ -1,10 +1,10 @@
 import { Horse } from '../types';
-import { formatAge } from './formatAge';
 
 // Horse型を拡張してunsoldプロパティを追加
 declare module '../types' {
   interface Horse {
     unsold?: boolean;
+    is_unsold?: boolean;
   }
 }
 
@@ -34,7 +34,7 @@ export const isUnsoldHorse = (horse: Horse): boolean => {
  * @param price 価格（数値または文字列）
  * @returns フォーマットされた価格文字列
  */
-export const formatPrice = (price: any): string => {
+export const formatPrice = (price: number | string | null | undefined): string => {
   if (price === null || price === undefined) return '-';
   
   // 数値に変換
@@ -58,17 +58,15 @@ export const formatPrice = (price: any): string => {
   return `¥${priceValue.toLocaleString()}`;
 };
 
-// formatAge is now imported from './formatAge'
-
 /**
  * 売り主情報を適切に表示するためのヘルパー関数
  * @param seller 売り主情報
  * @returns フォーマットされた売り主情報
  */
-export const formatSeller = (seller: any): string => {
+export const formatSeller = (seller: string | null | undefined): string => {
   if (!seller) return '-';
-  // 不要な接頭辞を削除
-  return seller.replace(/^（(.*?)）$/, '$1').trim();
+  // インヴイス登録情報を削除
+  return seller.replace(/\(.*\)/g, '').trim();
 };
 
 /**
@@ -77,8 +75,10 @@ export const formatSeller = (seller: any): string => {
  * @returns フォーマットされた賞金文字列
  */
 export const formatPrize = (val: number | string | null | undefined): string => {
-  if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
-  return `${Number(val).toFixed(1)}万円`;
+  if (val === null || val === undefined || val === '') return '-';
+  
+  const num = typeof val === 'string' ? parseFloat(val) : val;
+  return isNaN(num) ? '-' : num.toLocaleString('ja-JP') + '万円';
 };
 
 /**
@@ -88,8 +88,9 @@ export const formatPrize = (val: number | string | null | undefined): string => 
  * @returns 成長率（パーセント）の文字列表現
  */
 export const getGrowthRate = (start: number, latest: number): string => {
-  if (start === 0) return '0.0';
-  return ((latest - start) / start * 100).toFixed(1);
+  if (start <= 0) return latest > 0 ? '∞' : '0.0%';
+  const rate = ((latest - start) / start) * 100;
+  return rate.toFixed(1) + '%';
 };
 
 /**
@@ -97,32 +98,38 @@ export const getGrowthRate = (start: number, latest: number): string => {
  * @param horse 馬のデータ
  * @returns フォーマットされた価格文字列
  */
-export const getDisplayPrice = (horse: any): string => {
+export const getDisplayPrice = (horse: Horse): string => {
   if (!horse) return '-';
   
-  // 主取りフラグをチェック
+  // 1. 主取りチェック
   if (isUnsoldHorse(horse)) {
     return '主取り';
   }
-  
-  // 落札価格がある場合はそれを表示
-  if (horse.sold_price !== undefined && horse.sold_price !== null) {
-    const formattedPrice = formatPrice(horse.sold_price);
-    if (formattedPrice !== '-') {
-      return formattedPrice;
-    }
+
+  // 2. sold_price が存在する場合
+  if (horse.sold_price !== null && horse.sold_price !== undefined) {
+    return formatPrice(horse.sold_price);
   }
-  
-  // オークション履歴から最新の価格を取得
+
+  // 3. 履歴から最新の価格を取得
   if (horse.auction_histories && horse.auction_histories.length > 0) {
-    const latestHistory = horse.auction_histories[0];
-    if (latestHistory.sold_price !== undefined && latestHistory.sold_price !== null) {
-      const formattedPrice = formatPrice(latestHistory.sold_price);
-      if (formattedPrice !== '-') {
-        return formattedPrice;
-      }
+    // 日付でソート（新しい順）
+    const sortedHistory = [...horse.auction_histories].sort((a, b) => {
+      const dateA = a.auction_date ? new Date(a.auction_date).getTime() : 0;
+      const dateB = b.auction_date ? new Date(b.auction_date).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    // 最新の有効な価格を探す
+    const latestPrice = sortedHistory.find(item => 
+      item.sold_price !== null && item.sold_price !== undefined
+    )?.sold_price;
+
+    if (latestPrice) {
+      return formatPrice(latestPrice);
     }
   }
-  
+
+  // 4. 価格情報が見つからない場合
   return '-';
 };
