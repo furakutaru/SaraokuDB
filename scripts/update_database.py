@@ -1,139 +1,347 @@
 #!/usr/bin/env python3
 """
 スクレイピング結果をデータベースに反映するスクリプト
+
+使用方法:
+    # デフォルトのパスで実行
+    python update_database.py
+    
+    # カスタムパスを指定して実行
+    python update_database.py --input /path/to/horses.json
+    
+    # デバッグモードで実行
+    python update_database.py --debug
 """
 import os
 import sys
 import json
-from datetime import datetime
+import logging
+import argparse
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Dict, Any, Optional, List, Tuple
 
-# プロジェクトのルートパスを追加
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from backend.database.models import SessionLocal, Horse, Base
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-def load_json_data(file_path):
-    """JSONファイルを読み込む"""
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+# プロジェクトのルートディレクトリをパスに追加
+sys.path.append(str(Path(__file__).parent.parent))
+from backend.database.models import Base, Horse
+
+# ロギング設定
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+    ]
+)
+logger = logging.getLogger(__name__)
+
+def get_default_json_path() -> str:
+    """デフォルトのJSONファイルのパスを取得する"""
+    return os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "frontend", "public", "data", "horses.json"
+    )
+
+def load_json_data(file_path: str) -> List[Dict[str, Any]]:
+    """JSONファイルを読み込む
+    
+{{ ... }}
+    Args:
+        file_path: 読み込むJSONファイルのパス
+        
+    Returns:
+        List[Dict[str, Any]]: 読み込んだJSONデータ
+        
+    Raises:
+        FileNotFoundError: ファイルが存在しない場合
+        json.JSONDecodeError: JSONの形式が不正な場合
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        if not isinstance(data, list):
+            logger.warning("JSONデータがリスト形式ではありません。リストに変換します。")
+            data = [data]
+            
+        return data
+    except FileNotFoundError:
+        logger.error(f"エラー: ファイルが見つかりません: {file_path}")
+        raise
+    except json.JSONDecodeError as e:
+        logger.error(f"JSONのデコードに失敗しました: {str(e)}")
+        raise
 
 def init_db():
-    """データベースを初期化する"""
-    # データベースのパスを設定
-    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend/data/horses.db')
-    db_uri = f'sqlite:///{db_path}'
+    """データベースを初期化する
     
-    # エンジンを作成
-    engine = create_engine(db_uri)
-    
-    # テーブルが存在しない場合は作成
-    Base.metadata.create_all(engine)
-    
-    # セッションを作成して返す
-    Session = SessionLocal
-    return Session()
-
-def update_database(session, horses_data):
-    """データベースを更新する"""
+    Returns:
+        Session: SQLAlchemyセッション
+    """
     try:
-        print(f"[デバッグ] 更新を開始します。合計{len(horses_data)}件の馬データを処理します。")
-        updated_count = 0
-        created_count = 0
+        # データベースファイルのパスを修正
+        db_path = Path(__file__).parent.parent / 'backend' / 'data' / 'horses.db'
+        db_path.parent.mkdir(parents=True, exist_ok=True)
         
-        for horse_data in horses_data:
-            # 既存のデータを検索
-            auction_id = str(horse_data.get('id', horse_data.get('auction_id', '')))
-            horse = session.query(Horse).filter_by(auction_id=auction_id).first()
-            
-            # デバッグ用: 馬体重データを確認
-            weight = horse_data.get('weight')
-            print(f"[デバッグ] 馬ID: {auction_id}, 馬名: {horse_data.get('name', '不明')}, 馬体重: {weight} (型: {type(weight) if weight is not None else 'None'})")
-            
-            # 必要なフィールドを準備
-            horse_dict = {
-                'auction_id': auction_id,
-                'name': horse_data.get('name', ''),
-                'sex': json.dumps([horse_data.get('sex', '')]),
-                'age': horse_data.get('age'),
-                'sire': horse_data.get('sire', ''),
-                'dam': horse_data.get('dam', ''),
-                'dam_sire': horse_data.get('dam_sire', horse_data.get('damsire', '')),
-                'race_record': json.dumps(horse_data.get('race_record', horse_data.get('race_records', {}))),
-                'weight': int(weight) if weight is not None and str(weight).isdigit() else None,
-                'total_prize_start': horse_data.get('total_prize_start'),
-                'total_prize_latest': horse_data.get('total_prize_latest'),
-                'sold_price': json.dumps([horse_data.get('sold_price')]) if 'sold_price' in horse_data else None,
-                'auction_date': json.dumps([horse_data.get('auction_date')]) if 'auction_date' in horse_data else None,
-                'seller': json.dumps([horse_data.get('seller', '')]),
-                'comment': json.dumps([horse_data.get('comment', '')]),
-                'image_url': horse_data.get('image_url', {}).get('image_url', '') if isinstance(horse_data.get('image_url'), dict) else horse_data.get('image_url', ''),
-                'primary_image': horse_data.get('primary_image', ''),
-                'updated_at': datetime.utcnow()
-            }
-            
-            if horse:
-                # 既存のデータを更新
-                for key, value in horse_dict.items():
-                    setattr(horse, key, value)
-                updated_count += 1
-            else:
-                # 新しいデータを作成
-                horse = Horse(**horse_dict)
-                session.add(horse)
-                created_count += 1
+        logger.info(f"データベースパス: {db_path}")
         
-        # 変更をコミット
+        # SQLiteデータベースに接続
+        db_uri = f'sqlite:///{db_path}'
+        engine = create_engine(db_uri)
+        
+        # テーブルが存在しない場合は作成
+        Base.metadata.create_all(engine)
+        logger.info("テーブルの作成/確認が完了しました")
+        
+        # セッションを作成して返す
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        logger.info("データベースセッションを作成しました")
+        return session
+    except Exception as e:
+        logger.error(f"データベースの初期化中にエラーが発生しました: {str(e)}", exc_info=True)
+        raise
+
+def get_default_horse_data(auction_id: str) -> Dict[str, Any]:
+    """デフォルトの馬データを取得する
+    
+    Args:
+        auction_id: オークションID
+        
+    Returns:
+        Dict[str, Any]: デフォルト値が設定された馬データ
+    """
+    now = datetime.now(timezone.utc)
+    return {
+        'auction_id': auction_id,
+        'name': '不明な馬名',
+        'sex': json.dumps(['']),
+        'age': None,
+        'sire': '',
+        'dam': '',
+        'dam_sire': '',
+        'race_record': json.dumps({}),
+        'weight': None,
+        'total_prize_start': 0.0,
+        'total_prize_latest': 0.0,
+        'sold_price': None,
+        'auction_date': json.dumps([now.strftime('%Y-%m-%d')]),
+        'seller': json.dumps(['']),
+        'comment': json.dumps(['']),
+        'image_url': '',
+        'primary_image': '',
+        'created_at': now,
+        'updated_at': now
+    }
+
+def normalize_horse_data(horse_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """馬データを正規化する
+    
+    Args:
+        horse_data: 入力となる馬データ
+        
+    Returns:
+        Optional[Dict[str, Any]]: 正規化された馬データ（エラーの場合はNone）
+    """
+    try:
+        auction_id = str(horse_data.get('id') or horse_data.get('auction_id', ''))
+        if not auction_id:
+            logger.warning("auction_idが見つからないため、スキップします")
+            return None
+            
+        # デフォルト値で初期化
+        normalized = get_default_horse_data(auction_id)
+        
+        # フィールドマッピング (入力フィールド名 -> 正規化済みフィールド名)
+        field_mapping = {
+            'name': 'name',
+            'sex': 'sex',
+            'age': 'age',
+            'sire': 'sire',
+            'dam': 'dam',
+            'damsire': 'dam_sire',
+            'dam_sire': 'dam_sire',
+            'race_record': 'race_record',
+            'race_records': 'race_record',
+            'weight': 'weight',
+            'total_prize_start': 'total_prize_start',
+            'total_prize_latest': 'total_prize_latest',
+            'sold_price': 'sold_price',
+            'auction_date': 'auction_date',
+            'seller': 'seller',
+            'comment': 'comment',
+            'image_url': 'image_url',
+            'primary_image': 'primary_image'
+        }
+        
+        # フィールドをマッピングに従ってコピー
+        for src_field, dest_field in field_mapping.items():
+            if src_field in horse_data and horse_data[src_field] is not None:
+                if dest_field == 'race_record' and isinstance(horse_data[src_field], dict):
+                    normalized[dest_field] = json.dumps(horse_data[src_field])
+                elif dest_field in ['sold_price', 'auction_date', 'seller', 'comment']:
+                    normalized[dest_field] = json.dumps([horse_data[src_field]])
+                elif dest_field == 'image_url' and isinstance(horse_data[src_field], dict):
+                    normalized[dest_field] = horse_data[src_field].get('image_url', '')
+                else:
+                    normalized[dest_field] = horse_data[src_field]
+        
+        # 数値フィールドの型変換
+        try:
+            if 'weight' in normalized and normalized['weight'] is not None:
+                normalized['weight'] = int(normalized['weight'])
+            if 'total_prize_start' in normalized and normalized['total_prize_start'] is not None:
+                normalized['total_prize_start'] = float(normalized['total_prize_start'])
+            if 'total_prize_latest' in normalized and normalized['total_prize_latest'] is not None:
+                normalized['total_prize_latest'] = float(normalized['total_prize_latest'])
+        except (ValueError, TypeError) as e:
+            logger.warning(f"数値変換エラー (ID: {auction_id}): {str(e)}")
+        
+        return normalized
+        
+    except Exception as e:
+        logger.error(f"馬データの正規化中にエラーが発生しました: {str(e)}")
+        return None
+
+def update_database(session, horses_data: List[Dict[str, Any]]) -> Tuple[int, int]:
+    """データベースを更新する
+    
+    Args:
+        session: SQLAlchemyセッション
+        horses_data: 更新する馬データのリスト
+        
+    Returns:
+        Tuple[int, int]: (作成件数, 更新件数)
+    """
+    created_count = 0
+    updated_count = 0
+    error_count = 0
+    
+    if not horses_data:
+        logger.warning("更新するデータがありません")
+        return 0, 0
+    
+    try:
+        logger.info(f"データベース更新を開始します。合計{len(horses_data)}件の馬データを処理します。")
+        
+        for i, raw_horse_data in enumerate(horses_data, 1):
+            try:
+                # データの正規化
+                horse_data = normalize_horse_data(raw_horse_data)
+                if not horse_data:
+                    error_count += 1
+                    continue
+                
+                auction_id = horse_data['auction_id']
+                logger.debug(f"[{i}/{len(horses_data)}] 処理中: ID={auction_id}, 馬名={horse_data.get('name', '不明')}")
+                
+                # 既存のデータを検索
+                horse = session.query(Horse).filter_by(auction_id=auction_id).first()
+                
+                if horse:
+                    # 既存のデータを更新
+                    for key, value in horse_data.items():
+                        if key != 'created_at':  # created_atは更新しない
+                            setattr(horse, key, value)
+                    updated_count += 1
+                    logger.debug(f"  - 更新: {auction_id}")
+                else:
+                    # 新しいデータを作成
+                    horse = Horse(**horse_data)
+                    session.add(horse)
+                    created_count += 1
+                    logger.debug(f"  - 新規作成: {auction_id}")
+                
+                # バッチコミット（100件ごと）
+                if i % 100 == 0:
+                    session.commit()
+                    logger.info(f"  - 進捗: {i}/{len(horses_data)} (作成: {created_count}, 更新: {updated_count}, エラー: {error_count})")
+            
+            except Exception as e:
+                error_count += 1
+                logger.error(f"馬データの処理中にエラーが発生しました (インデックス: {i}): {str(e)}")
+                logger.debug(f"エラーが発生したデータ: {raw_horse_data}")
+                session.rollback()
+                continue
+        
+        # 残りの変更をコミット
         session.commit()
-        print(f"データベースを更新しました。新規: {created_count}件, 更新: {updated_count}件")
+        
+        logger.info(f"データベースの更新が完了しました。")
+        logger.info(f"  - 新規作成: {created_count}件")
+        logger.info(f"  - 更新: {updated_count}件")
+        if error_count > 0:
+            logger.warning(f"  - エラー: {error_count}件")
+        
+        return created_count, updated_count
         
     except Exception as e:
         session.rollback()
-        print(f"エラーが発生しました: {str(e)}")
+        logger.error(f"データベースの更新中に予期しないエラーが発生しました: {str(e)}", exc_info=True)
         raise
 
-def main():
-    """メイン処理"""
-    # JSONファイルのパス
-    json_file = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        'static-frontend', 'public', 'data', 'horses.json'
-    )
+def main() -> int:
+    """メイン処理
     
-    if not os.path.exists(json_file):
-        print(f"エラー: {json_file} が見つかりません。")
-        return 1
+    Returns:
+        int: 終了コード (0: 成功, 1: エラー)
+    """
+    # コマンドライン引数のパース
+    parser = argparse.ArgumentParser(description='スクレイピング結果をデータベースに反映')
+    parser.add_argument(
+        '--input', 
+        type=str, 
+        help=f'入力JSONファイルのパス (デフォルト: {get_default_json_path()})',
+        default=str(get_default_json_path())
+    )
+    parser.add_argument(
+        '--debug', 
+        action='store_true',
+        help='デバッグモードで実行 (より詳細なログを出力)'
+    )
+    args = parser.parse_args()
+    
+    # ログレベルを設定
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
     
     try:
-        # JSONデータを読み込む
-        print(f"ファイルを読み込んでいます: {json_file}")
-        data = load_json_data(json_file)
+        json_path = Path(args.input).resolve()
+        logger.info(f"入力ファイル: {json_path}")
         
-        # データが配列の場合はそのまま使用、オブジェクトの場合は'horses'キーを確認
-        if isinstance(data, list):
-            horses_data = data
-        elif isinstance(data, dict) and 'horses' in data:
-            horses_data = data['horses']
-        else:
-            print("エラー: 無効なデータ形式です。配列または'horses'キーが含まれたオブジェクトを期待しています。")
+        # ファイルの存在確認
+        if not json_path.exists():
+            logger.error(f"エラー: ファイルが見つかりません: {json_path}")
             return 1
-        print(f"馬のデータを {len(horses_data)} 件読み込みました。")
+        
+        # JSONデータを読み込む
+        logger.info("JSONファイルを読み込んでいます...")
+        data = load_json_data(json_path)
+        
+        if not data:
+            logger.warning("警告: 有効なデータが含まれていません")
+            return 0
+        
+        logger.info(f"{len(data)}件の馬データを読み込みました")
         
         # データベースを初期化
-        print("データベースに接続しています...")
+        logger.info("データベースに接続しています...")
         session = init_db()
         
         # データベースを更新
-        print("データベースを更新しています...")
-        update_database(session, horses_data)
+        logger.info("データベースを更新しています...")
+        created, updated = update_database(session, data)
         
-        print("処理が完了しました。")
+        logger.info(f"処理が完了しました。新規作成: {created}件, 更新: {updated}件")
         return 0
         
+    except KeyboardInterrupt:
+        logger.info("処理がユーザーによって中断されました")
+        return 1
     except Exception as e:
-        print(f"エラーが発生しました: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"エラーが発生しました: {str(e)}", exc_info=True)
         return 1
 
 if __name__ == '__main__':

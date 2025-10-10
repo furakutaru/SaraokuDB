@@ -7,24 +7,23 @@
 """
 
 import argparse
-import concurrent.futures
 import functools
 import hashlib
 import json
 import logging
 import os
-import random
 import re
+import subprocess
 import sys
 import time
+import uuid
 import traceback
-import uuid
-import urllib.parse
-import uuid
-from typing import List, Optional, Dict, Any, Tuple, Union, Callable
+import random
+from datetime import datetime, date, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urljoin, urlparse, parse_qs, urlunparse
 
@@ -2160,7 +2159,16 @@ def load_existing_horses(output_dir: Path) -> List[Dict[str, Any]]:
     return []
 
 def save_horses_to_file(horses: List[Dict[str, Any]], output_path: Path) -> bool:
-    """馬データをファイルに保存する"""
+    """
+    馬データをファイルに保存する
+    
+    Args:
+        horses: 保存する馬データのリスト
+        output_path: 出力先のファイルパス
+        
+    Returns:
+        bool: 保存が成功した場合はTrue、失敗した場合はFalse
+    """
     try:
         # 必須フィールドを確認
         required_fields = ['id', 'name', 'sex', 'age', 'sire', 'dam', 'damsire', 'jbis_url']
@@ -2177,6 +2185,11 @@ def save_horses_to_file(horses: List[Dict[str, Any]], output_path: Path) -> bool
                 if field not in horse or not horse[field]:
                     horse[field] = ''
             
+            # 日付フィールドを文字列に変換
+            for date_field in ['auction_date', 'created_at', 'updated_at']:
+                if date_field in horse and isinstance(horse[date_field], (datetime, date)):
+                    horse[date_field] = horse[date_field].isoformat()
+            
             validated_horses.append(horse)
         
         # ファイルに保存
@@ -2187,6 +2200,109 @@ def save_horses_to_file(horses: List[Dict[str, Any]], output_path: Path) -> bool
     except Exception as e:
         logger.error(f'馬データの保存中にエラーが発生しました: {e}')
         return False
+
+def update_horses_database(horses: List[Dict[str, Any]]) -> bool:
+    """
+    馬データをデータベースに保存する
+    
+    Args:
+        horses: 保存する馬データのリスト
+        
+    Returns:
+        bool: データベース更新が成功した場合はTrue、失敗した場合はFalse
+    """
+    try:
+        # データベース更新スクリプトのパスを取得（絶対パスに変換）
+        update_script_path = (Path(__file__).parent / 'update_database.py').resolve()
+        
+        # スクリプトが存在するか確認
+        if not update_script_path.exists():
+            logger.error(f"データベース更新スクリプトが見つかりません: {update_script_path}")
+            return False
+        
+        # 一時ディレクトリのパスを絶対パスで設定
+        temp_dir = (Path(__file__).parent / 'temp').resolve()
+        temp_dir.mkdir(exist_ok=True, parents=True, mode=0o755)  # 適切なパーミッションを設定
+        temp_json = temp_dir / 'temp_horses.json'
+        
+        logger.info(f"一時ファイルに馬データを保存します: {temp_json}")
+        
+        try:
+            # 馬データを一時ファイルに保存
+            with open(temp_json, 'w', encoding='utf-8') as f:
+                json.dump(horses, f, ensure_ascii=False, indent=2)
+            
+            # スクリプトのフルパスを取得
+            script_path = str(update_script_path)
+            temp_json_path = str(temp_json)
+            
+            logger.info(f"データベース更新スクリプトを実行します: {script_path}")
+            logger.info(f"一時ファイル: {temp_json_path}")
+            logger.info(f"現在の作業ディレクトリ: {os.getcwd()}")
+            
+            # サブプロセスでデータベース更新スクリプトを実行
+            result = subprocess.run(
+                ['python3', script_path, '--input', temp_json_path],
+                capture_output=True,
+                text=True,
+                cwd=Path(__file__).parent  # スクリプトのディレクトリをカレントディレクトリに設定
+            )
+            
+            # 実行結果をログに出力
+            if result.stdout:
+                logger.info(f"スクリプト出力: {result.stdout}")
+            if result.stderr:
+                logger.error(f"スクリプトエラー: {result.stderr}")
+            
+            if result.returncode == 0:
+                logger.info("データベースの更新に成功しました")
+                return True
+            else:
+                logger.error(f"データベースの更新に失敗しました (終了コード: {result.returncode})")
+                return False
+                
+        except Exception as e:
+            logger.error(f"データベース更新スクリプトの実行中にエラーが発生しました: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False
+        finally:
+            # 一時ファイルを削除
+            if temp_json.exists():
+                try:
+                    temp_json.unlink()
+                    logger.debug(f"一時ファイルを削除しました: {temp_json}")
+                except Exception as e:
+                    logger.warning(f"一時ファイルの削除に失敗しました: {e}")
+                
+    except Exception as e:
+        logger.error(f"データベース更新中に予期しないエラーが発生しました: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return False
+
+def save_horses(horses: List[Dict[str, Any]], output_path: Path) -> bool:
+    """
+    馬データをファイルとデータベースに保存する
+    
+    Args:
+        horses: 保存する馬データのリスト
+        output_path: 出力先のファイルパス
+        
+    Returns:
+        bool: ファイルの保存とデータベースの更新の両方が成功した場合はTrue、それ以外はFalse
+    """
+    # ファイルに保存
+    if not save_horses_to_file(horses, output_path):
+        logger.error("ファイルの保存に失敗しました")
+        return False
+    
+    # データベースを更新
+    if not update_horses_database(horses):
+        logger.error("データベースの更新に失敗しました")
+        return False
+    
+    return True
 
 def main():
     # コマンドライン引数のパース
@@ -2245,8 +2361,8 @@ def main():
                 
                 # 更新されたデータを保存
                 updated_horses = list(existing_horses_map.values())
-                if save_horses_to_file(updated_horses, output_path):
-                    logger.info(f'馬情報を {output_path} に保存しました ({len(updated_horses)}頭)')
+                if save_horses(updated_horses, output_path):
+                    logger.info(f'馬情報を {output_path} に保存し、データベースを更新しました ({len(updated_horses)}頭)')
                 else:
                     logger.error('馬情報の保存に失敗しました')
                     return 1
@@ -2285,8 +2401,8 @@ def main():
                 
                 # 更新されたデータを保存
                 updated_horses = list(existing_horses_map.values())
-                if save_horses_to_file(updated_horses, output_path):
-                    logger.info(f'スクレイピング結果を {output_path.absolute()} に保存しました ({len(updated_horses)}頭)')
+                if save_horses(updated_horses, output_path):
+                    logger.info(f'スクレイピング結果を {output_path.absolute()} に保存し、データベースを更新しました ({len(updated_horses)}頭)')
                 else:
                     logger.error('スクレイピング結果の保存に失敗しました')
                     return 1
