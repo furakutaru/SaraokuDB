@@ -68,8 +68,9 @@ interface HorseCardProps {
 
 const HorseCard: React.FC<HorseCardProps> = ({ horse, onHorseClick }) => {
   const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (onHorseClick) {
+    // リンク以外の要素がクリックされた場合のみ処理を実行
+    if ((e.target as HTMLElement).tagName !== 'A' && onHorseClick) {
+      e.preventDefault();
       onHorseClick(horse);
     }
   };

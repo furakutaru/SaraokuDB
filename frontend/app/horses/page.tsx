@@ -531,9 +531,9 @@ export default function HorsesPage() {
                 // オークション履歴をマージ
                 auction_histories: (data?.auction_histories || []).filter((h: any) => h.horse_id === horse.id)
               }}
-              onHorseClick={() => {
-                // クリック時の処理（必要に応じて実装）
-                console.log('Horse clicked:', horse);
+              onHorseClick={(horse) => {
+                // 馬の詳細ページに遷移
+                router.push(`/horses/${horse.id}`);
               }}
             />
           ))}
