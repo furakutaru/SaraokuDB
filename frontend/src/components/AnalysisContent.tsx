@@ -1,13 +1,15 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
 import Link from 'next/link';
-import { Horse, ImageUrl, HorseData, AuctionHistory, HorseWithCalculations as BaseHorseWithCalculations } from '@/types/horse';
-import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { getDisplayPrice } from '@/utils/price';
-import { formatPrizeFromYen } from '@/utils/format';
+import { Horse, AuctionHistory, HorseWithCalculations as BaseHorseWithCalculations, ImageUrl } from '../types/horse';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { format } from 'date-fns';
+import { formatPrice, getDisplayPrice } from '../utils/price';
+import { format as dateFnsFormat } from 'date-fns';
+import { ja } from 'date-fns/locale';
 
 // 馬体重をフォーマットする関数（整数値のみを想定）
 function formatWeight(weight: number | string | null | undefined): string {
@@ -22,7 +24,7 @@ function formatWeight(weight: number | string | null | undefined): string {
 }
 
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
-import { normalizeImageUrl } from '@/utils/url';
+import { normalizeImageUrl } from '../utils/url';
 
 // 共有型に、このコンポーネント固有のフィールドを追加
 interface AnalysisHorse extends BaseHorseWithCalculations {
@@ -69,7 +71,7 @@ const transformHorseData = (data: any): AnalysisHorse[] => {
   try {
     console.log('Starting to process horses...');
     
-    const filteredHorses = horsesArray.filter(horse => {
+    const validHorses = horsesArray.filter((horse: any) => {
       if (!horse) {
         console.log('Found null or undefined horse, filtering out');
         return false;
@@ -81,13 +83,12 @@ const transformHorseData = (data: any): AnalysisHorse[] => {
         console.log('Horse missing required fields (id and name):', JSON.stringify(horse, null, 2));
         return false;
       }
-      
       return true;
     });
     
-    console.log(`Filtered ${horsesArray.length - filteredHorses.length} invalid horses`);
+    console.log(`Filtered ${horsesArray.length - validHorses.length} invalid horses`);
     
-    const result = filteredHorses.map((horse, index) => {
+    const result = validHorses.map((horse: any, index: number): AnalysisHorse => {
       console.log(`[${index}] Mapping horse:`, horse.name || 'No name');
     // IDを明示的に文字列に変換
     const horseId = horse.id ? String(horse.id) : `horse-${Date.now()}`;
@@ -405,9 +406,14 @@ const transformHorseData = (data: any): AnalysisHorse[] => {
     // 賞金情報を取得（prize_money.total_prize または latestAuction.total_prize_latest から取得）
     let prizeMoney = 0;
     if (horse.prize_money?.total_prize) {
-      // 例: "2,000,000円" から数値に変換
-      const prizeStr = horse.prize_money.total_prize.replace(/[^0-9]/g, '');
-      prizeMoney = parseInt(prizeStr, 10) || 0;
+      // 数値の場合はそのまま、文字列の場合は数値に変換
+      if (typeof horse.prize_money.total_prize === 'number') {
+        prizeMoney = horse.prize_money.total_prize;
+      } else {
+        // 文字列の場合は数値に変換
+        const prizeStr = String(horse.prize_money.total_prize).replace(/[^0-9]/g, '');
+        prizeMoney = parseInt(prizeStr, 10) || 0;
+      }
     } else {
       prizeMoney = latestAuction.total_prize_latest ?? 0;
     }
@@ -488,8 +494,13 @@ const transformHorseData = (data: any): AnalysisHorse[] => {
     const prizeMoneyValue = (() => {
       // 1. prize_moneyオブジェクトから取得を試みる
       if (horse.prize_money?.total_prize) {
-        const prizeStr = String(horse.prize_money.total_prize).replace(/[^0-9]/g, '');
-        const prize = parseInt(prizeStr, 10);
+        let prize: number;
+        if (typeof horse.prize_money.total_prize === 'number') {
+          prize = horse.prize_money.total_prize;
+        } else {
+          const prizeStr = String(horse.prize_money.total_prize).replace(/[^0-9]/g, '');
+          prize = parseInt(prizeStr, 10);
+        }
         if (!isNaN(prize) && prize > 0) {
           console.log(`[${index}] ${horse.name} - using prize_money.total_prize:`, prize);
           return prize;
@@ -534,7 +545,7 @@ const transformHorseData = (data: any): AnalysisHorse[] => {
       // 馬体重を数値のみで保持（表示時にkgを付与）
       weight: horseWeight,  // 数値のみを保持
       display_weight: horseWeight !== null ? `${horseWeight}kg` : '-',
-      display_prize: formatPrizeFromYen(prizeMoneyValue),
+      display_prize: getDisplayPrice({ price: prizeMoneyValue }),
       display_roi: calculatedRoiValue > 0 ? `${calculatedRoiValue.toFixed(1)}%` : '-',
       sort_price: soldPriceValue,
       sort_prize: prizeMoneyValue,
@@ -548,14 +559,14 @@ const transformHorseData = (data: any): AnalysisHorse[] => {
     });
     
     // Filter out any null values and ensure we have AnalysisHorse[] type
-    const filteredHorsesResult = result.filter((horse): horse is AnalysisHorse => horse !== null);
+    const finalHorses = result.filter((horse: AnalysisHorse | null): horse is AnalysisHorse => horse !== null);
     
     console.log(`=== Transformation Summary ===`);
     console.log(`Total input horses: ${horsesArray.length}`);
-    console.log(`Successfully transformed: ${filteredHorsesResult.length}`);
-    console.log(`Failed to transform: ${horsesArray.length - filteredHorsesResult.length}`);
+    console.log(`Successfully transformed: ${finalHorses.length}`);
+    console.log(`Failed to transform: ${horsesArray.length - finalHorses.length}`);
     
-    if (filteredHorsesResult.length === 0 && horsesArray.length > 0) {
+    if (finalHorses.length === 0 && horsesArray.length > 0) {
 console.error('No horses were transformed successfully. First horse data:', JSON.stringify(horsesArray[0], null, 2));
       
       // デバッグ用に最初の馬のデータを簡易変換して返す
@@ -589,53 +600,14 @@ console.error('No horses were transformed successfully. First horse data:', JSON
       return [debugHorse as AnalysisHorse];
     }
     
-    return filteredHorsesResult;
+    return finalHorses;
   } catch (error) {
     console.error('Error in transformHorseData:', error);
     return [];
   }
 };
 
-const formatPrice = (price: number | string | null | undefined, isUnsold: boolean = false) => {
-  // デバッグ用ログ
-  console.log('formatPrice input:', { price, type: typeof price, isUnsold });
-  
-  // 主取りフラグが立っているか、価格が無効な場合は「主取り」を返す
-  if (isUnsold || price === null || price === undefined || price === '') {
-    console.log('formatPrice: unsold or invalid price, returning 主取り');
-    return '主取り';
-  }
-  
-  // 数値に変換
-  let numPrice: number;
-  if (typeof price === 'string') {
-    // 文字列から数値に変換（カンマや通貨記号を削除）
-    numPrice = parseFloat(price.toString().replace(/[^0-9.]/g, ''));
-  } else {
-    numPrice = Number(price);
-  }
-  
-  // 数値が無効または0以下の場合は「主取り」を返す
-  if (isNaN(numPrice) || numPrice <= 0) {
-    console.log('formatPrice: invalid or zero price, returning 主取り');
-    return '主取り';
-  }
-  
-  // 価格をフォーマット
-  let formattedPrice: string;
-  if (numPrice < 1000000) {
-    // 100万円未満は「X.X万円」で表示（例: 30.5万円）
-    formattedPrice = `${(numPrice / 10000).toFixed(1).replace(/\.0$/, '')}万円`;
-  } else {
-    // 100万円以上は「X,XXX万円」で表示（例: 1,500万円）
-    formattedPrice = `${(numPrice / 10000).toLocaleString('ja-JP')}万円`;
-  }
-  
-  console.log('formatPrice: formatted price:', formattedPrice);
-  return formattedPrice;
-};
-
-// formatWeight, formatPrizeFromYen are imported from utils/format
+// formatPrice, formatWeight, formatPrizeFromYen are imported from utils/price
 
 const calcROI = (prize: number | string | { total_prize: string } | undefined, price: number | string | undefined): string => {
   if (!prize || !price) return '-';
@@ -721,11 +693,15 @@ export default function AnalysisContent() {
       // 統計情報を計算
       const soldPrices = transformedHorses
         .filter((h): h is AnalysisHorse & { sold_price: number } => 
-          h.sold_price !== null && h.sold_price > 0)
+          h.sold_price !== null && h.sold_price !== undefined && h.sold_price > 0)
         .map(h => h.sold_price);
       
       const growthRates = transformedHorses
-        .filter(h => h.total_prize_start > 0 && h.total_prize_latest > h.total_prize_start)
+        .filter((h): h is AnalysisHorse & { total_prize_start: number; total_prize_latest: number } => 
+          h.total_prize_start !== undefined && 
+          h.total_prize_latest !== undefined && 
+          h.total_prize_start > 0 && 
+          h.total_prize_latest > h.total_prize_start)
         .map(h => ((h.total_prize_latest - h.total_prize_start) / h.total_prize_start) * 100);
       
       // メタデータを生成
@@ -1023,8 +999,9 @@ export default function AnalysisContent() {
       return formatPrice(0);
     }
 
-    // それ以外の場合はフォーマットして返す
-    return formatPrice(price);
+    // それ以外の場合は数値に変換してからフォーマットして返す
+    const priceNum = typeof price === 'string' ? parseFloat(price) : Number(price);
+    return formatPrice(priceNum);
   };
 
   // ソート処理の適用
@@ -1117,10 +1094,10 @@ export default function AnalysisContent() {
                   </td>
                   <td className="px-3 py-2">-</td>
                   <td className="px-3 py-2">
-                    {horse.prize_money ? formatPrizeFromYen(horse.prize_money.total_prize) : '-'}
+                    {horse.prize_money?.total_prize !== undefined ? getDisplayPrice({ price: horse.prize_money.total_prize }) : '-'}
                   </td>
                   <td className="px-3 py-2">
-                    {horse.prize_money ? 
+                    {horse.prize_money?.total_prize !== undefined ? 
                       calcROI(horse.prize_money.total_prize, horse.sold_price ?? undefined) : 
                       calcROI(undefined, horse.sold_price ?? undefined)}
                   </td>
