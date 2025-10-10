@@ -1,4 +1,4 @@
-import { HorseData } from '../types';
+import type { Horse, AuctionHistory, HorseData, ApiMetadata } from '../types';
 
 /**
  * 文字列から不正な文字を除去するヘルパー関数
@@ -15,36 +15,63 @@ const sanitizeString = (str: any): string => {
 };
 
 /**
- * Fetches the list of horses from the API
- * @param latestOnly Whether to fetch only the latest auction data
- * @returns A promise that resolves to the horse data
+ * APIのベースURLを取得する
+ */
+const getApiBaseUrl = (): string => {
+  // 環境変数からAPIのベースURLを取得、デフォルトはローカルのバックエンドサーバー（ポート8001）
+  // バックエンドのAPIRouterが /api プレフィックスを期待しているため、明示的に追加
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001') + '/api';
+  return baseUrl.replace(/([^:]\/)\/+/g, '$1'); // 連続するスラッシュを削除
+};
+
+/**
+ * エラーレスポンスを処理する
+ */
+const handleErrorResponse = async (response: Response): Promise<never> => {
+  let errorMessage = `HTTP error! status: ${response.status}`;
+  try {
+    const errorData = await response.json();
+    errorMessage = errorData.detail || errorMessage;
+    console.error('Error parsing error response:', errorData);
+  } catch (error) {
+    console.error('Error parsing error response:', error);
+  }
+  throw new Error(errorMessage);
+};
+
+export interface HorseResponse {
+  horse: Horse;
+  auction_histories?: AuctionHistory[];
+}
+
+/**
+ * 馬の一覧を取得する
+ * @param latestOnly 最新のデータのみ取得するかどうか
+ * @returns 馬のデータ
  */
 export const fetchHorsesList = async (latestOnly: boolean = false): Promise<HorseData> => {
   try {
-    // 環境変数からAPIのベースURLを取得、デフォルトはローカルのバックエンドサーバー（ポート8001）
-    // バックエンドのAPIRouterが /api プレフィックスを期待しているため、明示的に追加
-    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001') + '/api';
-    
-    // 最新のオークションのみを取得するかどうかでエンドポイントを切り替え
+    const baseUrl = getApiBaseUrl();
     const endpoint = latestOnly ? '/horses/latest' : '/horses';
-    // 連続するスラッシュを削除しつつ、パスを正しく結合
-    const url = `${baseUrl}${endpoint}`.replace(/([^:]\/)\/+/g, '$1');
+    const url = `${baseUrl}${endpoint}`;
     
     console.log(`[fetchHorsesList] リクエストURL: ${url}`);
     
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
       },
-      cache: 'no-store'
+      cache: 'no-store',
+      next: { revalidate: 60 } // 60秒間キャッシュ
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      return await handleErrorResponse(response);
     }
 
-    // テキストとして取得してからパースすることで、不正なUTF-8文字を処理
     const responseText = await response.text();
     let responseData;
     
@@ -54,10 +81,10 @@ export const fetchHorsesList = async (latestOnly: boolean = false): Promise<Hors
       responseData = JSON.parse(cleanText);
     } catch (parseError) {
       console.error('[fetchHorsesList] JSONパースエラー:', parseError);
-      // エラーが発生した場合は空のレスポンスを返す
+      // エラー時に空のデータを返す
       return {
         horses: [],
-        auctionHistories: [],
+        auction_histories: [],
         metadata: {
           last_updated: new Date().toISOString(),
           total_horses: 0,
@@ -65,12 +92,12 @@ export const fetchHorsesList = async (latestOnly: boolean = false): Promise<Hors
         }
       };
     }
-    
+
     console.log('[fetchHorsesList] APIレスポンス:', {
       hasHorses: !!responseData.horses,
       horsesCount: responseData.horses?.length || 0,
-      hasAuctionHistories: !!(responseData.auction_histories || responseData.auctionHistories),
-      auctionHistoriesCount: (responseData.auction_histories || responseData.auctionHistories || []).length,
+      hasAuctionHistories: !!responseData.auction_histories,
+      auctionHistoriesCount: responseData.auction_histories?.length || 0,
       metadata: responseData.metadata
     });
 
@@ -98,18 +125,11 @@ export const fetchHorsesList = async (latestOnly: boolean = false): Promise<Hors
           seller: sanitizeString(history.seller),
           comment: sanitizeString(history.comment)
         }))
-      : (Array.isArray(responseData.auctionHistories) 
-          ? responseData.auctionHistories.map((history: any) => ({
-              ...history,
-              // 文字列フィールドのサニタイズ
-              seller: sanitizeString(history.seller),
-              comment: sanitizeString(history.comment)
-            }))
-          : []);
+      : [];
 
     return {
       horses,
-      auctionHistories,
+      auction_histories: auctionHistories,
       metadata: {
         last_updated: responseData.metadata?.last_updated || new Date().toISOString(),
         total_horses: responseData.metadata?.total_horses || horses.length,
@@ -121,7 +141,7 @@ export const fetchHorsesList = async (latestOnly: boolean = false): Promise<Hors
     // エラー時に空のデータを返す
     return {
       horses: [],
-      auctionHistories: [],
+      auction_histories: [],
       metadata: {
         last_updated: new Date().toISOString(),
         total_horses: 0,
@@ -132,12 +152,80 @@ export const fetchHorsesList = async (latestOnly: boolean = false): Promise<Hors
 };
 
 /**
- * Helper function to get auction histories from data
- * @param data The horse data
- * @returns An array of auction histories
+ * 馬の詳細を取得する
+ * @param id 馬のID
+ * @returns 馬の詳細データ
  */
-export const getAuctionHistories = (data: HorseData | null): any[] => {
-  if (!data) return [];
-  // どちらのプロパティ名でも取得できるようにする
-  return data.auctionHistories || data.auction_histories || [];
+export const fetchHorseById = async (id: string | number): Promise<Horse | null> => {
+  try {
+    const baseUrl = getApiBaseUrl();
+    const url = `${baseUrl}/horses/${id}`;
+    
+    console.log(`[fetchHorseById] リクエストURL: ${url}`);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+      next: { revalidate: 60 } // 60秒間キャッシュ
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`[fetchHorseById] 馬ID ${id} のデータが見つかりませんでした`);
+        return null;
+      }
+      return await handleErrorResponse(response);
+    }
+
+    const responseText = await response.text();
+    let responseData: HorseResponse;
+    
+    try {
+      // 正規表現を使用して不正なUTF-8文字を除去
+      const cleanText = responseText.replace(/[\u0000-\u001F\u007F-\u009F\uD800-\uDFFF]/g, '');
+      responseData = JSON.parse(cleanText);
+    } catch (parseError) {
+      console.error('[fetchHorseById] JSONパースエラー:', parseError);
+      throw new Error('馬データの解析に失敗しました');
+    }
+
+    if (!responseData.horse) {
+      console.error('[fetchHorseById] 無効なレスポンス形式:', responseData);
+      throw new Error('無効なレスポンス形式です');
+    }
+
+    return responseData.horse;
+  } catch (error) {
+    console.error(`[fetchHorseById] エラーが発生しました:`, error);
+    throw error;
+  }
+};
+
+/**
+ * オークション履歴を取得する
+ * @param horse 馬データ
+ * @returns オークション履歴の配列
+ */
+export const getAuctionHistories = (horse: Horse | null): AuctionHistory[] => {
+  if (!horse) return [];
+  
+  // history または auction_histories から履歴を取得
+  const histories = horse.history 
+    ? (Array.isArray(horse.history) ? horse.history : [horse.history])
+    : horse.auction_histories || [];
+  
+  // 日付でソート（新しい順）
+  return [...histories].sort((a: AuctionHistory, b: AuctionHistory) => {
+    const getDate = (date: string | string[] | undefined): Date => {
+      if (!date) return new Date(0);
+      const dateStr = Array.isArray(date) ? date[0] : date;
+      return new Date(dateStr) || new Date(0);
+    };
+    
+    return getDate(b.auction_date).getTime() - getDate(a.auction_date).getTime();
+  });
 };

@@ -1,8 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { Box, Typography, Tooltip } from '@mui/material';
-import { format } from 'date-fns';
-import { ja } from 'date-fns/locale';
 
 // コンポーネントの型定義
 import type { Horse } from '../../types';
@@ -16,6 +14,7 @@ import {
   getGrowthRate
 } from '../../utils/formatters';
 import { formatAge } from '../../utils/formatAge';
+import { parseAuctionDate, formatDate } from '../../utils/dateUtils';
 import SexBadge from '../SexBadge';
 
 // 動的インポートのための型定義
@@ -94,7 +93,7 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, onHorseClick }) => {
   const totalPrizeLatest = formatPrize(horse.total_prize_latest);
 
   return (
-    <Link href={`/horses/${horse.id}`} passHref>
+    <Link href={`/horses/${horse.id}`} passHref legacyBehavior>
       <Box 
         component="a"
         className="block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
@@ -181,7 +180,7 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, onHorseClick }) => {
             {latestAuction?.auction_date && (
               <Box className="mt-2 pt-2 border-t border-gray-100 text-right">
                 <Typography variant="caption" className="text-gray-400">
-                  {format(new Date(latestAuction.auction_date), 'yyyy/MM/dd', { locale: ja })}
+                  {latestAuction.auction_date ? formatDate(parseAuctionDate(latestAuction.auction_date)) : '不明'}
                 </Typography>
               </Box>
             )}

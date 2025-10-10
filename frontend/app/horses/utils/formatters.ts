@@ -115,8 +115,12 @@ export const getDisplayPrice = (horse: Horse): string => {
   if (horse.auction_histories && horse.auction_histories.length > 0) {
     // 日付でソート（新しい順）
     const sortedHistory = [...horse.auction_histories].sort((a, b) => {
-      const dateA = a.auction_date ? new Date(a.auction_date).getTime() : 0;
-      const dateB = b.auction_date ? new Date(b.auction_date).getTime() : 0;
+      // auction_date が配列の場合は最初の要素を使用
+      const dateAStr = Array.isArray(a.auction_date) ? a.auction_date[0] : a.auction_date;
+      const dateBStr = Array.isArray(b.auction_date) ? b.auction_date[0] : b.auction_date;
+      
+      const dateA = dateAStr ? new Date(dateAStr).getTime() : 0;
+      const dateB = dateBStr ? new Date(dateBStr).getTime() : 0;
       return dateB - dateA;
     });
 

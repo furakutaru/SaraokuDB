@@ -1,6 +1,23 @@
+// オークション履歴
+export interface AuctionHistory {
+  id: number | string;
+  horse_id: number | string;
+  auction_date: string | string[];
+  sold_price: string | number | null;
+  total_prize_start: number;
+  total_prize_latest: number;
+  weight: number | null;
+  seller: string | null;
+  is_unsold: boolean;
+  comment: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // 馬の基本情報
 export interface Horse {
-  id: string;
+  id: number | string;
+  auction_id?: string;
   name: string;
   sex: string;
   age: number;
@@ -10,57 +27,42 @@ export interface Horse {
   image_url: string;
   jbis_url: string;
   auction_url: string;
-  disease_tags: string[];
+  disease_tags?: string[];
   weight: number | null;
-  race_record: string;
-  comment: string;
-  created_at: string;
-  updated_at: string;
-  sold_price?: number | null;
-  seller?: string;
-  auction_date?: string;
+  race_record?: string;
+  comment?: string;
+  created_at?: string;
+  updated_at?: string;
+  sold_price?: string | number | null;
+  seller?: string | null;
+  auction_date?: string | string[] | null;
   total_prize_start?: number;
   total_prize_latest?: number;
   is_unsold?: boolean;
-  auction_histories?: AuctionHistory[];
+  history?: AuctionHistory | AuctionHistory[];
   latestHistory?: {
     sex?: string;
     [key: string]: any;
   };
-}
-
-// オークション履歴
-export interface AuctionHistory {
-  id: string;
-  horse_id: string;
-  auction_date: string;
-  sold_price: number | null;
-  total_prize_start: number;
-  total_prize_latest: number;
-  weight: number | null;
-  seller: string;
-  is_unsold: boolean;
-  comment: string;
-  created_at: string;
+  auction_histories?: AuctionHistory[];
 }
 
 // オークション履歴の配列型
 export type AuctionHistories = AuctionHistory[] | undefined;
 
+// メタデータの型
+export interface ApiMetadata {
+  last_updated: string;
+  total_horses: number;
+  total_auction_records: number;
+  [key: string]: any;
+}
+
 // 馬データのレスポンス型
 export interface HorseData {
   horses: Horse[];
-  auctionHistories?: AuctionHistory[];
   auction_histories?: AuctionHistory[];
-  metadata?: {
-    last_updated?: string;
-    total_horses?: number;
-    total_auction_records?: number;
-    [key: string]: any;
-  };
-  last_updated?: string;
-  total_horses?: number;
-  total_auction_records?: number;
+  metadata?: ApiMetadata;
 }
 
 // ページネーション情報

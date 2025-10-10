@@ -201,19 +201,19 @@ export default function HorsesPage() {
         
         // 最新のオークションの馬のみを取得するかどうかを決定
         const result = await fetchHorsesList(isRecentPage);
-        const auctionHistories = result.auctionHistories || result.auction_histories || [];
+        const auction_histories = result.auction_histories || [];
         
         console.log('[useEffect] 取得したデータ:', {
           isRecentPage,
           horsesCount: result.horses.length,
-          auctionHistoriesCount: auctionHistories.length,
+          auction_histories_count: auction_histories.length,
           metadata: result.metadata
         });
         
         if (isMounted) {
           setData({
             horses: result.horses,
-            auctionHistories,
+            auction_histories: auction_histories,
             metadata: result.metadata
           });
         }
@@ -224,7 +224,7 @@ export default function HorsesPage() {
           // エラー時も空のデータをセット
           setData({
             horses: [],
-            auctionHistories: [],
+            auction_histories: [],
             metadata: {
               last_updated: new Date().toISOString(),
               total_horses: 0,
@@ -529,7 +529,7 @@ export default function HorsesPage() {
               horse={{
                 ...horse,
                 // オークション履歴をマージ
-                auction_histories: (data?.auctionHistories || []).filter((h: any) => h.horse_id === horse.id)
+                auction_histories: (data?.auction_histories || []).filter((h: any) => h.horse_id === horse.id)
               }}
               onHorseClick={() => {
                 // クリック時の処理（必要に応じて実装）

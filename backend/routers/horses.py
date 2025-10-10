@@ -73,12 +73,31 @@ async def get_horses(
         if latest_auction_bool:
             print("\n1.1 Getting latest auction date...")
             
+            # デバッグ: データベース内のオークション日付のサンプルを表示
+            sample_dates = db.query(Horse.auction_date).filter(
+                Horse.auction_date.isnot(None)
+            ).order_by(Horse.id.desc()).limit(5).all()
+            print(f"Sample auction dates in DB: {sample_dates}")
+            
             # 最新のオークション日を取得（NULLでないもののみ）
             latest_date_result = db.query(
                 func.max(Horse.auction_date)
             ).filter(
                 Horse.auction_date.isnot(None)
             ).scalar()
+            
+            print(f"Latest auction date result: {latest_date_result} (type: {type(latest_date_result) if latest_date_result else 'None'})")
+            
+            # デバッグ: 日付のフォーマットを確認
+            if latest_date_result:
+                try:
+                    from datetime import datetime
+                    if isinstance(latest_date_result, str):
+                        # 文字列の場合、日付に変換してみる
+                        parsed_date = datetime.fromisoformat(latest_date_result.replace('Z', '+00:00'))
+                        print(f"Parsed date: {parsed_date} (type: {type(parsed_date)})")
+                except Exception as e:
+                    print(f"Error parsing date: {e}")
             
             if latest_date_result:
                 latest_date = latest_date_result
@@ -226,7 +245,8 @@ async def get_horses(
             }
         )
 
-@router.get("/horses/{horse_id}", response_model=HorseResponse)
+@router.get("/api/horses/{horse_id}", response_model=HorseResponse)
+@router.get("/horses/{horse_id}", response_model=HorseResponse, deprecated=True)
 async def get_horse(horse_id: str, db: Session = Depends(get_db)):
     """馬IDで馬データを取得
     

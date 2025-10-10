@@ -4,12 +4,35 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
 // 日付フォーマット用のヘルパー関数
-const formatDate = (dateString: string | null | undefined): string => {
+const formatDate = (dateString: string | string[] | null | undefined): string => {
   if (!dateString) return '-';
+  
   try {
-    return format(new Date(dateString), 'yyyy/MM/dd', { locale: ja });
+    let dateToFormat: string;
+    
+    // 配列の場合は最初の要素を使用
+    if (Array.isArray(dateString)) {
+      dateToFormat = dateString[0];
+    } 
+    // JSON文字列の配列の場合（例: '["2025-10-10"]'）
+    else if (typeof dateString === 'string' && dateString.startsWith('[') && dateString.endsWith(']')) {
+      try {
+        const parsedArray = JSON.parse(dateString);
+        dateToFormat = Array.isArray(parsedArray) ? parsedArray[0] : dateString;
+      } catch {
+        dateToFormat = dateString;
+      }
+    } else {
+      dateToFormat = dateString;
+    }
+    
+    // 日付オブジェクトに変換してフォーマット
+    const date = new Date(dateToFormat);
+    if (isNaN(date.getTime())) return '-';
+    
+    return format(date, 'yyyy/MM/dd', { locale: ja });
   } catch (e) {
-    console.error('日付のフォーマットに失敗しました:', e);
+    console.error('日付のフォーマットに失敗しました:', e, '入力値:', dateString);
     return '-';
   }
 };
