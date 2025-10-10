@@ -67,12 +67,19 @@ class ScraperClient:
             return False
         
         try:
+            # データのコピーを作成（元データを変更しないため）
+            data_to_send = horse_data.copy()
+            
+            # race_recordsをrace_recordにマッピング
+            if 'race_records' in data_to_send:
+                data_to_send['race_record'] = data_to_send.pop('race_records')
+            
             response = self.session.post(
                 f"{self.api_base_url}/horses",
-                json=horse_data
+                json=data_to_send
             )
             response.raise_for_status()
-            logger.info(f"馬データを保存しました: {horse_data.get('name')}")
+            logger.info(f"馬データを保存しました: {data_to_send.get('name')}")
             return True
         except requests.exceptions.HTTPError as e:
             logger.error(f"APIリクエストエラー: {e.response.status_code} - {e.response.text}")

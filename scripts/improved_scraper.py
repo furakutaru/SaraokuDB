@@ -2005,11 +2005,13 @@ class ImprovedRakutenScraper:
             # レース記録を抽出
             race_record_data, race_success = self.race_record_extractor.extract(html_content)
             if race_success and race_record_data:
+                # 抽出したデータをrace_recordsに保存（後でrace_recordにマッピングされる）
                 horse_info['race_records'] = race_record_data
                 self.logger.debug(f'抽出されたレース記録: {race_record_data}')
             else:
                 self.logger.warning('レース記録の抽出に失敗しました')
-                horse_info['race_records'] = {'summary': {}, 'races': []}
+                # 空の辞書で初期化（後でrace_recordにマッピングされる）
+                horse_info['race_records'] = {}
             
             # コメントを抽出（詳細ページのHTMLをそのまま渡す）
             comment, comment_success = self.comment_extractor.extract(soup)

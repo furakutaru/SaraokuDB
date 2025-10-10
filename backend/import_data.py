@@ -105,7 +105,7 @@ def import_horses():
                     detail_url=detail_url,
                     rakuten_url=rakuten_url,  # 楽天オークションURLを追加
                     weight=horse_data.get('weight'),
-                    race_record=json.dumps(horse_data.get('race_record', {})),
+                    race_record=json.dumps(horse_data.get('race_records', {})),
                     total_prize_start=float(horse_data.get('total_prize_start', 0)),
                     total_prize_latest=prize_money,
                     sold_price=sold_price or '[]',

@@ -643,43 +643,84 @@ interface PageProps {
 }
 
 // レース成績表示用のコンポーネント
-const RaceRecordDisplay = ({ record }: { record: any }) => {
+const RaceRecordDisplay = ({ record, raceRecords }: { record: any, raceRecords?: any }) => {
   try {
-    // レコードが存在しない場合
-    if (!record) return <span className="font-medium">データなし</span>;
-    
-    // 文字列の場合
-    if (typeof record === 'string') {
-      // JSON文字列の可能性がある場合
-      if (record.startsWith('{') && record.endsWith('}')) {
+    // race_records が存在する場合は、それを優先的に使用
+    if (raceRecords) {
+      // race_records が文字列の場合はパースを試みる
+      if (typeof raceRecords === 'string') {
         try {
-          const parsed = JSON.parse(record);
-          return <RaceRecordDisplay record={parsed} />;
+          raceRecords = JSON.parse(raceRecords);
         } catch (e) {
-          return <span className="font-medium">{record}</span>;
+          console.error('race_records のパースに失敗しました:', e);
         }
       }
-      return <span className="font-medium">{record}</span>;
-    }
-    
-    // オブジェクトの場合
-    if (typeof record === 'object') {
-      // total_races と wins が存在する場合は新しい形式で表示
-      if (record.total_races !== undefined && record.wins !== undefined) {
-        const wins = record.wins || 0;
-        const seconds = record.seconds || 0;
-        const thirds = record.thirds || 0;
-        const others = Math.max(0, record.total_races - wins - seconds - thirds);
-        return (
-          <span className="font-medium">
-            {`${record.total_races}戦${wins}勝[${wins}-${seconds}-${thirds}-${others}]`}
-          </span>
-        );
+      
+      // パース後のオブジェクトを確認
+      if (raceRecords && typeof raceRecords === 'object') {
+        // formatted_record が存在する場合はそれを表示
+        if (raceRecords.formatted_record) {
+          return <span className="font-medium">{raceRecords.formatted_record}</span>;
+        }
+        // total_races と wins が存在する場合はフォーマットして表示
+        else if (raceRecords.total_races !== undefined && raceRecords.wins !== undefined) {
+          const wins = raceRecords.wins || 0;
+          const seconds = raceRecords.seconds || 0;
+          const thirds = raceRecords.thirds || 0;
+          const others = Math.max(0, raceRecords.total_races - wins - seconds - thirds);
+          return (
+            <span className="font-medium">
+              {`${raceRecords.total_races}戦${wins}勝[${wins}-${seconds}-${thirds}-${others}]`}
+            </span>
+          );
+        }
       }
-      // formatted_record が存在する場合
-      else if (record.formatted_record) {
-        // formatted_record が「11戦0勝」のような形式の場合、そのまま表示
-        return <span className="font-medium">{record.formatted_record}</span>;
+    }
+
+    // 従来の record の処理（下位互換性のため保持）
+    if (record) {
+      // 文字列の場合
+      if (typeof record === 'string') {
+        // 空のオブジェクトを表す文字列の場合
+        if (record === '{}' || record === '[]') {
+          return <span className="font-medium">データなし</span>;
+        }
+        // JSON文字列の可能性がある場合
+        if ((record.startsWith('{') && record.endsWith('}')) || 
+            (record.startsWith('[') && record.endsWith(']'))) {
+          try {
+            const parsed = JSON.parse(record);
+            return <RaceRecordDisplay record={parsed} />;
+          } catch (e) {
+            return <span className="font-medium">{record}</span>;
+          }
+        }
+        return <span className="font-medium">{record}</span>;
+      }
+      
+      // オブジェクトの場合
+      if (typeof record === 'object') {
+        // 空のオブジェクトの場合は「データなし」を表示
+        if (Object.keys(record).length === 0) {
+          return <span className="font-medium">データなし</span>;
+        }
+        // total_races と wins が存在する場合は新しい形式で表示
+        if (record.total_races !== undefined && record.wins !== undefined) {
+          const wins = record.wins || 0;
+          const seconds = record.seconds || 0;
+          const thirds = record.thirds || 0;
+          const others = Math.max(0, record.total_races - wins - seconds - thirds);
+          return (
+            <span className="font-medium">
+              {`${record.total_races}戦${wins}勝[${wins}-${seconds}-${thirds}-${others}]`}
+            </span>
+          );
+        }
+        // formatted_record が存在する場合
+        else if (record.formatted_record) {
+          // formatted_record が「11戦0勝」のような形式の場合、そのまま表示
+          return <span className="font-medium">{record.formatted_record}</span>;
+        }
       }
     }
     
@@ -1099,7 +1140,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                       <ExternalLinks 
                         jbisUrl={horse.jbis_url}
                         auctionUrl={horse.auction_url}
-                        rakutenUrl={horse.rakuten_url}
+                        rakutenUrl={horse.rakuten_url || horse.detail_url}
                         className="text-sm"
                       />
                     </div>
@@ -1125,7 +1166,10 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                         {/* レース成績履歴 */}
                         <div className="flex justify-between">
                           <span className="text-gray-600">レース成績:</span>
-                          <RaceRecordDisplay record={latestHistory.race_record} />
+                          <RaceRecordDisplay 
+                            record={latestHistory.race_record} 
+                            raceRecords={latestHistory.race_records} 
+                          />
                         </div>
                         {/* 落札価格は右カラムに表示するため、このセクションでは非表示に変更 */}
                       </div>
@@ -1261,7 +1305,12 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                           </td>
                           <td className="px-2 py-1 border">{h.age}</td>
                           <td className="px-2 py-1 border">{h.seller}</td>
-                          <td className="px-2 py-1 border"><RaceRecordDisplay record={h.race_record} /></td>
+                          <td className="px-2 py-1 border">
+                            <RaceRecordDisplay 
+                              record={h.race_record} 
+                              raceRecords={h.race_records} 
+                            />
+                          </td>
                           <td className="px-2 py-1 border text-right">{
                             h.unsold ? '不成立' : formatPrizeMan(h.sold_price || 0)
                           }</td>
