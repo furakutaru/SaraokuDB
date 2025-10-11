@@ -4,6 +4,20 @@
 """
 import os
 import sys
+import logging
+
+# ロギング設定
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('scraper_debug.log', encoding='utf-8')
+    ]
+)
+
+logger = logging.getLogger(__name__)
+logger.info("スクレイパーを開始します")
 
 # プロジェクトのルートディレクトリをPythonパスに追加
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
