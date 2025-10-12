@@ -15,8 +15,9 @@ import {
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { format, format as dateFnsFormat } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { formatPrice, getDisplayPrice } from '../utils/price';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
+import { formatPrice, getDisplayPrice, formatWeight, calcROI } from '../utils/formatters';
+import { calculateAverage, calculateAverageGrowthRate } from '../utils/calculations';
 import { normalizeImageUrl } from '../utils/url';
 
 // 表示タイプの型
@@ -68,17 +69,6 @@ interface AnalysisHorse extends BaseHorse {
   effectiveWeight?: number | null;
 }
 
-// 馬体重をフォーマットする関数（整数値のみを想定）
-function formatWeight(weight: number | string | null | undefined): string {
-  console.log('formatWeight called with:', weight, 'type:', typeof weight);
-  if (weight === null || weight === undefined || weight === '') {
-    return '-';
-  }
-  // 数値に変換して整数に丸める
-  const num = typeof weight === 'string' ? parseInt(weight, 10) : Math.floor(Number(weight));
-  console.log('formatted weight:', num);
-  return isNaN(num) ? '-' : `${num}kg`;
-}
 
 // 表示用の拡張型
 interface HorseWithCalculations extends AnalysisHorse {
@@ -705,44 +695,6 @@ console.error('No horses were transformed successfully. First horse data:', JSON
 
 // formatPrice, formatWeight, formatPrizeFromYen are imported from utils/price
 
-const calcROI = (prize: number | string | { total_prize: string } | undefined, price: number | string | undefined): string => {
-  if (!prize || !price) return '-';
-  
-  // 賞金を数値に変換
-  let prizeNum: number;
-  if (typeof prize === 'object' && prize !== null && 'total_prize' in prize) {
-    prizeNum = parseFloat(prize.total_prize.replace(/[^0-9.]/g, '')) || 0;
-  } else if (typeof prize === 'string') {
-    prizeNum = parseFloat(prize) || 0;
-  } else {
-    prizeNum = prize || 0;
-  }
-  
-  // 価格を数値に変換
-  const numPrice = typeof price === 'string' ? parseFloat(price) : (price || 0);
-  
-  if (isNaN(prizeNum) || isNaN(numPrice) || numPrice === 0) return '-';
-  
-  // ROIを計算（賞金 / 価格）
-  const roi = (prizeNum / numPrice) * 100; // パーセント表示
-  return roi.toFixed(1) + '%';
-};
-
-// 数値の平均を計算する関数
-const calculateAverage = (numbers: number[]): number => {
-  if (!numbers.length) return 0;
-  const sum = numbers.reduce((a, b) => a + b, 0);
-  return sum / numbers.length;
-};
-
-// 成長率の平均を計算する関数
-const calculateAverageGrowthRate = (rates: number[]): number => {
-  if (!rates.length) return 0;
-  const validRates = rates.filter(rate => isFinite(rate) && !isNaN(rate));
-  if (!validRates.length) return 0;
-  const sum = validRates.reduce((a, b) => a + b, 0);
-  return sum / validRates.length;
-};
 
 // ソートアイコンをレンダリングする関数
 const renderSortIcon = (key: keyof AnalysisHorse, currentSortKey: keyof AnalysisHorse, currentSortOrder: 'asc' | 'desc') => {
