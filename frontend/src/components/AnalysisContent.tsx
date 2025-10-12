@@ -4,12 +4,69 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AuctionHistory, HorseWithCalculations as BaseHorseWithCalculations, ImageUrl } from '../types/horse';
+import { 
+  AuctionHistory, 
+  BaseHorse, 
+  HorseData, 
+  Metadata, 
+  PrizeMoney, 
+  ImageUrl 
+} from '../types/horse';
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { format } from 'date-fns';
-import { formatPrice, getDisplayPrice } from '../utils/price';
-import { format as dateFnsFormat } from 'date-fns';
+import { format, format as dateFnsFormat } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { formatPrice, getDisplayPrice } from '../utils/price';
+import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
+import { normalizeImageUrl } from '../utils/url';
+
+// 表示タイプの型
+type ShowType = 'all' | 'sold' | 'unsold' | 'roi' | 'value';
+
+// 分析データの型
+interface AnalysisData {
+  horses: AnalysisHorse[];
+  last_updated: string;
+  total_horses: number;
+  average_price: number;
+  average_growth_rate: number;
+  horses_with_growth_data: number;
+}
+
+// 分析用の馬情報の型
+interface AnalysisHorse extends BaseHorse {
+  id: string | number;
+  name: string;
+  sex: string;
+  age: number;
+  sire: string;
+  dam: string;
+  damsire: string;
+  weight?: number | null;
+  primary_image: string;
+  jbis_url?: string;
+  detail_url?: string;
+  rakuten_url?: string;
+  auction_url?: string;
+  disease_tags?: string[];
+  unsold_count?: number;
+  is_unsold?: boolean;
+  unsold?: boolean;
+  comment?: string;
+  effectiveAuction: AuctionHistory;
+  sold_price?: number | null;
+  total_prize_start: number;
+  total_prize_latest: number;
+  auction_history?: AuctionHistory[];
+  prize_money?: PrizeMoney;
+  display_weight?: string;
+  display_price?: string;
+  sort_price?: number;
+  sort_prize?: number;
+  sort_roi?: number;
+  roi?: number;
+  price_per_kg?: number;
+  effectiveWeight?: number | null;
+}
 
 // 馬体重をフォーマットする関数（整数値のみを想定）
 function formatWeight(weight: number | string | null | undefined): string {
@@ -23,30 +80,17 @@ function formatWeight(weight: number | string | null | undefined): string {
   return isNaN(num) ? '-' : `${num}kg`;
 }
 
-import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
-import { normalizeImageUrl } from '../utils/url';
-
-// 基本情報を含む拡張型
-interface AnalysisHorse extends Omit<BaseHorseWithCalculations, 'jbis_url' | 'detail_url' | 'weight' | 'is_unsold'> {
-  // 基本情報
-  id: string | number;  // 馬の一意の識別子
-  name: string;  // 馬名
-  sex: string;
-  age: number;
-  sire: string;
-  dam: string;
-  damsire: string;
-  weight?: number | null;  // 馬体重
-  
-  // オークション情報
-  effectiveAuction: AuctionHistory;
-  sold_price?: number | null;
-  total_prize_start: number;
-  total_prize_latest: number;
-  unsold?: boolean;  // is_unsold のエイリアス
-  is_unsold?: boolean;  // 互換性のため
-  unsold_count: number;
-  auction_history?: AuctionHistory[];
+// 表示用の拡張型
+interface HorseWithCalculations extends AnalysisHorse {
+  display_weight: string;
+  display_price: string;
+  display_prize: string;
+  display_roi: string;
+  sort_price: number;
+  sort_prize: number;
+  sort_roi: number;
+  roi?: number;
+  price_per_kg?: number;
   
   // 賞金情報
   prize_money?: {
@@ -76,16 +120,12 @@ interface AnalysisHorse extends Omit<BaseHorseWithCalculations, 'jbis_url' | 'de
 
 interface AnalysisData {
   horses: AnalysisHorse[];
-  metadata: {
-    last_updated: string;
-    total_horses: number;
-    average_price: number;
-    average_growth_rate: number;
-    horses_with_growth_data: number;
-  };
+  last_updated: string;
+  total_horses: number;
+  average_price: number;
+  average_growth_rate: number;
+  horses_with_growth_data: number;
 }
-
-type ShowType = 'all' | 'sold' | 'unsold' | 'roi' | 'value';
 
 // 馬データを変換する関数
 const transformHorseData = (data: any): AnalysisHorse[] => {
@@ -103,7 +143,13 @@ const transformHorseData = (data: any): AnalysisHorse[] => {
                      (data.horses && Array.isArray(data.horses) ? data.horses : []);
   
   // メタデータを保持
-  const metadata = data.metadata || {};
+  const metadata = {
+    last_updated: data.last_updated || new Date().toISOString(),
+    total_horses: data.total_horses || 0,
+    average_price: data.average_price || 0,
+    average_growth_rate: data.average_growth_rate || 0,
+    horses_with_growth_data: data.horses_with_growth_data || 0
+  };
   
   console.log(`Transforming ${horsesArray.length} horses`);
   if (horsesArray.length > 0) {
@@ -754,19 +800,14 @@ export default function AnalysisContent() {
           h.total_prize_latest > h.total_prize_start)
         .map(h => ((h.total_prize_latest - h.total_prize_start) / h.total_prize_start) * 100);
       
-      // メタデータを生成
-      const metadata = {
+      // 分析データを設定
+      const analysisData: AnalysisData = {
+        horses: transformedHorses,
         last_updated: new Date().toISOString(),
         total_horses: transformedHorses.length,
         average_price: calculateAverage(soldPrices),
         average_growth_rate: calculateAverageGrowthRate(growthRates),
-        horses_with_growth_data: growthRates.length,
-      };
-      
-      // 分析データを設定
-      const analysisData: AnalysisData = {
-        horses: transformedHorses,
-        metadata: metadata
+        horses_with_growth_data: growthRates.length
       };
       
       console.log('Transformed analysis data:', analysisData);
@@ -820,6 +861,10 @@ export default function AnalysisContent() {
   
   // 表示用の馬データを準備
   let tableHorses = data.horses.map(horse => {
+    // ROIを計算
+    const soldPrice = horse.sold_price || 0;
+    const prizeMoney = horse.total_prize_latest || 0;
+    const roi = soldPrice > 0 ? (prizeMoney / soldPrice) * 100 : 0;
     // オークション履歴を取得（auction_historyがなければ空配列を使用）
     const auctionHistory = Array.isArray(horse.auction_history) ? horse.auction_history : [];
     
@@ -860,7 +905,10 @@ export default function AnalysisContent() {
       total_prize_start: latestAuction.total_prize_start,
       total_prize_latest: latestAuction.total_prize_latest || 0,
       sold_price: latestAuction.sold_price || 0,
-      unsold: latestAuction.is_unsold || (horse.unsold_count ? horse.unsold_count > 0 : false)
+      unsold: latestAuction.is_unsold || (horse.unsold_count ? horse.unsold_count > 0 : false),
+      roi: (latestAuction.sold_price && latestAuction.sold_price > 0 && latestAuction.total_prize_latest) 
+        ? (latestAuction.total_prize_latest / latestAuction.sold_price) * 100 
+        : 0
     };
   });
   
@@ -874,7 +922,7 @@ export default function AnalysisContent() {
   } else if (showType === 'roi') {
     tableHorses = tableHorses.filter(horse => horse.roi > 0);
   } else if (showType === 'value') {
-    const avgPrice = data.metadata.average_price;
+    const avgPrice = data.average_price;
     tableHorses = tableHorses.filter(horse => 
       !horse.unsold && 
       horse.sold_price && 
@@ -1020,7 +1068,7 @@ export default function AnalysisContent() {
     const soldPrice = h.sold_price || 0;
     const prizeMoney = h.total_prize_latest || 0;
     const roi = soldPrice > 0 ? prizeMoney / soldPrice : 0;
-    return soldPrice > 0 && roi > avgROI && soldPrice < data.metadata.average_price;
+    return soldPrice > 0 && roi > avgROI && soldPrice < data.average_price;
   });
 
   // 年齢を表示するヘルパー関数（スクレイピングデータをそのまま表示）
@@ -1082,7 +1130,7 @@ export default function AnalysisContent() {
         {/* サマリー 横並びテキスト */}
         <div className="mb-6 text-lg font-semibold text-gray-700 flex flex-wrap gap-8">
           <span>総馬数: {tableHorses.length}</span>
-          <span>平均落札価格: {formatPrice(data.metadata.average_price)}</span>
+          <span>平均落札価格: {formatPrice(data.average_price)}</span>
           <span>平均ROI: {avgROI.toFixed(2)}</span>
         </div>
         {/* 指標ボタン（白文字色付き） */}
