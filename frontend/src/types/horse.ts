@@ -38,33 +38,58 @@ export interface ImageUrl {
 // 馬の基本情報のインターフェース
 export interface BaseHorse {
   id: string | number;
+  name?: string;
   auction_id?: string;
   sex: string;
   sire: string;
   dam: string;
   damsire: string;
   image_url: ImageUrl | string;
-  jbis_url?: string | undefined;  // オプショナルに変更
-  detail_url?: string | undefined;  // オプショナルに変更  // オプショナルに変更
+  jbis_url?: string;
+  detail_url?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 /**
  * 馬の情報を表すインターフェース
-{{ ... }}
+ */
 export interface Horse extends BaseHorse {
-  // オプショナルな基本情報
-  disease_tags?: string[];
-  created_at?: string;
-  updated_at?: string;
+  // 基本情報
+  birth_year?: number;
+  age?: number;
+  color?: string;
+  breeder?: string;
+  owner?: string;
+  trainer?: string;
+  location?: string;
   
   // オークション関連
+  auction_date?: string;
   sold_price?: number | null;
   is_unsold?: boolean;
   seller?: string;
   
   // 賞金関連
+  total_prize_start?: number;
   total_prize_latest?: number;
   prize_money?: PrizeMoney;
+  
+  // 表示用のフォーマット済み文字列
+  display_prize?: string;
+  display_roi?: string;
+  display_weight?: string;
+  display_price?: string;
+  
+  // ソート用の数値
+  sort_price?: number;
+  sort_prize?: number;
+  sort_roi?: number;
+  
+  // 計算済みの値
+  roi?: number;
+  price_per_kg?: number;
+  effectiveWeight?: number | null;
   
   // 互換性のためのフィールド
   /** @deprecated 代わりに detail_url を使用してください */
@@ -75,8 +100,6 @@ export interface Horse extends BaseHorse {
   price?: number;
   /** @deprecated 代わりに image_url を使用してください */
   primary_image?: string;
-  /** @deprecated 代わりに detail_url を使用してください */
-  rakuten_url?: string;
   
   // 未落札回数
   unsold_count?: number;
@@ -85,8 +108,10 @@ export interface Horse extends BaseHorse {
   auction_history?: AuctionHistory[];
   history?: AuctionHistory[]; // 互換性のため
   weight?: number | null;
+  disease_tags?: string[];
 }
 
+// メタデータのインターフェース
 export interface Metadata {
   last_updated: string;
   total_horses: number;
@@ -116,6 +141,7 @@ export interface HorseWithCalculations extends Horse {
   sort_price: number;
   sort_prize: number;
   sort_roi: number;
+  
   // 互換性のためのプロパティ
   primary_image: string;
 }
@@ -123,6 +149,15 @@ export interface HorseWithCalculations extends Horse {
 /**
  * 分析データを表すインターフェース
  */
+interface AnalysisData {
+  horses: HorseWithCalculations[];
+  last_updated: string;
+  total_horses: number;
+  average_price: number;
+  average_growth_rate: number;
+  horses_with_growth_data: number;
+}
+
 /**
  * 馬のデータを表すインターフェース
  * APIレスポンスの型として使用
