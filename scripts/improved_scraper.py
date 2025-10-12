@@ -2264,8 +2264,12 @@ class ImprovedRakutenScraper:
             
             # 賞金情報を抽出
             prize_info, prize_success = self.prize_info_extractor.extract(html_content)
-            if prize_success and prize_info:
+            if prize_success and prize_info and isinstance(prize_info, dict) and prize_info.get('total_prize') is not None:
                 horse_info.update(prize_info)
+                self.logger.info(f'賞金情報を抽出しました: {prize_info}')
+            else:
+                horse_info['total_prize'] = None  # 明示的にNoneを設定
+                self.logger.warning('賞金情報の抽出に失敗したか、有効な賞金情報がありませんでした')
             
             # 画像URLを抽出
             image_url, image_success = self.image_extractor.extract(html_content)

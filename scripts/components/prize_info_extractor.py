@@ -275,7 +275,7 @@ class PrizeInfoExtractor:
                 
         except Exception as e:
             self.logger.error(f'賞金情報の抽出中にエラーが発生しました: {e}', exc_info=True)
-            return {}, False
+            return None, False
             
     # JBISから最新の賞金情報を取得するメソッド（将来的に使用）
     def _get_jbis_prize(self, horse_element):
