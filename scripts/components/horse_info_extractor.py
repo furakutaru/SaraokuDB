@@ -1,16 +1,26 @@
+from typing import Dict, List, Any, Optional, Tuple, Union
+from pathlib import Path
+
 """
 馬の基本情報を抽出するためのコンポーネント（更新版）
 """
 import re
+import time
 import traceback
 import logging
 import unicodedata
-from pathlib import Path
-from typing import Dict, Any, Optional, Tuple, List
 from bs4 import BeautifulSoup, Tag
 
 class HorseInfoExtractor:
     """馬の基本情報を抽出するクラス"""
+    
+    # 正規表現パターンをクラス変数として事前コンパイル
+    SELLER_PATTERNS = [
+        re.compile(r'販売申込者[：:]([^<\n（]+)', re.IGNORECASE),  # 最も一般的なパターン
+        re.compile(r'販売申込人[：:]([^<\n（]+)', re.IGNORECASE),  # 代替表記
+        re.compile(r'販売者[：:]([^<\n（]+)', re.IGNORECASE)      # より短い表記
+    ]
+    SELLER_KEYWORDS = ['販売申込者', '販売申込人', '販売者']
     
     def __init__(self, logger: Optional[logging.Logger] = None):
         """
@@ -20,11 +30,31 @@ class HorseInfoExtractor:
             logger: ロガーインスタンス（指定がない場合は新規作成）
         """
         self.logger = logger or logging.getLogger(__name__)
+        
+        # ロガーにハンドラが設定されていない場合は、コンソールハンドラを追加
+        if not self.logger.handlers:
+            # ログレベルの設定
+            self.logger.setLevel(logging.DEBUG)
+            
+            # コンソールハンドラの設定
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.DEBUG)
+            
+            # フォーマッタの設定
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            console_handler.setFormatter(formatter)
+            
+            # ハンドラを追加
+            self.logger.addHandler(console_handler)
+            
+            # ロガーの伝播設定
+            self.logger.propagate = False
     
     def _extract_pedigree(self, horse_element: Tag) -> Dict[str, str]:
         """
         血統情報を抽出する（新しいHTML構造用に更新）
         
+{{ ... }}
         [2025-08-31 確定] 本番環境での動作を確認済み
         - テーブル形式とテキスト形式の両方の血統情報に対応
         - 父・母・母父の情報を正確に抽出可能
@@ -158,6 +188,72 @@ class HorseInfoExtractor:
             
         return result
 
+    def _extract_seller_info(self, horse_element: Union[Tag, str], logger: Optional[logging.Logger] = None) -> Optional[str]:
+        """
+        詳細ページのHTMLから販売者情報を抽出する（最適化版）
+        
+        Args:
+            horse_element: 馬情報を含むBeautifulSoup要素またはHTML文字列
+            logger: ロガー（オプション）
+            
+        Returns:
+            Optional[str]: 抽出した販売者情報（見つからない場合はNone）
+        """
+        logger = logger or self.logger
+        
+        try:
+            # 生のHTMLを文字列として取得
+            html_content = str(horse_element)
+            
+            # 事前コンパイル済みの正規表現パターンで検索
+            for pattern in self.SELLER_PATTERNS:
+                match = pattern.search(html_content)
+                if match:
+                    seller = ' '.join(match.group(1).strip().split())  # 連続する空白を1つに
+                    logger.info(f'販売者を抽出しました: {seller}')
+                    return seller
+            
+            # パターンに一致しない場合、BeautifulSoupで構造を解析
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # 1. テーブル構造から検索
+            for row in soup.find_all('tr'):
+                cells = row.find_all('td')
+                if len(cells) >= 2:
+                    header_text = cells[0].get_text(strip=True)
+                    if any(keyword in header_text for keyword in self.SELLER_KEYWORDS):
+                        seller = ' '.join(cells[1].get_text(strip=True).split())
+                        if seller:
+                            logger.info(f'テーブルから販売者を抽出: {seller}')
+                            return seller
+            
+            # 2. コメント内を検索
+            for comment in soup.find_all(string=lambda text: isinstance(text, str) and 
+                                       any(keyword in text for keyword in self.SELLER_KEYWORDS)):
+                for keyword in self.SELLER_KEYWORDS:
+                    if keyword in comment:
+                        match = re.search(fr'{re.escape(keyword)}[：:]([^<\n（]+', comment)
+                        if match:
+                            seller = ' '.join(match.group(1).strip().split())
+                            logger.info(f'コメントから販売者を抽出: {seller}')
+                            return seller
+            
+            # 3. 見つからなかった場合、デバッグ情報を記録
+            debug_dir = Path('debug_html')
+            debug_dir.mkdir(exist_ok=True)
+            debug_file = debug_dir / f'seller_debug_{int(time.time())}.html'
+            
+            with open(debug_file, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            logger.warning(f"販売者情報が見つかりませんでした。デバッグ用にHTMLを保存しました: {debug_file}")
+            return None
+            
+        except Exception as e:
+            error_msg = f"販売者情報の抽出中にエラーが発生しました: {str(e)}\n{traceback.format_exc()}"
+            logger.error(error_msg)
+            return None
+
     def extract(self, horse_element: Tag) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         馬の基本情報を抽出する
@@ -187,6 +283,11 @@ class HorseInfoExtractor:
             if weight is not None:
                 basic_info['weight'] = weight
                 
+            # 販売者情報の抽出
+            seller = self._extract_seller_info(horse_element)
+            if seller:
+                basic_info['seller'] = seller
+            
             # 詳細情報の抽出
             detail_info = {}
             

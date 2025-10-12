@@ -1168,7 +1168,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                           <span className="text-gray-600">レース成績:</span>
                           <RaceRecordDisplay 
                             record={latestHistory.race_record} 
-                            raceRecords={latestHistory.race_records} 
+                            raceRecords={latestHistory.race_record} 
                           />
                         </div>
                         {/* 落札価格は右カラムに表示するため、このセクションでは非表示に変更 */}
@@ -1308,7 +1308,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                           <td className="px-2 py-1 border">
                             <RaceRecordDisplay 
                               record={h.race_record} 
-                              raceRecords={h.race_records} 
+                              raceRecords={h.race_record} 
                             />
                           </td>
                           <td className="px-2 py-1 border text-right">{

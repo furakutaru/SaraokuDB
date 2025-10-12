@@ -24,7 +24,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from pathlib import Path
 from urllib.parse import urljoin, urlparse, parse_qs, urlunparse
 
 # プロジェクトのルートディレクトリをPythonパスに追加
@@ -32,8 +31,61 @@ project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
+# 共通ユーティリティのインポート
+try:
+    from scripts.utils.common import (
+        setup_logging,
+        save_to_json,
+        load_from_json,
+        get_file_hash,
+        ensure_directory
+    )
+    COMMON_UTILS_AVAILABLE = True
+except ImportError:
+    COMMON_UTILS_AVAILABLE = False
+    
+    # フォールバック用の簡易実装
+    def setup_logging(*args, **kwargs):
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        return logging.getLogger(__name__)
+    
+    def save_to_json(data, file_path, **kwargs):
+        file_path = Path(file_path)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, **kwargs)
+    
+    def load_from_json(file_path):
+        file_path = Path(file_path)
+        if not file_path.exists():
+            return None
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    
+    def get_file_hash(file_path):
+        import hashlib
+        file_path = Path(file_path)
+        if not file_path.exists():
+            return ""
+        hash_md5 = hashlib.md5()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+    
+    def ensure_directory(directory):
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
 # バックエンドモジュールのインポート状態
 BACKEND_AVAILABLE = False
+
+# ロガーの設定
+logger = logging.getLogger(__name__)
 
 # 馬データを保存する関数
 def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -47,12 +99,8 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
         Dict: 保存結果を含む辞書
     """
     try:
-        # 保存先ディレクトリが存在するか確認し、なければ作成
-        data_dir = Path('static-frontend/public/data')
-        data_dir.mkdir(exist_ok=True, parents=True)
-        
         # 保存先ファイルパス
-        json_file = data_dir / 'horses.json'
+        json_file = Path('static-frontend/public/data/horses.json')
         
         # 必須フィールドが存在することを確認
         required_fields = ['id', 'name', 'sex', 'age', 'sire', 'dam', 'damsire', 'jbis_url']
@@ -61,38 +109,30 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
                 horse_data[field] = ''  # 必須フィールドがなければ空文字を設定
         
         # 既存のデータを読み込む（存在する場合）
+        existing_data = []
+        metadata = {}
+        
         if json_file.exists():
-            try:
-                with open(json_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    # 既存のデータが新しい形式かどうかをチェック
-                    if isinstance(data, dict) and 'horses' in data:
-                        existing_data = data['horses']
-                        metadata = data.get('metadata', {})
-                    else:
-                        # 古い形式（配列）の場合は変換
-                        existing_data = data if isinstance(data, list) else []
-                        metadata = {}
-            except (json.JSONDecodeError, FileNotFoundError):
-                existing_data = []
-                metadata = {}
-        else:
-            existing_data = []
-            metadata = {}
-            
+            data = load_from_json(json_file)
+            if isinstance(data, dict) and 'horses' in data:
+                existing_data = data['horses']
+                metadata = data.get('metadata', {})
+            elif isinstance(data, list):
+                existing_data = data
+        
         # メタデータを更新
-        from datetime import datetime
         metadata.update({
             'version': '1.0',
             'last_updated': datetime.now().isoformat(),
-            'total_horses': len(existing_data) + (0 if updated else 1)  # 更新/追加に応じてカウントを調整
+            'total_horses': len(existing_data) + (0 if horse_data.get('id') in 
+                                [h.get('id') for h in existing_data if isinstance(h, dict)] else 1)
         })
         
         # 馬IDが指定されていない場合はエラー
         horse_id = horse_data.get('id')
         if not horse_id:
             error_msg = "馬IDが指定されていません。オークションページのIDを指定してください"
-            print(f"[ERROR] {error_msg}")
+            logger.error(error_msg)
             return {'error': error_msg}
             
         # 数値IDに変換（文字列の場合は数値に、既に数値の場合はそのまま）
@@ -101,7 +141,7 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
             horse_data['id'] = horse_id
         except (ValueError, TypeError) as e:
             error_msg = f"無効な馬ID形式です: {horse_id}"
-            print(f"[ERROR] {error_msg}")
+            logger.error(error_msg, exc_info=True)
             return {'error': error_msg}
         
         # 既存の馬データを更新または新規追加
@@ -501,13 +541,15 @@ class ScraperConfig:
         self,
         max_workers: int = 5, 
         use_cache: bool = True, 
-        cache_dir: str = 'cache',
+        cache_dir: Union[str, Path] = 'cache',
         timeout: int = 30,
         max_retries: int = 3,
         backoff_factor: float = 1.0,
         min_delay: float = 1.0,
         max_delay: float = 3.0,
-        use_mobile: bool = True  # デフォルトでモバイル版を使用
+        use_mobile: bool = True,  # デフォルトでモバイル版を使用
+        log_level: str = 'INFO',
+        log_file: Optional[Union[str, Path]] = None
     ):
         """
         初期化メソッド
@@ -522,17 +564,33 @@ class ScraperConfig:
             min_delay: リクエスト間の最小遅延（秒）
             max_delay: リクエスト間の最大遅延（秒）
             use_mobile: モバイル版のUser-Agentを使用するかどうか
+            log_level: ログレベル（'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'）
+            log_file: ログファイルのパス（Noneの場合はコンソールのみに出力）
         """
         self.max_workers = max_workers
         self.use_cache = use_cache
-        self.cache_dir = Path(cache_dir)
+        self.cache_dir = Path(cache_dir) if cache_dir else None
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
         self.min_delay = min_delay
         self.max_delay = max_delay
         self.use_mobile = use_mobile
+        self.log_level = log_level
+        self.log_file = Path(log_file) if log_file else None
         self._current_ua_index = 0
+        
+        # ロギングの初期化
+        self.logger = setup_logging(log_level=log_level, log_file=log_file)
+        
+        # キャッシュディレクトリの作成
+        if self.use_cache and self.cache_dir:
+            try:
+                ensure_directory(self.cache_dir)
+                self.logger.debug(f"キャッシュディレクトリを初期化しました: {self.cache_dir}")
+            except Exception as e:
+                self.logger.warning(f"キャッシュディレクトリの初期化に失敗しました: {e}")
+                self.use_cache = False
         
     def get_random_user_agent(self) -> str:
         """ランダムなUser-Agentを取得（モバイル/PCを設定に応じて切り替え）"""
@@ -571,6 +629,57 @@ class TestConfig(ScraperConfig):
 class ImprovedRakutenScraper:
     """楽天競馬オークションのスクレイパークラス"""
     
+    def __init__(
+        self, 
+        config: Optional[ScraperConfig] = None,
+        **kwargs
+    ):
+        """
+        初期化メソッド
+        
+        Args:
+            config: スクレイパー設定（省略時はデフォルト設定を使用）
+            **kwargs: 設定オーバーライド用のキーワード引数
+        """
+        # 設定の初期化
+        self.config = config if config is not None else ScraperConfig(**kwargs)
+        
+        # ロガーの設定
+        self.logger = self.config.logger
+        
+        # リクエストセッションの初期化
+        self.session = requests.Session()
+        
+        # リトライ設定
+        retry_strategy = Retry(
+            total=self.config.max_retries,
+            backoff_factor=self.config.backoff_factor,
+            status_forcelist=[408, 429, 500, 502, 503, 504],
+            allowed_methods=["GET", "POST"]
+        )
+        
+        # アダプターの設定
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+        
+        # ユーザーエージェントの設定
+        self.session.headers.update({
+            'User-Agent': self.config.get_random_user_agent(),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+            'Connection': 'keep-alive',
+        })
+        
+        # キャッシュの初期化
+        self._setup_cache()
+        
+        # その他の初期化
+        self.failed_horses = []  # 失敗した馬の記録用
+        self.processed_count = 0  # 処理済みカウンタ
+        
+        self.logger.info("スクレイパーを初期化しました")
+    
     def _handle_error(self, error: Exception, context: str = "", log_level: str = "error", 
                     reraise: bool = False, **kwargs) -> Optional[Dict]:
         """
@@ -605,7 +714,7 @@ class ImprovedRakutenScraper:
         log_method(log_message, exc_info=log_level.lower() in ['error', 'critical'])
         
         # 失敗した馬を記録
-        if 'horse_id' in kwargs:
+        if 'horse_id' in kwargs and hasattr(self, 'failed_horses'):
             self.failed_horses.append({
                 'horse_id': kwargs['horse_id'],
                 'error': error_info,
@@ -617,7 +726,7 @@ class ImprovedRakutenScraper:
             raise error
             
         return error_info
-        
+    
     def _setup_cache(self) -> None:
         """キャッシュの設定を行う"""
         # キャッシュをデフォルトで無効化
@@ -625,22 +734,24 @@ class ImprovedRakutenScraper:
         self.use_cache = False
         
         # 設定でキャッシュが有効な場合のみ初期化
-        if hasattr(self.config, 'use_cache') and self.config.use_cache:
+        if not hasattr(self, 'config') or not hasattr(self.config, 'use_cache'):
+            self.logger.warning("設定が見つからないため、キャッシュを無効化します")
+            return
+            
+        if self.config.use_cache and self.config.cache_dir:
             try:
-                # cache_dirがPathオブジェクトでない場合は変換
-                cache_dir = Path(self.config.cache_dir) if not isinstance(self.config.cache_dir, Path) else self.config.cache_dir
-                
-                # キャッシュディレクトリの作成を試みる
-                cache_dir.mkdir(parents=True, exist_ok=True)
-                
                 # キャッシュマネージャーの初期化
-                self.cache_manager = CacheManager(base_dir=cache_dir)
+                self.cache_manager = CacheManager(base_dir=self.config.cache_dir)
                 self.use_cache = True
-                self.logger.info(f"キャッシュを有効化: {cache_dir}")
+                self.logger.info(f"キャッシュを有効化: {self.config.cache_dir}")
                 
                 # キャッシュセッションを開始
-                if not self.start_cache_session():
+                if hasattr(self, 'start_cache_session') and not self.start_cache_session():
                     self.logger.warning("キャッシュセッションの開始に失敗しました")
+                    
+            except Exception as e:
+                self.use_cache = False
+                self.logger.warning(f"キャッシュの初期化に失敗しました: {e}")
                     
             except Exception as e:
                 self._handle_error(
@@ -2221,9 +2332,17 @@ class ImprovedRakutenScraper:
             return []
 
 
-def setup_logging(debug=False):
-    """ロギングの設定を行う"""
-    log_level = logging.DEBUG if debug else logging.INFO
+def setup_logging(debug=False, log_level=None, log_file=None):
+    """ロギングの設定を行う
+    
+    Args:
+        debug: デバッグモードの有効/無効
+        log_level: ログレベル (logging.DEBUG, logging.INFO など)
+        log_file: ログファイルのパス (Noneの場合はデフォルトのログファイルを使用)
+    """
+    # ログレベルの設定
+    if log_level is None:
+        log_level = logging.DEBUG if debug else logging.INFO
     
     # ログフォーマット
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -2235,22 +2354,21 @@ def setup_logging(debug=False):
     console_formatter = logging.Formatter(fmt=log_format, datefmt=date_format)
     console_handler.setFormatter(console_formatter)
     
-    # ファイルハンドラ
-    log_dir = Path('logs')
-    log_dir.mkdir(exist_ok=True)
-    
-    log_file = log_dir / 'scraper.log'
-    file_handler = logging.FileHandler(log_file, encoding='utf-8')
-    file_handler.setLevel(logging.DEBUG)  # ファイルには常にDEBUGレベルで出力
-    file_formatter = logging.Formatter(fmt=log_format, datefmt=date_format)
-    file_handler.setFormatter(file_formatter)
-    
     # ルートロガーの設定
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    root_logger.setLevel(logging.DEBUG)  # ルートは最も低いレベルに設定
     root_logger.handlers = []  # 既存のハンドラをクリア
     root_logger.addHandler(console_handler)
-    root_logger.addHandler(file_handler)
+    
+    # ファイルハンドラの設定
+    if log_file is not None:
+        log_file = Path(log_file)
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG)  # ファイルには常にDEBUGレベルで出力
+        file_formatter = logging.Formatter(fmt=log_format, datefmt=date_format)
+        file_handler.setFormatter(file_formatter)
+        root_logger.addHandler(file_handler)
     
     # 外部ライブラリのログレベルを制御
     logging.getLogger('requests').setLevel(logging.WARNING)
