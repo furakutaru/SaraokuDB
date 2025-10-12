@@ -20,7 +20,7 @@ import {
   FaChevronRight 
 } from 'react-icons/fa';
 import { normalizeImageUrl } from '../utils/url';
-import { formatPrice, formatWeight, calcROI } from '../utils/formatters';
+import { formatPrice, formatWeight, calcROI, getDisplayPrice } from '../utils/formatters';
 import { 
   Horse, 
   HorseWithCalculations, 
@@ -255,13 +255,22 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
     const auctionEndDate = latestAuction?.auction_date ? new Date(latestAuction.auction_date) : null;
     const isAuctionEnded = auctionEndDate ? auctionEndDate < new Date() : false;
     
-    const hasUnsoldFlag = 
-      horse.is_unsold === true || 
-      horse.unsold === true ||
-      (latestAuction && (latestAuction.is_unsold === true || latestAuction.unsold === true));
+    // 主取りフラグを初期化
+    let isHorseUnsold = false;
+    let hasUnsoldFlag = false;
     
-    const isHorseUnsold = hasUnsoldFlag || 
-      (isAuctionEnded && (soldPrice === null || soldPrice <= 0));
+    // soldPrice が正の数値の場合は、明示的に主取りフラグが立っていても落札済みとみなす
+    if (soldPrice !== null && soldPrice > 0) {
+      isHorseUnsold = false;
+    } else {
+      // soldPrice が null または 0 以下の場合のみ、主取りフラグをチェック
+      hasUnsoldFlag = 
+        horse.is_unsold === true || 
+        horse.unsold === true ||
+        (latestAuction && (latestAuction.is_unsold === true || latestAuction.unsold === true));
+      
+      isHorseUnsold = hasUnsoldFlag || (isAuctionEnded && (soldPrice === null || soldPrice <= 0));
+    }
     
     console.log(`[${index}] ${horse.name} - isHorseUnsold:`, isHorseUnsold, {
       horse_unsold: horse.unsold,
@@ -315,6 +324,11 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
       
       return result;
     })();
+    
+    // 馬オブジェクトにsold_priceとunsoldフラグを設定
+    horse.sold_price = soldPrice;
+    horse.is_unsold = isHorseUnsold;
+    horse.unsold = isHorseUnsold;
     
     // 馬の基本情報と最新のオークション情報をマージ
     // 馬オブジェクト直下の情報を優先し、なければオークション履歴の情報を使用
@@ -581,7 +595,7 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
       ...baseHorse,
       roi: calculatedRoiValue,
       price_per_kg: pricePerKgValue,
-      display_price: isUnsold ? '未落札' : soldPrice ? `${soldPrice}万円` : '-',
+      display_price: isUnsold ? '主取り' : soldPrice ? formatPrice(soldPrice) : '-',
       // 馬体重を数値のみで保持（表示時にkgを付与）
       weight: horseWeight,  // 数値のみを保持
       display_weight: horseWeight !== null ? `${horseWeight}kg` : '-',
@@ -811,6 +825,15 @@ export default function AnalysisContent() {
           : undefined;
     })();
 
+    // 直近状態を優先して表示値を決定
+    const mergedSoldPrice = (typeof horse.sold_price === 'number' && horse.sold_price > 0)
+      ? Number(horse.sold_price)
+      : (Number(latestAuction.sold_price) || 0);
+
+    const isUnsoldCurrent = (mergedSoldPrice <= 0) && (
+      latestAuction.is_unsold === true || latestAuction.unsold === true
+    );
+
     return {
       ...horse,
       ...latestAuction,
@@ -819,10 +842,10 @@ export default function AnalysisContent() {
       detail_url: latestAuction.detail_url || latestAuction.auction_url || horse.detail_url || horse.auction_url || '',
       total_prize_start: latestAuction.total_prize_start,
       total_prize_latest: latestAuction.total_prize_latest || 0,
-      sold_price: latestAuction.sold_price || 0,
-      unsold: latestAuction.is_unsold || (horse.unsold_count ? horse.unsold_count > 0 : false),
-      roi: (latestAuction.sold_price && latestAuction.sold_price > 0 && latestAuction.total_prize_latest) 
-        ? (latestAuction.total_prize_latest / latestAuction.sold_price) * 100 
+      sold_price: mergedSoldPrice,
+      unsold: isUnsoldCurrent,
+      roi: (mergedSoldPrice > 0 && latestAuction.total_prize_latest) 
+        ? (latestAuction.total_prize_latest / mergedSoldPrice) * 100 
         : 0
     };
   });
@@ -995,7 +1018,15 @@ export default function AnalysisContent() {
   };
 
   const displayPrice = (price: number | string | null | undefined, horse: DisplayHorse): string => {
-    // 明示的に主取りフラグが立っているときは「主取り」を返す
+    // 価格が正の値の場合は必ずその価格を表示
+    if (price !== null && price !== undefined) {
+      const priceNum = typeof price === 'string' ? parseFloat(price) : Number(price);
+      if (!isNaN(priceNum) && priceNum > 0) {
+        return formatPrice(priceNum);
+      }
+    }
+    
+    // 価格が正の値でない場合のみ、主取りフラグをチェック
     const isUnsold = horse.is_unsold === true || 
                     horse.unsold === true || 
                     (horse.effectiveAuction && (horse.effectiveAuction.is_unsold === true || horse.effectiveAuction.unsold === true));
@@ -1105,7 +1136,27 @@ export default function AnalysisContent() {
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    {horse.display_price}
+                    {(() => {
+                      // デバッグ用ログ
+                      console.log(`Rendering price for ${horse.name}:`, {
+                        sold_price: horse.sold_price,
+                        is_unsold: horse.is_unsold,
+                        unsold: horse.unsold
+                      });
+                      
+                      // 価格が正の値の場合はフォーマットして表示
+                      if (horse.sold_price && horse.sold_price > 0) {
+                        return formatPrice(horse.sold_price);
+                      }
+                      
+                      // 主取りフラグが立っている場合は「主取り」と表示
+                      if (horse.is_unsold || horse.unsold) {
+                        return '主取り';
+                      }
+                      
+                      // それ以外は「-」を表示
+                      return '-';
+                    })()}
                   </td>
                   <td className="px-3 py-2">-</td>
                   <td className="px-3 py-2">

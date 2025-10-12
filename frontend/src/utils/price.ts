@@ -32,6 +32,12 @@ export interface HorseLikeForPrice {
   sold_price?: number | string | null;
   history?: HistoryLike[];
   price?: number | string | null;
+  effectiveAuction?: {
+    sold_price?: number | string | null;
+    is_unsold?: boolean;
+    unsold?: boolean;
+  };
+  display_price?: string;
 }
 
 // 価格を表示用の文字列に変換する関数
@@ -45,10 +51,25 @@ export function getDisplayPrice(horse: HorseLikeForPrice | null | undefined): st
                  horse.sold_price === null ||
                  horse.sold_price === undefined ||
                  horse.sold_price === '[null]' ||
-                 horse.sold_price === 'null';
+                 horse.sold_price === 'null' ||
+                 (horse.effectiveAuction && (horse.effectiveAuction.is_unsold || horse.effectiveAuction.unsold));
 
   if (isUnsold) {
     return '主取り';
+  }
+
+  // effectiveAuction から価格を取得
+  if (horse.effectiveAuction && horse.effectiveAuction.sold_price) {
+    const price = horse.effectiveAuction.sold_price;
+    if (typeof price === 'number') {
+      return formatPrice(price);
+    } else if (typeof price === 'string') {
+      const cleanPrice = price.replace(/[^0-9.-]/g, '');
+      const numPrice = parseFloat(cleanPrice);
+      if (!isNaN(numPrice) && numPrice > 0) {
+        return formatPrice(numPrice);
+      }
+    }
   }
 
   // 配列の場合の処理（例: [1020000] のような形式）
@@ -60,36 +81,36 @@ export function getDisplayPrice(horse: HorseLikeForPrice | null | undefined): st
         if (typeof price === 'string') {
           // 角括弧で囲まれた文字列を処理（例: "[1020000]"）
           const cleanPrice = price.replace(/[\[\]"\s]/g, '');
-          const num = Number(cleanPrice);
-          return isNaN(num) ? null : num;
+          // 数値に変換
+          return parseFloat(cleanPrice) || null;
         }
-        return Number(price);
+        return Number(price) || null;
       })
       .filter((price): price is number => price !== null && !isNaN(price) && price > 0)
       .pop();
 
     if (lastValidPrice !== undefined) {
-      return `¥${lastValidPrice.toLocaleString()}`;
+      return formatPrice(lastValidPrice);
     }
     return '主取り';
   }
 
   // 文字列の価格の場合（例: "310000" または "[310000]"）
   if (typeof horse.sold_price === 'string') {
-    // 角括弧を削除して数値に変換
+    // 角括弧を削除
     const cleanPrice = horse.sold_price.replace(/[\[\]]/g, '');
-    const price = Number(cleanPrice);
+    // 数値に変換
+    const price = parseFloat(cleanPrice);
     
     if (!isNaN(price) && price > 0) {
-      // 3桁区切りの数値にフォーマット（例: 310000 → 310,000）
-      return `¥${price.toLocaleString()}`;
+      return formatPrice(price);
     }
     return '主取り';
   }
   
   // 数値の価格の場合
   if (typeof horse.sold_price === 'number') {
-    return `¥${horse.sold_price.toLocaleString()}`;
+    return formatPrice(horse.sold_price);
   }
 
   // 履歴から価格を取得
@@ -113,15 +134,15 @@ export function getDisplayPrice(horse: HorseLikeForPrice | null | undefined): st
             .filter(price => !isNaN(price) && price > 0);
           
           if (validPrices.length > 0) {
-            return `¥${validPrices[validPrices.length - 1].toLocaleString()}`;
+            return formatPrice(validPrices[validPrices.length - 1]);
           }
         } else if (typeof latestHistory.sold_price === 'string') {
           const price = Number(latestHistory.sold_price.replace(/[^0-9.-]+/g, ''));
           if (!isNaN(price) && price > 0) {
-            return `¥${price.toLocaleString()}`;
+            return formatPrice(price);
           }
         } else if (typeof latestHistory.sold_price === 'number' && latestHistory.sold_price > 0) {
-          return `¥${latestHistory.sold_price.toLocaleString()}`;
+          return formatPrice(latestHistory.sold_price);
         }
       }
     }
@@ -143,7 +164,7 @@ export function getDisplayPrice(horse: HorseLikeForPrice | null | undefined): st
         return `¥${price.toLocaleString()}`;
       }
     } else if (typeof horse.price === 'number' && horse.price > 0) {
-      return `¥${horse.price.toLocaleString()}`;
+      return formatPrice(horse.price);
     }
   }
 
@@ -151,7 +172,35 @@ export function getDisplayPrice(horse: HorseLikeForPrice | null | undefined): st
   return '価格未設定';
 }
 
-export function formatPrice(val: number): string {
-  // 円を前提にローカライズ
-  return `¥${Number(val).toLocaleString('ja-JP')}`;
+export function formatPrice(val: number | string | null | undefined): string {
+  // 値がnull、undefined、空文字の場合は'¥0'を返す
+  if (val === null || val === undefined || val === '') {
+    return '¥0';
+  }
+
+  // 数値の場合はそのままフォーマット
+  if (typeof val === 'number') {
+    return `¥${val.toLocaleString('ja-JP')}`;
+  }
+
+  // 文字列の場合は「万円」サフィックスを処理
+  if (typeof val === 'string') {
+    // 「万円」サフィックスを削除
+    if (val.endsWith('万円')) {
+      const numStr = val.replace(/[^0-9.-]/g, '');
+      const numValue = parseFloat(numStr);
+      if (!isNaN(numValue)) {
+        // 10000をかけて円に変換
+        return `¥${(numValue * 10000).toLocaleString('ja-JP')}`;
+      }
+    }
+    // 通常の数値文字列の処理
+    const numStr = val.replace(/[^0-9.-]/g, '');
+    const numValue = parseFloat(numStr);
+    if (!isNaN(numValue)) {
+      return `¥${numValue.toLocaleString('ja-JP')}`;
+    }
+  }
+  
+  return '¥0';
 }
