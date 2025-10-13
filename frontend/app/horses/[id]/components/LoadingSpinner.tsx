@@ -38,3 +38,5 @@ export function SimpleLoading({
     </div>
   );
 }
+
+export default LoadingSpinner;
