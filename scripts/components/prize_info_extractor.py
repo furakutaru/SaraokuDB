@@ -43,8 +43,52 @@ class PrizeInfoExtractor:
         self.logger.debug(f'要素の内容（先頭）: {element_str}')
         
         try:
+            # 入力が文字列/バイト列の場合は BeautifulSoup に正規化
+            if isinstance(horse_element, (str, bytes)):
+                try:
+                    horse_element = BeautifulSoup(horse_element, 'html.parser')
+                    self.logger.debug('入力HTMLをBeautifulSoupに正規化しました')
+                except Exception as norm_e:
+                    self.logger.warning('入力の正規化に失敗しました', exc_info=True)
+                    return None, False
             prize_info = {}
             
+            # 0. 楽天詳細ページの label/value 形式に対応（例: .auctionTableRow__price > .label/.value）
+            try:
+                rows = horse_element.select('div.auctionTableRow__price')
+                for row in rows:
+                    try:
+                        # label/value クラス名は厳密一致でない場合があるため部分一致で検索
+                        label_el = row.find(class_=re.compile(r'(^|\b)label(\b|$)'))
+                        value_el = row.find(class_=re.compile(r'(^|\b)value(\b|$)'))
+                        if not label_el or not value_el:
+                            continue
+                        label_text = label_el.get_text(strip=True)
+                        if '総賞金' not in label_text:
+                            continue
+                        value_text = value_el.get_text(strip=True)
+                        self.logger.debug(f"label/valueで総賞金候補を検出: {value_text}")
+                        # 例: 3980.2万円 / 1,234万円 / 987万6,543円 などに対応
+                        m = re.search(r'([\d,]+(?:\.[\d]+)?)\s*万円', value_text)
+                        if m:
+                            man = float(m.group(1).replace(',', ''))
+                            prize_amount = int(man * 10000)
+                            if prize_amount >= 10000:
+                                self.logger.info(f'総賞金(ラベル抽出): {prize_amount:,}円')
+                                return {'total_prize': prize_amount}, True
+                        # 円表記フォールバック
+                        m2 = re.search(r'([\d,]+)\s*円', value_text)
+                        if m2:
+                            yen = int(m2.group(1).replace(',', ''))
+                            if yen >= 10000:
+                                self.logger.info(f'総賞金(ラベル抽出/円): {yen:,}円')
+                                return {'total_prize': yen}, True
+                    except Exception:
+                        continue
+            except Exception:
+                # セレクタが無い場合は無視して後続へ
+                pass
+
             # 1. オークション時点の賞金を抽出
             # まずはカード内の賞金情報を探す
             prize_elem = None
@@ -219,7 +263,7 @@ class PrizeInfoExtractor:
                     self.logger.debug(f'詳細ページにアクセス中: {detail_url}')
                     # 詳細ページのHTMLを取得
                     import requests
-                    from bs4 import BeautifulSoup
+                    from bs4 import BeautifulSoup as _BS
                     
                     headers = {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -229,7 +273,7 @@ class PrizeInfoExtractor:
                     response.raise_for_status()
                     
                     if response.status_code == 200:
-                        soup = BeautifulSoup(response.text, 'html.parser')
+                        soup = _BS(response.text, 'html.parser')
                         self.logger.debug('詳細ページのHTMLを正常に取得しました')
                         
                         # 詳細ページ内の賞金情報を探す

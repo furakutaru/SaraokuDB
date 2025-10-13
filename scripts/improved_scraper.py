@@ -347,7 +347,7 @@ def extract_prize_from_auction(html_content: str, horse_name: str) -> Dict[str, 
         Dict[str, any]: 抽出した賞金情報を含む辞書
     """
     result = {
-        'total_prize_start': 0.0,   # オークション時点の総賞金（万円単位）
+        'total_prize_start': 0,     # オークション時点の総賞金（円単位に統一）
         'is_breeding_mare': False   # 繁殖牝馬フラグ
     }
     
@@ -363,17 +363,110 @@ def extract_prize_from_auction(html_content: str, horse_name: str) -> Dict[str, 
             result['is_breeding_mare'] = True
             logger.info(f"馬名 '{horse_name}' は繁殖牝馬のため賞金は0円です")
             return result
+
+        # 2. 楽天のトップページから直接「総賞金」の値を取得
+        # 例: <div class="auctionTableRow__price">
+        #       <div class="label">総賞金</div>
+        #       <div class="value">3980.2万円</div>
+        #       <a href="..." target="_blank" class="netkeiba-link">🔍</a>
+        #     </div>
+        try:
+            # トップページの「総賞金」を直接検索
+            prize_divs = soup.find_all('div', class_='auctionTableRow__price')
+            for div in prize_divs:
+                label = div.find('div', class_='label')
+                if label and '総賞金' in label.get_text(strip=True):
+                    value_div = div.find('div', class_='value')
+                    if value_div:
+                        prize_text = value_div.get_text(strip=True)
+                        # 数値部分を抽出（「3980.2万円」から「3980.2」を抽出）
+                        match = re.search(r'([\d,]+(?:\.\d+)?)', prize_text)
+                        if match:
+                            try:
+                                prize_man = float(match.group(1).replace(',', ''))
+                                result['total_prize_start'] = int(prize_man * 10000)  # 万円→円に変換
+                                logger.info(f"馬名 '{horse_name}' 総賞金(トップページ): {prize_man}万円 -> {result['total_prize_start']}円")
+                                return result
+                            except (ValueError, TypeError) as e:
+                                logger.debug(f"賞金の数値変換に失敗: {prize_text}, エラー: {e}")
+                                continue
+        except Exception as e:
+            logger.debug(f"トップページからの賞金抽出で例外: {e}")
+
+        # 3. トップページで取得できなかった場合、詳細ページから取得を試みる
+        # 3-0) まずは対象の馬カードを特定して、その内部のみを探索（他馬の値を拾わない）
+        card_soup = None
+        try:
+            # よく使うカード候補のクラスを網羅的に探す
+            card_candidates = soup.select('.auctionTableCard, .auctionList__item, .auctionCard, .auctionTableRow')
+            for card in card_candidates:
+                text = card.get_text(" ", strip=True)
+                if horse_name and horse_name in text:
+                    card_soup = card
+                    break
+        except Exception as e:
+            logger.debug(f"カード特定中に例外: {e}")
+
+        search_root = card_soup if card_soup is not None else soup
+
+        # 3-1) 詳細ページの「中央獲得賞金」「地方獲得賞金」を合算
+        try:
+            full_text = (search_root or soup).get_text(' ', strip=True)
+            # 例: 中央獲得賞金：3966.7万円　　　地方獲得賞金：13.5万円
+            m_c = re.search(r'中央獲得賞金[：:\s]*([\d,]+(?:\.[\d]+)?)\s*万円', full_text)
+            m_l = re.search(r'地方獲得賞金[：:\s]*([\d,]+(?:\.[\d]+)?)\s*万円', full_text)
+            total_man = 0.0
+            found_any = False
+            if m_c:
+                try:
+                    total_man += float(m_c.group(1).replace(',', ''))
+                    found_any = True
+                except ValueError:
+                    pass
+            if m_l:
+                try:
+                    total_man += float(m_l.group(1).replace(',', ''))
+                    found_any = True
+                except ValueError:
+                    pass
+            if found_any and total_man > 0:
+                result['total_prize_start'] = int(total_man * 10000)  # 万円→円
+                logger.info(f"馬名 '{horse_name}' 総賞金(中央+地方): {total_man}万円 -> {result['total_prize_start']}円")
+                return result
+        except Exception as e:
+            logger.debug(f"中央/地方 賞金合算抽出で例外: {e}")
+
+        # 3-2) 詳細ページのその他の賞金情報を検索
+        try:
+            # 詳細ページの「総賞金」を検索
+            prize_sections = search_root.find_all('div', class_=lambda c: c and 'prize' in (c or '').lower())
+            for section in prize_sections:
+                prize_text = section.get_text(' ', strip=True)
+                # 「総賞金: 3980.2万円」のような形式を検索
+                m = re.search(r'総賞金[：:\s]*([\d,]+(?:\.[\d]+)?)\s*万円', prize_text)
+                if m:
+                    try:
+                        prize_man = float(m.group(1).replace(',', ''))
+                        result['total_prize_start'] = int(prize_man * 10000)
+                        logger.info(f"馬名 '{horse_name}' 総賞金(詳細ページ): {prize_man}万円 -> {result['total_prize_start']}円")
+                        return result
+                    except ValueError:
+                        continue
+                
+                # 数値のみの場合はそれを使用
+                m = re.search(r'([\d,]+(?:\.[\d]+)?)\s*万円', prize_text)
+                if m:
+                    try:
+                        prize_man = float(m.group(1).replace(',', ''))
+                        result['total_prize_start'] = int(prize_man * 10000)
+                        logger.info(f"馬名 '{horse_name}' 総賞金(数値のみ): {prize_man}万円 -> {result['total_prize_start']}円")
+                        return result
+                    except ValueError:
+                        continue
+        except Exception as e:
+            logger.debug(f"詳細ページからの賞金抽出で例外: {e}")
         
-        # 2. 賞金情報を抽出
-        prize_section = soup.find('div', class_=lambda c: c and 'prize' in (c or '').lower())
-        if prize_section:
-            # オークション時の賞金を抽出
-            prize_text = prize_section.get_text()
-            prize = _extract_prize_value(prize_text, horse_name)
-            if prize is not None:
-                result['total_prize_start'] = prize
-        
-        logger.info(f"馬名 '{horse_name}' の賞金情報を抽出: {result}")
+        logger.info(f"馬名 '{horse_name}' の賞金情報を抽出できませんでした: {result}")
         return result
         
     except Exception as e:
@@ -2262,14 +2355,37 @@ class ImprovedRakutenScraper:
                     f.write(html_content)
                 self.logger.warning(f'コメントの抽出に失敗しました。デバッグ用HTMLを保存しました: {debug_file}')
             
-            # 賞金情報を抽出
-            prize_info, prize_success = self.prize_info_extractor.extract(html_content)
-            if prize_success and prize_info and isinstance(prize_info, dict) and prize_info.get('total_prize') is not None:
-                horse_info.update(prize_info)
-                self.logger.info(f'賞金情報を抽出しました: {prize_info}')
-            else:
-                horse_info['total_prize'] = None  # 明示的にNoneを設定
-                self.logger.warning('賞金情報の抽出に失敗したか、有効な賞金情報がありませんでした')
+            # 賞金情報を抽出（トップページ優先）
+            try:
+                name_for_log = horse_info.get('name') or ''
+                top_html = self._fetch_html(self.base_url, use_cache=use_cache)
+                top_prize = None
+                if top_html:
+                    top_prize = extract_prize_from_auction(top_html, name_for_log)
+                    # total_prize_start が取れていれば反映
+                    if isinstance(top_prize, dict) and int(top_prize.get('total_prize_start', 0)) > 0:
+                        horse_info.update(top_prize)
+                        # total_prize が未設定なら同値を設定（円）
+                        if horse_info.get('total_prize') in [None, 0]:
+                            horse_info['total_prize'] = int(top_prize['total_prize_start'])
+                        self.logger.info(f"トップページから総賞金を抽出しました: {top_prize}")
+                # フォールバック: 詳細ページから抽出
+                if not isinstance(top_prize, dict) or int(top_prize.get('total_prize_start', 0)) == 0:
+                    prize_info, prize_success = self.prize_info_extractor.extract(html_content)
+                    if prize_success and prize_info and isinstance(prize_info, dict) and prize_info.get('total_prize') is not None:
+                        horse_info.update(prize_info)
+                        self.logger.info(f'詳細ページから賞金情報を抽出しました: {prize_info}')
+                    else:
+                        # いずれも取得できない場合の明示設定
+                        horse_info['total_prize'] = None
+                        if 'total_prize_start' not in horse_info:
+                            horse_info['total_prize_start'] = 0
+                        self.logger.warning('賞金情報の抽出に失敗したか、有効な賞金情報がありませんでした')
+            except Exception as e:
+                self.logger.warning(f'賞金情報の抽出処理でエラー: {e}', exc_info=True)
+                # エラー時もキーを揃える
+                horse_info.setdefault('total_prize', None)
+                horse_info.setdefault('total_prize_start', 0)
             
             # 画像URLを抽出
             image_url, image_success = self.image_extractor.extract(html_content)
@@ -2588,8 +2704,9 @@ def main():
             horse_info = scraper.scrape_horse_details(args.horse_id)
             
             if horse_info:
-                # 既存のデータを更新または追加
-                for horse in horse_info:
+                # 既存のデータを更新または追加（dictの場合は単一要素リストに正規化）
+                horses_iterable = horse_info if isinstance(horse_info, list) else [horse_info]
+                for horse in horses_iterable:
                     horse_id = horse.get('id')
                     if horse_id and horse_id in existing_horses_map:
                         # 既存のデータを更新

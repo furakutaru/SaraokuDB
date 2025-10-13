@@ -46,16 +46,11 @@ def save_json_file(file_path: str, data: Any) -> None:
         
         # データ構造を正規化
         if isinstance(data, dict) and 'horses' in data:
-            # 新しい形式のデータ（辞書に'horses'キーがある）
             print(f"[DEBUG] 新しい形式のデータを検出: 馬の数={len(data.get('horses', []))}")
             print(f"[DEBUG] メタデータ: {data.get('metadata', {})}")
             
             # デバッグ用に最初の3頭を表示
             horses = data.get('horses', [])
-            print("\n[DEBUG] 保存前の馬データ (最初の3件):")
-            for i, h in enumerate(horses[:3]):
-                print(f"{i+1}. {h.get('name')} (ID: {h.get('id')})")
-                print(f"    父: {h.get('sire')}, 母: {h.get('dam')}, 母父: {h.get('damsire')}")
         elif isinstance(data, list):
             # 古い形式のデータ（馬のリスト）を新しい形式に変換
             print(f"[DEBUG] 古い形式のデータを検出: 馬の数={len(data)}")
