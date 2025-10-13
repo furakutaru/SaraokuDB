@@ -902,8 +902,10 @@ class ImprovedRakutenScraper:
         """
         try:
             self.logger.info("=== オークション日取得処理を開始します ===")
-            self.logger.debug(f"URL: {url}")
-            self.logger.debug(f"HTMLコンテンツの長さ: {len(html_content) if html_content else 0} バイト")
+            self.logger.info(f"URL: {url}")
+            self.logger.info(f"HTMLコンテンツの長さ: {len(html_content) if html_content else 0} バイト")
+            self.logger.info(f"HTMLコンテンツの先頭100文字: {html_content[:100] if html_content else 'None'}")
+            self.logger.info("get_auction_dateメソッドが呼び出されました")
             
             # キャッシュキーを生成
             cache_key = f"auction_date_{url}" if url else "auction_date"
@@ -914,6 +916,9 @@ class ImprovedRakutenScraper:
                 cached_date = self.cache_manager.get(cache_key)
                 if cached_date:
                     self.logger.info(f"キャッシュからオークション日を取得: {cached_date}")
+                    self.logger.info(f"キャッシュから取得した値の型: {type(cached_date)}")
+                    self.logger.info(f"キャッシュから取得した値の長さ: {len(str(cached_date))}")
+                    self.logger.info(f"キャッシュから取得した値の先頭100文字: {str(cached_date)[:100]}")
                     return cached_date
                 else:
                     self.logger.debug("キャッシュにオークション日が存在しません")
@@ -938,6 +943,8 @@ class ImprovedRakutenScraper:
                 # 日付部分のみを抽出 (YYYY-MM-DD)
                 auction_date = saved_at.split('T')[0]
                 self.logger.info(f"キャッシュメタデータからオークション日を抽出しました: {auction_date}")
+                self.logger.info(f"auction_dateの型: {type(auction_date)}")
+                self.logger.info(f"auction_dateの内容: '{auction_date}'")
                 # キャッシュに保存
                 if hasattr(self, 'cache_manager') and self.cache_manager:
                     self.cache_manager.set(cache_key, auction_date, expire_seconds=86400)
@@ -1008,9 +1015,12 @@ class ImprovedRakutenScraper:
                         if hasattr(self, 'cache_manager') and self.cache_manager:
                             self.cache_manager.set(cache_key, date_str, expire_seconds=86400)
                         
+                        self.logger.info(f"要素からオークション日を抽出しました: {date_str}")
                         return date_str
             
             self.logger.warning("オークション日を抽出できませんでした")
+            # デバッグ用: HTMLコンテンツが返されていないことを確認
+            self.logger.warning(f"HTMLコンテンツの先頭100文字: {html_content[:100] if html_content else 'None'}")
             return None
             
         except Exception as e:
@@ -1776,10 +1786,13 @@ class ImprovedRakutenScraper:
                 
             # オークション日を取得
             try:
-                auction_date = self.get_auction_date(html_content=detail_html, url=detail_url)
+                # 個別馬詳細ページにはオークション日が含まれていないため、リストページのURLを使用
+                auction_date = self.get_auction_date(url=self.base_url)
                 if auction_date:
                     horse_info['auction_date'] = auction_date
                     self.logger.info(f"オークション日を抽出しました: {auction_date}")
+                    self.logger.info(f"auction_dateの型: {type(auction_date)}")
+                    self.logger.info(f"auction_dateの長さ: {len(str(auction_date))}")
                 else:
                     self.logger.warning("オークション日を抽出できませんでした")
             except Exception as e:
@@ -1823,10 +1836,13 @@ class ImprovedRakutenScraper:
             
             # オークション日を取得
             self.logger.info("オークション日を取得します...")
-            auction_date = self.get_auction_date(html_content=detail_html, url=detail_url)
+            # 個別馬詳細ページにはオークション日が含まれていないため、リストページのURLを使用
+            auction_date = self.get_auction_date(url=self.base_url)
             if auction_date:
                 horse_info['auction_date'] = auction_date
                 self.logger.info(f"オークション日を抽出しました: {auction_date}")
+                self.logger.info(f"auction_dateの型: {type(auction_date)}")
+                self.logger.info(f"auction_dateの長さ: {len(str(auction_date))}")
             else:
                 self.logger.warning("オークション日を抽出できませんでした")
             
@@ -2040,10 +2056,13 @@ class ImprovedRakutenScraper:
             if 'auction_date' not in basic_info:
                 self.logger.debug(f'オークション日を抽出開始 (馬名: {basic_info.get("name", "不明")})')
                 try:
-                    auction_date = self.get_auction_date(html_content=str(horse_element))
+                    # horse_elementは個別の馬要素なので、HTML全文ではなくリストページのHTMLを使用
+                    auction_date = self.get_auction_date(url=self.base_url)
                     if auction_date:
                         basic_info['auction_date'] = auction_date
                         self.logger.info(f'オークション日を抽出: {auction_date} (馬名: {basic_info["name"]})')
+                        self.logger.info(f"auction_dateの型: {type(auction_date)}")
+                        self.logger.info(f"auction_dateの長さ: {len(str(auction_date))}")
                     else:
                         self.logger.debug(f'オークション日の抽出に失敗しました (馬名: {basic_info["name"]})')
                 except Exception as e:

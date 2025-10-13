@@ -181,27 +181,91 @@ CACHE_METADATA={json.dumps(metadata, ensure_ascii=False)}
                 self.logger.error(f"キャッシュインデックスの読み込みに失敗しました: {e}")
                 self.cache = {}
     
-    def get(self, url: str) -> Optional[str]:
+    def get(self, key: str) -> Optional[str]:
         """
-        キャッシュからHTMLを取得します。
+        キャッシュから値を取得します。
         
         Args:
-            url: 取得するURL
+            key: 取得するキーまたはURL
             
         Returns:
-            str: キャッシュされたHTMLコンテンツ、またはNone
+            str: キャッシュされた値、またはNone
         """
-        return self.load_html(url)
+        # URLの場合はHTMLキャッシュとして扱う
+        if key.startswith('http'):
+            return self.load_html(key)
+        else:
+            # 一般のキーと値のキャッシュ
+            return self._get_key_value(key)
     
-    def set(self, url: str, content: str) -> None:
+    def set(self, key: str, value: str, expire_seconds: int = None) -> None:
         """
-        HTMLをキャッシュに保存します。
+        キーと値をキャッシュに保存します。
         
         Args:
-            url: キャッシュするURL
-            content: キャッシュするHTMLコンテンツ
+            key: キャッシュキー
+            value: キャッシュする値
+            expire_seconds: 有効期限（秒）
         """
-        self.save_html(url, content)
+        # URLの場合はHTMLキャッシュとして扱う
+        if key.startswith('http'):
+            self.save_html(key, value)
+        else:
+            # 一般のキーと値のキャッシュ
+            self._save_key_value(key, value, expire_seconds)
+    
+    def _save_key_value(self, key: str, value: str, expire_seconds: int = None) -> None:
+        """
+        キーと値をメモリキャッシュに保存します。
+        
+        Args:
+            key: キャッシュキー
+            value: キャッシュする値
+            expire_seconds: 有効期限（秒）
+        """
+        expire_time = None
+        if expire_seconds:
+            expire_time = time.time() + expire_seconds
+        
+        self.cache[key] = {
+            'value': value,
+            'expire_time': expire_time
+        }
+        
+        # キャッシュインデックスを保存
+        self._save_cache_index()
+    
+    def _get_key_value(self, key: str) -> Optional[str]:
+        """
+        メモリキャッシュから値を取得します。
+        
+        Args:
+            key: キャッシュキー
+            
+        Returns:
+            str: キャッシュされた値、またはNone
+        """
+        if key not in self.cache:
+            return None
+        
+        cached_item = self.cache[key]
+        
+        # 有効期限をチェック
+        if cached_item.get('expire_time') and time.time() > cached_item['expire_time']:
+            del self.cache[key]
+            self._save_cache_index()
+            return None
+        
+        return cached_item['value']
+    
+    def _save_cache_index(self) -> None:
+        """キャッシュインデックスをファイルに保存します。"""
+        cache_index = self.base_dir / 'cache_index.json'
+        try:
+            with open(cache_index, 'w', encoding='utf-8') as f:
+                json.dump(self.cache, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self.logger.error(f"キャッシュインデックスの保存に失敗しました: {e}")
     
     def clear_expired(self, expire_days: int = 30) -> int:
         """
