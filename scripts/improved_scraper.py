@@ -930,6 +930,19 @@ class ImprovedRakutenScraper:
                 self.logger.warning("HTMLコンテンツが指定されていません")
                 return None
             
+            # まずキャッシュメタデータから日付を取得を試みる
+            self.logger.info("キャッシュメタデータからオークション日を抽出します")
+            cache_meta_match = re.search(r'CACHE_METADATA=.*?"saved_at":"([^"]+)"', html_content)
+            if cache_meta_match:
+                saved_at = cache_meta_match.group(1)
+                # 日付部分のみを抽出 (YYYY-MM-DD)
+                auction_date = saved_at.split('T')[0]
+                self.logger.info(f"キャッシュメタデータからオークション日を抽出しました: {auction_date}")
+                # キャッシュに保存
+                if hasattr(self, 'cache_manager') and self.cache_manager:
+                    self.cache_manager.set(cache_key, auction_date, expire_seconds=86400)
+                return auction_date
+            
             # HTMLをBeautifulSoupでパース
             soup = BeautifulSoup(html_content, 'html.parser')
             
@@ -1000,10 +1013,6 @@ class ImprovedRakutenScraper:
             self.logger.warning("オークション日を抽出できませんでした")
             return None
             
-        except Exception as e:
-            self.logger.error(f"オークション日の抽出中にエラーが発生しました: {e}", exc_info=True)
-            return None
-                
         except Exception as e:
             self.logger.error(f"オークション日の取得中にエラーが発生しました: {e}", exc_info=True)
             return None
