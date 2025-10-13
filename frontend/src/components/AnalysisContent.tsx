@@ -21,6 +21,8 @@ import {
 } from 'react-icons/fa';
 import { normalizeImageUrl } from '../utils/url';
 import { formatPrice, formatWeight, calcROI, getDisplayPrice } from '../utils/formatters';
+import SummaryBar from './SummaryBar';
+import ShowTypeButtons from './ShowTypeButtons';
 import { 
   Horse, 
   HorseWithCalculations, 
@@ -1076,17 +1078,9 @@ export default function AnalysisContent() {
           <p>フィルター: 性別={filterBySex}, 年齢={filterByAge}, 父馬={filterBySire}, 母馬={filterByDam}</p>
         </div>
         {/* サマリー 横並びテキスト */}
-        <div className="mb-6 text-lg font-semibold text-gray-700 flex flex-wrap gap-8">
-          <span>総馬数: {tableHorses.length}</span>
-          <span>平均落札価格: {data.metadata?.average_price ? formatPrice(data.metadata.average_price) : 'N/A'}</span>
-          <span>平均ROI: {avgROI.toFixed(2)}</span>
-        </div>
+        <SummaryBar count={tableHorses.length} averagePrice={data.metadata?.average_price} avgROI={avgROI} />
         {/* 指標ボタン（白文字色付き） */}
-        <div className="flex gap-4 mb-6">
-          <Button onClick={() => setShowType('all')} variant="default" className={showType==='all'?"bg-blue-600 text-white":"bg-blue-400 text-white"}>全馬</Button>
-          <Button onClick={() => setShowType('roi')} variant="default" className={showType==='roi'?"bg-green-600 text-white":"bg-green-400 text-white"}>ROIランキング</Button>
-          <Button onClick={() => setShowType('value')} variant="default" className={showType==='value'?"bg-orange-600 text-white":"bg-orange-400 text-white"}>妙味馬</Button>
-        </div>
+        <ShowTypeButtons showType={showType} onChange={setShowType} />
         {/* DataTable風の表 */}
         <div className="overflow-x-auto bg-white rounded-lg shadow">
           <table className="min-w-full divide-y divide-gray-200">

@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { AnalysisHorse } from '../types/horse';
+import { HorseWithCalculations } from '../types/horse';
 import { formatPrice, formatWeight, calcROI } from '../utils/formatters';
 
 interface UseHorseDataProps {
   initialData?: {
-    horses: AnalysisHorse[];
+    horses: HorseWithCalculations[];
     last_updated: string;
     total_horses: number;
     average_price: number;
@@ -21,14 +21,14 @@ export const useHorseData = ({ initialData }: UseHorseDataProps = {}) => {
   const searchParams = useSearchParams();
   
   // 状態管理
-  const [horses, setHorses] = useState<AnalysisHorse[]>(initialData?.horses || []);
+  const [horses, setHorses] = useState<HorseWithCalculations[]>(initialData?.horses || []);
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState<Error | null>(null);
   
   // フィルターとソートの状態
   const [searchTerm, setSearchTerm] = useState('');
   const [showType, setShowType] = useState<'all' | 'sold' | 'unsold' | 'roi' | 'value'>('all');
-  const [sortKey, setSortKey] = useState<keyof AnalysisHorse>('sort_price');
+  const [sortKey, setSortKey] = useState<keyof HorseWithCalculations>('sort_price');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
   // ページネーションの状態
@@ -118,7 +118,7 @@ export const useHorseData = ({ initialData }: UseHorseDataProps = {}) => {
   }, [sortedHorses, currentPage, itemsPerPage]);
 
   // ソートハンドラー
-  const handleSort = useCallback((key: keyof AnalysisHorse) => {
+  const handleSort = useCallback((key: keyof HorseWithCalculations) => {
     if (sortKey === key) {
       setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
