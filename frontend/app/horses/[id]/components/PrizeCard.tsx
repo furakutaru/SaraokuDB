@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography, Card, CardHeader, CardContent, Box } from '@mui/material';
-import { formatManYen } from '@/src/utils/format';
+import { formatManYen } from '../../../../src/utils/format';
 
 export interface PrizeCardProps {
   horse: {

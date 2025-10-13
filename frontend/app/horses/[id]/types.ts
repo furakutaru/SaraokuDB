@@ -1,4 +1,4 @@
-import { BaseAuctionHistory } from '@/src/types/horse';
+import { BaseAuctionHistory } from '../../../src/types/horse';
 
 // レース成績の型定義
 export type RaceRecord = string | {

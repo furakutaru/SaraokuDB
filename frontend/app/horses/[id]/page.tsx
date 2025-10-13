@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
-import SexBadge from '@/app/horses/components/SexBadge';
+import SexBadge from '../components/SexBadge';
 import DateInfoCard from './components/DateInfoCard';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -14,14 +14,14 @@ import {
   toArray, 
   formatDate,
   formatPrizeMan 
-} from '@/src/utils/format';
-import { AuctionHistory } from '@/src/types/horse';
-import { HorseWithCalculations } from '@/src/types/horse';
+} from '../../../src/utils/format';
+import { AuctionHistory } from '../../../src/types/horse';
+import { HorseWithCalculations } from '../../../src/types/horse';
 import { ExtendedAuctionHistory, RaceRecord } from './types';
 import { HeaderCard } from './components';
 import ExternalLinks from './components/ExternalLinks';
 import { ErrorMessage, SimpleError } from './components/ErrorDisplay';
-import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { LoadingSpinner } from './components/LoadingSpinner';
 import { HorseHeader } from './components/HorseHeader';
 import AuctionHistoryCard from './components/AuctionHistoryCard';
 import { CommentCard } from './components/CommentCard';
@@ -37,9 +37,9 @@ import {
   Box,
   Badge,
 } from '@mui/material';
-import HorseImage from '@/src/components/HorseImage';
-import { normalizeImageUrl } from '@/src/utils/url';
-import { getHorseData as getHorseDataFromApi } from '@/src/utils/horseApi';
+import HorseImage from '../../../src/components/HorseImage';
+import { normalizeImageUrl } from '../../../src/utils/url';
+import { getHorseData as getHorseDataFromApi } from '../../../src/utils/horseApi';
 
 // 型定義は ./types.ts に移動しました
 
@@ -114,6 +114,39 @@ interface HorseDetailContentProps {
 interface PageProps {
   params: { id: string };
   searchParams?: { [key: string]: string | string[] | undefined };
+}
+
+// seller を配列/JSON配列文字列/二重エンコードからプレーン日本語に整形
+function normalizeSeller(value: any): string {
+  try {
+    if (Array.isArray(value)) {
+      return value.length > 0 ? String(value[0] ?? '') : '';
+    }
+    if (typeof value === 'string') {
+      let str: any = value.trim();
+      for (let i = 0; i < 2; i++) {
+        const looksJson = str.startsWith('[') || str.startsWith('{') || str.startsWith('"');
+        if (!looksJson) break;
+        try {
+          const parsed = JSON.parse(str);
+          if (Array.isArray(parsed)) {
+            return parsed.length > 0 ? String(parsed[0] ?? '') : '';
+          }
+          if (typeof parsed === 'string') {
+            str = parsed.trim();
+            continue;
+          }
+          break;
+        } catch {
+          break;
+        }
+      }
+      return str;
+    }
+  } catch {
+    return typeof value === 'string' ? value : '';
+  }
+  return '';
 }
 
 // 価格表示は utils/price の仕様化ロジックを使用（UIは変えない）
@@ -1161,7 +1194,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                         {/* 販売者履歴 */}
                         <div className="flex justify-between">
                           <span className="text-gray-600">販売者:</span>
-                          <span className="font-medium">{toArray(latestHistory.seller).join(' / ')}</span>
+                          <span className="font-medium">{normalizeSeller(latestHistory.seller)}</span>
                         </div>
                         {/* レース成績履歴 */}
                         <div className="flex justify-between">
@@ -1304,7 +1337,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                             })()}
                           </td>
                           <td className="px-2 py-1 border">{h.age}</td>
-                          <td className="px-2 py-1 border">{h.seller}</td>
+                          <td className="px-2 py-1 border">{normalizeSeller(h.seller)}</td>
                           <td className="px-2 py-1 border">
                             <RaceRecordDisplay 
                               record={h.race_record} 
@@ -1483,7 +1516,10 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
             </Card>
             
             {/* 賞金情報カード */}
-            <PrizeCard horse={horse} latestHistory={latestHistory} /> 
+            <PrizeCard 
+              horse={horse} 
+              latestHistory={{ total_prize_start: latestHistory?.total_prize_start ?? null }} 
+            /> 
             
             {/* 日付情報カード */}
             <DateInfoCard 
