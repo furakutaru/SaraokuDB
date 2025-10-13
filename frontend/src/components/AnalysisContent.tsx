@@ -1,40 +1,32 @@
 'use client';
 
+// React / Next
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
 import Link from 'next/link';
-import { useHorseData } from '../hooks/useHorseData';
+
+// Third-party libs
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { 
-  FaSort, 
-  FaSortUp, 
-  FaSortDown, 
-  FaSearch, 
-  FaFilter, 
-  FaArrowUp, 
-  FaArrowDown, 
-  FaChevronLeft, 
-  FaChevronRight 
-} from 'react-icons/fa';
+import { FaSort, FaSortUp, FaSortDown, FaSearch, FaFilter, FaArrowUp, FaArrowDown, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+
+// Internal utils / hooks
 import { normalizeImageUrl } from '../utils/url';
 import { formatPrice, formatWeight, calcROI, getDisplayPrice } from '../utils/formatters';
+import { calculateAverage, calculateAverageGrowthRate } from '../utils/calculations';
+import { useHorseData } from '../hooks/useHorseData';
+
+// Components
 import SummaryBar from './SummaryBar';
 import ShowTypeButtons from './ShowTypeButtons';
 import DataTable from './DataTable';
 import DebugInfo from './DebugInfo';
-import { 
-  Horse, 
-  HorseWithCalculations, 
-  Metadata,
-  AuctionHistory,
-  ImageUrl
-} from '../types/horse';
+import SortIcon from './common/SortIcon';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
 
-// ユーティリティ関数のインポート
-import { calculateAverage, calculateAverageGrowthRate } from '../utils/calculations';
+// Types
+import { Horse, HorseWithCalculations, Metadata, AuctionHistory, ImageUrl } from '../types/horse';
 
 // 表示タイプの型
 type ShowType = 'all' | 'sold' | 'unsold' | 'roi' | 'value';
@@ -675,14 +667,9 @@ console.error('No horses were transformed successfully. First horse data:', JSON
 // formatPrice, formatWeight, formatPrizeFromYen are imported from utils/price
 
 
-// ソートアイコンをレンダリングする関数
+// ソートアイコンのラッパ（見た目は不変、実装を共通化）
 const renderSortIcon = (key: keyof Horse, currentSortKey: keyof Horse, currentSortOrder: 'asc' | 'desc') => {
-  if (currentSortKey !== key) return <FaSort className="ml-1 opacity-30" />;
-  return currentSortOrder === 'asc' ? (
-    <FaSortUp className="ml-1" />
-  ) : (
-    <FaSortDown className="ml-1" />
-  );
+  return <SortIcon columnKey={key} activeKey={currentSortKey} order={currentSortOrder} />;
 }
 
 export default function AnalysisContent() {

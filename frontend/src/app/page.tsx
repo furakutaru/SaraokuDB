@@ -2,20 +2,10 @@
 
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import AnalysisContent from '@/components/AnalysisContent';
-import { Horse } from '@/types/horse';
 import { DataIntegrityAlert } from '@/components/DataIntegrityAlert';
 
 export default function Home() {
-  const router = useRouter();
-
-  // 最新の年齢を取得するヘルパー関数
-  const getLatestAge = (horse: Horse): string => {
-    // トップレベルの年齢を返す
-    return horse.age?.toString() || '';
-  };
-
   // ヘッダー部分を残して、コンテンツ部分をAnalysisContentに置き換え
   return (
     <>
