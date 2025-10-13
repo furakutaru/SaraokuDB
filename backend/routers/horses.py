@@ -71,52 +71,49 @@ async def get_horses(
         # 1. 最新のオークション日を取得（必要な場合）
         latest_date = None
         if latest_auction_bool:
-            print("\n1.1 Getting latest auction date...")
+            print("\n1.1 Getting latest auction date (parse JSON array strings)...")
             
-            # デバッグ: データベース内のオークション日付のサンプルを表示
-            sample_dates = db.query(Horse.auction_date).filter(
-                Horse.auction_date.isnot(None)
-            ).order_by(Horse.id.desc()).limit(5).all()
-            print(f"Sample auction dates in DB: {sample_dates}")
+            # 全レコードから auction_date テキストを取得
+            raw_dates = db.query(Horse.auction_date).filter(Horse.auction_date.isnot(None)).all()
+            print(f"Fetched {len(raw_dates)} auction_date entries")
             
-            # 最新のオークション日を取得（NULLでないもののみ）
-            latest_date_result = db.query(
-                func.max(Horse.auction_date)
-            ).filter(
-                Horse.auction_date.isnot(None)
-            ).scalar()
-            
-            print(f"Latest auction date result: {latest_date_result} (type: {type(latest_date_result) if latest_date_result else 'None'})")
-            
-            # デバッグ: 日付のフォーマットを確認
-            if latest_date_result:
+            # テキストから 'YYYY-MM-DD' を抽出して最大日付を決定
+            import re, json
+            date_pattern = re.compile(r"\d{4}-\d{2}-\d{2}")
+            extracted_dates = []
+            for (ad,) in raw_dates:
+                if not ad:
+                    continue
                 try:
-                    from datetime import datetime
-                    if isinstance(latest_date_result, str):
-                        # 文字列の場合、日付に変換してみる
-                        parsed_date = datetime.fromisoformat(latest_date_result.replace('Z', '+00:00'))
-                        print(f"Parsed date: {parsed_date} (type: {type(parsed_date)})")
+                    # JSON配列文字列の場合
+                    if isinstance(ad, str) and ad.strip().startswith('['):
+                        arr = json.loads(ad)
+                        for item in arr:
+                            if isinstance(item, str) and date_pattern.fullmatch(item):
+                                extracted_dates.append(item)
+                    else:
+                        # 平文（単一日付）またはその他の文字列
+                        m = date_pattern.search(str(ad))
+                        if m:
+                            extracted_dates.append(m.group(0))
                 except Exception as e:
-                    print(f"Error parsing date: {e}")
+                    print(f"Error processing auction_date entry: {e} | value={ad}")
             
-            if latest_date_result:
-                latest_date = latest_date_result
-                print(f"Latest auction date: {latest_date}")
+            if extracted_dates:
+                latest_date = max(extracted_dates)
+                print(f"Latest auction date resolved: {latest_date}")
                 
-                # 最新のオークション日でフィルタリング
-                query = query.filter(Horse.auction_date == latest_date)
-                print(f"Filtering by latest auction date: {latest_date}")
-                
+                # 最新のオークション日を含むレコードにLIKEでフィルタ
+                query = query.filter(Horse.auction_date.like(f"%{latest_date}%"))
                 # 念のため、オークション日がNULLのレコードを除外
                 query = query.filter(Horse.auction_date.isnot(None))
-                print("Excluding records with NULL auction_date")
                 
                 # デバッグ用: フィルタリング後のクエリを表示
-                print("\n=== Filtered Query ===")
+                print("\n=== Filtered Query (by latest_date LIKE) ===")
                 print(str(query.statement.compile(compile_kwargs={"literal_binds": True})))
             else:
-                print("Warning: No valid auction dates found in the database")
-                return {"items": [], "total": 0}  # オークション日が1つもない場合は空のリストを返す
+                print("Warning: No valid auction dates found in the database (after parsing)")
+                return {"items": [], "total": 0}
         
         # 3. フィルタリング
         print("\n3. Applying filters...")
@@ -219,6 +216,8 @@ async def get_horses(
 
         response = {
             "horses": horses_data,
+            # 下位互換: camelCase と snake_case の両方を返す
+            "auction_histories": auction_histories,
             "auctionHistories": auction_histories,
             "metadata": {
                 "last_updated": datetime.utcnow().isoformat(),

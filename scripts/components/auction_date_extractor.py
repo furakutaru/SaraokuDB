@@ -54,6 +54,32 @@ class AuctionDateExtractor:
             # デバッグ用にHTMLの一部をログに出力
             self.logger.debug(f"HTMLの先頭500文字: {str(soup)[:500]}...")
             
+            # 0. 楽天詳細ページの開始時間ブロックを最優先で確認
+            try:
+                start_time_el = soup.select_one('.subData__startTime .subData__value')
+                if start_time_el:
+                    text = start_time_el.get_text(strip=True)
+                    m = re.search(r'(\d{4})[年/](\d{1,2})[月/](\d{1,2})日', text)
+                    if m:
+                        y, mo, d = m.groups()
+                        date_str = f"{y}-{mo.zfill(2)}-{d.zfill(2)}"
+                        self.logger.info(f"Found auction start date from startTime block: {date_str}")
+                        return date_str
+            except Exception as e:
+                self.logger.debug(f"Start time block parse error: {e}")
+            
+            # シンプルな全体テキストからの日本語日付パターン（早期フォールバック）
+            try:
+                text_all = soup.get_text(' ', strip=True)
+                m_simple = re.search(r'(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日', text_all)
+                if m_simple:
+                    y, mo, d = m_simple.groups()
+                    date_str = f"{y}-{str(mo).zfill(2)}-{str(d).zfill(2)}"
+                    self.logger.info(f"Found auction date from simple page-wide JP pattern: {date_str}")
+                    return date_str
+            except Exception as e:
+                self.logger.debug(f"Simple JP date fallback parse error: {e}")
+
             # 1. まずはオークション情報が含まれている可能性の高いセクションを特定
             possible_sections = []
             
@@ -175,10 +201,26 @@ class AuctionDateExtractor:
                         date_matches = list(re.finditer(pattern, section_text))
                         
                         for match in date_matches:
-                            # グループ1があればそれを使用（オークション日付のパターン用）
-                            # 特殊文字（﷐や﷯）を除去
-                            date_str = match.group(1) if len(match.groups()) > 0 else match.group(0)
-                            date_str = re.sub(r'[\s﷐﷯]', '', date_str)  # 特殊文字と空白を除去
+                            # マッチ結果からできるだけ完全な日付文字列を構築
+                            if len(match.groups()) >= 3 and all(g is not None for g in match.groups()[:3]):
+                                y, mo, d = match.groups()[:3]
+                                # 取り出した値が数字で構成されていることを確認
+                                if not (str(y).strip().isdigit() and str(mo).strip().isdigit() and str(d).strip().isdigit()):
+                                    continue
+                                date_str = f"{y}年{mo}月{d}日"
+                            elif len(match.groups()) >= 1 and match.group(1):
+                                candidate = match.group(1)
+                                # 少なくとも1つ数字が含まれていないものは除外
+                                if not re.search(r'\d', candidate):
+                                    continue
+                                date_str = candidate
+                            else:
+                                candidate = match.group(0)
+                                if not re.search(r'\d', candidate):
+                                    continue
+                                date_str = candidate
+                            # 特殊文字（﷐や﷯）と空白を除去
+                            date_str = re.sub(r'[\s﷐﷯]', '', date_str)
                             
                             # コンテキストを取得（前後50文字）
                             start = max(0, match.start() - 50)
@@ -192,7 +234,7 @@ class AuctionDateExtractor:
                                 base_priority = 20
                             
                             # 優先度を計算
-                            priority = base_priority + self._calculate_priority(date_str, context, has_auction_keyword)
+                            priority = base_priority + self._get_date_priority(date_str, context)
                             
                             # 同じ日付が既に登録されていないかチェック
                             existing = next((d for d in date_candidates if d['date_str'] == date_str), None)
@@ -230,7 +272,21 @@ class AuctionDateExtractor:
                     date_matches = list(re.finditer(pattern, all_text))
                     
                     for match in date_matches[:10]:  # 最初の10件のみ確認
-                        date_str = match.group(0)
+                        if len(match.groups()) >= 3 and all(g is not None for g in match.groups()[:3]):
+                            y, mo, d = match.groups()[:3]
+                            if not (str(y).strip().isdigit() and str(mo).strip().isdigit() and str(d).strip().isdigit()):
+                                continue
+                            date_str = f"{y}年{mo}月{d}日"
+                        elif len(match.groups()) >= 1 and match.group(1):
+                            candidate = match.group(1)
+                            if not re.search(r'\d', candidate):
+                                continue
+                            date_str = candidate
+                        else:
+                            candidate = match.group(0)
+                            if not re.search(r'\d', candidate):
+                                continue
+                            date_str = candidate
                         start = max(0, match.start() - 50)
                         end = min(len(all_text), match.end() + 50)
                         context = all_text[start:end]
@@ -244,7 +300,7 @@ class AuctionDateExtractor:
                             keyword in context.lower() 
                             for keyword in self.date_keywords
                         )
-                        priority = self._calculate_priority(date_str, context, has_auction_keyword) - 10
+                        priority = self._get_date_priority(date_str, context) - 10
                         
                         date_candidates.append({
                             'date_str': date_str,

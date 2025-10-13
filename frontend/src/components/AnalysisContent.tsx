@@ -248,8 +248,13 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
     // 主取りの判定: 
     // 1. 明示的にis_unsoldまたはunsoldフラグが立っている場合
     // 2. オークションが終了していて、sold_priceがnullまたは0の場合
-    const auctionEndDate = latestAuction?.auction_date ? new Date(latestAuction.auction_date) : null;
-    const isAuctionEnded = auctionEndDate ? auctionEndDate < new Date() : false;
+    const parseSafeDate = (s: any): Date | null => {
+      if (!s || typeof s !== 'string') return null;
+      const t = Date.parse(s);
+      return isNaN(t) ? null : new Date(t);
+    };
+    const auctionEndDate = parseSafeDate(latestAuction?.auction_date || horse.auction_date);
+    const isAuctionEnded = auctionEndDate ? auctionEndDate.getTime() < Date.now() : false;
     
     // 主取りフラグを初期化
     let isHorseUnsold = false;
@@ -276,7 +281,7 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
       soldPrice,
       priceSource,
       auction_ended: isAuctionEnded,
-      auction_end_date: auctionEndDate?.toISOString(),
+      auction_end_date: auctionEndDate ? auctionEndDate.toISOString() : undefined,
       hasUnsoldFlag,
       decision: isHorseUnsold ? 'unsold' : 'sold'
     });

@@ -2614,7 +2614,7 @@ def main():
         else:
             # 馬一覧をスクレイピング
             logger.info('馬一覧のスクレイピングを開始します')
-            results = scraper.scrape_horse_list(max_pages=args.max_pages)
+            results = scraper.scrape_horse_list(max_pages=args.max_pages, use_cache=not args.no_cache)
             
             if results:
                 # 既存のデータを更新または追加

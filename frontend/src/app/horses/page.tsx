@@ -3,17 +3,50 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
-import { formatPrizeMan } from '@/utils/format';
-import { fetchHorsesList } from '@/utils/horseApi';
-import { getDisplayPrice } from '@/utils/price';
-import { Horse as UHorse, AuctionHistory as UHistory, ImageUrl } from '@/types/horse';
-import { filterHorsesByTerm, sortHorses } from '@/utils/searchSort';
-import { normalizeImageUrl } from '@/utils/url';
+import { formatPrizeMan } from '../../utils/format';
+import { fetchHorsesList } from '../../utils/horseApi';
+import { getDisplayPrice } from '../../utils/price';
+import { Horse as UHorse, AuctionHistory as UHistory, ImageUrl } from '../../types/horse';
+import { filterHorsesByTerm, sortHorses } from '../../utils/searchSort';
+import { normalizeImageUrl } from '../../utils/url';
+
+// seller が配列やJSON配列文字列のケースを正規化して日本語テキストを返す
+function parseSeller(value: any): string {
+  try {
+    if (Array.isArray(value)) {
+      return value.length > 0 ? String(value[0] ?? '') : '';
+    }
+    if (typeof value === 'string') {
+      let str: any = value.trim();
+      for (let i = 0; i < 2; i++) {
+        const startsLikeJson = str.startsWith('[') || str.startsWith('{') || str.startsWith('"');
+        if (!startsLikeJson) break;
+        try {
+          const parsed = JSON.parse(str);
+          if (Array.isArray(parsed)) {
+            return parsed.length > 0 ? String(parsed[0] ?? '') : '';
+          }
+          if (typeof parsed === 'string') {
+            str = parsed.trim();
+            continue;
+          }
+          break;
+        } catch {
+          break;
+        }
+      }
+      return str;
+    }
+  } catch {
+    return typeof value === 'string' ? value : '';
+  }
+  return '';
+}
 
 // 型は共通定義をベースにしつつ、このページで扱う拡張フィールドを許容
 interface HorseListRow {
   // 必須フィールド
-  id: number;
+  id: string | number;
   horse_id?: number;  // APIからのレスポンスに合わせて追加
   name: string;
   sex: string;
@@ -23,8 +56,8 @@ interface HorseListRow {
   damsire?: string;   // 念のため両方のケースに対応
   dam_sire?: string;  // バックエンドのレスポンスに合わせて追加
   
-  // 画像関連
-  image_url: string | { image_url: string };
+  // 画像関連（正規化後は常に文字列）
+  image_url: string;
   primary_image?: string | null;
   
   // URL関連
@@ -128,7 +161,7 @@ export default function HorsesPage() {
       });
       
       // 馬データを正規化
-      const normalizedHorses = (horses || []).map(horse => ({
+      const normalizedHorses = (horses || []).map((horse: any) => ({
         ...horse,
         // idがなくてhorse_idがある場合は、horse_idをidとして使用
         id: horse.id || horse.horse_id,
@@ -330,7 +363,7 @@ export default function HorsesPage() {
         damsire: horse.damsire || '不明',
         auction_date: latestAuction?.auction_date || horse.auction_date || '',
         sold_price: soldPrice,
-        seller: latestAuction?.seller || horse.seller || '不明',
+        seller: parseSeller(latestAuction?.seller ?? horse.seller ?? '不明') || '不明',
         is_unsold: isUnsold,
         total_prize_start: latestAuction?.total_prize_start || horse.total_prize_start || 0,
         total_prize_latest: latestAuction?.total_prize_latest || horse.total_prize_latest || 0,
@@ -478,7 +511,7 @@ export default function HorsesPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredHorses.map((horse) => (
+              {filteredHorses.map((horse: HorseListRow) => (
                 <tr key={horse.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -520,7 +553,7 @@ export default function HorsesPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {horse.seller || '-'}
+                    {parseSeller(horse.seller) || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatPrizeMan(horse.total_prize_latest)}

@@ -138,6 +138,19 @@ class RakutenAuctionScraper:
                     except (ValueError, TypeError) as e:
                         print(f"[警告] 年齢の数値変換に失敗: {age_match.group(1)} - {str(e)}")
 
+            # 2.5 オークション開始日時から開催日(YYYY-MM-DD)を抽出して設定
+            try:
+                start_time_el = soup.select_one('.subData__startTime .subData__value')
+                if start_time_el:
+                    text = start_time_el.get_text(strip=True)
+                    m = re.search(r'(\d{4})[年/](\d{1,2})[月/](\d{1,2})日', text)
+                    if m:
+                        y, mo, d = m.groups()
+                        auction_data['auction_date'] = f"{y}-{mo.zfill(2)}-{d.zfill(2)}"
+                        print(f"[成功] 開始時間からオークション日を抽出: {auction_data['auction_date']}")
+            except Exception as e:
+                print(f"[警告] 開始時間ブロックの解析に失敗: {e}")
+
             # 3. 馬体重の抽出（詳細なデバッグログ付き）
             print("[デバッグ] 馬体重の抽出を開始")
             

@@ -1,5 +1,41 @@
 import { Horse, AuctionHistory } from '../types/horse';
 
+// seller が配列JSON文字列や配列のことがあるため、先頭の文字列を日本語テキストとして返す
+function parseSeller(value: any): string {
+  try {
+    // 配列なら先頭要素
+    if (Array.isArray(value)) {
+      return value.length > 0 ? String(value[0] ?? '') : '';
+    }
+    // 文字列ならJSONの可能性を最大2回まで解決
+    if (typeof value === 'string') {
+      let str: any = value.trim();
+      for (let i = 0; i < 2; i++) {
+        const startsLikeJson = str.startsWith('[') || str.startsWith('{') || str.startsWith('"');
+        if (!startsLikeJson) break;
+        try {
+          const parsed = JSON.parse(str);
+          if (Array.isArray(parsed)) {
+            return parsed.length > 0 ? String(parsed[0] ?? '') : '';
+          }
+          if (typeof parsed === 'string') {
+            str = parsed.trim();
+            continue; // もう一度評価
+          }
+          // オブジェクトなどはこれ以上推測しない
+          break;
+        } catch {
+          break;
+        }
+      }
+      return str;
+    }
+  } catch {
+    return typeof value === 'string' ? value : '';
+  }
+  return '';
+}
+
 /**
  * Transforms the API response to match the frontend's expected format
  * @param apiData Raw data from the API
@@ -30,6 +66,7 @@ export function transformHorseData(apiData: any): Horse {
       : [],
     detail_url: apiData.detail_url || `#/horse/${horseId}`,
     sold_price: apiData.sold_price || null,
+    seller: parseSeller(apiData.seller || ''),
     created_at: apiData.created_at || new Date().toISOString(),
     updated_at: apiData.updated_at || new Date().toISOString(),
     auction_history: []
@@ -47,7 +84,7 @@ export function transformHorseData(apiData: any): Horse {
       total_prize_start: history.total_prize_start || 0,
       total_prize_latest: history.total_prize_latest || 0,
       weight: history.weight || null,
-      seller: history.seller || '',
+      seller: parseSeller(history.seller ?? apiData.seller ?? ''),
       is_unsold: history.is_unsold || false,
       comment: history.comment || '',
       created_at: history.created_at || new Date().toISOString()
@@ -62,7 +99,7 @@ export function transformHorseData(apiData: any): Horse {
       total_prize_start: apiData.total_prize_start || 0,
       total_prize_latest: apiData.total_prize_latest || 0,
       weight: apiData.weight || null,
-      seller: Array.isArray(apiData.seller) ? apiData.seller[0] : (apiData.seller || ''),
+      seller: parseSeller(apiData.seller || ''),
       is_unsold: apiData.is_unsold || false,
       comment: Array.isArray(apiData.comment) ? apiData.comment[0] : (apiData.comment || ''),
       created_at: apiData.created_at || new Date().toISOString()
@@ -77,7 +114,7 @@ export function transformHorseData(apiData: any): Horse {
       total_prize_start: history.total_prize_start ?? apiData.total_prize_start ?? 0,
       total_prize_latest: history.total_prize_latest ?? apiData.total_prize_latest ?? 0,
       weight: history.weight ?? apiData.weight ?? null,
-      seller: history.seller || apiData.seller || '',
+      seller: parseSeller(history.seller ?? apiData.seller ?? ''),
       is_unsold: (history.is_unsold ?? (history.sold_price === null || history.sold_price === 0)) || false,
       comment: history.comment || apiData.comment || '',
       created_at: history.created_at || new Date().toISOString()
@@ -92,7 +129,7 @@ export function transformHorseData(apiData: any): Horse {
       total_prize_start: apiData.total_prize_start || 0,
       total_prize_latest: apiData.total_prize_latest || 0,
       weight: apiData.weight || null,
-      seller: apiData.seller || '',
+      seller: parseSeller(apiData.seller || ''),
       is_unsold: apiData.is_unsold || false,
       comment: apiData.comment || '',
       created_at: new Date().toISOString()

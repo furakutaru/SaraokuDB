@@ -63,10 +63,44 @@ export const formatPrice = (price: number | string | null | undefined): string =
  * @param seller 売り主情報
  * @returns フォーマットされた売り主情報
  */
-export const formatSeller = (seller: string | null | undefined): string => {
-  if (!seller) return '-';
-  // インヴイス登録情報を削除
-  return seller.replace(/\(.*\)/g, '').trim();
+export const formatSeller = (seller: any): string => {
+  try {
+    if (seller == null) return '-';
+    // 配列: 先頭を採用
+    if (Array.isArray(seller)) {
+      const s = seller.length > 0 ? String(seller[0] ?? '') : '';
+      return s ? s.replace(/\(.*\)/g, '').trim() : '-';
+    }
+    // 文字列: JSON配列/二重エンコードの可能性
+    if (typeof seller === 'string') {
+      let str: any = seller.trim();
+      for (let i = 0; i < 2; i++) {
+        const looksJson = str.startsWith('[') || str.startsWith('{') || str.startsWith('"');
+        if (!looksJson) break;
+        try {
+          const parsed = JSON.parse(str);
+          if (Array.isArray(parsed)) {
+            const s = parsed.length > 0 ? String(parsed[0] ?? '') : '';
+            return s ? s.replace(/\(.*\)/g, '').trim() : '-';
+          }
+          if (typeof parsed === 'string') {
+            str = parsed.trim();
+            continue;
+          }
+          break;
+        } catch {
+          break;
+        }
+      }
+      const s = String(str);
+      return s ? s.replace(/\(.*\)/g, '').trim() : '-';
+    }
+    // その他型
+    const s = String(seller);
+    return s ? s.replace(/\(.*\)/g, '').trim() : '-';
+  } catch {
+    return typeof seller === 'string' && seller ? seller.replace(/\(.*\)/g, '').trim() : '-';
+  }
 };
 
 /**
