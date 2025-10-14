@@ -2370,10 +2370,11 @@ class ImprovedRakutenScraper:
             # オークション日は _process_horse_info で取得するため、ここでは取得しない
             
             # コメントを抽出（詳細ページのHTMLをそのまま渡す）
-            comment, comment_success = self.comment_extractor.extract(soup)
-            if comment_success and comment:
-                horse_info['comment'] = comment
-                self.logger.info(f'コメントを抽出しました（長さ: {len(comment)}文字）')
+            comment_result, comment_success = self.comment_extractor.extract(soup)
+            if comment_success and comment_result and 'comment' in comment_result:
+                # コメント本文のみを取得（入れ子構造を解消）
+                horse_info['comment'] = comment_result['comment']
+                self.logger.info(f'コメントを抽出しました（長さ: {len(horse_info["comment"])}文字）')
             else:
                 # コメント抽出に失敗した場合、HTMLをファイルに保存してデバッグ用に残す
                 debug_dir = Path('debug_html')
@@ -2382,6 +2383,8 @@ class ImprovedRakutenScraper:
                 with open(debug_file, 'w', encoding='utf-8') as f:
                     f.write(html_content)
                 self.logger.warning(f'コメントの抽出に失敗しました。デバッグ用HTMLを保存しました: {debug_file}')
+                # 空のコメントを設定
+                horse_info['comment'] = ''
             
             # 賞金情報を抽出（トップページ優先）
             try:

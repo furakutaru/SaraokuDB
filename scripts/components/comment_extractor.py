@@ -290,21 +290,61 @@ class CommentExtractor:
         # コメントとして適切な部分を抽出
         lines = self._clean_comment_text(full_text)
         if lines:
-            comment = '\n'.join(lines)
-            self.logger.debug('全テキストからコメントを抽出しました')
+            # コメントを結合して前後の不要な空白や改行を削除
+            comment = '\n'.join(lines).strip()
+            # 前後のクォーテーションや括弧を削除
+            comment = re.sub(r'^[\s\{\}\[\]"\'\\,]+', '', comment)
+            comment = re.sub(r'[\s\{\}\[\]"\'\\,]+$', '', comment)
+            
+            self.logger.debug(f'全テキストからコメントを抽出しました: "{comment}"')
             return {'comment': comment}
             
         return None
     
     def _clean_comment_text(self, text: str) -> List[str]:
-        """コメントテキストをクリーンアップ"""
+        """コメントテキストをクリーンアップ
+        
+        Args:
+            text: クリーンアップするテキスト
+            
+        Returns:
+            クリーンアップされたテキストのリスト
+        """
+        import re
+        import json
+        
+        # JSON文字列としてパースを試みる
+        try:
+            data = json.loads(text)
+            if isinstance(data, dict) and 'comment' in data:
+                text = data['comment']
+        except (json.JSONDecodeError, TypeError):
+            # JSONでない場合はそのまま処理を続行
+            pass
+            
+        # 前後の不要な記号や空白を削除
+        text = text.strip("\n\r\t \u3000")
+        
+        # 前後の不要な記号を削除
+        text = re.sub(r'^[\s\{\}\[\]"\'\\,]+', '', text)  # 先頭の記号
+        text = re.sub(r'[\s\{\}\[\]"\'\\,]+$', '', text)  # 末尾の記号
+        
+        # 改行で分割して各行を処理
         lines = []
-        for line in text.split('\n'):
+        for line in text.splitlines():
             line = line.strip()
             if not line:
                 continue
+                
             # 短すぎる行や不要な情報を除外
             if len(line) < 10 or any(x in line for x in ['総賞金', '落札価格', '価格', '円', '万円', '※', '※※']):
                 continue
-            lines.append(line)
+                
+            # 前後の不要な文字列を削除
+            line = re.sub(r'^[\s\{\}\[\]"\'\\,]+', '', line)
+            line = re.sub(r'[\s\{\}\[\]"\'\\,]+$', '', line)
+            
+            if line:  # 空行でない場合のみ追加
+                lines.append(line)
+                
         return lines

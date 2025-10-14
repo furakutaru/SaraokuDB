@@ -11,8 +11,8 @@ cache/
 import hashlib
 import json
 import logging
-import time
 import re
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, List, Tuple
@@ -114,22 +114,32 @@ class CacheManager:
         return None
         
     def _read_cached_file(self, path: Path) -> Optional[str]:
-        """キャッシュファイルを読み込み、メタデータを除いたコンテンツを返します"""
+        """キャッシュファイルを読み込み、メタデータを除いたコンテンツを返します
+        
+        Returns:
+            読み込んだコンテンツ（前後の不要な空白や改行を削除）
+        """
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 content = f.read()
-                
-            # メタデータを除去して返す
+            
+            # メタデータを除去
             if content.startswith('<!--\nCACHE_METADATA='):
-                # メタデータの終わりを検索
                 meta_end = content.find('\n-->\n')
                 if meta_end != -1:
-                    return content[meta_end + 5:]  # メタデータの後の改行も含めてスキップ
-                    
-            return content
+                    content = content[meta_end + 5:]  # メタデータの後の改行も含めてスキップ
+            
+            # 前後の不要な空白や改行を削除
+            if content:
+                content = content.strip()
+                # 前後のクォーテーションや括弧を削除（コメントデータ用）
+                content = re.sub(r'^[\s\{\}\[\]"\'\\,]+', '', content)
+                content = re.sub(r'[\s\{\}\[\]"\'\\,]+$', '', content)
+            
+            return content if content else None
             
         except Exception as e:
-            self.logger.error(f"キャッシュファイルの読み込みに失敗しました ({path}): {e}")
+            self.logger.error(f"キャッシュファイルの読み込みに失敗しました ({path}): {e}", exc_info=True)
             return None
     
     def save_html(self, url: str, content: str) -> bool:
