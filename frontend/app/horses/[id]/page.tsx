@@ -1172,9 +1172,8 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                     {/* 画像下のリンク（JBIS / サラオク / 楽天） */}
                     <div className="flex items-center justify-center">
                       <ExternalLinks 
-                        jbisUrl={horse.jbis_url}
-                        auctionUrl={horse.auction_url}
-                        rakutenUrl={horse.rakuten_url || horse.detail_url}
+                        jbisUrl={horse.jbis_url?.trim() || null}
+                        auctionUrl={horse.detail_url?.trim() || null}
                         className="text-sm"
                       />
                     </div>

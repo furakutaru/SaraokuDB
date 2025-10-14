@@ -1,78 +1,47 @@
 'use client';
 
 interface ExternalLinksProps {
-  jbisUrl?: string;
-  auctionUrl?: string;
-  rakutenUrl?: string;
+  jbisUrl?: string | null;
+  auctionUrl?: string | null;
   className?: string;
 }
 
 export default function ExternalLinks({ 
   jbisUrl, 
   auctionUrl,
-  rakutenUrl,
   className = '' 
 }: ExternalLinksProps) {
-  // デバッグ用
-  console.log('ExternalLinks - jbisUrl:', jbisUrl);
-  console.log('ExternalLinks - auctionUrl:', auctionUrl);
-  console.log('ExternalLinks - rakutenUrl:', rakutenUrl);
-  console.log('ExternalLinks - props:', { jbisUrl, auctionUrl, rakutenUrl, className });
+  // 有効なURLがあるかチェック（null, undefined, 空文字列を除外）
+  const hasValidJbisUrl = jbisUrl != null && jbisUrl.trim() !== '';
+  const hasValidAuctionUrl = auctionUrl != null && auctionUrl.trim() !== '';
 
-  // すべてのURLが空の場合は何も表示しない
-  if (!jbisUrl && !auctionUrl && !rakutenUrl) {
-    console.log('No URLs to display');
+  // すべてのURLが無効の場合は何も表示しない
+  if (!hasValidJbisUrl && !hasValidAuctionUrl) {
     return null;
   }
 
   return (
     <div className={`mt-2 flex flex-wrap gap-4 ${className}`}>
-      {jbisUrl && (
+      {hasValidJbisUrl && (
         <a 
-          href={jbisUrl} 
+          href={jbisUrl!} 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!jbisUrl) {
-              e.preventDefault();
-            }
-          }}
+          onClick={(e) => e.stopPropagation()}
         >
           JBIS
         </a>
       )}
-      {auctionUrl && (
+      {hasValidAuctionUrl && (
         <a
-          href={auctionUrl}
+          href={auctionUrl!}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!auctionUrl) {
-              e.preventDefault();
-            }
-          }}
+          onClick={(e) => e.stopPropagation()}
         >
           サラオク
-        </a>
-      )}
-      {rakutenUrl && (
-        <a
-          href={rakutenUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:underline"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!rakutenUrl) {
-              e.preventDefault();
-            }
-          }}
-        >
-          楽天
         </a>
       )}
     </div>

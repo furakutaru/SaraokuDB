@@ -31,7 +31,6 @@ class Horse(Base):
     primary_image = Column(String(500))  # 馬体写真1枚目のURL
     jbis_url = Column(String(500))  # JBISの馬情報ページURL
     detail_url = Column(String(500))  # 楽天競馬オークションの詳細ページURL
-    rakuten_url = Column(String(500))  # 楽天オークションのURL
     unsold_count = Column(Integer, default=0)  # 主取り回数
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

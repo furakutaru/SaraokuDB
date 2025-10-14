@@ -132,6 +132,8 @@ def get_default_horse_data(auction_id: str) -> Dict[str, Any]:
         'comment': json.dumps(['']),
         'image_url': '',
         'primary_image': '',
+        'jbis_url': '',
+        'detail_url': '',
         'created_at': now,
         'updated_at': now
     }
@@ -173,7 +175,10 @@ def normalize_horse_data(horse_data: Dict[str, Any]) -> Optional[Dict[str, Any]]
             'seller': 'seller',
             'comment': 'comment',
             'image_url': 'image_url',
-            'primary_image': 'primary_image'
+            'primary_image': 'primary_image',
+            'jbis_url': 'jbis_url',
+            'detail_url': 'detail_url',
+            'url': 'detail_url'  # 念のため 'url' でもマッピング
         }
         
         # フィールドをマッピングに従ってコピー

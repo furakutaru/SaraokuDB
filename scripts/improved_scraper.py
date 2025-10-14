@@ -1748,6 +1748,15 @@ class ImprovedRakutenScraper:
                 'scraped_at': datetime.now().isoformat()
             }
             
+            # JBISリンクを抽出
+            jbis_links = detail_soup.find_all('a', href=lambda href: href and 'jbis.or.jp' in href)
+            if jbis_links:
+                jbis_url = jbis_links[0]['href']
+                horse_info['jbis_url'] = jbis_url
+                self.logger.debug(f"JBISリンクを抽出: {jbis_url}")
+            else:
+                self.logger.debug("JBISリンクが見つかりませんでした")
+            
             # 基本情報テーブルから情報を抽出
             info_table = detail_soup.find('table', class_=lambda c: c and 'horse-info' in c.lower())
             if info_table:
