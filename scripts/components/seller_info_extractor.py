@@ -40,10 +40,12 @@ class SellerInfoExtractor:
         self.logger.debug(f'要素のテキスト（先頭200文字）: {element_text[:200]}...')
         
         # 正規表現で「販売申込者：」の後を抽出（改行や括弧を含む場合も考慮）
-        seller_match = re.search(r'販売申込者[：:]([^\n\r<（]+(?:（[^）]*）)?)', element_text)
+        seller_match = re.search(r'販売申込者[：:]([^\n\r<（]+)(?:（[^）]*）)?', element_text)
         
         if seller_match:
             seller_name = seller_match.group(1).strip()
+            # 販売者名から「（インボイス登録あり）」を削除
+            seller_name = re.sub(r'\s*\([^)]*\)', '', seller_name)
             self.logger.debug(f'販売者名を抽出: {seller_name}')
             
             # URLがあれば取得（「販売申込者」というテキストを含むリンクを探す）
