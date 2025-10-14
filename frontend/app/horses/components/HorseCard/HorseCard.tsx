@@ -94,12 +94,13 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, onHorseClick }) => {
   const totalPrizeLatest = formatPrize(horse.total_prize_latest);
 
   return (
-    <Link href={`/horses/${horse.id}`} passHref legacyBehavior>
-      <Box 
-        component="a"
-        className="block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
-        onClick={handleClick}
-      >
+    <Link 
+      href={`/horses/${horse.id}`} 
+      passHref
+      className="block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+      onClick={handleClick}
+    >
+      <Box component="div">
         {/* 馬画像 */}
         <HorseImage 
           src={horse.image_url} 

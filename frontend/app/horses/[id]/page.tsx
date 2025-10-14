@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
+import { DiseaseTags, extractDiseaseTags } from './diseaseTags';
 import SexBadge from '../components/SexBadge';
 import DateInfoCard from './components/DateInfoCard';
 import { format } from 'date-fns';
@@ -83,6 +84,7 @@ type HorseWithPageProps = Omit<HorseWithCalculations, 'history' | 'disease_tags'
   created_at?: string;
   updated_at?: string;
   dam_sire?: string;
+  comment?: string;  // コメントをオプショナルプロパティとして追加
   
   // 表示用（HorseWithCalculations から継承されるが、明示的に再宣言）
   display_price: string;
@@ -773,6 +775,40 @@ export default function HorseDetailPage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   
+  // コメントと最新履歴の状態を管理
+  const [pageState, setPageState] = useState<{
+    hasComments: boolean;
+    latestHistory: ExtendedAuctionHistory | null;
+  }>({
+    hasComments: false,
+    latestHistory: null
+  });
+  
+  // デバッグ用: マウント時のパラメータをログ出力
+  // 注意: このコンポーネント内では pageState.hasComments と pageState.latestHistory を使用してください
+  // 変数名の重複を避けるため、分割代入は行わないでください
+  useEffect(() => {
+    console.log('HorseDetailPage mounted with params:', params);
+  }, [params]);
+  
+  // デバッグ用: 馬データが更新されたらログ出力
+  useEffect(() => {
+    if (horse) {
+      console.log('Horse data updated:', {
+        id: horse.id,
+        name: horse.name,
+        comment: horse.comment,
+        disease_tags: horse.disease_tags,
+        hasComments: pageState.hasComments,
+        latestHistory: pageState.latestHistory ? {
+          id: pageState.latestHistory.id,
+          comment: pageState.latestHistory.comment,
+          disease_tags: pageState.latestHistory.disease_tags
+        } : null
+      });
+    }
+  }, [horse, pageState]);
+  
   // 馬IDをパース
   const horseId = useMemo(() => {
     try {
@@ -795,19 +831,53 @@ export default function HorseDetailPage({ params }: PageProps) {
     if (!horseId) return;
 
     const fetchHorseData = async () => {
+      console.log('Fetching horse data for ID:', horseId);
       setIsLoading(true);
       try {
-        const { horse, error } = await getHorseData(horseId);
+        const { horse: horseData, error } = await getHorseData(horseId);
         
         if (error) {
           throw new Error(error);
         }
         
-        if (!horse) {
+        if (!horseData) {
           throw new Error('馬のデータが見つかりませんでした');
         }
-
-        setHorse(horse);
+        
+        console.log('Fetched horse data:', {
+          id: horseData.id,
+          name: horseData.name,
+          comment: horseData.comment,
+          disease_tags: horseData.disease_tags,
+          history: horseData.history?.length
+        });
+        
+        // コメントがあるかチェック
+        let hasAnyComment = false;
+        let latestHistoryItem = null;
+        
+        if (horseData.history?.length > 0) {
+          hasAnyComment = horseData.history.some(h => h.comment && h.comment.trim() !== '');
+          console.log('Has comments in history:', hasAnyComment);
+          
+          // 最新の履歴をセット
+          latestHistoryItem = [...horseData.history].sort((a, b) => 
+            new Date(b.auction_date || 0).getTime() - new Date(a.auction_date || 0).getTime()
+          )[0];
+          console.log('Latest history:', {
+            id: latestHistoryItem.id,
+            comment: latestHistoryItem.comment,
+            disease_tags: latestHistoryItem.disease_tags
+          });
+        }
+        
+        // 状態を一度に更新
+        setPageState({
+          hasComments: hasAnyComment,
+          latestHistory: latestHistoryItem
+        });
+        
+        setHorse(horseData);
         setError(null);
       } catch (err) {
         console.error('馬データの取得中にエラーが発生しました:', err);
@@ -821,15 +891,23 @@ export default function HorseDetailPage({ params }: PageProps) {
   }, [horseId]);
 
   // コメントの有無と最新履歴を計算
-  const { hasComments, latestHistory } = useMemo(() => {
+  const commentAndHistory = useMemo(() => {
     if (!horse) return { hasComments: false, latestHistory: null };
     
     const history = Array.isArray(horse.history) ? horse.history : [];
     const latest = history[0] || null;
-    const hasComments = history.some(h => h.comment?.trim().length > 0);
+    const hasAnyComments = history.some(h => h.comment?.trim().length > 0);
     
-    return { hasComments, latestHistory: latest };
+    return { hasComments: hasAnyComments, latestHistory: latest };
   }, [horse]);
+
+  // コメントと最新履歴の状態を更新
+  useEffect(() => {
+    setPageState({
+      hasComments: commentAndHistory.hasComments,
+      latestHistory: commentAndHistory.latestHistory
+    });
+  }, [commentAndHistory]);
 
   if (isLoading) {
     return (
@@ -910,13 +988,13 @@ export default function HorseDetailPage({ params }: PageProps) {
     };
   })();
   
-  return (
+  return horse ? (
     <HorseDetailContent 
-      horse={horseWithPageProps} 
-      hasComments={hasComments}
-      latestHistory={latestHistory}
+      horse={horse} 
+      hasComments={pageState.hasComments}
+      latestHistory={pageState.latestHistory}
     />
-  );
+  ) : null;
 }
 
 // URLが有効かどうかをチェックする関数
@@ -932,9 +1010,13 @@ const isValidUrl = (url?: string | null): boolean => {
 
 const HorseDetailContent: React.FC<HorseDetailContentProps> = ({ 
   horse, 
-  hasComments, 
-  latestHistory 
+  hasComments: hasCommentsInner, 
+  latestHistory: latestHistoryInner 
 }) => {
+  // 引数名をリネームして、親コンポーネントの状態変数と競合しないようにする
+  const hasComments = hasCommentsInner;
+  const latestHistory = latestHistoryInner;
+
   useEffect(() => {
     console.log('馬データ:', JSON.stringify(horse, null, 2));
     console.log('JBIS URL:', horse?.jbis_url);
@@ -1227,57 +1309,51 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                       </div>
                     </div>
 
-                    {/* 病歴（血統の下に1箇所のみ表示） */}
-                    {((latestHistory.disease_tags && String(latestHistory.disease_tags).trim() !== '') ||
-                      (horse.disease_tags && String(horse.disease_tags).trim() !== '')) && (
-                      <div>
-                        <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>病歴</Typography>
-                        <div className="flex flex-wrap gap-2">
-                          {(() => {
-                            try {
-                              // 最新の履歴からタグを取得、なければ馬の基本情報から取得
-                              const tags = latestHistory.disease_tags || horse.disease_tags || [];
-                              
-                              // タグを処理するヘルパー関数
-                              const processTag = (tag: any) => {
-                                if (tag === null || tag === undefined) return '';
-                                if (typeof tag !== 'string') return String(tag);
-                                
-                                // ユニコードエスケープシーケンスをデコード
-                                return tag
-                                  .replace(/[\"\[\]]/g, '') // 余分な文字を削除
-                                  .replace(/\\u([\dA-Fa-f]{4})/g, (match, grp) => 
-                                    String.fromCharCode(parseInt(grp, 16))
-                                  );
-                              };
-                              
-                              // タグを処理
-                              let processedTags: string[] = [];
-                              
-                              if (Array.isArray(tags)) {
-                                processedTags = tags.map(processTag).filter(Boolean);
-                              } else if (typeof tags === 'string') {
-                                // 文字列をカンマで分割し、各タグを処理
-                                processedTags = tags.split(',')
-                                  .map(tag => processTag(tag.trim()))
-                                  .filter(Boolean);
-                              }
-                              
-                              // タグを表示
-                              return processedTags.map((tag, index) => (
-                            
-                                <Badge key={index} variant="standard" className="bg-red-100 text-red-800 px-2 py-1 rounded">
-                                  {tag}
-                                </Badge>
-                              ));
-                            } catch (e) {
-                              console.error('病歴の表示中にエラーが発生しました:', e);
-                              return null;
-                            }
-                          })()}
-                        </div>
-                      </div>
-                    )}
+                    {/* 疾病タグ */}
+                    <div className="mt-4">
+                      {(() => {
+                        // デバッグ用に horse オブジェクト全体を表示
+                        console.log('horse オブジェクト:', JSON.stringify(horse, null, 2));
+                        
+                        // latestHistory?.disease_tags が配列でない場合に配列に変換
+                        const historyDiseaseTags = latestHistory?.disease_tags 
+                          ? Array.isArray(latestHistory.disease_tags) 
+                            ? latestHistory.disease_tags 
+                            : [latestHistory.disease_tags]
+                          : [];
+                        
+                        // コメントを取得（horse.comment または latestHistory.comment から）
+                        const comment = horse.comment || latestHistory?.comment || '';
+                        
+                        // 疾病タグを抽出（コメントからと既存のタグをマージ）
+                        const extractedTags = extractDiseaseTags(
+                          comment,
+                          historyDiseaseTags.length > 0 ? historyDiseaseTags : (horse.disease_tags || [])
+                        );
+                        
+                        console.log('コメント:', comment);
+                        console.log('履歴の疾病タグ:', latestHistory?.disease_tags);
+                        console.log('馬のデフォルト疾病タグ:', horse.disease_tags);
+                        console.log('抽出されたタグ:', extractedTags);
+                        
+                        // テスト用のタグ（デバッグ用）
+                        const testTags = ['テストタグ1', 'テストタグ2'];
+                        
+                        // 疾病タグがある場合のみ表示
+                        if (extractedTags.length > 0) {
+                          return (
+                            <div className="mt-4">
+                              <DiseaseTags 
+                                tags={extractedTags}
+                                className="mt-2"
+                              />
+                            </div>
+                          );
+                        }
+                        
+                        return null;
+                      })()}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -1597,11 +1673,13 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
   // メインのレンダリング
   return (
     <div className="container mx-auto px-4 py-8">
-      <HorseDetailContent 
-        horse={horse} 
-        hasComments={hasComments} 
-        latestHistory={latestHistory} 
-      />
+      {horse && (
+        <HorseDetailContent 
+          horse={horse}
+          hasComments={hasComments}
+          latestHistory={latestHistory}
+        />
+      )}
     </div>
   );
 }
