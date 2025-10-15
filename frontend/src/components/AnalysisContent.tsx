@@ -130,8 +130,10 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
     
     const result = validHorses.map((horse: any, index: number): DisplayHorse => {
       console.log(`[${index}] Mapping horse:`, horse.name || 'No name');
-    // IDを明示的に文字列に変換
-    const horseId = horse.id ? String(horse.id) : `horse-${Date.now()}`;
+      console.log(`[${index}] total_prize_start:`, horse.total_prize_start); // デバッグログを追加
+      
+      // IDを明示的に文字列に変換
+      const horseId = horse.id ? String(horse.id) : `horse-${Date.now()}`;
     
     // オークション履歴を取得（historyまたはauction_historyのいずれかを使用）
     const auctionHistory = Array.isArray(horse.history) 
@@ -512,7 +514,8 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
       sold_price: soldPrice,
       seller: horse.seller || latestAuction.seller || '不明',
       weight: horse.weight || latestAuction.weight || 0,
-      total_prize_start: horse.total_prize_start || 0,
+      // オークション開始時の賞金を正しく設定（0も有効な値として扱う）
+      total_prize_start: horse.total_prize_start !== undefined ? horse.total_prize_start : 0,
       total_prize_latest: horse.total_prize_latest || 0,
       // 主取り（unsold）の判定
       unsold: isUnsold,
@@ -583,7 +586,8 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
     // 重量あたりの価格を計算するための重み（0除算を防ぐため1kgをデフォルト値に）
     const weightForCalc = effectiveWeight !== undefined && effectiveWeight > 0 ? effectiveWeight : 1;
     
-    // ROI計算
+    // ROI計算（オークション開始時の賞金を使用）
+    const startPrizeValue = baseHorse.total_prize_start || 0;
     const calculatedRoiValue = soldPriceValue > 0 
       ? ((prizeMoneyValue - soldPriceValue) / soldPriceValue) * 100 
       : 0;
@@ -598,17 +602,31 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
       price_per_kg: pricePerKgValue,
       display_price: isUnsold ? '主取り' : soldPrice ? formatPrice(soldPrice) : '-',
       // 馬体重を数値のみで保持（表示時にkgを付与）
-      weight: horseWeight,  // 数値のみを保持
-      display_weight: horseWeight !== null ? `${horseWeight}kg` : '-',
-      display_prize: prizeMoneyValue ? `${prizeMoneyValue}万円` : '-',
-      display_roi: calculatedRoiValue > 0 ? `${calculatedRoiValue.toFixed(1)}%` : '-',
-      sort_price: soldPriceValue,
+      effectiveWeight: effectiveWeight,
+      display_weight: effectiveWeight ? `${effectiveWeight}kg` : '-',
+      // 賞金を適切にフォーマット
+      display_prize: prizeMoneyValue > 0 ? formatPrice(prizeMoneyValue) : '-',
+      // ROIをパーセンテージで表示
+      display_roi: !isUnsold && soldPriceValue > 0 ? `${calculatedRoiValue.toFixed(1)}%` : '-',
+      // ソート用の数値
+      sort_price: numericSoldPrice,
       sort_prize: prizeMoneyValue,
       sort_roi: calculatedRoiValue,
-      primary_image: imageUrlNormalized,
-      seller: latestAuction?.seller || '',
-      auction_date: latestAuction?.auction_date || '',
-      comment: latestAuction?.comment || '',
+      // その他のフィールド
+      is_sold: !isUnsold && soldPriceValue > 0,
+      is_unsold: isUnsold,
+      // オークション情報
+      auction: {
+        ...latestAuction,
+        sold_price: soldPrice,
+        is_unsold: isUnsold,
+        total_prize_start: startPrizeValue
+      },
+      // 元の馬データを保持
+      _raw: horse,
+      // オークション開始時の賞金を保持
+      total_prize_start: startPrizeValue,
+      // 有効なオークション情報を追加
       effectiveAuction: effectiveAuction,
       // 外部リンクを追加（データに合わせて調整）
       jbis_url: horse.jbis_url,
@@ -836,7 +854,8 @@ export default function AnalysisContent() {
       effectiveWeight, // 有効な体重を追加
       unsold_count: auctionHistory.filter(a => a.is_unsold).length,
       detail_url: latestAuction.detail_url || latestAuction.auction_url || horse.detail_url || horse.auction_url || '',
-      total_prize_start: latestAuction.total_prize_start,
+      // 元の馬データからtotal_prize_startを取得
+      total_prize_start: horse.total_prize_start !== undefined ? horse.total_prize_start : (latestAuction.total_prize_start || 0),
       total_prize_latest: latestAuction.total_prize_latest || 0,
       sold_price: mergedSoldPrice,
       unsold: isUnsoldCurrent,
@@ -963,7 +982,8 @@ export default function AnalysisContent() {
       ...latestAuction,
       unsold_count: auctionHistory.filter(a => a.is_unsold).length,
       detail_url: latestAuction.detail_url || latestAuction.auction_url || horse.detail_url || horse.auction_url || '',
-      total_prize_start: latestAuction.total_prize_start,
+      // 元の馬データからtotal_prize_startを取得
+      total_prize_start: horse.total_prize_start !== undefined ? horse.total_prize_start : (latestAuction.total_prize_start || 0),
       total_prize_latest: latestAuction.total_prize_latest || 0,
       weight: latestAuction.weight,
       display_weight: latestAuction.weight !== null ? `${latestAuction.weight}kg` : '-',

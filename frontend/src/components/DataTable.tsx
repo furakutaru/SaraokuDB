@@ -59,9 +59,15 @@ export default function DataTable({ horses, sortKey, sortOrder, onSort, renderSo
               <td className="px-3 py-2">
                 <PriceDisplay soldPrice={horse.sold_price} isUnsold={horse.is_unsold} unsold={horse.unsold} />
               </td>
-              <td className="px-3 py-2">-</td>
               <td className="px-3 py-2">
-                {horse.prize_money?.total_prize !== undefined ? `${horse.prize_money.total_prize}万円` : '-'}
+                {horse.total_prize_start !== undefined && horse.total_prize_start !== null && horse.total_prize_start > 0
+                  ? `${Number(horse.total_prize_start).toLocaleString()}円` 
+                  : '-'}
+              </td>
+              <td className="px-3 py-2">
+                {horse.total_prize_latest !== undefined && horse.total_prize_latest !== null && horse.total_prize_latest > 0
+                  ? `${Number(horse.total_prize_latest).toLocaleString()}円`
+                  : '-'}
               </td>
               <td className="px-3 py-2">
                 <RoiBadge prizeMoney={horse.prize_money?.total_prize} soldPrice={horse.sold_price} />
