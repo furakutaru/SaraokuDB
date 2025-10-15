@@ -1,0 +1,31 @@
+# バックアップディレクトリ
+_backup_*
+*/_backup_*
+**/_backup_*
+
+# その他のバックアップ
+horses_backup_*
+*/horses_backup_*
+**/horses_backup_*
+
+# 一時ファイル
+temp_*
+*/temp_*
+**/temp_*
+
+# その他の一般的な無視ファイル
+node_modules
+.next
+out
+.DS_Store
+*.log
+.cache
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# デバッグログ
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

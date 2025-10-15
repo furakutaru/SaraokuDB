@@ -29,14 +29,12 @@ jobs:
           pip install requests beautifulsoup4 lxml tqdm
           
       - name: Set environment variables
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          API_USERNAME: ${{ secrets.API_USERNAME }}
-          API_PASSWORD: ${{ secrets.API_PASSWORD }}
         run: |
-          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_ENV
-          echo "API_USERNAME=$API_USERNAME" >> $GITHUB_ENV
-          echo "API_PASSWORD=$API_PASSWORD" >> $GITHUB_ENV
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
+          echo "API_USERNAME=${{ secrets.API_USERNAME }}" >> $GITHUB_ENV
+          echo "API_PASSWORD=${{ secrets.API_PASSWORD }}" >> $GITHUB_ENV
+          # セキュリティのため、パスワードをマスク
+          echo "::add-mask::${{ secrets.API_PASSWORD }}"
           
       - name: Run scraper
         run: |
