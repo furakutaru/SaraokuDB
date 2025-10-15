@@ -9,6 +9,80 @@
 
 ## ✨ 主な機能
 
+- 楽天競馬オークションからの自動データ収集
+- 馬の基本情報・血統情報の管理
+- 落札価格と賞金情報の分析
+- 直感的なWebインターフェース
+- 定期的なデータ更新（週2回）
+
+## 🚀 セットアップ
+
+### 前提条件
+
+- Node.js 16.8 以上
+- Python 3.11 以上
+- npm または yarn
+
+### インストール手順
+
+1. リポジトリをクローン:
+   ```bash
+   git clone https://github.com/yourusername/saraokudb.git
+   cd saraokudb
+   ```
+
+2. フロントエンドの依存関係をインストール:
+   ```bash
+   cd static-frontend
+   npm install
+   ```
+
+3. バックエンドの依存関係をインストール:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. 環境変数を設定:
+   ```bash
+   cp .env.example .env
+   # .envファイルを編集して必要な設定を行う
+   ```
+
+5. 開発サーバーを起動:
+   ```bash
+   # フロントエンド
+   cd static-frontend
+   npm run dev
+   
+   # 別ターミナルでバックエンド
+   python scripts/improved_scraper.py
+   ```
+
+## 📂 プロジェクト構成
+
+```
+.
+├── backend/           # バックエンドスクリプト
+├── static-frontend/   # フロントエンドアプリケーション
+├── scripts/          # スクリプトとユーティリティ
+├── data/             # データファイル
+└── docs/             # ドキュメント
+```
+
+## 📄 ドキュメント
+
+- [プロジェクト仕様書](./PROJECT_SPEC.md) - システムの詳細な仕様
+- [スクレイピングガイド](./docs/SCRAPING_GUIDE.md) - スクレイピングの手順とガイドライン
+- [AIリファレンス](./AI_REFERENCE.md) - AI連携に関する情報
+
+## 🤝 貢献について
+
+バグレポートやプルリクエストは大歓迎です。
+
+## 📜 ライセンス
+
+このプロジェクトは [MIT ライセンス](LICENSE) で公開されています。
+
 - **自動スクレイピング**: 楽天オークションから馬情報を自動収集
 - **賞金追跡**: オークション時点と最新の賞金を比較
 - **RIO分析**: 投資収益率（Return on Investment）を自動計算

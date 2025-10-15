@@ -1,22 +1,92 @@
 from sqlalchemy.orm import Session
-from backend.database.models import Horse, get_db
-from backend.scrapers.rakuten_scraper import RakutenAuctionScraper
+from sqlalchemy.inspection import inspect
 from typing import List, Dict, Optional
 from datetime import datetime
 import json
-from sqlalchemy.inspection import inspect
+import sys
+import os
+
+# Add the project root to the Python path
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from backend.database.models import Horse, get_db
+from backend.scrapers.rakuten_scraper import RakutenAuctionScraper
 
 class HorseService:
     def __init__(self):
         self.rakuten_scraper = RakutenAuctionScraper()
     
     def create_horse(self, db: Session, horse_data: Dict) -> Horse:
-        """馬データをデータベースに保存"""
-        horse = Horse(**horse_data)
-        db.add(horse)
-        db.commit()
-        db.refresh(horse)
-        return horse
+        """
+        馬データをデータベースに保存
+        
+        Args:
+            db: データベースセッション
+            horse_data: 保存する馬データ（auction_idを含む）
+            
+        Returns:
+            Horse: 保存された馬データ
+            
+        Raises:
+            ValueError: 必須フィールドが不足している場合
+        """
+        try:
+            # デバッグ用に馬体重データをログに出力
+            weight = horse_data.get('weight')
+            if weight is not None:
+                print(f"[HorseService] 馬体重データを検出: {weight}kg (型: {type(weight)})")
+            else:
+                print("[HorseService] 警告: 馬体重データが見つかりません")
+                
+            print(f"[HorseService] 受信データ: {horse_data}")
+            
+            # レースレコードが辞書型の場合はJSON文字列に変換
+            if 'race_record' in horse_data and horse_data['race_record'] is not None:
+                if isinstance(horse_data['race_record'], dict):
+                    try:
+                        horse_data['race_record'] = json.dumps(horse_data['race_record'], ensure_ascii=False)
+                        print(f"[HorseService] レースレコードをJSONに変換: {horse_data['race_record']}")
+                    except Exception as e:
+                        print(f"[HorseService] レースレコードのJSON変換エラー: {str(e)}")
+                        raise
+            
+            # auction_idが指定されている場合は、既存の馬を検索
+            if 'auction_id' in horse_data and horse_data['auction_id']:
+                existing_horse = self.get_horse_by_auction_id(db, horse_data['auction_id'])
+                if existing_horse:
+                    # 既存の馬を更新
+                    print(f"[HorseService] 既存の馬を更新します (auction_id: {horse_data['auction_id']})")
+                    return self.update_horse(db, existing_horse.id, horse_data)
+            
+            # 必須フィールドのバリデーション
+            required_fields = ['name', 'auction_id']
+            for field in required_fields:
+                if field not in horse_data or not horse_data[field]:
+                    raise ValueError(f"必須フィールド '{field}' が不足しています")
+            
+            print(f"[HorseService] 保存前データ: {horse_data}")
+            
+            try:
+                horse = Horse(**horse_data)
+                db.add(horse)
+                db.commit()
+                db.refresh(horse)
+                print(f"[HorseService] 保存成功: 馬ID {horse.id}, オークションID {horse.auction_id}")
+                return horse
+                
+            except Exception as e:
+                db.rollback()
+                print(f"[HorseService] データベースエラー: {str(e)}")
+                print(f"[HorseService] エラーのあるデータ: {horse_data}")
+                raise
+                
+        except Exception as e:
+            print(f"[HorseService] エラーが発生しました: {str(e)}")
+            import traceback
+            print(f"[HorseService] トレースバック: {traceback.format_exc()}")
+            raise
     
     def get_horses(self, db: Session, skip: int = 0, limit: int = 100) -> List[Horse]:
         """馬データを取得"""
@@ -25,6 +95,10 @@ class HorseService:
     def get_horse_by_id(self, db: Session, horse_id: int) -> Optional[Horse]:
         """IDで馬データを取得"""
         return db.query(Horse).filter(Horse.id == horse_id).first()
+        
+    def get_horse_by_auction_id(self, db: Session, auction_id: str) -> Optional[Horse]:
+        """オークションIDで馬データを取得"""
+        return db.query(Horse).filter(Horse.auction_id == auction_id).first()
     
     def get_horses_by_auction_date(self, db: Session, auction_date: str) -> List[Horse]:
         """開催日で馬データを取得"""
@@ -32,6 +106,10 @@ class HorseService:
     
     def update_horse(self, db: Session, horse_id: int, horse_data: Dict) -> Optional[Horse]:
         """馬データを更新"""
+        # レースレコードが辞書型の場合はJSON文字列に変換
+        if 'race_record' in horse_data and isinstance(horse_data['race_record'], dict):
+            horse_data['race_record'] = json.dumps(horse_data['race_record'], ensure_ascii=False)
+            
         horse = db.query(Horse).filter(Horse.id == horse_id).first()
         if horse:
             for key, value in horse_data.items():

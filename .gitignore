@@ -71,4 +71,11 @@ Thumbs.db
 
 # Chrome driver
 chromedriver
-chromedriver.exe 
+chromedriver.exe frontend/.next/
+.next/
+node_modules/
+.vercel/
+.env*.local
+
+# Webpack cache
+frontend/.next/cache/webpack/

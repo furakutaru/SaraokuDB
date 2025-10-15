@@ -124,23 +124,31 @@ export default function AnalysisContent() {
     return <div className="min-h-screen flex items-center justify-center text-red-600">{error || 'データがありません'}</div>;
   }
 
-  // 馬データを処理（オークション履歴は将来的な機能拡張のために型定義のみ残す）
+  // 馬データを処理（オークション履歴から最新の情報をマージ）
   const horsesWithLatest: HorseWithAuction[] = data.horses.map(horse => {
-    // オークション情報は現在使用しないが、将来的な拡張のために型は残す
+    // 最新のオークション情報を取得
+    const latestAuction = data.auction_history
+      .filter(ah => ah.horse_id === horse.id)
+      .sort((a, b) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0];
+
+    // 体重データを優先的に使用するソースを決定
+    // 1. 最新のオークション履歴のweight
+    // 2. 馬の基本情報のweight
+    const effectiveWeight = latestAuction?.weight ?? horse.weight ?? null;
+
     return {
       ...horse,
-      // 互換性のためのプロパティマッピング
       dam_sire: horse.damsire || '',
       detail_url: horse.auction_url || '',
-      // オークション情報（将来的な機能拡張用）
-      latestAuction: undefined,
-      total_prize_start: horse.total_prize_start || 0,
-      total_prize_latest: horse.total_prize_latest || 0,
-      is_unsold: false,
-      auction_date: '',
-      seller: '',
-      sold_price: horse.sold_price || 0,
-      weight: horse.weight || null
+      // オークション情報
+      latestAuction: latestAuction || undefined,
+      total_prize_start: latestAuction?.total_prize_start || horse.total_prize_start || 0,
+      total_prize_latest: latestAuction?.total_prize_latest || horse.total_prize_latest || 0,
+      is_unsold: latestAuction?.is_unsold || horse.is_unsold || false,
+      auction_date: latestAuction?.auction_date || horse.auction_date || '',
+      seller: latestAuction?.seller || horse.seller || '',
+      sold_price: latestAuction?.sold_price || horse.sold_price || 0,
+      weight: effectiveWeight
     };
   });
 
@@ -399,7 +407,36 @@ export default function AnalysisContent() {
                   </td>
                   <td className="px-3 py-2">{displayAge(horse.age)}</td>
                   <td className="px-3 py-2">{horse.sire || '-'}</td>
-                  <td className="px-3 py-2 text-right">{horse.weight ? `${horse.weight} kg` : '-'}</td>
+                  <td className="px-3 py-2 text-right">
+                    {(() => {
+                      // 体重データの処理
+                      const weight = horse.weight as string | number | null | undefined;
+                      
+                      // 値が存在しないか無効な場合
+                      if (weight === null || weight === undefined || weight === '') {
+                        return '-';
+                      }
+                      
+                      // 数値に変換を試みる
+                      const weightStr = String(weight);
+                      const numWeight = parseFloat(weightStr.replace(/[^0-9.]/g, ''));
+                      
+                      // 有効な数値の場合、整数に丸めて表示
+                      if (!isNaN(numWeight) && isFinite(numWeight)) {
+                        return `${Math.round(numWeight)} kg`;
+                      }
+                      
+                      // 文字列として有効な場合
+                      const trimmedWeight = weightStr.trim();
+                      if (trimmedWeight !== '') {
+                        // 「kg」が含まれていない場合は追加
+                        return trimmedWeight.toLowerCase().includes('kg') ? trimmedWeight : `${trimmedWeight} kg`;
+                      }
+                      
+                      // その他の場合はハイフンを表示
+                      return '-';
+                    })()}
+                  </td>
                   <td className="px-3 py-2">
                     {displayPrice(horse.sold_price, horse.is_unsold)}
                   </td>

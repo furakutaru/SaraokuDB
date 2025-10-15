@@ -1,44 +1,43 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
-import { Pets, Dashboard, CloudDownload } from '@mui/icons-material';
+import { Typography, Button, Box } from '@mui/material';
+import Link from 'next/link';
 
 const Header: React.FC = () => {
   return (
-    <AppBar position="static">
-      <Toolbar>
-        <Pets sx={{ mr: 2 }} />
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          サラブレッドオークション データベース
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/"
-            startIcon={<Dashboard />}
-          >
-            ダッシュボード
-          </Button>
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/horses"
-            startIcon={<Pets />}
-          >
-            馬一覧
-          </Button>
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/scraping"
-            startIcon={<CloudDownload />}
-          >
-            スクレイピング
-          </Button>
-        </Box>
-      </Toolbar>
-    </AppBar>
+    <header className="bg-white shadow-sm border-b">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center py-4">
+          <Link href="/" passHref>
+            <Typography 
+              variant="h6" 
+              component="a"
+              className="text-xl font-bold text-gray-900 hover:text-gray-700 cursor-pointer"
+            >
+              サラオクDB
+            </Typography>
+          </Link>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              component={Link}
+              href="/analysis"
+              variant="text"
+              className="text-gray-700 hover:bg-gray-100"
+            >
+              解析
+            </Button>
+            <Button
+              component={Link}
+              href="/recent"
+              variant="contained"
+              color="primary"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              直近の追加
+            </Button>
+          </Box>
+        </div>
+      </div>
+    </header>
   );
 };
 
