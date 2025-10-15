@@ -152,16 +152,16 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, onHorseClick }) => {
               </Box>
             )}
 
-            {totalPrizeLatest && (
+            {horse.total_prize_start ? (
               <Box className="flex justify-between items-center mb-1">
                 <Typography variant="body2" className="text-gray-500">
-                  総賞金:
+                  落札時の賞金:
                 </Typography>
                 <Typography variant="body2" className="font-medium text-gray-900">
-                  {totalPrizeLatest}
+                  {(Number(horse.total_prize_start) / 10000).toLocaleString('ja-JP')}万円
                 </Typography>
               </Box>
-            )}
+            ) : null}
 
             {seller && (
               <Box className="flex justify-between items-center">
