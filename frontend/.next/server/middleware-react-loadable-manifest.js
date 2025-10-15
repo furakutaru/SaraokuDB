@@ -1,1 +1,0 @@
-self.__REACT_LOADABLE_MANIFEST="{\"../app/horses/[id]/page.tsx -> ./components/LoadingSpinner\":{\"id\":\"../app/horses/[id]/page.tsx -> ./components/LoadingSpinner\",\"files\":[\"static/chunks/_app-pages-browser_app_horses_id_components_LoadingSpinner_tsx.js\"]}}"

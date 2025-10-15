@@ -71,4 +71,4 @@ Thumbs.db
 
 # Chrome driver
 chromedriver
-chromedriver.exe 
+chromedriver.exe frontend/.next/
