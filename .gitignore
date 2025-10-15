@@ -76,3 +76,6 @@ chromedriver.exe frontend/.next/
 node_modules/
 .vercel/
 .env*.local
+
+# Webpack cache
+frontend/.next/cache/webpack/
