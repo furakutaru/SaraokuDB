@@ -37,7 +37,7 @@ export default function DataTable({ horses, sortKey, sortOrder, onSort, renderSo
             <SortableHeader label="父" columnKey={'sire'} activeKey={sortKey} order={sortOrder} onSort={onSort} renderSortIcon={renderSortIcon} className="text-left" />
             <SortableHeader label="馬体重 (kg)" columnKey={'weight'} activeKey={sortKey} order={sortOrder} onSort={onSort} renderSortIcon={renderSortIcon} className="text-right" />
             <SortableHeader label="落札価格" columnKey={'sold_price'} activeKey={sortKey} order={sortOrder} onSort={onSort} renderSortIcon={renderSortIcon} className="text-left" />
-            <SortableHeader label="オークション時賞金" columnKey={'total_prize_start'} activeKey={sortKey} order={sortOrder} onSort={onSort} renderSortIcon={renderSortIcon} className="text-left" />
+            <SortableHeader label="落札時の賞金" columnKey={'total_prize_start'} activeKey={sortKey} order={sortOrder} onSort={onSort} renderSortIcon={renderSortIcon} className="text-left" />
             <SortableHeader label="現在賞金" columnKey={'total_prize_latest'} activeKey={sortKey} order={sortOrder} onSort={onSort} renderSortIcon={renderSortIcon} className="text-left" />
             <SortableHeader label="ROI" columnKey={'roi'} activeKey={sortKey} order={sortOrder} onSort={onSort} renderSortIcon={renderSortIcon} className="text-left" />
             <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">リンク</th>
@@ -61,12 +61,12 @@ export default function DataTable({ horses, sortKey, sortOrder, onSort, renderSo
               </td>
               <td className="px-3 py-2">
                 {horse.total_prize_start !== undefined && horse.total_prize_start !== null && horse.total_prize_start > 0
-                  ? `${Number(horse.total_prize_start).toLocaleString()}円` 
+                  ? `${(Number(horse.total_prize_start) / 10000).toFixed(1)}万円` 
                   : '-'}
               </td>
               <td className="px-3 py-2">
                 {horse.total_prize_latest !== undefined && horse.total_prize_latest !== null && horse.total_prize_latest > 0
-                  ? `${Number(horse.total_prize_latest).toLocaleString()}円`
+                  ? `${(Number(horse.total_prize_latest) / 10000).toFixed(1)}万円`
                   : '-'}
               </td>
               <td className="px-3 py-2">
