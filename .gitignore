@@ -72,3 +72,7 @@ Thumbs.db
 # Chrome driver
 chromedriver
 chromedriver.exe frontend/.next/
+.next/
+node_modules/
+.vercel/
+.env*.local
