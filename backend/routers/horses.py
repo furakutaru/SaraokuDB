@@ -8,7 +8,8 @@ from database.schemas import HorseResponse
 from services.horse_serializer import serialize_horse
 from services.horses_list_mapper import map_horses_list
 
-router = APIRouter(tags=["horses"])
+# ルーターの設定を修正 - prefixを追加
+router = APIRouter(prefix="/api", tags=["horses"])
 
 from fastapi import Request
 import logging
@@ -28,7 +29,7 @@ import os
 logger.info(f"Current file path: {os.path.abspath(__file__)}")
 logger.info(f"Current working directory: {os.getcwd()}")
 
-@router.get("/api/horses/latest", response_model=Dict[str, Any])
+@router.get("/horses/latest", response_model=Dict[str, Any])
 async def get_latest_horses(
     request: Request,
     skip: int = 0,
@@ -39,13 +40,15 @@ async def get_latest_horses(
     logger.info("Calling /horses/latest endpoint")
     return await get_horses(request, skip, limit, None, 'true', db)
 
-@router.get("/api/horses", response_model=Dict[str, Any])
+@router.get("", response_model=Dict[str, Any])
+@router.get("/", response_model=Dict[str, Any])  # 両方のパターンに対応
+@router.get("/horses", response_model=Dict[str, Any], include_in_schema=False)  # /api/horses にも対応
 async def get_horses(
     request: Request,
     skip: int = 0,
     limit: int = 100,
     auction_date: Optional[str] = None,
-    latest_auction: str = 'false',  # 文字列として受け取るように変更
+    latest_auction: str = 'false',
     db: Session = Depends(get_db)
 ):
     """馬の一覧を取得するエンドポイント
@@ -244,7 +247,7 @@ async def get_horses(
             }
         )
 
-@router.get("/api/horses/{horse_id}", response_model=HorseResponse)
+@router.get("/horses/{horse_id}", response_model=HorseResponse)
 @router.get("/horses/{horse_id}", response_model=HorseResponse, deprecated=True)
 async def get_horse(horse_id: str, db: Session = Depends(get_db)):
     """馬IDで馬データを取得

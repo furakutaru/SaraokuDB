@@ -43,7 +43,7 @@ import {
   getGrowthRate
 } from './utils/formatters';
 import { formatAge } from './utils/formatAge';
-import SexBadge from '@/app/horses/components/SexBadge';
+import SexBadge from './components/SexBadge';
 import FilterControls from './components/FilterControls';
 
 // 性別データを正規化する関数
@@ -199,22 +199,22 @@ export default function HorsesPage() {
           search: window.location.search
         });
         
-        // 最新のオークションの馬のみを取得するかどうかを決定
-        const result = await fetchHorsesList(isRecentPage);
-        const auction_histories = result.auction_histories || [];
+        // 馬の一覧を取得
+        const result = await fetchHorsesList();
         
         console.log('[useEffect] 取得したデータ:', {
-          isRecentPage,
-          horsesCount: result.horses.length,
-          auction_histories_count: auction_histories.length,
-          metadata: result.metadata
+          horsesCount: result.horses.length
         });
         
         if (isMounted) {
           setData({
             horses: result.horses,
-            auction_histories: auction_histories,
-            metadata: result.metadata
+            auction_histories: [],
+            metadata: {
+              last_updated: new Date().toISOString(),
+              total_horses: result.horses.length,
+              total_auction_records: 0
+            }
           });
         }
       } catch (err) {
