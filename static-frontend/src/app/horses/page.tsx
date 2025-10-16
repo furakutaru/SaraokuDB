@@ -70,7 +70,7 @@ export default function HorsesPage() {
         // 馬データを取得して整形
         const processedHorses = (data.horses || []).map(horse => {
           // 最新のオークション情報を取得
-          const latestAuction = horse.auction_history?.length > 0 
+          const latestAuction = horse.auction_history && Array.isArray(horse.auction_history) && horse.auction_history.length > 0
             ? [...horse.auction_history].sort((a, b) => 
                 new Date(b.date).getTime() - new Date(a.date).getTime()
               )[0]
