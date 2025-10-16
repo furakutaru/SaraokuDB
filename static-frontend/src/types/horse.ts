@@ -50,8 +50,34 @@ export interface Horse {
   basic_info: BasicInfo;
   /** レース記録 */
   race_records: RaceRecords;
-  /** オークション履歴 */
-  auction_history: AuctionHistory[];
+  /** オークション履歴（オプショナル） */
+  auction_history?: AuctionHistory[];
+  /** コメント（オプショナル） */
+  comment?: string;
+  /** 作成日時 */
+  created_at: string;
+  /** 更新日時 */
+  updated_at: string;
+  /** オークション日付（オプショナル） */
+  auction_date?: string;
+  /** 売却価格（オプショナル） */
+  sold_price?: number | null;
+  /** 主取りフラグ（オプショナル） */
+  is_unsold?: boolean;
+  /** 売主名（オプショナル） */
+  seller?: string;
+  /** 馬体重（オプショナル） */
+  weight?: number | null;
+  /** 総獲得賞金（開始時点）（オプショナル） */
+  total_prize_start?: number;
+  /** 総獲得賞金（最新時点）（オプショナル） */
+  total_prize_latest?: number;
+  /** オークションURL（オプショナル） */
+  auction_url?: string;
+  /** 詳細ページURL（オプショナル） */
+  detail_url?: string;
+  /** 疾病情報のタグ配列（オプショナル） */
+  disease_tags?: string[];
   /** メタデータ */
   metadata?: {
     created_at: string;
