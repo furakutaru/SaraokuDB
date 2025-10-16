@@ -106,19 +106,19 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
   };
 
   // 最新のオークション情報を取得（propsから受け取る）
-  const latestAuction = horse.latest_auction || getLatestAuction();
+  const latestAuction = getLatestAuction();
   const price = latestAuction?.sold_price ?? null;
   const isUnsold = latestAuction?.is_unsold ?? false;
   
   // 病気タグの有無をチェック
-  const hasDiseaseTags = horse.disease_tags && horse.disease_tags.length > 0;
+  const hasDiseaseTags = 'disease_tags' in horse && Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0;
 
   return (
     <div className="relative group cursor-pointer" onClick={onClick}>
       <div className="aspect-w-3 aspect-h-2 w-full overflow-hidden rounded-lg bg-gray-200">
         <img
-          src={horse.image_url || '/placeholder-horse.jpg'}
-          alt={horse.name}
+          src={typeof horse.image_url === 'string' ? horse.image_url : horse.image_url?.image_url || '/placeholder-horse.jpg'}
+          alt={horse.name || 'Unknown Horse'}
           className="h-48 w-full object-cover object-center group-hover:opacity-75"
         />
         {isUnsold && (
@@ -165,10 +165,10 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
         </div>
         
         {/* 3行目: 疾病情報 */}
-        {horse.disease_tags && horse.disease_tags.length > 0 && (
+        {('disease_tags' in horse) && Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0 && (
           <div className="pt-1">
             <div className="flex flex-wrap gap-1">
-              {horse.disease_tags.map((tag, index) => (
+              {(horse.disease_tags as string[]).map((tag: string, index: number) => (
                 <Badge key={index} variant="secondary" className="text-xs">
                   {tag}
                 </Badge>
