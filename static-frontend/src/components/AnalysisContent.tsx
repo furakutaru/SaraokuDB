@@ -14,6 +14,8 @@ interface HorseWithAuction extends Horse {
   dam_sire: string; // damsireのエイリアス
   detail_url: string; // auction_urlのエイリアス
   comment?: string; // コメント
+  weight?: number | null; // 体重
+  disease_tags?: string[]; // 疾患タグ
   // オークション情報（将来的な機能拡張用）
   latestAuction?: AuctionHistory;
   total_prize_start?: number;
@@ -23,9 +25,33 @@ interface HorseWithAuction extends Horse {
   seller?: string;
   // Horseインターフェースのプロパティをオーバーライド
   sold_price?: number | null;
+  // その他のプロパティ
+  [key: string]: any; // 動的なプロパティに対応
 }
 
-// 正規化関数を使用するため、独自のフォーマット関数を削除
+// フォーマット関数の実装
+const formatPrice = (price: number | null | undefined): string => {
+  if (price === null || price === undefined) return '-';
+  return new Intl.NumberFormat('ja-JP', {
+    style: 'currency',
+    currency: 'JPY',
+    maximumFractionDigits: 0,
+  }).format(price);
+};
+
+const formatDate = (dateString: string | undefined): string => {
+  if (!dateString) return '-';
+  try {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  } catch (e) {
+    return '-';
+  }
+};
 
 interface HorseData {
   horses: Horse[];
@@ -38,8 +64,19 @@ interface HorseData {
   };
 }
 
+// オークション履歴を馬ごとにグループ化する関数
+const groupAuctionHistory = (auctionHistory: AuctionHistory[]): Record<string, AuctionHistory[]> => {
+  return auctionHistory.reduce((acc, auction) => {
+    const horseId = String(auction.horse_id);
+    if (!acc[horseId]) {
+      acc[horseId] = [];
+    }
+    acc[horseId].push(auction);
+    return acc;
+  }, {} as Record<string, AuctionHistory[]>);
+};
+
 export default function AnalysisContent() {
-  const normalize = useNormalize();
   const [data, setData] = useState<HorseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +106,7 @@ export default function AnalysisContent() {
         const auctionHistoryByHorseId = groupAuctionHistory(auctionHistory);
         
         // 馬データにオークション履歴をマージ
-        const horsesWithHistory = (horsesData.horses || []).map((horse: Horse) => {
+        const horsesWithHistory = (horsesData.horses as HorseWithAuction[]).map(horse => {
           const history = auctionHistoryByHorseId[horse.id] || [];
           const latestAuction = history[0]; // 最新のオークション情報
           
@@ -80,11 +117,11 @@ export default function AnalysisContent() {
             is_unsold: latestAuction?.is_unsold || false,
             auction_date: latestAuction?.auction_date || horse.auction_date,
             seller: latestAuction?.seller || horse.seller,
-            weight: latestAuction?.weight || horse.weight,
+            weight: latestAuction?.weight ?? horse.weight ?? null,
             total_prize_start: latestAuction?.total_prize_start || horse.total_prize_start,
             total_prize_latest: latestAuction?.total_prize_latest || horse.total_prize_latest,
             comment: latestAuction?.comment || horse.comment
-          };
+          } as HorseWithAuction;
         });
 
         setData({
@@ -124,23 +161,28 @@ export default function AnalysisContent() {
       .filter(ah => ah.horse_id === horse.id)
       .sort((a, b) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0];
 
+    // 馬のデータを HorseWithAuction にキャスト
+    const horseWithAuction = horse as HorseWithAuction;
+    
     // 体重データを優先的に使用するソースを決定
     // 1. 最新のオークション履歴のweight
     // 2. 馬の基本情報のweight
-    const effectiveWeight = latestAuction?.weight ?? horse.weight ?? null;
+    const effectiveWeight = latestAuction?.weight ?? horseWithAuction.weight ?? null;
 
     return {
-      ...horse,
-      dam_sire: horse.damsire || '',
-      detail_url: horse.auction_url || '',
+      ...horseWithAuction,
+      dam_sire: horseWithAuction.damsire || '',
+      detail_url: horseWithAuction.auction_url || '',
       // オークション情報
       latestAuction: latestAuction || undefined,
-      total_prize_start: latestAuction?.total_prize_start || horse.total_prize_start || 0,
-      total_prize_latest: latestAuction?.total_prize_latest || horse.total_prize_latest || 0,
-      is_unsold: latestAuction?.is_unsold || horse.is_unsold || false,
-      auction_date: latestAuction?.auction_date || horse.auction_date || '',
-      seller: latestAuction?.seller || horse.seller || '',
-      sold_price: latestAuction?.sold_price || horse.sold_price || 0,
+      total_prize_start: latestAuction?.total_prize_start || horseWithAuction.total_prize_start || 0,
+      total_prize_latest: latestAuction?.total_prize_latest || horseWithAuction.total_prize_latest || 0,
+      is_unsold: latestAuction?.is_unsold || horseWithAuction.is_unsold || false,
+      auction_date: latestAuction?.auction_date || horseWithAuction.auction_date || '',
+      seller: latestAuction?.seller || horseWithAuction.seller || '',
+      sold_price: latestAuction?.sold_price || horseWithAuction.sold_price || 0,
+      // 体重を設定
+      weight: effectiveWeight,
       weight: effectiveWeight
     };
   });
