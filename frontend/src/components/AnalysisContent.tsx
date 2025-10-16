@@ -147,17 +147,11 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
       const auctionHistory = Array.isArray(horse.auction_history) ? horse.auction_history : [];
       
       // オークション履歴を馬IDでグループ化
-      const auctionHistoryByHorseId = auctionHistory.reduce((acc: Record<string, CompatibleAuctionHistory[]>, history: any) => {
-        const historyHorseId = history.horse_id?.toString();
-        if (!historyHorseId) {
-          console.warn('Invalid horse_id in auction history:', history);
-          return acc;
+      const auctionHistoryByHorseId = auctionHistory.reduce((acc: Record<string, CompatibleAuctionHistory[]>, history: CompatibleAuctionHistory) => {
+        if (!acc[history.horse_id]) {
+          acc[history.horse_id] = [];
         }
-        
-        if (!acc[historyHorseId]) {
-          acc[historyHorseId] = [];
-        }
-        acc[historyHorseId].push(history);
+        acc[history.horse_id].push(history);
         return acc;
       }, {});
       
