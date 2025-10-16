@@ -138,15 +138,15 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
       // オークション履歴を取得（存在しない場合は空配列をデフォルト値として使用）
       const auctionHistory = Array.isArray(horse.auction_history) ? horse.auction_history : [];
       
-      // オークション履歴を馬IDでグループ化（型アサーションを使用）
-      const auctionHistoryByHorseId = (auctionHistory as any[]).reduce((acc: Record<string, any[]>, history: any) => {
-        const horseId = history.horse_id || history.horseId; // 念のため両方のケースに対応
+      // オークション履歴を馬IDでグループ化
+      const auctionHistoryByHorseId = (auctionHistory as AuctionHistory[]).reduce((acc: Record<string, AuctionHistory[]>, history) => {
+        const horseId = String(history.horse_id);
         if (!acc[horseId]) {
           acc[horseId] = [];
         }
         acc[horseId].push(history);
         return acc;
-      }, {} as Record<string, any[]>);
+      }, {} as Record<string, AuctionHistory[]>);
       
       // 馬体重を取得するヘルパー関数
     const getEffectiveWeight = (): number | null => {
