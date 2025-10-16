@@ -11,25 +11,53 @@ import { useRouter } from 'next/navigation';
 import { Horse as BaseHorse, AuctionHistory, HorseData } from '@/types/horse';
 
 // コンポーネントで使用する馬の型を定義
-interface Horse extends Omit<BaseHorse, 'race_records'> {
-  // 互換性のためのプロパティ
-  name: string;
+export interface Horse {
+  id: string | number;
+  name?: string;
+  auction_id?: string;
   sex: string;
-  age: number;
   sire: string;
   dam: string;
   damsire: string;
+  image_url: any; // ImageUrl | string の代わりに any を使用
+  jbis_url?: string;
+  detail_url?: string;
+  created_at?: string;
+  updated_at?: string;
+  birth_year?: number;
+  age?: number;
+  color?: string;
+  breeder?: string;
+  owner?: string;
+  trainer?: string;
+  location?: string;
   auction_date?: string;
-  latest_auction?: AuctionHistory | null;
   sold_price?: number | null;
-  seller?: string;
   is_unsold?: boolean;
-  // BaseHorse から race_records を除外して再定義
+  seller?: string;
+  total_prize_start?: number;
+  total_prize_latest?: number;
+  prize_money?: { total_prize: string };
+  display_prize?: string;
+  display_roi?: string;
+  display_weight?: string;
+  display_price?: string;
+  sort_price?: number;
+  sort_prize?: number;
+  sort_roi?: number;
+  roi?: number;
+  price_per_kg?: number;
+  effectiveWeight?: number | null;
+  auction_url?: string;
+  unsold?: boolean;
+  price?: number | null;
   race_records: {
     total_prize_money: number;
     last_race_date?: string;
     last_prize_update?: string;
   };
+  auction_history?: AuctionHistory[];
+  latest_auction?: AuctionHistory | null;
 }
 
 type HorseType = Horse;
@@ -72,7 +100,7 @@ export default function HorsesPage() {
           // 最新のオークション情報を取得
           const latestAuction = horse.auction_history && Array.isArray(horse.auction_history) && horse.auction_history.length > 0
             ? [...horse.auction_history].sort((a, b) => 
-                new Date(b.date).getTime() - new Date(a.date).getTime()
+                new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime()
               )[0]
             : null;
           
@@ -88,8 +116,8 @@ export default function HorsesPage() {
             damsire: horse.basic_info?.damsire || '',
             // オークション情報
             latest_auction: latestAuction,
-            sold_price: latestAuction?.price || null,
-            auction_date: latestAuction?.date || '',
+            sold_price: latestAuction?.sold_price || latestAuction?.price || null,
+            auction_date: latestAuction?.auction_date || '',
             seller: latestAuction?.seller || '',
             is_unsold: latestAuction?.is_unsold || false,
             // レコード情報
@@ -115,10 +143,10 @@ export default function HorsesPage() {
     // 検索条件に一致するか確認
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = !searchTerm || 
-      horse.name.toLowerCase().includes(searchLower) ||
-      horse.sire.toLowerCase().includes(searchLower) ||
-      horse.dam.toLowerCase().includes(searchLower) ||
-      horse.damsire.toLowerCase().includes(searchLower);
+      (horse.name && horse.name.toLowerCase().includes(searchLower)) ||
+      (horse.sire && horse.sire.toLowerCase().includes(searchLower)) ||
+      (horse.dam && horse.dam.toLowerCase().includes(searchLower)) ||
+      (horse.damsire && horse.damsire.toLowerCase().includes(searchLower));
     
     // 最新のオークションのみ表示する場合
     if (showOnlyLatestAuction && latestAuctionDate) {
