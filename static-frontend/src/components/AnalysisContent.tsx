@@ -6,9 +6,7 @@ import Link from 'next/link';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Horse, AuctionHistory } from '@/types/horse';
-import { useNormalize } from '@/hooks/useNormalize';
-import { groupAuctionHistory } from '../utils/auctionUtils';
+import { Horse, AuctionHistory, HorseWithCalculations } from '../shared/types/horse';
 
 // フロントエンドで使用する馬の型（Horse型を拡張）
 interface HorseWithAuction extends Horse {

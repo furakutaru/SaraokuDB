@@ -23,8 +23,8 @@ import { calculateAverage, calculateAverageGrowthRate } from '../utils/calculati
 import { useHorseData } from '../hooks/useHorseData';
 
 // 型ガード関数
-function isAuctionHistoryWithHorseId(history: any): history is AuctionHistory & { horse_id: string | number } {
-  return history && 'horse_id' in history;
+function isAuctionHistoryWithHorseId(history: any): history is AuctionHistory {
+  return history && typeof history.horse_id !== 'undefined';
 }
 
 // Components
@@ -37,7 +37,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 
 // Types
-import { Horse, HorseWithCalculations, Metadata, ImageUrl, AuctionHistory } from '../types/horse';
+import { Horse, AuctionHistory, HorseWithCalculations, ImageUrl } from '../types/horse';
 
 // 表示タイプの型
 type ShowType = 'all' | 'sold' | 'unsold' | 'roi' | 'value';
@@ -444,11 +444,11 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
     
     // デバッグ用に主取り理由を記録（最初の5頭のみ）
     if (index < 5) {
-      const decisionReasons = [];
+      const decisionReasons: string[] = [];
       if (horse.is_unsold === true) decisionReasons.push('馬オブジェクトのis_unsoldフラグがtrue');
       if (horse.unsold === true) decisionReasons.push('馬オブジェクトのunsoldフラグがtrue');
-      if (latestAuction.is_unsold === true) decisionReasons.push('オークション履歴のis_unsoldフラグがtrue');
-      if (latestAuction.unsold === true) decisionReasons.push('オークション履歴のunsoldフラグがtrue');
+      if (latestAuction?.is_unsold === true) decisionReasons.push('オークション履歴のis_unsoldフラグがtrue');
+      if (latestAuction?.unsold === true) decisionReasons.push('オークション履歴のunsoldフラグがtrue');
       if (soldPrice === 0) decisionReasons.push('販売価格が0のため主取りと判定');
       if (soldPrice === null) decisionReasons.push('販売価格が未設定');
       
