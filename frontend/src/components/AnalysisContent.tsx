@@ -37,7 +37,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 
 // Types
-import { Horse, AuctionHistory, HorseWithCalculations, ImageUrl } from '@shared/types/horse';
+import { Horse, AuctionHistory, HorseWithCalculations, ImageUrl } from '../shared/types/horse';
 
 // 表示タイプの型
 type ShowType = 'all' | 'sold' | 'unsold' | 'roi' | 'value';

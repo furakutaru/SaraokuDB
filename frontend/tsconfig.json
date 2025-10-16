@@ -22,17 +22,13 @@
       }
     ],
     "strictNullChecks": true,
-    "baseUrl": ".",
-    "paths": {
-      "@shared/*": ["../shared/*"]
-    }
+    "baseUrl": "."
   },
   "include": [
     "next-env.d.ts",
     ".next/types/**/*.ts",
     "**/*.ts",
-    "**/*.tsx",
-    "../shared/types/**/*.ts"
+    "**/*.tsx"
   ],
   "exclude": [
     "node_modules"
