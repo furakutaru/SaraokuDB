@@ -26,7 +26,15 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 
 // Types
-import { Horse, HorseWithCalculations, Metadata, AuctionHistory, ImageUrl } from '../types/horse';
+import { Horse, HorseWithCalculations, Metadata, ImageUrl } from '../types/horse';
+import { AuctionHistory } from '../types/auction';
+
+// 互換性のための型定義
+interface CompatibleAuctionHistory extends Omit<AuctionHistory, 'id' | 'horse_id'> {
+  id?: string | number;
+  horse_id: string | number;
+  [key: string]: any;
+}
 
 // 表示タイプの型
 type ShowType = 'all' | 'sold' | 'unsold' | 'roi' | 'value';
@@ -134,15 +142,26 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
       
       // IDを明示的に文字列に変換
       const horseId = horse.id ? String(horse.id) : `horse-${Date.now()}`;
-    
-    // オークション履歴を取得（historyまたはauction_historyのいずれかを使用）
-    const auctionHistory = Array.isArray(horse.history) 
-      ? horse.history 
-      : Array.isArray(horse.auction_history) 
-        ? horse.auction_history 
-        : [];
-    
-    // 馬体重を取得するヘルパー関数
+      
+      // オークション履歴を取得（存在しない場合は空配列をデフォルト値として使用）
+      const auctionHistory = Array.isArray(horse.auction_history) ? horse.auction_history : [];
+      
+      // オークション履歴を馬IDでグループ化
+      const auctionHistoryByHorseId = auctionHistory.reduce((acc: Record<string, CompatibleAuctionHistory[]>, history: any) => {
+        const historyHorseId = history.horse_id?.toString();
+        if (!historyHorseId) {
+          console.warn('Invalid horse_id in auction history:', history);
+          return acc;
+        }
+        
+        if (!acc[historyHorseId]) {
+          acc[historyHorseId] = [];
+        }
+        acc[historyHorseId].push(history);
+        return acc;
+      }, {});
+      
+      // 馬体重を取得するヘルパー関数
     const getEffectiveWeight = (): number | null => {
       // 1. 馬オブジェクトの体重を確認
       if (horse.weight !== undefined && horse.weight !== null && horse.weight !== '') {
