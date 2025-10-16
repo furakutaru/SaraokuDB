@@ -10,7 +10,7 @@
     "export": "next build && next export",
     "format": "prettier --write .",
     "prepare": "husky install",
-    "postinstall": "mkdir -p shared/types && cp -f ../../shared/types/horse.ts shared/types/ || true && ln -sf ../../shared ./shared || true"
+    "postinstall": "mkdir -p src/types && cp -f ../../shared/types/horse.ts src/types/ || true"
   },
   "dependencies": {
     "@emotion/cache": "^11.11.0",
