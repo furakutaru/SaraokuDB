@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Horse, AuctionHistory } from '@/types/horse';
 import { useNormalize } from '@/hooks/useNormalize';
+import { groupAuctionHistory } from '../utils/auctionUtils';
 
 // フロントエンドで使用する馬の型（Horse型を拡張）
 interface HorseWithAuction extends Horse {
@@ -67,13 +68,7 @@ export default function AnalysisContent() {
         const auctionHistory = await auctionHistoryResponse.json();
 
         // オークション履歴を馬IDでグループ化
-        const auctionHistoryByHorseId = auctionHistory.reduce((acc: Record<string, AuctionHistory[]>, history: AuctionHistory) => {
-          if (!acc[history.horse_id]) {
-            acc[history.horse_id] = [];
-          }
-          acc[history.horse_id].push(history);
-          return acc;
-        }, {});
+        const auctionHistoryByHorseId = groupAuctionHistory(auctionHistory);
         
         // 馬データにオークション履歴をマージ
         const horsesWithHistory = (horsesData.horses || []).map((horse: Horse) => {
