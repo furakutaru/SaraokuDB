@@ -1,5 +1,7 @@
 # サラオクDB AI用クイックリファレンス
 
+最終更新日: 2025-10-16
+
 ## 🚀 プロジェクト概要
 
 ### 基本情報
@@ -7,12 +9,12 @@
 - **目的**: 楽天サラブレッドオークションのデータを収集・分析するツール
 - **本番URL**: [https://saraoku-db.vercel.app/](https://saraoku-db.vercel.app/)
 - **開発URL**: http://localhost:3000
-- **最終更新**: 2025年8月11日
+- **最終更新**: 2025年10月16日
 
 ### 技術スタック
-- **フロントエンド**: Next.js 15.3.5 (App Router), TypeScript, Tailwind CSS
-- **バックエンド**: FastAPI, Python 3.11
-- **データベース**: SQLite
+- **フロントエンド**: Next.js 15.3.5 (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- **バックエンド**: FastAPI, Python 3.11, SQLAlchemy 2.0, Alembic
+- **データベース**: SQLite (開発), 本番環境はスケーラブルなデータベース対応
 - **デプロイ**: Vercel (フロントエンド), GitHub Actions (CI/CD)
 - **スクレイピング**: BeautifulSoup, Selenium, httpx
 
@@ -27,27 +29,28 @@
 
 ### フロントエンド (Next.js 15.3.5)
 ```
-static-frontend/
-├── src/app/                    # App Router ベースのページ
-│   ├── (dashboard)             # ダッシュボード関連
-│   ├── (marketing)             # マーケティングページ
-│   ├── api/                    # APIルート
-│   ├── horses/                 # 馬関連ページ
-│   │   ├── [id]/               # 馬詳細 (動的ルート)
-│   │   │   └── page.tsx        # 馬詳細ページ
-│   │   └── page.tsx            # 馬一覧ページ
-│   ├── layout.tsx              # ルートレイアウト
-│   └── page.tsx                # ホームページ
-├── components/                 # 再利用可能なコンポーネント
-│   ├── ui/                     # shadcn/ui コンポーネント
-│   ├── horses/                 # 馬関連コンポーネント
-│   │   ├── HorseCard.tsx       # 馬カード
-│   │   ├── HorseFilters.tsx    # フィルターコンポーネント
-│   │   └── HorseStats.tsx      # 統計情報
-│   └── shared/                 # 共通コンポーネント
-└── lib/                        # ユーティリティ関数
-    ├── api.ts                  # APIクライアント
-    └── utils.ts                # ユーティリティ関数
+frontend/
+├── public/                    # 静的ファイル
+│   └── data/                  # 静的データファイル
+└── src/
+    ├── app/                   # App Router ベースのページ
+    │   ├── (dashboard)        # ダッシュボード関連
+    │   ├── api/               # APIルート
+    │   ├── horses/            # 馬関連ページ
+    │   │   ├── [id]/          # 馬詳細 (動的ルート)
+    │   │   │   └── page.tsx   # 馬詳細ページ
+    │   │   └── page.tsx       # 馬一覧ページ
+    │   └── page.tsx           # ホームページ
+    ├── components/            # 再利用可能なコンポーネント
+    │   ├── ui/                # shadcn/ui コンポーネント
+    │   ├── horses/            # 馬関連コンポーネント
+    │   │   ├── HorseCard.tsx  # 馬カード
+    │   │   ├── HorseFilters.tsx # フィルターコンポーネント
+    │   │   └── HorseStats.tsx # 統計情報
+    │   └── shared/            # 共通コンポーネント
+    └── lib/                   # ユーティリティ関数
+        ├── api.ts             # APIクライアント
+        └── utils.ts           # ユーティリティ関数
 ```
 
 ### バックエンド (FastAPI)
@@ -55,46 +58,36 @@ static-frontend/
 backend/
 ├── app/
 │   ├── api/                   # APIエンドポイント
-│   │   ├── v1/                # APIバージョン1
-│   │   │   ├── horses.py      # 馬関連API
-│   │   │   └── auctions.py    # オークション関連API
+│   │   └── v1/                # APIバージョン1
+│   │       ├── horses.py      # 馬関連API
+│   │       └── auctions.py    # オークション関連API
 │   ├── core/                  # コア機能
 │   │   ├── config.py          # 設定
 │   │   └── security.py        # 認証・認可
 │   ├── db/                    # データベース関連
 │   │   ├── models.py          # SQLAlchemyモデル
 │   │   └── crud.py            # データベース操作
-│   ├── services/              # ビジネスロジック
-│   │   ├── scraper.py         # スクレイピングサービス
-│   │   └── analyzer.py        # 分析サービス
-│   └── main.py                # アプリケーションエントリーポイント
-├── scrapers/                  # スクレイピングスクリプト
-│   ├── rakuten_scraper.py     # 楽天オークションスクレイパー
-│   └── jbis_scraper.py        # JBISスクレイパー
-└── tests/                     # テスト
-    ├── unit/                  # ユニットテスト
-    └── integration/           # 統合テスト
+│   └── services/              # ビジネスロジック
+│       ├── scraper.py         # スクレイピングサービス
+│       └── analyzer.py        # 分析サービス
+├── tests/                     # テスト
+│   ├── unit/                  # ユニットテスト
+│   └── integration/           # 統合テスト
+├── alembic/                   # データベースマイグレーション
+└── main.py                    # アプリケーションエントリーポイント
 ```
 
-### データファイル
+### スクリプト
 ```
-static-frontend/public/data/
-├── horses.json           # 基本馬データ
-└── horses_history.json   # 履歴付きデータ（フロントエンド用）
-
-data/
-├── horses.db             # SQLiteデータベース
-└── migrations/           # データベースマイグレーション
-```
-
-### GitHub Actions ワークフロー
-```
-.github/workflows/
-├── deploy.yml            # 本番環境デプロイ
-├── test.yml              # テスト自動化
-├── scrape.yml            # 通常スクレイピング（木・日23:59）
-├── scrape-auction.yml    # オークション開催日スクレイピング
-└── scrape-jbis.yml       # 賞金情報更新（毎月1日03:00）
+scripts/
+├── components/                # スクレイピングコンポーネント
+│   ├── auction_info/          # オークション情報抽出
+│   ├── comment/               # コメント抽出
+│   └── extractors/            # データ抽出ユーティリティ
+└── core/                      # コア機能
+    ├── cache/                 # キャッシュ管理
+    ├── config/                # 設定
+    └── models/                # データモデル
 ```
 
 ## 📊 データ仕様
@@ -179,464 +172,140 @@ data/
   };
   ```
 
-#### 5. 性別・年齢
-- **性別**: `'牡' | '牝' | 'セ'`
-- **年齢**: 数値（例: `3`）
-- **表示例**: `3歳牡`
-
-#### 6. 血統情報
-- **保存形式**: 文字列
-- **例**: 
-  - 父: `キタサンブラック`
-  - 母: `ウインドインハーヘア`
-  - 母の父: `サンデーサイレンス`
-
 ## ⏰ スケジュール
 
 ### 自動実行タスク
 | タスク名 | スケジュール | 説明 |
 |---------|------------|------|
 | 通常スクレイピング | 木・日 23:59 (JST) | 楽天オークションから最新情報を取得 |
+| オークション開催日スクレイピング | オークション開催日 20:00 (JST) | 落札価格情報を取得 |
 | 賞金情報更新 | 毎月1日 02:00 (JST) | JBISから最新の賞金情報を取得 |
-| データバックアップ | 毎日 03:00 (JST) | データベースのバックアップを取得 |
+| データバックアップ | 毎日 04:00 (JST) | データベースのバックアップをS3に保存 |
+| メンテナンス | 毎週月曜日 05:00 (JST) | ログローテーション、一時ファイル削除 |
 
-### タイトル形式
-- 基本形式: `サラオクDB | [ページ名]`
-- 例: 
-  - `サラオクDB | 馬一覧`
-  - `サラオクDB | サクラバクシンオー 詳細`
+## 🔍 デバッグガイド
 
-## 🔒 セキュリティ
+### 1. スクレイピングのデバッグ
 
-### 基本方針
-- 検索エンジンのインデックスを禁止（noindex, nofollow）
-- robots.txtで全クローラーを禁止
-- 機密情報は環境変数で管理
-- パスワードはハッシュ化して保存
-
-### セキュリティヘッダー
-- Content-Security-Policy (CSP) の適切な設定
-- X-Content-Type-Options: nosniff
-- X-Frame-Options: DENY
-- X-XSS-Protection: 1; mode=block
-- Strict-Transport-Security の有効化
-
-### レート制限
-- APIエンドポイントにはレート制限を適用
-- 1分間に60リクエストまで（デフォルト）
-- 認証済みユーザーは制限を緩和
-
-## 🧪 テストモードとキャッシュ
-
-### テストモード
-
-#### 有効化方法
+#### 1.1 テストモードでの実行
 ```bash
-# テストモードで実行（キャッシュ使用）
-python improved_scraper.py --test
-
-# テストモード + データベースに保存
-python improved_scraper.py --test --save
-
-# テストモード + 強制再取得
-python improved_scraper.py --test --force
+# バックエンドディレクトリで実行
+python -m scripts.scraper --test
 ```
 
-#### 動作仕様
-1. **バリデーション**
-   - 必須フィールドのチェックをスキップ
-   - データの整合性チェックを簡略化
-
-2. **キャッシュの使用**
-   - `html_cache/` ディレクトリからHTMLを読み込み
-   - 詳細ページのキャッシュが存在しない馬はスキップ
-   - キャッシュの有効期限: 7日間
-
-3. **データ保存**
-   - デフォルトではデータベースに保存されない
-   - `--save` フラグを指定した場合のみ保存
-   - 保存前のプレビューが表示される
-
-### キャッシュの仕組み
-
-#### キャッシュディレクトリ構造
-```
-scripts/html_cache/
-├── auction_lists/          # 一覧ページのキャッシュ
-│   ├── auction_list_20250810.html
-│   └── auction_list_20250813.html
-├── horse_details/          # 馬詳細ページのキャッシュ
-│   ├── horse_detail_サクラバクシンオー.html
-│   └── horse_detail_キタサンブラック.html
-└── jbis_pages/             # JBISページのキャッシュ
-    ├── jbis_12345678.html  # 馬IDごとにキャッシュ
-    └── jbis_87654321.html
-```
-
-#### キャッシュの管理
-| コマンドラインオプション | 説明 |
-|------------------------|------|
-| `--test` | テストモード（キャッシュ使用） |
-| `--force` | キャッシュを無視して再取得 |
-| `--save` | データベースに保存 |
-| `--cache-dir PATH` | カスタムキャッシュディレクトリ指定 |
-| `--clear-cache` | キャッシュをクリア |
-
-#### キャッシュの有効期限
-| キャッシュタイプ | 有効期限 | 更新間隔 |
-|----------------|---------|---------|
-| 一覧ページ | 24時間 | オークション開催日のみ更新 |
-| 馬詳細ページ | 7日間 | 初回取得時のみ |
-| JBISページ | 30日間 | 賞金情報更新時のみ |
-
-### デバッグ情報
-
-#### ログレベル
-| レベル | 説明 | 出力内容 |
-|-------|------|---------|
-| DEBUG | 詳細なデバッグ情報 | リクエスト/レスポンス、パース処理の詳細 |
-| INFO | 通常の情報 | 処理の開始/終了、重要な状態変化 |
-| WARNING | 警告 | 処理の続行は可能な問題 |
-| ERROR | エラー | 処理の継続が不可能な問題 |
-
-#### デバッグオプション
+#### 1.2 特定の馬の情報を取得
 ```bash
-# デバッグログを有効化
-python improved_scraper.py --debug
-
-# ログレベルを指定
-python improved_scraper.py --log-level DEBUG
-
-# ログをファイルに出力
-python improved_scraper.py --log-file debug.log
+# 馬IDを指定して実行
+python -m scripts.scraper --horse-id 12345
 ```
 
-#### デバッグ出力例
-```
-[DEBUG] キャッシュから読み込み: auction_list_20250810.html
-[INFO] 馬の一覧を取得しました: 45件
-[DEBUG] 馬詳細の取得を開始: サクラバクシンオー
-[WARNING] キャッシュが見つかりません: horse_detail_サクラバクシンオー.html
-[INFO] 馬詳細を取得中: https://example.com/horse/123
-[DEBUG] レスポンスステータス: 200
-[ERROR] データのパースに失敗: 賞金情報が見つかりません
-```
+### 2. フロントエンドのデバッグ
 
-## 🐛 トラブルシューティングガイド
-
-### 1. ビルドエラー
-
-#### 1.1 `useEffect in Server Component` エラー
-**問題**: サーバーコンポーネントで`useEffect`を使用している
-**解決策**:
-```tsx
-// コンポーネントの先頭に追加
-'use client';
-
-import { useEffect } from 'react';
-
-export default function ClientComponent() {
-  useEffect(() => {
-    // クライアントサイドの処理
-  }, []);
-  
-  return <div>Client Component</div>;
-}
-```
-
-#### 1.2 TypeScript型エラー
-**問題**: 型定義が一致しない
-**解決策**: 型アサーションを使用
-```typescript
-// 例: レスポンスデータの型アサーション
-const data = await response.json() as HorseData;
-
-// オプショナルチェーンで安全にアクセス
-const sireName = horse.sire?.name;
-```
-
-#### 1.3 依存関係の問題
-**問題**: パッケージのバージョン不一致
-**解決策**:
+#### 2.1 開発サーバーの起動
 ```bash
-# 依存関係を再インストール
-rm -rf node_modules package-lock.json
-pnpm install  # または npm install
-
-# 特定のパッケージを再インストール
-pnpm add package-name@latest
+# フロントエンドディレクトリで実行
+pnpm dev
 ```
 
-### 2. データ不整合
+#### 2.2 テストの実行
+```bash
+# ユニットテスト
+pnpm test
 
-#### 2.1 成長率が正しく表示されない
-**確認ポイント**:
-1. `getGrowthRate`関数の計算ロジック
-2. 賞金データの取得元（`total_prize_start`と`total_prize_latest`）
-3. 0除算のハンドリング
-
-**デバッグ例**:
-```typescript
-// デバッグ用のログを追加
-console.log('開始賞金:', horse.total_prize_start);
-console.log('最新賞金:', horse.total_prize_latest);
-console.log('成長率:', getGrowthRate(horse));
+# E2Eテスト
+pnpm test:e2e
 ```
 
-#### 2.2 疾病タグが正しく抽出されない
-**確認ポイント**:
-1. `_extract_disease_tags`関数の正規表現
-2. ソースHTMLの構造変更
-3. タグのマッピング定義
+### 3. バックエンドのデバッグ
 
-**デバッグ例**:
-```python
-def _extract_disease_tags(html: str) -> List[str]:
-    """疾病タグを抽出する"""
-    soup = BeautifulSoup(html, 'html.parser')
-    # デバッグ用にHTMLを出力
-    print("=== 疾病タグ抽出元HTML ===")
-    print(soup.prettify()[:500])  # 最初の500文字を表示
-    # ... 抽出処理 ...
+#### 3.1 APIドキュメントの確認
+http://localhost:8000/docs でSwagger UIが利用可能
+
+#### 3.2 テストの実行
+```bash
+# バックエンドディレクトリで実行
+pytest
+
+# カバレッジレポート付きで実行
+pytest --cov=app --cov-report=html
 ```
 
-### 3. スクレイピング関連
+## 🛠 トラブルシューティング
 
-#### 3.1 サイト構造の変更
+### 1. スクレイピングが失敗する場合
+
+#### 1.1 サイト構造の変更
 **対応手順**:
 1. 対象サイトのHTMLを確認
 2. セレクターを更新
 3. テストモードで動作確認
 
-**例**:
-```python
-# 旧セレクター
-# price = soup.select_one('.price')
+#### 1.2 レート制限に引っかかった場合
+**対応手順**:
+1. スクリプトを一時停止
+2. 数分待機してから再開
+3. 必要に応じて`--delay`オプションで遅延を増やす
 
-# 新セレクター
-price = soup.select_one('.new-price-selector')
+### 2. フロントエンドが起動しない場合
+
+#### 2.1 依存関係の問題
+```bash
+# 依存関係を再インストール
+rm -rf node_modules
+pnpm install
 ```
 
-#### 3.2 ネットワークエラー
-**リトライ処理の実装例**:
-```python
-import httpx
-from tenacity import retry, stop_after_attempt, wait_exponential
+#### 2.2 ポートが使用中の場合
+```bash
+# 3000番ポートを使用しているプロセスを確認
+lsof -i :3000
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=10)
-)
-async def fetch_with_retry(url: str) -> str:
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url, timeout=30.0)
-        response.raise_for_status()
-        return response.text
+# プロセスを終了
+kill -9 <PID>
 ```
 
-#### 3.3 レート制限
-**対策**:
-```python
-import asyncio
+## 📈 パフォーマンスチューニング
 
-class RateLimiter:
-    def __init__(self, calls_per_second: float = 1.0):
-        self.calls_per_second = calls_per_second
-        self.last_call = 0
+### 1. データベースクエリの最適化
+- 必要なカラムのみを選択
+- インデックスの追加を検討
+- N+1問題に注意
 
-    async def wait(self):
-        now = asyncio.get_event_loop().time()
-        elapsed = now - self.last_call
-        wait_time = max(0, (1.0 / self.calls_per_second) - elapsed)
-        if wait_time > 0:
-            await asyncio.sleep(wait_time)
-        self.last_call = asyncio.get_event_loop().time()
+### 2. フロントエンドの最適化
+- コンポーネントのメモ化
+- コード分割の活用
+- 画像の最適化
 
-# 使用例
-limiter = RateLimiter(calls_per_second=0.5)  # 1秒に0.5リクエスト
+## 🔒 セキュリティガイドライン
 
-async def fetch_data(url: str):
-    await limiter.wait()
-    # リクエスト実行
-    return await fetch_with_retry(url)
-```
+### 1. 認証・認可
+- APIキーは環境変数で管理
+- 機密情報はリポジトリにコミットしない
 
-### 4. パフォーマンス問題
+### 2. データ保護
+- 個人情報の取り扱いに注意
+- 定期的なバックアップの取得
 
-#### 4.1 データベースの遅延
-**最適化ポイント**:
-1. インデックスの追加
-2. N+1クエリの解消
-3. ページネーションの実装
+## 📚 参考資料
 
-**例**:
-```python
-# 非効率なクエリ
-horses = session.query(Horse).all()
-for horse in horses:
-    print(horse.owner.name)  # N+1問題発生
+### 公式ドキュメント
+- [Next.js ドキュメント](https://nextjs.org/docs)
+- [FastAPI ドキュメント](https://fastapi.tiangolo.com/)
+- [SQLAlchemy ドキュメント](https://docs.sqlalchemy.org/)
 
-# 最適化されたクエリ
-from sqlalchemy.orm import joinedload
-horses = session.query(Horse).options(joinedload(Horse.owner)).all()
-for horse in horses:
-    print(horse.owner.name)  # 事前にロード済み
-```
+### 参考記事
+- [BeautifulSoup チートシート](https://www.crummy.com/software/BeautifulSoup/bs4/doc/)
+- [TypeScript ハンドブック](https://www.typescriptlang.org/ja/docs/handbook/)
+- [Tailwind CSS ドキュメント](https://tailwindcss.com/docs)
 
-#### 4.2 フロントエンドのパフォーマンス
-**最適化ポイント**:
-1. コンポーネントのメモ化
-2. 不要な再レンダリングの防止
-3. コード分割の適用
+## 🤝 コントリビューション
 
-**例**:
-```tsx
-import { memo, useCallback } from 'react';
+1. イシューを作成して作業内容を報告
+2. 機能ブランチを作成 (`git checkout -b feature/amazing-feature`)
+3. 変更をコミット (`git commit -m 'Add some amazing feature'`)
+4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
+5. プルリクエストを開く
 
-// メモ化されたコンポーネント
-const HorseCard = memo(({ horse, onClick }) => {
-  // コールバックのメモ化
-  const handleClick = useCallback(() => {
-    onClick(horse.id);
-  }, [horse.id, onClick]);
+## 📄 ライセンス
 
-  return (
-    <div onClick={handleClick}>
-      <h3>{horse.name}</h3>
-      {/* その他の表示 */}
-    </div>
-  );
-});
-
-// プロパティの比較関数
-HorseCard.propTypes = {
-  horse: PropTypes.object.isRequired,
-  onClick: PropTypes.func.isRequired,
-};
-
-// カスタム比較関数
-HorseCard.defaultProps = {
-  areEqual: (prevProps, nextProps) => {
-    return prevProps.horse.id === nextProps.horse.id &&
-           prevProps.onClick === nextProps.onClick;
-  }
-};
-
-export default HorseCard;
-```
-
-## 📊 データ構造リファレンス
-
-### 馬データ (Horse)
-
-#### データベーススキーマ (horsesテーブル)
-
-| フィールド名 | 型 | 説明 | 必須 | 例 |
-|-------------|----|------|------|-----|
-| id | Integer | 一意の識別子 | はい | 1 |
-| name | String | 馬名 | はい | サクラバクシンオー |
-| sex | Text | 性別（JSON配列） | はい | `["牡", "牡"]` |
-| age | Text | 年齢（JSON配列） | はい | `[3, 4]` |
-| sire | String | 父 | いいえ | ディープインパクト |
-| dam | String | 母 | いいえ | ウインドインハーヘア |
-| dam_sire | String | 母の父 | いいえ | サンデーサイレンス |
-| race_record | String | 通算成績 | いいえ | 10-5-3-2 |
-| weight | Integer | 馬体重（kg） | いいえ | 480 |
-| total_prize_start | Float | 初出走時賞金（万円、小数点1桁） | いいえ | 0.0 |
-| total_prize_latest | Float | 最新賞金（万円、小数点1桁） | いいえ | 1250.5 |
-| sold_price | Text | 落札価格（JSON配列、円、カンマなし） | いいえ | `[10000000, 12000000]` |
-| auction_date | Text | オークション日（JSON配列） | いいえ | `["2023-01-15", "2023-07-20"]` |
-| seller | Text | 販売者（JSON配列） | いいえ | `["社台", "ノーザンファーム"]` |
-| disease_tags | Text | 疾病タグ（カンマ区切り） | いいえ | `"骨折, 屈腱炎"` |
-| comment | Text | コメント（JSON配列） | いいえ | `["初回コメント", "2回目コメント"]` |
-| image_url | String | 画像URL | いいえ | https://example.com/image.jpg |
-| primary_image | String | メイン画像URL | いいえ | https://example.com/primary.jpg |
-| unsold_count | Integer | 主取り回数 | いいえ | 1 |
-| created_at | DateTime | 作成日時 | はい | 2023-01-01 12:00:00 |
-| updated_at | DateTime | 更新日時 | はい | 2023-01-01 12:00:00 |
-
-#### フロントエンド型定義 (TypeScript)
-
-```typescript
-interface Horse {
-  id: number;                      // 一意の識別子
-  name: string;                    // 馬名
-  sex: string | string[];          // 性別
-  age: number | number[] | string | string[];  // 年齢
-  color?: string;                  // 毛色
-  birthday?: string;               // 生年月日 (YYYY-MM-DD)
-  history: HorseHistory[];         // 履歴情報
-  sire?: string;                   // 父
-  dam?: string;                    // 母
-  dam_sire?: string;               // 母の父
-  primary_image?: string;          // メイン画像URL
-  disease_tags?: string[];         // 疾病タグ
-  jbis_url?: string;               // JBIS URL
-  weight: number | null;           // 馬体重 (kg)
-  unsold_count: number | null;     // 主取り回数
-  total_prize_latest: number;      // 最新賞金 (万円、例: 10.0)
-  created_at: string;              // 作成日時 (YYYY-MM-DD)
-  updated_at: string;              // 更新日時 (YYYY-MM-DD)
-  unsold?: boolean;                // 主取りフラグ
-  seller?: string;                 // 販売者
-  sold_price?: number | null;      // 落札価格 (円、例: 10000000)
-  auction_date?: string;           // オークション日 (YYYY-MM-DD)
-  detail_url?: string;             // 詳細ページURL
-  total_prize_start?: number;      // 初出走時賞金 (万円、例: 0.0)
-}
-
-interface HorseHistory {
-  date: string;          // 日付 (YYYY-MM-DD)
-  event: string;         // イベント名
-  price?: number;        // 価格（円、例: 10000000）
-  weight?: number;       // 馬体重（kg）
-  comment?: string;      // コメント
-  seller?: string;       // 販売者
-  auction_date?: string; // オークション日 (YYYY-MM-DD)
-  disease_tags?: string[]; // 疾病タグ
-}
-```
-
-## 📝 開発時の注意点
-
-### フロントエンド
-- **Next.js App Router**: サーバー/クライアントコンポーネント区別
-- **TypeScript**: 厳密な型定義
-- **Tailwind CSS**: ユーティリティファースト
-
-### バックエンド
-- **SQLite**: ファイルベースDB
-- **FastAPI**: 非同期処理
-- **スクレイピング**: エラーハンドリング重要
-
-### データフロー
-1. スクレイピング → SQLite
-2. SQLite → JSON変換
-3. JSON → フロントエンド表示
-
-## 🎯 機能追加時の手順
-
-1. **バックエンド**: スクレイピング・サービス追加
-2. **データ変換**: JSON構造更新
-3. **フロントエンド**: UI・ロジック追加
-4. **テスト**: 手動動作確認
-5. **デプロイ**: GitHubプッシュ
-
-## 📞 緊急時対応
-
-### スクレイピング停止
-- GitHub Actions無効化
-- バックエンドスケジューラー停止
-
-### データ復旧
-- `horses.json`手動更新
-- データベース再構築
-
-### デプロイ失敗
-- Vercel設定確認
-- ビルドログ確認
-
----
-
-**更新**: 2025-07-20
-**用途**: AI支援開発用 
+このプロジェクトは [MIT ライセンス](LICENSE) で公開されています。
