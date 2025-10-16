@@ -11,19 +11,18 @@ export interface BaseAuctionHistory {
   is_unsold: boolean;
   comment: string;
   created_at: string;
-  updated_at?: string;
   detail_url?: string; // オークション詳細ページのURL
-  auction_url?: string; // 互換性のためのエイリアス
-  price?: number; // 互換性のためのエイリアス (sold_price の別名)
-  unsold?: boolean; // 互換性のためのエイリアス (is_unsold の別名)
 }
 
 /**
  * オークション履歴のインターフェース
- * BaseAuctionHistory を拡張し、互換性のためのプロパティを含む
+ * 互換性のためのエイリアスを含む
  */
 export interface AuctionHistory extends BaseAuctionHistory {
-  // 互換性のためのプロパティは BaseAuctionHistory に移動
+  /** @deprecated 代わりに is_unsold を使用してください */
+  unsold?: boolean;
+  /** @deprecated 代わりに detail_url を使用してください */
+  auction_url?: string;
 }
 
 // 賞金情報のインターフェース

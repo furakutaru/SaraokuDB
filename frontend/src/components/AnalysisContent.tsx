@@ -26,15 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 
 // Types
-import { Horse, HorseWithCalculations, Metadata, ImageUrl } from '../types/horse';
-import { AuctionHistory } from '../types/auction';
-
-// 互換性のための型定義
-interface CompatibleAuctionHistory extends Omit<AuctionHistory, 'id' | 'horse_id'> {
-  id?: string | number;
-  horse_id: string | number;
-  [key: string]: any;
-}
+import { Horse, HorseWithCalculations, Metadata, ImageUrl, AuctionHistory } from '../types/horse';
 
 // 表示タイプの型
 type ShowType = 'all' | 'sold' | 'unsold' | 'roi' | 'value';
@@ -147,7 +139,7 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
       const auctionHistory = Array.isArray(horse.auction_history) ? horse.auction_history : [];
       
       // オークション履歴を馬IDでグループ化
-      const auctionHistoryByHorseId = auctionHistory.reduce((acc: Record<string, CompatibleAuctionHistory[]>, history: CompatibleAuctionHistory) => {
+      const auctionHistoryByHorseId = auctionHistory.reduce((acc: Record<string, AuctionHistory[]>, history: AuctionHistory) => {
         if (!acc[history.horse_id]) {
           acc[history.horse_id] = [];
         }
