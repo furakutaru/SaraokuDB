@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "export": "next build && next export"
+    "export": "next build && next export",
+    "postinstall": "mkdir -p src/types && cp -f ../../shared/types/horse.ts src/types/horse.ts && echo 'Shared types copied successfully' || echo 'Warning: Failed to copy shared types'"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.0.2",
