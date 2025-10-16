@@ -630,7 +630,6 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
       price_per_kg: pricePerKgValue,
       display_price: isUnsold ? '主取り' : soldPrice ? formatPrice(soldPrice) : '-',
       // 馬体重を数値のみで保持（表示時にkgを付与）
-      effectiveWeight: effectiveWeight,
       display_weight: effectiveWeight ? `${effectiveWeight}kg` : '-',
       // 賞金を適切にフォーマット
       display_prize: prizeMoneyValue > 0 ? formatPrice(prizeMoneyValue) : '-',

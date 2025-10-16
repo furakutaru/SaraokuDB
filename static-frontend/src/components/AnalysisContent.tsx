@@ -3,6 +3,63 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+
+// 通貨をフォーマットするヘルパー関数
+const formatCurrency = (value: number | string | null | undefined): string => {
+  if (value === null || value === undefined || value === '') return '-';
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numValue) || numValue <= 0) return '-';
+  
+  return new Intl.NumberFormat('ja-JP', {
+    style: 'currency',
+    currency: 'JPY',
+    maximumFractionDigits: 0
+  }).format(numValue);
+};
+
+// 価格をフォーマットするヘルパー関数（formatCurrencyのエイリアス）
+const formatSoldPrice = (price: number | string | null | undefined, isUnsold: boolean = false): string => {
+  if (isUnsold) return '主取り';
+  return formatCurrency(price);
+};
+
+// 賞金をフォーマットするヘルパー関数（formatCurrencyのエイリアス）
+const formatPrize = formatCurrency;
+
+// 性別をフォーマットするヘルパー関数
+const formatSex = (sex: string | undefined) => {
+  if (!sex) return { text: '-', icon: '❓', color: 'bg-gray-400' };
+  
+  switch(sex.toLowerCase()) {
+    case '牡':
+      return { text: '牡', icon: '♂', color: 'bg-blue-500' };
+    case '牝':
+      return { text: '牝', icon: '♀', color: 'bg-pink-500' };
+    case 'セ':
+      return { text: 'セ', icon: '⚥', color: 'bg-purple-500' };
+    default:
+      return { text: sex, icon: '❓', color: 'bg-gray-400' };
+  }
+};
+
+// 通貨フォーマットのエイリアス
+const formatPrice = formatCurrency;
+
+// 日付をフォーマットするヘルパー関数
+const formatDate = (dateString: string | undefined): string => {
+  if (!dateString) return '-';
+  try {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  } catch (e) {
+    return '-';
+  }
+};
+
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -28,30 +85,6 @@ interface HorseWithAuction extends Horse {
   // その他のプロパティ
   [key: string]: any; // 動的なプロパティに対応
 }
-
-// フォーマット関数の実装
-const formatPrice = (price: number | null | undefined): string => {
-  if (price === null || price === undefined) return '-';
-  return new Intl.NumberFormat('ja-JP', {
-    style: 'currency',
-    currency: 'JPY',
-    maximumFractionDigits: 0,
-  }).format(price);
-};
-
-const formatDate = (dateString: string | undefined): string => {
-  if (!dateString) return '-';
-  try {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(date);
-  } catch (e) {
-    return '-';
-  }
-};
 
 interface HorseData {
   horses: Horse[];
@@ -182,7 +215,6 @@ export default function AnalysisContent() {
       seller: latestAuction?.seller || horseWithAuction.seller || '',
       sold_price: latestAuction?.sold_price || horseWithAuction.sold_price || 0,
       // 体重を設定
-      weight: effectiveWeight,
       weight: effectiveWeight
     };
   });
@@ -298,14 +330,10 @@ export default function AnalysisContent() {
   };
 
   // 落札価格を表示するヘルパー関数
-  const displayPrice = (price: number | string | null | undefined, isUnsold: boolean = false): string => {
-    return normalize.formatSoldPrice(price, isUnsold);
-  };
+  const displayPrice = formatSoldPrice;
 
   // 賞金を表示するヘルパー関数
-  const displayPrize = (prize: number | string | null | undefined): string => {
-    return normalize.formatPrize(prize);
-  };
+  const displayPrize = formatPrize;
 
   // ROIを計算するヘルパー関数
   const calcROI = (prizeLatest: number | undefined, prizeStart: number | undefined, price: number | string | null | undefined): string => {
@@ -329,17 +357,19 @@ export default function AnalysisContent() {
   // ソート関数の型定義
   type SortFunction = (a: HorseWithAuction, b: HorseWithAuction) => number;
   const sortFunctions: Record<string, SortFunction> = {
-    name: (a, b) => (a.name || '').localeCompare(b.name || '', 'ja'),
-    sex: (a, b) => (a.sex || '').localeCompare(b.sex || '', 'ja'),
-    weight: (a, b) => (a.weight || 0) - (b.weight || 0),
+    name: (a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'ja'),
+    sex: (a, b) => (a?.sex ?? '').localeCompare(b?.sex ?? '', 'ja'),
+    weight: (a, b) => (a?.weight ?? 0) - (b?.weight ?? 0),
     age: (a, b) => {
-      const ageA = typeof a.age === 'number' ? a.age : parseFloat(a.age as string) || 0;
-      const ageB = typeof b.age === 'number' ? b.age : parseFloat(b.age as string) || 0;
+      const ageA = typeof a?.age === 'number' ? a.age : 
+                 (a?.age ? parseFloat(String(a.age)) : 0);
+      const ageB = typeof b?.age === 'number' ? b.age : 
+                 (b?.age ? parseFloat(String(b.age)) : 0);
       return ageA - ageB;
     },
-    sire: (a, b) => (a.sire || '').localeCompare(b.sire || '', 'ja'),
+    sire: (a, b) => (a?.sire ?? '').localeCompare(b?.sire ?? '', 'ja'),
     sold_price: (a, b) => {
-      const aPrice = a.sold_price !== null && a.sold_price !== undefined ? 
+      const aPrice = a?.sold_price !== null && a?.sold_price !== undefined ? 
         (typeof a.sold_price === 'number' ? a.sold_price : 0) : 0;
       const bPrice = b.sold_price !== null && b.sold_price !== undefined ? 
         (typeof b.sold_price === 'number' ? b.sold_price : 0) : 0;
@@ -397,7 +427,7 @@ export default function AnalysisContent() {
         {/* サマリー 横並びテキスト */}
         <div className="mb-6 text-lg font-semibold text-gray-700 flex flex-wrap gap-8">
           <span>総馬数: {horses.length}</span>
-          <span>平均落札価格: {normalize.formatCurrency(data.metadata.average_price)}</span>
+          <span>平均落札価格: {formatCurrency(data.metadata.average_price)}</span>
           <span>平均ROI: {avgRIO.toFixed(2)}%</span>
         </div>
         {/* 指標ボタン（白文字色付き） */}
@@ -432,7 +462,7 @@ export default function AnalysisContent() {
                   </td>
                   <td className="px-3 py-2">
                     {(() => {
-                      const sexInfo = normalize.formatSex(horse.sex);
+                      const sexInfo = formatSex(horse.sex);
                       return (
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${sexInfo.color}`}>
                           {sexInfo.icon} {sexInfo.text}
