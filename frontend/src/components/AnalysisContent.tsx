@@ -153,17 +153,15 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
       console.log('No auction history available');
     }
 
-    // オークション履歴を馬IDでグループ化（型ガードを使用）
-    const auctionHistoryByHorseId = auctionHistory
-      .filter(isAuctionHistoryWithHorseId)
-      .reduce((acc: Record<string, (AuctionHistory & { horse_id: string | number })[]>, history: AuctionHistory & { horse_id: string | number }) => {
-        const horseId = String(history.horse_id);
-        if (!acc[horseId]) {
-          acc[horseId] = [];
-        }
-        acc[horseId].push(history);
-        return acc;
-      }, {} as Record<string, (AuctionHistory & { horse_id: string | number })[]>);
+    // オークション履歴を馬IDでグループ化（型アサーションを使用）
+    const auctionHistoryByHorseId = (auctionHistory as Array<{ horse_id: string | number; [key: string]: any }>).reduce((acc, history) => {
+      const horseId = String(history.horse_id);
+      if (!acc[horseId]) {
+        acc[horseId] = [];
+      }
+      acc[horseId].push(history);
+      return acc;
+    }, {} as Record<string, Array<{ horse_id: string | number; [key: string]: any }>>);
       
       // 馬体重を取得するヘルパー関数
     const getEffectiveWeight = (): number | null => {
