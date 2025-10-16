@@ -90,18 +90,26 @@ export interface Horse {
  * オークション履歴を表すインターフェース
  */
 export interface AuctionHistory {
-  /** オークション日（YYYY-MM-DD形式） */
+  /** オークション日付 */
   date: string;
-  /** 落札価格（未落札の場合はnull） */
+  /** 価格（旧形式の互換性のため残す） */
   price: number | null;
-  /** 馬体重（kg、計測されていない場合はnull） */
+  /** 売却価格（priceのエイリアス、新形式） */
+  sold_price: number | null;
+  /** 馬体重 */
   weight: number | null;
-  /** 売主名 */
+  /** 売主 */
   seller: string;
   /** 主取りフラグ */
   is_unsold: boolean;
-  /** コメント */
+  /** コメント（オプショナル） */
   comment?: string;
+  /** オークションID（オプショナル） */
+  auction_id?: string;
+  /** 作成日時（オプショナル） */
+  created_at?: string;
+  /** 更新日時（オプショナル） */
+  updated_at?: string;
 }
 
 /**
