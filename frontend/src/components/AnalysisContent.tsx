@@ -154,14 +154,18 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
     }
 
     // オークション履歴を馬IDでグループ化
-    const auctionHistoryByHorseId: Record<string, Array<{ horse_id: string | number; [key: string]: any }>> = {};
+    type GroupedAuctionHistory = Record<string, AuctionHistory[]>;
+    const auctionHistoryByHorseId: GroupedAuctionHistory = {};
 
-    for (const history of auctionHistory as Array<{ horse_id: string | number; [key: string]: any }>) {
-      const horseId = String(history.horse_id);
-      if (!auctionHistoryByHorseId[horseId]) {
-        auctionHistoryByHorseId[horseId] = [];
+    for (const history of auctionHistory) {
+      // historyがAuctionHistory型であり、horse_idプロパティを持つことを確認
+      if (history && typeof history === 'object' && 'horse_id' in history) {
+        const horseId = String(history.horse_id);
+        if (!auctionHistoryByHorseId[horseId]) {
+          auctionHistoryByHorseId[horseId] = [];
+        }
+        auctionHistoryByHorseId[horseId].push(history);
       }
-      auctionHistoryByHorseId[horseId].push(history);
     }
       
       // 馬体重を取得するヘルパー関数
