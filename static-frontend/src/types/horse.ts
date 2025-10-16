@@ -1,140 +1,155 @@
 /**
- * 馬の基本情報を表すインターフェース
+ * 共有の馬関連の型定義
  */
-export interface BasicInfo {
-  /** 馬名 */
-  name: string;
-  /** 性別（牡・牝・セ） */
-  sex: '牡' | '牝' | 'セ' | string;
-  /** 年齢 */
-  age: number;
-  /** 父馬名 */
-  sire: string;
-  /** 母馬名 */
-  dam: string;
-  /** 母父名 */
-  damsire: string;
-  /** 馬の画像URL（オプショナル） */
-  image_url?: string;
-  /** JBISの詳細ページURL（オプショナル） */
-  jbis_url?: string;
-  /** サラブレッドオークションの詳細ページURL（オプショナル） */
-  auction_url?: string;
-  /** 疾病情報のタグ配列（オプショナル） */
-  disease_tags?: string[];
-  /** 引退フラグ（オプショナル） */
-  is_retired?: boolean;
-  /** 引退日（オプショナル） */
-  retirement_date?: string;
+
+// オークション履歴の基本インターフェース
+export interface BaseAuctionHistory {
+  id: string | number;
+  horse_id: string | number;
+  auction_date: string;
+  sold_price: number | null;
+  total_prize_start: number;
+  total_prize_latest: number;
+  weight: number | null;
+  seller: string;
+  is_unsold: boolean;
+  comment: string;
+  created_at: string;
+  updated_at?: string;
+  detail_url?: string;
+  auction_url?: string; // 互換性のためのエイリアス
+  price?: number; // 互換性のためのエイリアス (sold_price の別名)
+  unsold?: boolean; // 互換性のためのエイリアス (is_unsold の別名)
 }
 
 /**
- * レース記録を表すインターフェース
+ * オークション履歴のインターフェース
+ * BaseAuctionHistory を拡張
  */
-export interface RaceRecords {
-  /** 総獲得賞金 */
-  total_prize_money: number;
-  /** 最終レース日（オプショナル） */
-  last_race_date?: string;
-  /** 最終賞金更新日時（オプショナル） */
-  last_prize_update?: string;
+export interface AuctionHistory extends BaseAuctionHistory {}
+
+// 賞金情報のインターフェース
+export interface PrizeMoney {
+  total_prize: string;
+}
+
+// 画像URLのインターフェース
+export interface ImageUrl {
+  image_url: string;
+}
+
+// 馬の基本情報のインターフェース
+export interface BaseHorse {
+  id: string | number;
+  name?: string;
+  auction_id?: string;
+  sex: string;
+  sire: string;
+  dam: string;
+  damsire: string;
+  image_url: ImageUrl | string;
+  jbis_url?: string;
+  detail_url?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 /**
  * 馬の情報を表すインターフェース
  */
-export interface Horse {
-  /** 馬の一意識別子 */
-  id: string;
-  /** 基本情報 */
-  basic_info: BasicInfo;
-  /** レース記録 */
-  race_records: RaceRecords;
-  /** オークション履歴（オプショナル） */
-  auction_history?: AuctionHistory[];
-  /** コメント（オプショナル） */
-  comment?: string;
-  /** 作成日時 */
-  created_at: string;
-  /** 更新日時 */
-  updated_at: string;
-  /** オークション日付（オプショナル） */
+export interface Horse extends BaseHorse {
+  // 基本情報
+  birth_year?: number;
+  age?: number;
+  color?: string;
+  breeder?: string;
+  owner?: string;
+  trainer?: string;
+  location?: string;
+  
+  // オークション関連
   auction_date?: string;
-  /** 売却価格（オプショナル） */
   sold_price?: number | null;
-  /** 主取りフラグ（オプショナル） */
   is_unsold?: boolean;
-  /** 売主名（オプショナル） */
   seller?: string;
-  /** 馬体重（オプショナル） */
-  weight?: number | null;
-  /** 総獲得賞金（開始時点）（オプショナル） */
+  
+  // 賞金関連
   total_prize_start?: number;
-  /** 総獲得賞金（最新時点）（オプショナル） */
   total_prize_latest?: number;
-  /** オークションURL（オプショナル） */
+  prize_money?: PrizeMoney;
+  
+  // 表示用のフォーマット済み文字列
+  display_prize?: string;
+  display_roi?: string;
+  display_weight?: string;
+  display_price?: string;
+  
+  // ソート用の数値
+  sort_price?: number;
+  sort_prize?: number;
+  sort_roi?: number;
+  
+  // 計算済みの値
+  roi?: number;
+  price_per_kg?: number;
+  effectiveWeight?: number | null;
+  
+  // 互換性のためのフィールド
+  /** @deprecated 代わりに detail_url を使用してください */
   auction_url?: string;
-  /** 詳細ページURL（オプショナル） */
-  detail_url?: string;
-  /** 疾病情報のタグ配列（オプショナル） */
-  disease_tags?: string[];
-  /** メタデータ */
-  metadata?: {
-    created_at: string;
-    updated_at: string;
-    data_source?: string;
-  };
+  /** @deprecated 代わりに is_unsold を使用してください */
+  unsold?: boolean;
+  /** @deprecated 代わりに sold_price を使用してください */
+  price?: number | null;
 }
 
-/**
- * オークション履歴を表すインターフェース
- */
-export interface AuctionHistory {
-  /** オークション日付 */
-  date: string;
-  /** 価格（旧形式の互換性のため残す） */
-  price: number | null;
-  /** 売却価格（priceのエイリアス、新形式） */
-  sold_price: number | null;
-  /** 馬体重 */
-  weight: number | null;
-  /** 売主 */
-  seller: string;
-  /** 主取りフラグ */
-  is_unsold: boolean;
-  /** コメント（オプショナル） */
-  comment?: string;
-  /** オークションID（オプショナル） */
-  auction_id?: string;
-  /** 作成日時（オプショナル） */
-  created_at?: string;
-  /** 更新日時（オプショナル） */
-  updated_at?: string;
-}
-
-/**
- * メタデータを表すインターフェース
- */
+// メタデータのインターフェース
 export interface Metadata {
-  /** バージョン */
-  version: string;
-  /** 最終更新日時 */
   last_updated: string;
-  /** 馬の総数 */
   total_horses: number;
-  /** スクレイピングステータス（オプショナル） */
-  scrape_status?: {
-    last_successful_scrape: string;
-    next_scheduled_scrape: string;
-  };
+  average_price: number;
+  average_growth_rate: number;
+  horses_with_growth_data: number;
 }
 
 /**
- * 馬データのルートオブジェクト
+ * 計算済みの馬情報を表すインターフェース
+ */
+export interface HorseWithCalculations extends Horse {
+  total_prize_start: number;
+  unsold_count: number;
+  roi: number;
+  price_per_kg: number;
+  display_price: string;
+  display_weight: string;
+  display_prize: string;
+  display_roi: string;
+  sort_price: number;
+  sort_prize: number;
+  sort_roi: number;
+  primary_image: string;
+  
+  // オークション関連のプロパティ
+  auction_history?: AuctionHistory[];
+  weight?: number | null;
+  effectiveAuction?: AuctionHistory;
+  is_unsold?: boolean;
+  unsold?: boolean;
+  sold_price?: number | null;
+  seller?: string;
+  auction_date?: string;
+  comment?: string;
+  
+  // その他のプロパティ
+  [key: string]: any; // 動的なプロパティに対応
+}
+
+/**
+ * 馬のデータを表すインターフェース
+ * APIレスポンスの型として使用
  */
 export interface HorseData {
-  /** メタデータ */
   metadata: Metadata;
-  /** 馬のリスト */
-  horses: Horse[];
+  horses: HorseWithCalculations[];
+  auction_history?: AuctionHistory[];
 }
