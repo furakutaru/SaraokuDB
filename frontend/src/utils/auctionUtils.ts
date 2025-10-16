@@ -1,9 +1,19 @@
-import { AuctionHistory } from '../types/horse';
-
-export interface GroupedAuctionHistory {
-  [key: string]: AuctionHistory[];
+// 基本のオークション履歴型を定義
+export interface BaseAuctionHistory {
+  id?: string | number;
+  horse_id?: string | number;
+  [key: string]: any;
 }
 
+export interface GroupedAuctionHistory {
+  [key: string]: BaseAuctionHistory[];
+}
+
+/**
+ * オークション履歴を馬IDでグループ化する
+ * @param histories オークション履歴の配列
+ * @returns 馬IDをキーとしたグループ化されたオークション履歴
+ */
 export const groupAuctionHistory = (histories: any[]): GroupedAuctionHistory => {
   const result: GroupedAuctionHistory = {};
 
@@ -23,12 +33,25 @@ export const groupAuctionHistory = (histories: any[]): GroupedAuctionHistory => 
   return result;
 };
 
-// デバッグ用ログ
-export const debugAuctionHistory = (histories: any[]) => {
+/**
+ * オークション履歴のデバッグ情報を出力
+ * @param histories オークション履歴の配列
+ */
+export const debugAuctionHistory = (histories: any[]): void => {
   console.log('=== オークション履歴デバッグ情報 ===');
   console.log('合計件数:', histories.length);
   if (histories.length > 0) {
     console.log('最初のアイテム:', histories[0]);
     console.log('最初のアイテムのキー:', Object.keys(histories[0]));
   }
+};
+
+/**
+ * オークション履歴から馬IDを安全に取得
+ * @param history オークション履歴オブジェクト
+ * @returns 馬ID（見つからない場合はnull）
+ */
+export const getHorseId = (history: BaseAuctionHistory): string | null => {
+  if (!history) return null;
+  return String(history.horse_id ?? history.id ?? '');
 };
