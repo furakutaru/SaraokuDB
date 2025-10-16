@@ -16,6 +16,11 @@ import { formatPrice, formatWeight, calcROI, getDisplayPrice } from '../utils/fo
 import { calculateAverage, calculateAverageGrowthRate } from '../utils/calculations';
 import { useHorseData } from '../hooks/useHorseData';
 
+// 型ガード関数
+function isAuctionHistoryWithHorseId(history: any): history is AuctionHistory & { horse_id: string | number } {
+  return history && 'horse_id' in history;
+}
+
 // Components
 import SummaryBar from './SummaryBar';
 import ShowTypeButtons from './ShowTypeButtons';
@@ -138,15 +143,27 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
       // オークション履歴を取得（存在しない場合は空配列をデフォルト値として使用）
       const auctionHistory = Array.isArray(horse.auction_history) ? horse.auction_history : [];
       
-      // オークション履歴を馬IDでグループ化
-      const auctionHistoryByHorseId = (auctionHistory as AuctionHistory[]).reduce((acc: Record<string, AuctionHistory[]>, history) => {
+      // デバッグ用: オークション履歴の構造を確認
+    console.log('=== Debugging Auction History ===');
+    if (auctionHistory && auctionHistory.length > 0) {
+      console.log('First auction history item:', auctionHistory[0]);
+      console.log('First history keys:', Object.keys(auctionHistory[0]));
+      console.log('First history type:', typeof auctionHistory[0]);
+    } else {
+      console.log('No auction history available');
+    }
+
+    // オークション履歴を馬IDでグループ化（型ガードを使用）
+    const auctionHistoryByHorseId = auctionHistory
+      .filter(isAuctionHistoryWithHorseId)
+      .reduce((acc: Record<string, (AuctionHistory & { horse_id: string | number })[]>, history: AuctionHistory & { horse_id: string | number }) => {
         const horseId = String(history.horse_id);
         if (!acc[horseId]) {
           acc[horseId] = [];
         }
         acc[horseId].push(history);
         return acc;
-      }, {} as Record<string, AuctionHistory[]>);
+      }, {} as Record<string, (AuctionHistory & { horse_id: string | number })[]>);
       
       // 馬体重を取得するヘルパー関数
     const getEffectiveWeight = (): number | null => {
