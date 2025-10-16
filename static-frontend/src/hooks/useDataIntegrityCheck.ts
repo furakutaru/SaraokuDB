@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { HorseData, AuctionData } from '../types/horse';
+import { HorseData } from '../types/horse';
 
 export interface DataIssue {
   id: number;
