@@ -3,6 +3,7 @@
 // React / Next
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { groupAuctionHistory, debugAuctionHistory } from '../utils/auctionUtils';
 import Link from 'next/link';
 
 // Third-party libs
@@ -154,19 +155,9 @@ const transformHorseData = (data: any): HorseWithCalculations[] => {
     }
 
     // オークション履歴を馬IDでグループ化
-    type GroupedAuctionHistory = Record<string, AuctionHistory[]>;
-    const auctionHistoryByHorseId: GroupedAuctionHistory = {};
-
-    for (const history of auctionHistory) {
-      // historyがAuctionHistory型であり、horse_idプロパティを持つことを確認
-      if (history && typeof history === 'object' && 'horse_id' in history) {
-        const horseId = String(history.horse_id);
-        if (!auctionHistoryByHorseId[horseId]) {
-          auctionHistoryByHorseId[horseId] = [];
-        }
-        auctionHistoryByHorseId[horseId].push(history);
-      }
-    }
+    debugAuctionHistory(auctionHistory);
+    const auctionHistoryByHorseId = groupAuctionHistory(auctionHistory);
+    console.log('グループ化されたオークション履歴:', Object.keys(auctionHistoryByHorseId).length, '件の馬IDでグループ化されました');
       
       // 馬体重を取得するヘルパー関数
     const getEffectiveWeight = (): number | null => {
