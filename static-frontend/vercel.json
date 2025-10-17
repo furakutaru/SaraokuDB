@@ -13,7 +13,7 @@
       "use": "@vercel/python",
       "config": {
         "pythonVersion": "3.9",
-        "installCommand": "python -m pip install -r backend/requirements.txt -t /tmp/python-packages"
+        "installCommand": "python -m pip install -r backend/requirements.txt"
       }
     }
   ],
