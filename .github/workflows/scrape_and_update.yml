@@ -26,20 +26,35 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
-          pip install requests beautifulsoup4 lxml tqdm
+          pip install requests beautifulsoup4 lxml tqdm sqlalchemy python-dotenv aiohttp
+          
+      - name: Set up database directory
+        run: |
+          mkdir -p backend/data
+          touch backend/data/horses.db
           
       - name: Set environment variables
         run: |
-          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
+          echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" >> $GITHUB_ENV
+          echo "API_BASE_URL=${{ secrets.API_BASE_URL }}" >> $GITHUB_ENV
           echo "API_USERNAME=${{ secrets.API_USERNAME }}" >> $GITHUB_ENV
           echo "API_PASSWORD=${{ secrets.API_PASSWORD }}" >> $GITHUB_ENV
-          # セキュリティのため、パスワードをマスク
+          # セキュリティのため、機密情報をマスク
           echo "::add-mask::${{ secrets.API_PASSWORD }}"
           
       - name: Run scraper
         run: |
-          cd scripts
+          # データベースの初期化
+          cd backend
+          python -c "from database.models import Base, engine; Base.metadata.create_all(bind=engine)"
+          
+          # スクレイパーの実行
+          cd ../scripts
           python scrape_and_save.py
+          
+          # データベースのバックアップ
+          cd ..
+          cp backend/data/horses.db backend/data/horses_$(date +%Y%m%d_%H%M%S).db
           
       - name: Commit and push changes
         run: |

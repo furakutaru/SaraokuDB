@@ -5,9 +5,16 @@ import os
 import json
 import logging
 import requests
+import sys
 from datetime import datetime
 from dotenv import load_dotenv
 from pathlib import Path
+
+# スクリプトのルートディレクトリをパスに追加
+sys.path.append(str(Path(__file__).parent))
+
+# カスタムスクレイパーから必要なクラスをインポート
+from improved_scraper import ImprovedRakutenScraper, ScraperConfig
 
 # ロギング設定
 logging.basicConfig(
@@ -88,6 +95,16 @@ class ScraperClient:
             # データのコピーを作成（元データを変更しないため）
             data_to_send = horse_data.copy()
             
+            # 必須フィールドのバリデーションと型変換
+            if 'image_url' not in data_to_send or data_to_send['image_url'] is None:
+                data_to_send['image_url'] = ""  # 空文字をデフォルト値として設定
+            
+            # disease_tagsがリストの場合はカンマ区切りの文字列に変換
+            if 'disease_tags' in data_to_send and isinstance(data_to_send['disease_tags'], list):
+                data_to_send['disease_tags'] = ", ".join(data_to_send['disease_tags'])
+            elif 'disease_tags' not in data_to_send or data_to_send['disease_tags'] is None:
+                data_to_send['disease_tags'] = ""  # 空文字をデフォルト値として設定
+            
             # race_recordsをrace_recordにマッピング
             if 'race_records' in data_to_send:
                 data_to_send['race_record'] = data_to_send.pop('race_records')
@@ -98,12 +115,15 @@ class ScraperClient:
             )
             response.raise_for_status()
             logger.info(f"馬データを保存しました: {data_to_send.get('name')}")
-            return True
+            return response.json()
         except requests.exceptions.HTTPError as e:
-            logger.error(f"APIリクエストエラー: {e.response.status_code} - {e.response.text}")
+            if e.response is not None:
+                logger.error(f"APIリクエストエラー: {e.response.status_code} - {e.response.text}")
+            else:
+                logger.error(f"APIリクエストエラー: {str(e)}")
             return False
         except Exception as e:
-            logger.error(f"データ保存中にエラーが発生しました: {str(e)}")
+            logger.error(f"馬データの保存中にエラーが発生しました: {str(e)}")
             return False
 
 def main():
@@ -115,25 +135,56 @@ def main():
         logger.error("認証に失敗したため、スクリプトを終了します")
         return
     
-    # スクレイピングの実行（モックデータを使用）
-    # 実際のスクレイピング処理は別のスクリプトで実装
-    current_date = datetime.now().strftime("%Y%m%d")
-    mock_horse = {
-        "name": "テスト馬",
-        "auction_id": f"TEST-{current_date}-001",  # 必須フィールドを追加
-        "sex": "牡",
-        "age": 3,
-        "sire": "テスト父",
-        "dam": "テスト母",
-        "auction_date": datetime.now().strftime("%Y-%m-%d"),
-        "sold_price": 10000000,
-        "seller": "テストセラー",
-        "comment": "スクリプトからのテストデータ"
-    }
+    # スクレイパーの初期化
+    config = ScraperConfig(
+        use_cache=True,
+        max_workers=5
+    )
+    scraper = ImprovedRakutenScraper(config)
     
-    # データの保存
-    client.save_horse(mock_horse)
-    logger.info("スクリプトが正常に完了しました")
+    # 出力ディレクトリのパス
+    output_dir = Path(__file__).parent.parent / 'static-frontend' / 'public' / 'data'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_file = output_dir / 'horses.json'
+    
+    try:
+        # 馬一覧をスクレイピング
+        logger.info("馬一覧のスクレイピングを開始します")
+        horses = scraper.scrape_horse_list(max_pages=0)  # 0は全ページ取得
+        
+        if not horses:
+            logger.warning("スクレイピング結果が0件です")
+            return
+            
+        logger.info(f"合計 {len(horses)} 件の馬データを取得しました")
+        
+        # 各馬の詳細を取得して保存
+        saved_horses = []
+        for i, horse in enumerate(horses, 1):
+            try:
+                response = client.save_horse(horse)
+                if response:
+                    saved_horses.append(horse)
+                    logger.info(f"[{i}/{len(horses)}] 馬データを保存しました: {horse.get('name')}")
+                else:
+                    logger.warning(f"[{i}/{len(horses)}] 馬データの保存に失敗しました: {horse.get('name')}")
+            except Exception as e:
+                logger.error(f"馬データの保存中にエラーが発生しました: {str(e)}")
+                continue
+        
+        # 取得した馬データをJSONファイルに保存
+        if saved_horses:
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(saved_horses, f, ensure_ascii=False, indent=2, default=str)
+            logger.info(f"{len(saved_horses)}件の馬データを {output_file} に保存しました")
+        else:
+            logger.warning("保存する馬データがありませんでした")
+                
+        logger.info("すべての処理が完了しました")
+        
+    except Exception as e:
+        logger.error(f"スクレイピング中にエラーが発生しました: {str(e)}", exc_info=True)
+        raise
 
 if __name__ == "__main__":
     main()

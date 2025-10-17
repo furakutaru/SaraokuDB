@@ -2428,9 +2428,12 @@ class ImprovedRakutenScraper:
                 horse_info.setdefault('total_prize_start', 0)
             
             # 画像URLを抽出
-            image_url, image_success = self.image_extractor.extract(html_content)
-            if image_success and image_url:
-                horse_info['image_url'] = image_url
+            image_result, image_success = self.image_extractor.extract(html_content)
+            if image_success and image_result and 'image_url' in image_result:
+                horse_info['image_url'] = image_result['image_url']
+            else:
+                horse_info['image_url'] = ""  # 空文字をデフォルト値として設定
+                self.logger.warning(f"画像URLの抽出に失敗したため、空文字を設定します (馬ID: {horse_id})")
             
             # オークション日は既に取得済み
             
