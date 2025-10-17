@@ -17,11 +17,19 @@ class User:
         self.username = username
         self.hashed_password = hashed_password
 
-# テスト用のユーザー（本番環境ではデータベースから取得）
+# 環境変数から認証情報を取得
+username = os.getenv("PROD_API_USERNAME")
+password = os.getenv("PROD_API_PASSWORD")
+
+if not username or not password:
+    raise ValueError("PROD_API_USERNAME と PROD_API_PASSWORD の環境変数が設定されていません")
+
+# 環境変数から取得した認証情報を使用
+hashed_password = pwd_context.hash(password)
 fake_users_db = {
-    "admin": {
-        "username": "admin",
-        "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",  # "secret"
+    username: {
+        "username": username,
+        "hashed_password": hashed_password,
     }
 }
 
