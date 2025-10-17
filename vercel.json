@@ -2,13 +2,8 @@
   "version": 2,
   "builds": [
     {
-      "src": "backend/main.py",
-      "use": "@vercel/python",
-      "config": { 
-        "maxLambdaSize": "15mb",
-        "runtime": "python3.11"
-      },
-      "installCommand": "python3 -m pip install --upgrade pip && python3 -m pip install -r backend/requirements.txt"
+      "src": "api/**/*.py",
+      "use": "@vercel/python"
     },
     {
       "src": "static-frontend/package.json",
@@ -21,7 +16,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "backend/main.py"
+      "dest": "/api/$1"
     },
     {
       "src": "/(.*)",
