@@ -53,6 +53,11 @@ app.add_middleware(
 async def root():
     return {"message": "サラブレッドオークションデータベースAPIへようこそ！"}
 
+# ヘルスチェックエンドポイント
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "message": "Service is running"}
+
 # テスト用のシンプルなエンドポイント
 @app.get("/test")
 async def test_endpoint():
