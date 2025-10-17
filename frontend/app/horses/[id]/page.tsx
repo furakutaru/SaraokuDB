@@ -854,21 +854,33 @@ export default function HorseDetailPage({ params }: PageProps) {
         
         // コメントがあるかチェック
         let hasAnyComment = false;
-        let latestHistoryItem = null;
+        let latestHistoryItem: ExtendedAuctionHistory | null = null;
         
         if (horseData.history?.length > 0) {
           hasAnyComment = horseData.history.some(h => h.comment && h.comment.trim() !== '');
           console.log('Has comments in history:', hasAnyComment);
           
-          // 最新の履歴をセット
-          latestHistoryItem = [...horseData.history].sort((a, b) => 
+          // 最新の履歴をセット（ソートして最新の1件を取得）
+          const sortedHistory = [...horseData.history].sort((a, b) => 
             new Date(b.auction_date || 0).getTime() - new Date(a.auction_date || 0).getTime()
-          )[0];
-          console.log('Latest history:', {
-            id: latestHistoryItem.id,
-            comment: latestHistoryItem.comment,
-            disease_tags: latestHistoryItem.disease_tags
-          });
+          );
+          
+          latestHistoryItem = sortedHistory[0] || null;
+          
+          // ログ出力用の型ガード関数
+          const isExtendedAuctionHistory = (item: any): item is ExtendedAuctionHistory => {
+            return item !== null && typeof item === 'object' && 'id' in item;
+          };
+          
+          if (isExtendedAuctionHistory(latestHistoryItem)) {
+            console.log('Latest history:', {
+              id: latestHistoryItem.id,
+              comment: latestHistoryItem.comment,
+              disease_tags: latestHistoryItem.disease_tags
+            });
+          } else {
+            console.log('No history available or invalid history item');
+          }
         }
         
         // 状態を一度に更新
