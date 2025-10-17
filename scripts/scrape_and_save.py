@@ -158,25 +158,61 @@ def main():
             
         logger.info(f"合計 {len(horses)} 件の馬データを取得しました")
         
-        # 各馬の詳細を取得して保存
-        saved_horses = []
+        # 既存のデータを読み込む
+        existing_horses = []
+        if output_file.exists():
+            try:
+                with open(output_file, 'r', encoding='utf-8') as f:
+                    existing_horses = json.load(f)
+                logger.info(f"既存の{len(existing_horses)}件の馬データを読み込みました")
+            except (json.JSONDecodeError, FileNotFoundError) as e:
+                logger.warning(f"既存のJSONファイルの読み込みに失敗しました: {str(e)}。新規作成します。")
+                existing_horses = []
+        
+        # 既存の馬データをIDをキーとする辞書に変換
+        existing_horses_dict = {str(h.get('id')): h for h in existing_horses if h.get('id') is not None}
+        
+        # 更新・追加処理
+        updated_count = 0
+        added_count = 0
+        
         for i, horse in enumerate(horses, 1):
             try:
+                horse_id = str(horse.get('id'))
+                if not horse_id:
+                    logger.warning(f"[{i}/{len(horses)}] 馬IDが存在しないためスキップします: {horse.get('name')}")
+                    continue
+                
+                # APIで保存
                 response = client.save_horse(horse)
+                
                 if response:
-                    saved_horses.append(horse)
-                    logger.info(f"[{i}/{len(horses)}] 馬データを保存しました: {horse.get('name')}")
+                    # 既存の馬データを更新または追加
+                    if horse_id in existing_horses_dict:
+                        # 既存データを更新
+                        existing_horses_dict[horse_id].update(horse)
+                        updated_count += 1
+                        logger.info(f"[{i}/{len(horses)}] 馬データを更新しました: {horse.get('name')}")
+                    else:
+                        # 新しいデータを追加
+                        existing_horses_dict[horse_id] = horse
+                        added_count += 1
+                        logger.info(f"[{i}/{len(horses)}] 新しい馬データを追加しました: {horse.get('name')}")
                 else:
                     logger.warning(f"[{i}/{len(horses)}] 馬データの保存に失敗しました: {horse.get('name')}")
+                    
             except Exception as e:
-                logger.error(f"馬データの保存中にエラーが発生しました: {str(e)}")
+                logger.error(f"馬データの処理中にエラーが発生しました: {str(e)}", exc_info=True)
                 continue
         
-        # 取得した馬データをJSONファイルに保存
-        if saved_horses:
+        # 更新・追加後のデータをリストに変換
+        all_horses = list(existing_horses_dict.values())
+        
+        # データを保存
+        if all_horses:
             with open(output_file, 'w', encoding='utf-8') as f:
-                json.dump(saved_horses, f, ensure_ascii=False, indent=2, default=str)
-            logger.info(f"{len(saved_horses)}件の馬データを {output_file} に保存しました")
+                json.dump(all_horses, f, ensure_ascii=False, indent=2, default=str)
+            logger.info(f"馬データを保存しました - 合計: {len(all_horses)}件 (新規: {added_count}件, 更新: {updated_count}件)")
         else:
             logger.warning("保存する馬データがありませんでした")
                 
