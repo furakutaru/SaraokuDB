@@ -1,4 +1,16 @@
 {
   "version": 3,
+  "builds": [
+    {
+      "src": "**/*.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/$1"
+    }
+  ],
   "installCommand": "python3 -m ensurepip --upgrade && python3 -m pip install --upgrade pip && python3 -m pip install -r requirements.txt"
 }
