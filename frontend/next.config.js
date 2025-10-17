@@ -1,22 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 静的エクスポート(output: 'export')はVercel運用では不要なので削除
+  // VercelではSSRを使用するため、standaloneモードを使用
+  output: 'standalone',
   trailingSlash: true,
   images: {
     unoptimized: true,
+    domains: ['vercel.app'],
   },
-  // リライト設定（開発時のみ）
-  ...(process.env.NODE_ENV !== 'production' && {
-    async rewrites() {
-      return [
-        {
-          source: '/horses.json',
-          destination: '/data/horses.json',
-        },
-        // APIルートはNext.jsのAPIルートを使用するため、リライトを削除
-      ];
-    },
-  }),
+  // 環境変数の設定
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  },
+  // リライト設定
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/:path*`,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

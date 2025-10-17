@@ -15,13 +15,21 @@
       "config": {
         "distDir": ".next"
       }
+    },
+    {
+      "src": "frontend/public/(.*)",
+      "use": "@vercel/static"
     }
   ],
-  "installCommand": "python3 -m pip install -r backend/requirements.txt && cd frontend && npm install",
+  "installCommand": "python3 -m pip install -r requirements.txt && cd frontend && npm install",
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "backend/main.py"
+    },
+    {
+      "src": "/_next/static/(.*)",
+      "dest": "/frontend/.next/static/$1"
     },
     {
       "src": "/(.*)",
