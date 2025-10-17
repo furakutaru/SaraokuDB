@@ -5,9 +5,7 @@
       "src": "api/**/*.py",
       "use": "@vercel/python",
       "config": {
-        "maxLambdaSize": "15mb",
-        "pythonVersion": "3.11",
-        "installCommand": "python3 -m ensurepip --upgrade && python3 -m pip install --upgrade pip setuptools wheel && python3 -m pip install -r backend/requirements.txt --user"
+        "pythonVersion": "3.11"
       }
     },
     {
@@ -27,5 +25,12 @@
       "src": "/(.*)",
       "dest": "static-frontend/$1"
     }
-  ]
+  ],
+  "build": {
+    "env": {
+      "NODE_VERSION": "20.x",
+      "PYTHON_VERSION": "3.11"
+    }
+  },
+  "installCommand": "python3 -m ensurepip --upgrade && python3 -m pip install --upgrade pip setuptools wheel && python3 -m pip install -r api/requirements-minimal.txt && cd static-frontend && npm install"
 }
