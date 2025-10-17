@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 2,
   "builds": [
     {
       "src": "api/**/*.py",
@@ -25,6 +25,5 @@
       "src": "/(.*)",
       "dest": "/static-frontend/$1"
     }
-  ],
-  "installCommand": "cd api && python -m pip install -r requirements.txt"
+  ]
 }

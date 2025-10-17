@@ -6,6 +6,9 @@ from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 import os
 
+# パスワードのハッシュ化と検証のためのコンテキスト
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 # 環境変数からシークレットキーを取得
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")  # 本番環境では必ず変更してください
 ALGORITHM = "HS256"
