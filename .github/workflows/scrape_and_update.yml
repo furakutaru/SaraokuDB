@@ -62,8 +62,9 @@ jobs:
           PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
         run: |
           echo "Testing API connection..."
-          response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            "$PROD_API_BASE_URL/api/token/" \
+          # Vercelの設定に合わせて、/api プレフィックスを追加
+          response=$(curl -v -s -o /dev/null -w "%{http_code}" -X POST \
+            "$PROD_API_BASE_URL/api/token" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             -d "username=$PROD_API_USERNAME" \
             -d "password=$PROD_API_PASSWORD")
