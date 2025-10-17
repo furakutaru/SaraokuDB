@@ -12,7 +12,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 # バックエンドのベースURL
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:8001"
 
 def load_horses_data() -> List[Dict[str, Any]]:
     """フロントエンドのhorses.jsonから馬データを読み込む"""

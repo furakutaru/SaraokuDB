@@ -1,4 +1,4 @@
-#!/Users/yum.ishii/SaraokuDB/.venv/bin/python3
+#!/Users/yum.ishii/SaraokuDB/.venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

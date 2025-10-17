@@ -2,7 +2,7 @@ import requests
 import json
 
 def test_api_endpoints():
-    base_url = "http://localhost:8000"
+    base_url = "http://localhost:8001"
     
     # 1. ルートエンドポイントのテスト
     print("\n=== 1. ルートエンドポイントのテスト ===")

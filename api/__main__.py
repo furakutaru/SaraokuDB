@@ -1,9 +1,4 @@
-from fastapi import FastAPI
-from .health import router as health_router
-from .auth.login import router as login_router
+from .api import app
 
-app = FastAPI()
-
-# ルーターを登録
-app.include_router(health_router, prefix="/api")
-app.include_router(login_router, prefix="/api")
+# Vercel が app 変数を探すため、明示的に公開
+__all__ = ['app']

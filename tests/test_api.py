@@ -3,7 +3,7 @@ import json
 import sys
 from typing import List, Dict, Any, Optional
 
-def test_api_endpoints(base_url: str = "http://localhost:8000"):
+def test_api_endpoints(base_url: str = "http://localhost:8001"):
     """バックエンドのAPIエンドポイントをテストする"""
     print(f"=== バックエンドAPIテストを開始します ({base_url}) ===\n")
     
@@ -76,5 +76,5 @@ def test_api_endpoints(base_url: str = "http://localhost:8000"):
 
 if __name__ == "__main__":
     # カスタムURLが指定されている場合はそれを使用
-    base_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
+    base_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8001"
     test_api_endpoints(base_url)
