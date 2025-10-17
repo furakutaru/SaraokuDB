@@ -5,16 +5,14 @@
       "src": "api/**/*.py",
       "use": "@vercel/python",
       "config": {
-        "pythonVersion": "3.11",
-        "installCommand": "python3 -m pip install -r api/requirements.txt"
+        "pythonVersion": "3.11"
       }
     },
     {
       "src": "static-frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": ".next",
-        "installCommand": "cd static-frontend && npm install"
+        "distDir": ".next"
       }
     }
   ],
@@ -27,5 +25,6 @@
       "src": "/(.*)",
       "dest": "static-frontend/$1"
     }
-  ]
+  ],
+  "buildCommand": "cd static-frontend && npm install && npm run build"
 }
