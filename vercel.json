@@ -2,17 +2,6 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/**/*.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "15mb",
-        "pythonVersion": "3.11",
-        "environment": {
-          "PYTHONPATH": "/var/task"
-        }
-      }
-    },
-    {
       "src": "static-frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
