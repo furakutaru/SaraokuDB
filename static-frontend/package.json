@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "export": "next build && next export",
-    "postinstall": "mkdir -p src/types && (cp -f ../../shared/types/horse.ts src/types/horse.ts || cp -f ../shared/types/horse.ts src/types/horse.ts || (echo 'Warning: Failed to copy shared types' && mkdir -p src/types && touch src/types/horse.ts))"
+    "postinstall": "mkdir -p src/types && (cp -f ../../shared/types/horse.ts src/types/ || cp -f ../shared/types/horse.ts src/types/ || (echo '// Placeholder for horse types' > src/types/horse.ts))"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.0.2",
