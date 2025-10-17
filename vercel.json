@@ -3,7 +3,12 @@
   "builds": [
     {
       "src": "api/**/*.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb",
+        "pythonVersion": "3.11",
+        "installCommand": "python3 -m pip install -r api/requirements.txt"
+      }
     },
     {
       "src": "static-frontend/package.json",
