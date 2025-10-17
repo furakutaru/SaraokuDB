@@ -48,11 +48,15 @@ class ScraperClient:
     def authenticate(self):
         """API認証を行いトークンを取得"""
         try:
-            auth_url = f"{self.api_base_url}/token"
-            if self.api_base_url.endswith('/api'):
-                auth_url = f"{self.api_base_url}/token"
-            elif not self.api_base_url.endswith('/'):
-                auth_url = f"{self.api_base_url}/token"
+            # ベースURLの正規化
+            base_url = self.api_base_url.rstrip('/')
+            
+            # APIエンドポイントの構築
+            if not base_url.endswith('/api'):
+                base_url = f"{base_url}/api"
+            
+            auth_url = f"{base_url}/token"
+            logger.info(f"認証を試みます: {auth_url} (ユーザー: {self.api_username})")
             
             # 認証リクエストの送信 (form-data形式で送信)
             response = self.session.post(
@@ -79,10 +83,21 @@ class ScraperClient:
                 logger.error("トークンの取得に失敗しました")
                 logger.error(f"レスポンス: {token_data}")
                 return False
-        except Exception as e:
-            logger.error(f"認証に失敗しました: {e}")
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"認証リクエストに失敗しました: {str(e)}")
+            if hasattr(e, 'response') and e.response is not None:
+                logger.error(f"ステータスコード: {e.response.status_code}")
+                if hasattr(e.response, 'text') and e.response.text:
+                    logger.error(f"エラーレスポンス: {e.response.text}")
+            return False
+        except json.JSONDecodeError as e:
+            logger.error(f"レスポンスのJSON解析に失敗しました: {str(e)}")
             if hasattr(e, 'response') and hasattr(e.response, 'text'):
-                logger.error(f"エラーレスポンス: {e.response.text}")
+                logger.error(f"生のレスポンス: {e.response.text}")
+            return False
+        except Exception as e:
+            logger.error(f"予期せぬエラーが発生しました: {str(e)}", exc_info=True)
             return False
     
     def save_horse(self, horse_data):
