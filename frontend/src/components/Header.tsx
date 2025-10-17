@@ -1,44 +1,28 @@
-import React from 'react';
-import { Typography, Button, Box } from '@mui/material';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  pageTitle: string;
+}
+
+export function Header({ pageTitle }: HeaderProps) {
   return (
-    <header className="bg-white shadow-sm border-b">
+    <header className="bg-white shadow-sm border-b sticky top-0 z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
-          <Link href="/" passHref>
-            <Typography 
-              variant="h6" 
-              component="a"
-              className="text-xl font-bold text-gray-900 hover:text-gray-700 cursor-pointer"
-            >
-              サラオクDB
-            </Typography>
-          </Link>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
-              component={Link}
-              href="/analysis"
-              variant="text"
-              className="text-gray-700 hover:bg-gray-100"
-            >
-              解析
-            </Button>
-            <Button
-              component={Link}
-              href="/recent"
-              variant="contained"
-              color="primary"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              直近の追加
-            </Button>
-          </Box>
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-gray-900">{pageTitle}</h1>
+          </div>
+          <div className="flex gap-4">
+            <Link href="/">
+              <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">解析</Button>
+            </Link>
+            <Link href="/horses">
+              <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">直近の追加</Button>
+            </Link>
+          </div>
         </div>
       </div>
     </header>
   );
-};
-
-export default Header; 
+}

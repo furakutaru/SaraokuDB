@@ -6,19 +6,18 @@
       "use": "@vercel/python",
       "config": { 
         "maxLambdaSize": "15mb",
-        "runtime": "python3.11",
-        "installCommand": "pip install -r backend/requirements.txt"
+        "runtime": "python3.11"
       }
     },
     {
-      "src": "static-frontend/package.json",
+      "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
         "distDir": ".next"
       }
     }
   ],
-  "installCommand": "cd static-frontend && npm install",
+  "installCommand": "pip install -r backend/requirements.txt && cd frontend && npm install",
   "routes": [
     {
       "src": "/api/(.*)",
@@ -26,7 +25,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "static-frontend/$1"
+      "dest": "frontend/$1"
     }
   ]
 }
