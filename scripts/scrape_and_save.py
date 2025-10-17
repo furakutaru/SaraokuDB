@@ -72,8 +72,8 @@ class ScraperClient:
             # ベースURLの正規化
             base_url = self.api_base_url.rstrip('/')
             
-            # APIエンドポイントの構築
-            auth_url = f"{base_url}/token"
+            # APIエンドポイントの構築（/api/token を使用）
+            auth_url = f"{base_url}/api/token"
             logger.info(f"認証を試みます: {auth_url} (ユーザー: {self.api_username})")
             
             # 認証リクエストの送信 (form-data形式で送信)
@@ -86,8 +86,10 @@ class ScraperClient:
                 },
                 headers={
                     "Content-Type": "application/x-www-form-urlencoded",
-                    "Accept": "application/json"
-                }
+                    "Accept": "application/json",
+                    "User-Agent": "SaraokuDB-Scraper/1.0"
+                },
+                timeout=30
             )
             
             # レスポンスの確認
