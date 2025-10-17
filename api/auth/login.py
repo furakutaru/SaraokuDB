@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from typing import Dict, Any
 import sys
 from pathlib import Path
 
@@ -10,10 +11,15 @@ if str(project_root) not in sys.path:
 
 # Import the login function from the backend
 from backend.auth.auth import login_for_access_token
+from pydantic import BaseModel
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
 
 router = APIRouter()
 
-@router.post("/token")
+@router.post("/token", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     """
     OAuth2 compatible token login, get an access token for future requests
