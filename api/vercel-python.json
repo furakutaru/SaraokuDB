@@ -11,8 +11,12 @@
   ],
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "/api/$1"
+      "src": "/api/(?<path>.*)",
+      "dest": "/api/$path"
+    },
+    {
+      "src": "/",
+      "dest": "/api"
     }
   ],
   "installCommand": "python -m pip install -r requirements.txt"

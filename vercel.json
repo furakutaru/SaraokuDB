@@ -16,6 +16,7 @@
       }
     }
   ],
+  "installCommand": "cd api && python -m pip install -r requirements.txt",
   "routes": [
     {
       "src": "/api/(.*)",
