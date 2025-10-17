@@ -22,6 +22,10 @@
       "dest": "/api/$1"
     },
     {
+      "src": "/",
+      "dest": "/api"
+    },
+    {
       "src": "/(.*)",
       "dest": "/static-frontend/$1"
     }
