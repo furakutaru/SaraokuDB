@@ -32,5 +32,5 @@
       "PYTHON_VERSION": "3.11"
     }
   },
-  "installCommand": "cd /vercel/path0 && python3 -m pip install --upgrade pip && pip install -r backend/requirements.txt && cd static-frontend && npm install"
+  "installCommand": "cd /vercel/path0 && python3 -m pip install --upgrade pip && python3 -m pip install -r backend/requirements.txt && cd static-frontend && npm install"
 }
