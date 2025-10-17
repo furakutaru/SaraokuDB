@@ -17,7 +17,7 @@
       }
     }
   ],
-  "installCommand": "pip install -r backend/requirements.txt && cd frontend && npm install",
+  "installCommand": "python3 -m pip install -r backend/requirements.txt && cd frontend && npm install",
   "routes": [
     {
       "src": "/api/(.*)",
