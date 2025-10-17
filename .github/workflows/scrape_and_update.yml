@@ -48,6 +48,9 @@ jobs:
           cd backend
           python -c "from database.models import Base, engine; Base.metadata.create_all(bind=engine)"
           
+          # 出力ディレクトリの作成
+          mkdir -p ../static-frontend/public/data
+          
           # スクレイパーの実行
           cd ../scripts
           python scrape_and_save.py
@@ -64,19 +67,26 @@ jobs:
           # 変更をステージング
           git add .
           
-          # 変更をコミット（変更がない場合はスキップ）
-          git diff-index --quiet HEAD || git commit -m "Update horse data [skip ci]"
+          # 変更を確認
+          git status
           
-          # 変更をプッシュ（リトライ付き）
-          for i in 1 2 3; do
-            if git push; then
-              echo "Push successful"
-              exit 0
-            else
-              echo "Push failed, retrying..."
-              git pull --rebase
-              sleep 5
-            fi
-          done
-          echo "All push attempts failed"
-          exit 1
+          # 変更をコミット（変更がない場合はスキップ）
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "Update horse data [skip ci]"
+            
+            # 変更をプッシュ（リトライ付き）
+            for i in 1 2 3; do
+              if git push; then
+                echo "Push successful"
+                exit 0
+              else
+                echo "Push failed, retrying..."
+                git pull --rebase
+                sleep 5
+              fi
+            done
+            echo "All push attempts failed"
+            exit 1
+          else
+            echo "No changes to commit"
+          fi
