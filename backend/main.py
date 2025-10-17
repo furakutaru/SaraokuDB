@@ -19,6 +19,7 @@ from database.schemas import HorseResponse
 
 # Import routers
 from routers import horses
+from auth.auth import router as auth_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -29,7 +30,8 @@ app = FastAPI(
 )
 
 # Include routers
-app.include_router(horses.router)
+app.include_router(horses.router, prefix="/api")
+app.include_router(auth_router, prefix="/api", tags=["auth"])
 
 # CORS settings
 origins = [

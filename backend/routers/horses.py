@@ -1,5 +1,8 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+import json
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from pydantic import BaseModel
+from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional, Dict, Any
@@ -8,8 +11,8 @@ from database.schemas import HorseResponse
 from services.horse_serializer import serialize_horse
 from services.horses_list_mapper import map_horses_list
 
-# ルーターの設定を修正 - prefixを追加
-router = APIRouter(prefix="/api", tags=["horses"])
+# ルーターの設定
+router = APIRouter(tags=["horses"])
 
 from fastapi import Request
 import logging
@@ -29,7 +32,7 @@ import os
 logger.info(f"Current file path: {os.path.abspath(__file__)}")
 logger.info(f"Current working directory: {os.getcwd()}")
 
-@router.get("/horses/latest", response_model=Dict[str, Any])
+@router.get("/horses/latest", response_model=Dict[str, Any], tags=["horses"])
 async def get_latest_horses(
     request: Request,
     skip: int = 0,
@@ -40,9 +43,7 @@ async def get_latest_horses(
     logger.info("Calling /horses/latest endpoint")
     return await get_horses(request, skip, limit, None, 'true', db)
 
-@router.get("", response_model=Dict[str, Any])
-@router.get("/", response_model=Dict[str, Any])  # 両方のパターンに対応
-@router.get("/horses", response_model=Dict[str, Any], include_in_schema=False)  # /api/horses にも対応
+@router.get("/horses", response_model=Dict[str, Any], tags=["horses"])
 async def get_horses(
     request: Request,
     skip: int = 0,
@@ -301,3 +302,84 @@ async def get_horse(horse_id: str, db: Session = Depends(get_db)):
     logger.info(f"Serialized horse data: {json.dumps(serialized, default=str)}")
     
     return serialized
+
+
+# 新しい馬データを作成するためのモデル
+class HorseCreate(BaseModel):
+    name: str
+    auction_id: str
+    sex: Optional[str] = None
+    age: Optional[int] = None
+    sire: Optional[str] = None
+    dam: Optional[str] = None
+    damsire: Optional[str] = None
+    weight: Optional[float] = None
+    auction_date: Optional[str] = None
+    seller: Optional[str] = None
+    price: Optional[float] = None
+    comment: Optional[str] = None
+    disease_tags: Optional[str] = None
+    detail_url: Optional[str] = None
+    image_url: Optional[str] = None
+
+@router.post("/horses", response_model=Dict[str, Any], status_code=201, tags=["horses"])
+async def create_horse(
+    horse: HorseCreate,
+    db: Session = Depends(get_db)
+):
+    """新しい馬データを作成するエンドポイント"""
+    try:
+        logger.info(f"新しい馬データを作成します: {horse.name} (auction_id: {horse.auction_id})")
+        
+        # 既存の馬データを確認
+        existing_horse = db.query(Horse).filter(
+            Horse.auction_id == horse.auction_id
+        ).first()
+        
+        if existing_horse:
+            logger.info(f"既存の馬データが見つかりました: {horse.auction_id}")
+            return {
+                "status": "exists",
+                "message": "既に存在する馬データです",
+                "data": serialize_horse(existing_horse)
+            }
+        
+        # 馬データの作成
+        db_horse = Horse(
+            name=horse.name,
+            auction_id=horse.auction_id,
+            sex=json.dumps([horse.sex]) if horse.sex else None,
+            age=json.dumps([horse.age]) if horse.age is not None else None,
+            sire=horse.sire,
+            dam=horse.dam,
+            dam_sire=getattr(horse, 'damsire', None),  # damsire が存在しない場合は None を設定
+            weight=horse.weight,
+            auction_date=json.dumps([horse.auction_date]) if horse.auction_date else None,
+            seller=json.dumps([horse.seller]) if horse.seller else None,
+            sold_price=json.dumps([horse.price]) if horse.price is not None else None,
+            comment=json.dumps([horse.comment]) if horse.comment else None,
+            disease_tags=horse.disease_tags,
+            detail_url=horse.detail_url,
+            image_url=horse.image_url,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        
+        db.add(db_horse)
+        db.commit()
+        db.refresh(db_horse)
+        
+        logger.info(f"馬データを作成しました: {db_horse.id}")
+        return {
+            "status": "success",
+            "message": "馬データを作成しました",
+            "data": serialize_horse(db_horse)
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"馬データの作成中にエラーが発生しました: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"馬データの作成中にエラーが発生しました: {str(e)}"
+        )

@@ -41,23 +41,41 @@ class ScraperClient:
     def authenticate(self):
         """API認証を行いトークンを取得"""
         try:
+            auth_url = f"{self.api_base_url}/token"
+            if self.api_base_url.endswith('/api'):
+                auth_url = f"{self.api_base_url}/token"
+            elif not self.api_base_url.endswith('/'):
+                auth_url = f"{self.api_base_url}/token"
+            
+            # 認証リクエストの送信 (form-data形式で送信)
             response = self.session.post(
-                f"{self.api_base_url}/token",
+                auth_url,
                 data={
                     "username": self.api_username,
-                    "password": self.api_password
+                    "password": self.api_password,
+                    "grant_type": "password"
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"}
             )
+            
+            # レスポンスの確認
             response.raise_for_status()
-            self.token = response.json().get("access_token")
+            token_data = response.json()
+            
+            # トークンの取得とヘッダーへの設定
+            self.token = token_data.get("access_token")
             if self.token:
-                self.session.headers.update({
-                    "Authorization": f"Bearer {self.token}"
-                })
-            return self.token is not None
+                self.session.headers.update({"Authorization": f"Bearer {self.token}"})
+                logger.info("認証に成功しました")
+                return True
+            else:
+                logger.error("トークンの取得に失敗しました")
+                logger.error(f"レスポンス: {token_data}")
+                return False
         except Exception as e:
-            logger.error(f'認証に失敗しました: {str(e)}')
+            logger.error(f"認証に失敗しました: {e}")
+            if hasattr(e, 'response') and hasattr(e.response, 'text'):
+                logger.error(f"エラーレスポンス: {e.response.text}")
             return False
     
     def save_horse(self, horse_data):
@@ -99,8 +117,10 @@ def main():
     
     # スクレイピングの実行（モックデータを使用）
     # 実際のスクレイピング処理は別のスクリプトで実装
+    current_date = datetime.now().strftime("%Y%m%d")
     mock_horse = {
         "name": "テスト馬",
+        "auction_id": f"TEST-{current_date}-001",  # 必須フィールドを追加
         "sex": "牡",
         "age": 3,
         "sire": "テスト父",
