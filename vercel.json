@@ -6,10 +6,10 @@
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "15mb",
-        "pythonVersion": "3.11"
-      },
-      "env": {
-        "PYTHONPATH": "/var/task"
+        "pythonVersion": "3.11",
+        "environment": {
+          "PYTHONPATH": "/var/task"
+        }
       }
     },
     {
