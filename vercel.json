@@ -6,9 +6,9 @@
       "use": "@vercel/python",
       "config": { 
         "maxLambdaSize": "15mb",
-        "runtime": "python3.11",
-        "installCommand": "python3 -m pip install --upgrade pip && python3 -m pip install -r backend/requirements.txt"
-      }
+        "runtime": "python3.11"
+      },
+      "installCommand": "python3 -m pip install --upgrade pip && python3 -m pip install -r backend/requirements.txt"
     },
     {
       "src": "static-frontend/package.json",
