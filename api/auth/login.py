@@ -13,7 +13,7 @@ from backend.auth.auth import login_for_access_token
 
 router = APIRouter()
 
-@router.post("/token")
+@router.post("")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     """
     OAuth2 compatible token login, get an access token for future requests

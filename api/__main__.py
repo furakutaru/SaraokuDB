@@ -6,4 +6,4 @@ app = FastAPI()
 
 # ルーターを登録
 app.include_router(health_router, prefix="/api")
-app.include_router(login_router, prefix="/api/auth")
+app.include_router(login_router, prefix="/api")
