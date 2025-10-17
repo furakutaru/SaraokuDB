@@ -1,0 +1,30 @@
+{
+  "version": 3,
+  "builds": [
+    {
+      "src": "api/**/*.py",
+      "use": "@vercel/python",
+      "config": {
+        "pythonVersion": "3.9"
+      }
+    },
+    {
+      "src": "static-frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": ".next"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/static-frontend/$1"
+    }
+  ],
+  "installCommand": "cd api && python -m pip install -r requirements.txt"
+}
