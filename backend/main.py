@@ -20,6 +20,7 @@ from database.schemas import HorseResponse
 # Import routers
 from routers import horses
 from auth.auth import router as auth_router
+from api.health import router as health_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -30,6 +31,7 @@ app = FastAPI(
 )
 
 # Include routers
+app.include_router(health_router, prefix="/api")
 app.include_router(horses.router, prefix="/api")
 app.include_router(auth_router, prefix="/api", tags=["auth"])
 
