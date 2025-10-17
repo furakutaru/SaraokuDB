@@ -6,6 +6,7 @@ import json
 import logging
 import requests
 import sys
+import traceback
 from datetime import datetime
 from dotenv import load_dotenv
 from pathlib import Path
@@ -16,16 +17,44 @@ sys.path.append(str(Path(__file__).parent))
 # カスタムスクレイパーから必要なクラスをインポート
 from improved_scraper import ImprovedRakutenScraper, ScraperConfig
 
-# ロギング設定
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('scraper.log', encoding='utf-8')
-    ]
-)
-logger = logging.getLogger(__name__)
+# ロギングの設定
+def setup_logging():
+    """ロギングの設定を行う"""
+    log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+    log_level = getattr(logging, log_level, logging.INFO)
+    
+    # ログフォーマット
+    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    formatter = logging.Formatter(log_format)
+    
+    # ルートロガーの設定
+    logger = logging.getLogger()
+    logger.setLevel(log_level)
+    
+    # コンソールハンドラ
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    
+    # ファイルハンドラ
+    file_handler = logging.FileHandler('scraper.log', encoding='utf-8')
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    
+    # 不要なライブラリのログを無効化
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+    logging.getLogger('requests').setLevel(logging.WARNING)
+    
+    return logging.getLogger(__name__)
+
+# ロガーの初期化
+logger = setup_logging()
+
+# リクエストのロギング用アダプタ
+class RequestIdAdapter(logging.LoggerAdapter):
+    def process(self, msg, kwargs):
+        request_id = getattr(self.extra, 'request_id', 'NO_REQUEST_ID')
+        return f'[{request_id}] {msg}', kwargs
 
 # 環境変数の読み込み
 load_dotenv(Path(__file__).parent.parent / 'backend' / '.env')
@@ -69,21 +98,32 @@ class ScraperClient:
     def authenticate(self):
         """API認証を行いトークンを取得"""
         try:
+            if not all([self.api_base_url, self.api_username, self.api_password]):
+                logger.error("認証情報が不足しています。環境変数を確認してください。")
+                logger.error(f"API_BASE_URL: {'設定済み' if self.api_base_url else '未設定'}")
+                logger.error(f"API_USERNAME: {'設定済み' if self.api_username else '未設定'}")
+                logger.error(f"API_PASSWORD: {'設定済み' if self.api_password else '未設定'}")
+                return False
+
             # ベースURLの正規化
             base_url = self.api_base_url.rstrip('/')
             
-            # APIエンドポイントの構築（/api/token を使用）
-            auth_url = f"{base_url}/api/token"
+            # APIエンドポイントの構築
+            auth_url = f"{base_url}/api/token/"  # 末尾のスラッシュを追加
             logger.info(f"認証を試みます: {auth_url} (ユーザー: {self.api_username})")
             
-            # 認証リクエストの送信 (form-data形式で送信)
+            # 認証リクエストの送信 (OAuth2互換形式)
+            auth_data = {
+                "username": self.api_username,
+                "password": self.api_password
+            }
+            
+            # デバッグ用ログ
+            logger.debug(f"認証リクエストデータ: {auth_data}")
+            
             response = requests.post(
                 auth_url,
-                data={
-                    "username": self.api_username,
-                    "password": self.api_password,
-                    "grant_type": "password"
-                },
+                data=auth_data,
                 headers={
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Accept": "application/json",
@@ -93,17 +133,21 @@ class ScraperClient:
             )
             
             # レスポンスの確認
+            logger.debug(f"認証レスポンス: {response.status_code} - {response.text}")
             response.raise_for_status()
-            token_data = response.json()
             
-            # トークンの取得とヘッダーへの設定
+            token_data = response.json()
             self.token = token_data.get("access_token")
+            
             if self.token:
-                self.session.headers.update({"Authorization": f"Bearer {self.token}"})
+                self.session.headers.update({
+                    "Authorization": f"Bearer {self.token}",
+                    "Content-Type": "application/json"
+                })
                 logger.info("認証に成功しました")
                 return True
             
-            logger.error("トークンが取得できませんでした")
+            logger.error("トークンが取得できませんでした。レスポンス: %s", token_data)
             return False
             
         except requests.exceptions.RequestException as e:
@@ -111,12 +155,20 @@ class ScraperClient:
             if hasattr(e, 'response') and e.response is not None:
                 logger.error(f"ステータスコード: {e.response.status_code}")
                 try:
-                    logger.error(f"レスポンス: {e.response.text}")
-                except:
-                    pass
+                    logger.error(f"レスポンスヘッダー: {dict(e.response.headers)}")
+                    logger.error(f"レスポンス本文: {e.response.text}")
+                except Exception as ex:
+                    logger.error(f"レスポンスの解析中にエラーが発生しました: {ex}")
             return False
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"レスポンスのJSON解析に失敗しました: {e}")
+            if 'response' in locals():
+                logger.error(f"生のレスポンス: {response.text}")
+            return False
+            
         except Exception as e:
-            logger.error(f"認証中にエラーが発生しました: {str(e)}")
+            logger.error(f"認証中に予期せぬエラーが発生しました: {str(e)}\n{traceback.format_exc()}")
             return False
     
     def save_horse(self, horse_data):

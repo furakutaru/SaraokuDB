@@ -42,18 +42,47 @@ jobs:
           # セキュリティのため、機密情報をマスク
           echo "::add-mask::${{ secrets.PROD_API_PASSWORD }}"
           
-      - name: Run scraper
+      - name: Debug - Show environment
+        run: |
+          echo "PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}"
+          echo "PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}"
+          
+      - name: Debug - Test API endpoint
+        run: |
+          echo "Testing API endpoint..."
+          curl -v -X POST \
+            "${{ secrets.PROD_API_BASE_URL }}/api/token/" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "username=${{ secrets.PROD_API_USERNAME }}" \
+            -d "password=${{ secrets.PROD_API_PASSWORD }}" \
+            -o api_response.json
+          
+          echo "API Response:"
+          cat api_response.json
+          
+      - name: Run scraper with debug
         run: |
           # データベースの初期化
+          echo "データベースを初期化しています..."
           cd backend
           python -c "from database.models import Base, engine; Base.metadata.create_all(bind=engine)"
           
           # 出力ディレクトリの作成
+          echo "出力ディレクトリを作成しています..."
           mkdir -p ../static-frontend/public/data
           
           # スクレイパーの実行
+          echo "スクレイパーを実行しています..."
           cd ../scripts
+          
+          # デバッグログを有効にして実行
+          export LOG_LEVEL=DEBUG
           python scrape_and_save.py
+          
+          # ログファイルをアーティファクトとして保存
+          echo "ログファイルを保存しています..."
+          mkdir -p ../logs
+          cp scraper.log ../logs/scraper_$(date +%Y%m%d_%H%M%S).log || echo "ログファイルのコピーに失敗しました"
           
           # データベースのバックアップ
           cd ..
