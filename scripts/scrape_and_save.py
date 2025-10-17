@@ -72,19 +72,22 @@ class ScraperClient:
             # ベースURLの正規化
             base_url = self.api_base_url.rstrip('/')
             
-            # APIエンドポイントの構築（/api を追加しない）
+            # APIエンドポイントの構築
             auth_url = f"{base_url}/token"
             logger.info(f"認証を試みます: {auth_url} (ユーザー: {self.api_username})")
             
             # 認証リクエストの送信 (form-data形式で送信)
-            response = self.session.post(
+            response = requests.post(
                 auth_url,
                 data={
                     "username": self.api_username,
                     "password": self.api_password,
                     "grant_type": "password"
                 },
-                headers={"Content-Type": "application/x-www-form-urlencoded"}
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Accept": "application/json"
+                }
             )
             
             # レスポンスの確認
@@ -97,25 +100,21 @@ class ScraperClient:
                 self.session.headers.update({"Authorization": f"Bearer {self.token}"})
                 logger.info("認証に成功しました")
                 return True
-            else:
-                logger.error("トークンの取得に失敗しました")
-                logger.error(f"レスポンス: {token_data}")
-                return False
-                
+            
+            logger.error("トークンが取得できませんでした")
+            return False
+            
         except requests.exceptions.RequestException as e:
-            logger.error(f"認証リクエストに失敗しました: {str(e)}")
+            logger.error(f"認証リクエストに失敗しました: {e}")
             if hasattr(e, 'response') and e.response is not None:
                 logger.error(f"ステータスコード: {e.response.status_code}")
-                if hasattr(e.response, 'text') and e.response.text:
-                    logger.error(f"エラーレスポンス: {e.response.text}")
-            return False
-        except json.JSONDecodeError as e:
-            logger.error(f"レスポンスのJSON解析に失敗しました: {str(e)}")
-            if hasattr(e, 'response') and hasattr(e.response, 'text'):
-                logger.error(f"生のレスポンス: {e.response.text}")
+                try:
+                    logger.error(f"レスポンス: {e.response.text}")
+                except:
+                    pass
             return False
         except Exception as e:
-            logger.error(f"予期せぬエラーが発生しました: {str(e)}", exc_info=True)
+            logger.error(f"認証中にエラーが発生しました: {str(e)}")
             return False
     
     def save_horse(self, horse_data):
