@@ -12,6 +12,9 @@ jobs:
   scrape-and-update:
     name: Scrape and Update Database
     runs-on: ubuntu-latest
+    env:
+      LOG_LEVEL: DEBUG
+      GITHUB_ACTIONS: "true"
     
     steps:
       - name: Checkout repository
@@ -34,34 +37,47 @@ jobs:
           touch backend/data/horses.db
           
       - name: Set environment variables
+        env:
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
+          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
         run: |
           echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" >> $GITHUB_ENV
-          echo "PROD_API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}" >> $GITHUB_ENV
-          echo "PROD_API_USERNAME=${{ secrets.PROD_API_USERNAME }}" >> $GITHUB_ENV
-          echo "PROD_API_PASSWORD=${{ secrets.PROD_API_PASSWORD }}" >> $GITHUB_ENV
-          # セキュリティのため、機密情報をマスク
-          echo "::add-mask::${{ secrets.PROD_API_PASSWORD }}"
+          echo "PROD_API_BASE_URL=$PROD_API_BASE_URL" >> $GITHUB_ENV
+          echo "PROD_API_USERNAME=$PROD_API_USERNAME" >> $GITHUB_ENV
+          echo "PROD_API_PASSWORD=$PROD_API_PASSWORD" >> $GITHUB_ENV
+          echo "LOG_LEVEL=DEBUG" >> $GITHUB_ENV
+          echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
           
-      - name: Debug - Show environment
+      - name: Verify environment variables
         run: |
-          echo "PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}"
-          echo "PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}"
+          echo "PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL != '' && '***' || 'Not Set' }}"
+          echo "PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME != '' && '***' || 'Not Set' }}"
+          echo "PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD != '' && '***' || 'Not Set' }}"
           
-      - name: Debug - Test API endpoint
+      - name: Test API connection
+        env:
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
+          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
         run: |
-          echo "Testing API endpoint..."
-          curl -v -X POST \
-            "${{ secrets.PROD_API_BASE_URL }}/api/token/" \
+          echo "Testing API connection..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "$PROD_API_BASE_URL/api/token/" \
             -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "username=${{ secrets.PROD_API_USERNAME }}" \
-            -d "password=${{ secrets.PROD_API_PASSWORD }}" \
-            -o api_response.json
-          
-          echo "API Response:"
-          cat api_response.json
+            -d "username=$PROD_API_USERNAME" \
+            -d "password=$PROD_API_PASSWORD")
+            
+          if [ "$response" != "200" ]; then
+            echo "API接続テストに失敗しました。ステータスコード: $response"
+            exit 1
+          fi
+          echo "API接続テストに成功しました"
           
       - name: Run scraper with debug
         run: |
+          set -e  # エラーが発生したらスクリプトを終了
+          
           # データベースの初期化
           echo "データベースを初期化しています..."
           cd backend
@@ -75,20 +91,31 @@ jobs:
           echo "スクレイパーを実行しています..."
           cd ../scripts
           
-          # デバッグログを有効にして実行
-          export LOG_LEVEL=DEBUG
-          python scrape_and_save.py
+          # スクリプトを実行し、終了コードをチェック
+          if ! python scrape_and_save.py; then
+            echo "スクレイピングスクリプトがエラーで終了しました"
+            exit 1
+          fi
           
           # ログファイルをアーティファクトとして保存
           echo "ログファイルを保存しています..."
           mkdir -p ../logs
-          cp scraper.log ../logs/scraper_$(date +%Y%m%d_%H%M%S).log || echo "ログファイルのコピーに失敗しました"
+          if [ -f scraper.log ]; then
+            cp scraper.log "../logs/scraper_$(date +%Y%m%d_%H%M%S).log"
+          else
+            echo "警告: ログファイルが見つかりませんでした"
+          fi
           
           # データベースのバックアップ
           cd ..
-          cp backend/data/horses.db backend/data/horses_$(date +%Y%m%d_%H%M%S).db
+          if [ -f backend/data/horses.db ]; then
+            cp backend/data/horses.db "backend/data/horses_$(date +%Y%m%d_%H%M%S).db"
+          else
+            echo "警告: データベースファイルが見つかりませんでした"
+          fi
           
       - name: Commit and push changes
+        if: success()
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
