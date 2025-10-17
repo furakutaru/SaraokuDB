@@ -191,8 +191,17 @@ def load_json_file(*args, **kwargs):
 import requests
 from bs4 import BeautifulSoup, Tag
 from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 from typing import Optional
+
+try:
+    from urllib3.util.retry import Retry
+except ImportError:
+    # urllib3.util.retry が利用できない場合の代替実装
+    class Retry:
+        def __init__(self, *args, **kwargs):
+            self.total = kwargs.get('total', 3)
+            self.backoff_factor = kwargs.get('backoff_factor', 0.3)
+            self.status_forcelist = kwargs.get('status_forcelist', [500, 502, 503, 504])
 
 # スクリプトのルートディレクトリを取得
 script_dir = Path(__file__).parent.absolute()
@@ -314,7 +323,7 @@ import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
-from urllib3.util.retry import Retry
+# Retry は既に上でインポート済み
 
 # ロガーの設定
 logger = get_logger(__name__)
