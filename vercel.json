@@ -6,7 +6,7 @@
       "use": "@vercel/python",
       "config": {
         "pythonVersion": "3.11",
-        "installCommand": "python3 -m pip install -r backend/requirements.txt"
+        "installCommand": "python3 -m pip install -r api/requirements.txt"
       }
     },
     {
