@@ -72,10 +72,7 @@ class ScraperClient:
             # ベースURLの正規化
             base_url = self.api_base_url.rstrip('/')
             
-            # APIエンドポイントの構築
-            if not base_url.endswith('/api'):
-                base_url = f"{base_url}/api"
-            
+            # APIエンドポイントの構築（/api を追加しない）
             auth_url = f"{base_url}/token"
             logger.info(f"認証を試みます: {auth_url} (ユーザー: {self.api_username})")
             
