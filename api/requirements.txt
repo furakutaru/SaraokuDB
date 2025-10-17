@@ -11,4 +11,5 @@ pydantic==2.5.0
 lxml==4.9.3
 webdriver-manager==4.0.1
 schedule==1.2.0
-tqdm==4.66.1
+tqdm==4.66.1python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
