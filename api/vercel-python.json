@@ -5,8 +5,7 @@
       "src": "**/*.py",
       "use": "@vercel/python",
       "config": {
-        "pythonVersion": "3.9",
-        "installCommand": "python -m pip install -r ../backend/requirements.txt"
+        "pythonVersion": "3.9"
       }
     }
   ],
@@ -15,5 +14,6 @@
       "src": "/(.*)",
       "dest": "/api/$1"
     }
-  ]
+  ],
+  "installCommand": "python -m pip install -r requirements.txt"
 }
