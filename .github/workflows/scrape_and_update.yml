@@ -36,11 +36,11 @@ jobs:
       - name: Set environment variables
         run: |
           echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" >> $GITHUB_ENV
-          echo "API_BASE_URL=${{ secrets.API_BASE_URL }}" >> $GITHUB_ENV
-          echo "API_USERNAME=${{ secrets.API_USERNAME }}" >> $GITHUB_ENV
-          echo "API_PASSWORD=${{ secrets.API_PASSWORD }}" >> $GITHUB_ENV
+          echo "PROD_API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}" >> $GITHUB_ENV
+          echo "PROD_API_USERNAME=${{ secrets.PROD_API_USERNAME }}" >> $GITHUB_ENV
+          echo "PROD_API_PASSWORD=${{ secrets.PROD_API_PASSWORD }}" >> $GITHUB_ENV
           # セキュリティのため、機密情報をマスク
-          echo "::add-mask::${{ secrets.API_PASSWORD }}"
+          echo "::add-mask::${{ secrets.PROD_API_PASSWORD }}"
           
       - name: Run scraper
         run: |

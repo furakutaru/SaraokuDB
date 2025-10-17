@@ -32,9 +32,30 @@ load_dotenv(Path(__file__).parent.parent / 'backend' / '.env')
 
 class ScraperClient:
     def __init__(self):
-        self.api_base_url = os.getenv('API_BASE_URL', 'http://localhost:8001/api')
-        self.api_username = os.getenv('API_USERNAME', 'admin')
-        self.api_password = os.getenv('API_PASSWORD', 'secret')
+        # 本番環境の認証情報を優先的に使用
+        self.api_base_url = os.getenv('PROD_API_BASE_URL')
+        self.api_username = os.getenv('PROD_API_USERNAME')
+        self.api_password = os.getenv('PROD_API_PASSWORD')
+        
+        # ローカル開発環境の認証情報
+        local_base_url = os.getenv('LOCAL_API_BASE_URL', 'http://localhost:8001')
+        local_username = os.getenv('LOCAL_API_USERNAME', 'admin')
+        local_password = os.getenv('LOCAL_API_PASSWORD', 'secret')
+        
+        # 環境の判定
+        is_production = os.getenv('ENV') == 'production' or os.getenv('GITHUB_ACTIONS') == 'true'
+        
+        if not is_production and not all([self.api_base_url, self.api_username, self.api_password]):
+            logger.warning("ローカル開発環境のため、ローカル用の認証情報を使用します")
+            self.api_base_url = local_base_url
+            self.api_username = local_username
+            self.api_password = local_password
+        elif not all([self.api_base_url, self.api_username, self.api_password]):
+            raise ValueError("本番環境の認証情報が設定されていません。PROD_API_BASE_URL, PROD_API_USERNAME, PROD_API_PASSWORD を設定してください")
+            
+        self.api_base_url = self.api_base_url.rstrip('/')
+        logger.info(f"API Base URL: {self.api_base_url} (ユーザー: {self.api_username})")
+        
         self.token = None
         self.session = requests.Session()
         
