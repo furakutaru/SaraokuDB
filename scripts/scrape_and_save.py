@@ -108,50 +108,80 @@ class ScraperClient:
             # ベースURLの正規化
             base_url = self.api_base_url.rstrip('/')
             
-            # APIエンドポイントの構築（/api/token を使用）
-            auth_url = f"{base_url}/api/token"  # 末尾のスラッシュを削除
+            # APIエンドポイントの構築（/api/auth/token を使用）
+            auth_url = f"{base_url}/api/auth/token"  # 認証エンドポイントを修正
             logger.info(f"認証を試みます: {auth_url} (ユーザー: {self.api_username})")
             
             # 認証リクエストの送信 (OAuth2互換形式)
-            auth_data = f"username={self.api_username}&password={self.api_password}"
+            auth_data = {
+                'username': self.api_username,
+                'password': self.api_password
+            }
             
             # デバッグ用ログ
             logger.debug(f"認証リクエストURL: {auth_url}")
             logger.debug(f"認証リクエストデータ: {auth_data}")
             
             # セッションを使用せずに直接リクエストを送信
-            response = requests.post(
-                auth_url,
-                data=auth_data,
-                headers={
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "Accept": "application/json",
-                    "User-Agent": "SaraokuDB-Scraper/1.0"
-                },
-                allow_redirects=True,  # リダイレクトを許可
-                timeout=30
-            )
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'SaraokuDB-Scraper/1.0',
+                'Accept': 'application/json'
+            }
             
-            # レスポンスの確認
-            logger.debug(f"認証レスポンス: {response.status_code} - {response.text}")
+            logger.debug(f"リクエストヘッダー: {headers}")
             
-            # ステータスコードが200-299の範囲外の場合、例外を発生
-            response.raise_for_status()
-            
-            token_data = response.json()
-            self.token = token_data.get("access_token")
-            
-            if self.token:
-                # セッションのヘッダーを更新
-                self.session.headers.update({
-                    "Authorization": f"Bearer {self.token}",
-                    "Content-Type": "application/json"
+            try:
+                # リクエストデータをURLエンコードされた形式に変換
+                import urllib.parse
+                encoded_data = urllib.parse.urlencode({
+                    'username': self.api_username,
+                    'password': self.api_password
                 })
-                logger.info("認証に成功しました")
-                return True
+                
+                # リクエストを送信
+                response = requests.post(
+                    auth_url,
+                    data=encoded_data,
+                    headers=headers,
+                    allow_redirects=True,
+                    timeout=30  # 30秒のタイムアウトを設定
+                )
+                
+                logger.debug(f"認証レスポンス: {response.status_code} - {response.text}")
+                
+                # レスポンスの検証
+                response.raise_for_status()
+                
+                # トークンの抽出
+                try:
+                    token_data = response.json()
+                    if not token_data.get('access_token'):
+                        logger.error(f"トークンがレスポンスに含まれていません: {token_data}")
+                        return False
+                        
+                    self.token = token_data['access_token']
+                    
+                    # セッションのヘッダーを更新
+                    self.session.headers.update({
+                        "Authorization": f"Bearer {self.token}",
+                        "Content-Type": "application/json"
+                    })
+                    logger.info("認証に成功しました")
+                    return True
+                    
+                except ValueError as e:
+                    logger.error(f"レスポンスのJSON解析に失敗しました: {e}")
+                    logger.error(f"レスポンス本文: {response.text}")
+                    return False
             
-            logger.error(f"トークンが取得できませんでした。レスポンス: {token_data}")
-            return False
+            except requests.exceptions.Timeout:
+                logger.error("認証リクエストがタイムアウトしました")
+                return False
+                
+            except requests.exceptions.TooManyRedirects:
+                logger.error("リダイレクトが多すぎます。URLを確認してください")
+                return False
             
         except requests.exceptions.RequestException as e:
             logger.error(f"認証リクエストに失敗しました: {e}")

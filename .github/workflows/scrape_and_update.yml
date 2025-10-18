@@ -228,9 +228,11 @@ jobs:
           AUTH_TOKEN: ${{ env.TOKEN }}
           AUTH_HEADER: ${{ env.AUTH_HEADER }}
           PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
+          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
+          GITHUB_ACTIONS: "true"
+          LOG_LEVEL: "DEBUG"
           DATABASE_URL: ${{ env.DATABASE_URL }}
-          LOG_LEVEL: ${{ env.LOG_LEVEL }}
-          GITHUB_ACTIONS: true
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
           set -e  # エラーが発生したらスクリプトを終了
