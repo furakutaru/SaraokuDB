@@ -67,127 +67,71 @@ jobs:
           PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
-          echo "::group::🔐 環境変数を設定中..."
-          echo "API Base URL: ${PROD_API_BASE_URL:0:10}..."  # デバッグ用に先頭10文字のみ表示
+          echo "::group::🔐 認証処理を開始します"
           
-          # 必須環境変数のチェック
-          if [ -z "$PROD_API_BASE_URL" ] || [ -z "$PROD_API_USERNAME" ] || [ -z "$PROD_API_PASSWORD" ] || [ -z "$SECRET_KEY" ]; then
-            echo "::error::❌ 必要な環境変数が設定されていません"
-            echo "PROD_API_BASE_URL: ${PROD_API_BASE_URL:0:10}..."
+          # 認証トークンを取得
+          echo "::notice:: 認証を試みます: $PROD_API_BASE_URL/auth/token"
+          
+          AUTH_RESPONSE=$(curl -s -v -X POST "$PROD_API_BASE_URL/auth/token" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "username=$PROD_API_USERNAME" \
+            -d "password=$PROD_API_PASSWORD" \
+            -w "\n%{http_code}" 2>&1 || echo "Curl failed")
+            
+          # レスポンスからステータスコードとコンテンツを分離
+          HTTP_STATUS=$(echo "$AUTH_RESPONSE" | tail -n1)
+          AUTH_CONTENT=$(echo "$AUTH_RESPONSE" | head -n -1)
+          
+          echo "::debug::認証レスポンス: $AUTH_CONTENT"
+          echo "::debug::HTTPステータス: $HTTP_STATUS"
+          
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "::error::❌ 認証に失敗しました (ステータスコード: $HTTP_STATUS)"
+            echo "::error::レスポンス: $AUTH_CONTENT"
             exit 1
           fi
           
-          echo "リクエスト先: $PROD_API_BASE_URL/auth/token"
+          # トークンを抽出
+          TOKEN=$(echo "$AUTH_CONTENT" | jq -r '.access_token' 2>/dev/null || \
+                  echo "$AUTH_CONTENT" | grep -o '"access_token":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
           
-          # リトライ処理付きで認証を試みる
-          MAX_RETRIES=3
-          RETRY_DELAY=5
-          AUTH_SUCCESS=false
-          
-          for i in $(seq 1 $MAX_RETRIES); do
-            echo "::notice:: 認証試行 $i/$MAX_RETRIES"
-            
-            AUTH_RESPONSE=$(curl -s -v -X POST "$PROD_API_BASE_URL/auth/token" \
-              -H "Content-Type: application/x-www-form-urlencoded" \
-              -d "username=$PROD_API_USERNAME" \
-              -d "password=$PROD_API_PASSWORD" \
-              -w "\n%{http_code}" 2>&1 || echo "Curl failed")
-            
-            # レスポンスからステータスコードとコンテンツを分離
-            HTTP_STATUS=$(echo "$AUTH_RESPONSE" | tail -n1)
-            AUTH_CONTENT_RAW=$(echo "$AUTH_RESPONSE" | head -n -1)
-            AUTH_CONTENT=$(echo "$AUTH_CONTENT_RAW" | jq -r '.' 2>/dev/null || echo "$AUTH_CONTENT_RAW")
-
-            echo "::debug::認証レスポンス: $AUTH_CONTENT"
-            echo "::debug::HTTPステータス: $HTTP_STATUS"
-
-            # ステータスコードが200の場合
-            if [ "$HTTP_STATUS" -eq 200 ]; then
-              # トークンを抽出
-              echo "::debug::AUTH_CONTENT: $AUTH_CONTENT"
-              
-              # jqのパスを明示的に指定
-              JQ_PATH=$(which jq || echo "/usr/bin/jq")
-              echo "::debug::jq path: $JQ_PATH"
-              
-              # トークン抽出を試みる
-              TOKEN=""
-              
-              # 方法1: jqを使用
-              if [ -x "$JQ_PATH" ]; then
-                echo "::debug::Using jq to extract token"
-                TOKEN=$(echo "$AUTH_CONTENT" | $JQ_PATH -r '.access_token' 2>/dev/null || echo "")
-              fi
-              
-              # 方法2: 方法1が失敗した場合、grepで抽出を試みる
-              if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-                echo "::debug::jq extraction failed, trying with grep"
-                TOKEN=$(echo "$AUTH_CONTENT" | grep -o '"access_token":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
-              fi
-              
-              # トークンが空の場合はエラー
-              if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-                echo "::error::❌ トークンの抽出に失敗しました"
-                echo "::error::レスポンス: $AUTH_CONTENT"
-                exit 1
-              fi
-              
-              echo "::debug::Extracted TOKEN: ${TOKEN:0:10}..."
-              
-              # 環境変数に設定
-              echo "TOKEN=$TOKEN" >> $GITHUB_ENV
-              echo "AUTH_HEADER=Bearer $TOKEN" >> $GITHUB_ENV
-              
-              # 基本環境変数の設定
-              echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" >> $GITHUB_ENV
-              echo "LOG_LEVEL=DEBUG" >> $GITHUB_ENV
-              echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
-              echo "SECRET_KEY=$SECRET_KEY" >> $GITHUB_ENV
-              echo "PROD_API_BASE_URL=$PROD_API_BASE_URL" >> $GITHUB_ENV
-              
-              echo "::group::✅ 環境変数が設定されました"
-              echo "DATABASE_URL: sqlite:///$(pwd)/backend/data/horses.db"
-              echo "LOG_LEVEL: DEBUG"
-              echo "GITHUB_ACTIONS: true"
-              echo "PROD_API_BASE_URL: $PROD_API_BASE_URL"
-              echo "::endgroup::"
-              
-              echo "::group::🔄 環境変数の確認"
-              echo "TOKEN: ${TOKEN:0:10}..."
-              echo "AUTH_HEADER: Bearer ${TOKEN:0:10}..."
-              echo "::endgroup::"
-              
-              # スクレイピング用のディレクトリ作成
-              mkdir -p logs
-              mkdir -p cache
-              
-              echo "::notice::✅ 環境設定が完了しました"
-              AUTH_SUCCESS=true
-              break
-            else
-              # エラーメッセージを表示
-              echo "::error::❌ 認証に失敗しました (ステータスコード: $HTTP_STATUS)"
-              echo "::error::レスポンス: $AUTH_CONTENT"
-              
-              # リトライ処理
-              if [ $i -lt $MAX_RETRIES ]; then
-                echo "::notice:: $RETRY_DELAY秒後に再試行します... ($((i+1))/$MAX_RETRIES)"
-                sleep $RETRY_DELAY
-              else
-                echo "::error::❌ 最大試行回数に達しました"
-                exit 1
-              fi
-            fi
-          done
-          
-          # 認証が成功したか確認
-          if [ "$AUTH_SUCCESS" = true ]; then
-            echo "::notice::✅ 認証ステップが正常に完了しました"
-            exit 0  # 明示的に正常終了
-          else
-            echo "::error::❌ 認証に失敗しました"
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "::error::❌ トークンの抽出に失敗しました"
+            echo "::error::レスポンス: $AUTH_CONTENT"
             exit 1
           fi
+          
+          echo "::notice::✅ 認証に成功しました"
+          
+          # 環境変数に設定
+          {
+            echo "TOKEN=$TOKEN"
+            echo "AUTH_HEADER=Bearer $TOKEN"
+            echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db"
+            echo "LOG_LEVEL=DEBUG"
+            echo "GITHUB_ACTIONS=true"
+            echo "SECRET_KEY=$SECRET_KEY"
+            echo "PROD_API_BASE_URL=$PROD_API_BASE_URL"
+          } >> $GITHUB_ENV
+          
+          echo "::group::🔄 環境変数の確認"
+          echo "TOKEN: ${TOKEN:0:10}..."
+          echo "AUTH_HEADER: Bearer ${TOKEN:0:10}..."
+          echo "DATABASE_URL: sqlite:///$(pwd)/backend/data/horses.db"
+          echo "LOG_LEVEL: DEBUG"
+          echo "GITHUB_ACTIONS: true"
+          echo "PROD_API_BASE_URL: $PROD_API_BASE_URL"
+          echo "::endgroup::"
+          
+          # スクレイピング用のディレクトリ作成
+          mkdir -p logs
+          mkdir -p cache
+          
+          echo "::notice::✅ 環境設定が完了しました"
+          echo "::endgroup::"
+          
+          # 明示的に正常終了
+          exit 0
           
       - name: Verify environment
         run: |
