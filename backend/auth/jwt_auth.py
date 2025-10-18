@@ -25,6 +25,10 @@ password = os.getenv("PROD_API_PASSWORD")
 if not username or not password:
     raise ValueError("PROD_API_USERNAME と PROD_API_PASSWORD の環境変数が設定されていません")
 
+# パスワードの長さを72バイトに制限
+if len(password.encode('utf-8')) > 72:
+    password = password[:72]  # 72バイトを超える場合は切り詰める
+
 # 環境変数から取得した認証情報を使用
 hashed_password = pwd_context.hash(password)
 fake_users_db = {
@@ -52,6 +56,10 @@ def get_user(db, username: str):
     return None
 
 def authenticate_user(fake_db, username: str, password: str):
+    # パスワードの長さを72バイトに制限
+    if len(password.encode('utf-8')) > 72:
+        password = password[:72]  # 72バイトを超える場合は切り詰める
+        
     user = get_user(fake_db, username)
     if not user:
         return False
