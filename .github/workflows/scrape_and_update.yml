@@ -125,10 +125,14 @@ jobs:
           
           # 保護されたエンドポイントでトークンを検証
           echo "::group::🔍 トークンを検証中..."
-          echo "リクエスト先: $PROD_API_BASE_URL/users/me"
+          echo "リクエスト先: $PROD_API_BASE_URL/api/users/me/"
           
-          USER_INFO=$(curl -s -v -X GET "$PROD_API_BASE_URL/users/me" \
+          # デバッグ用にヘッダー情報を出力
+          echo "::debug::Authorization Header: Bearer $TOKEN"
+          
+          USER_INFO=$(curl -s -v -X GET "$PROD_API_BASE_URL/api/users/me/" \
             -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
             -w "\n%{http_code}" 2>&1)
           
           USER_HTTP_STATUS=$(echo "$USER_INFO" | tail -n1)
