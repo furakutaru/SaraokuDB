@@ -66,7 +66,12 @@ jobs:
           PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
           PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          ACTIONS_STEP_DEBUG: true  # デバッグログを有効化
+          ACTIONS_RUNNER_DEBUG: true  # デバッグログを有効化
         run: |
+          # デバッグ情報を有効化
+          set -x  # コマンドのトレースを有効化
+          
           # デバッグ用に環境変数をログに出力（機密情報はマスク）
           echo "::group::🔍 環境変数の確認"
           echo "PROD_API_BASE_URL: ${PROD_API_BASE_URL:0:10}..."
@@ -80,6 +85,7 @@ jobs:
           # 一時ファイルを作成
           TEMP_FILE=$(mktemp)
           echo "::debug::一時ファイルを作成しました: $TEMP_FILE"
+          echo "TEMP_FILE: $TEMP_FILE" >&2
           
           # 認証リクエストを実行
           echo "::notice:: 認証を試みます: $PROD_API_BASE_URL/auth/token"
@@ -146,14 +152,28 @@ jobs:
           
           echo "::notice::✅ 認証に成功しました"
           
-          # 環境変数に設定
+          # 環境変数に設定（デバッグ用に各ステップを分離）
           echo "TOKEN=$TOKEN" | tee -a $GITHUB_ENV
+          echo "TOKEN を設定しました: ${TOKEN:0:10}..." >&2
+          
           echo "AUTH_HEADER=Bearer $TOKEN" | tee -a $GITHUB_ENV
+          echo "AUTH_HEADER を設定しました" >&2
+          
           echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" | tee -a $GITHUB_ENV
           echo "LOG_LEVEL=DEBUG" | tee -a $GITHUB_ENV
           echo "GITHUB_ACTIONS=true" | tee -a $GITHUB_ENV
           echo "SECRET_KEY=$SECRET_KEY" | tee -a $GITHUB_ENV
           echo "PROD_API_BASE_URL=$PROD_API_BASE_URL" | tee -a $GITHUB_ENV
+          
+          # 環境変数が正しく設定されたか確認
+          echo "環境変数の設定を確認中..." >&2
+          if [ -f "$GITHUB_ENV" ]; then
+            echo "GITHUB_ENV ファイルの内容:" >&2
+            cat "$GITHUB_ENV" | sed 's/TOKEN=.*/TOKEN=***/' | sed 's/SECRET_KEY=.*/SECRET_KEY=***/' >&2
+          else
+            echo "::error::GITHUB_ENV ファイルが見つかりません: $GITHUB_ENV" >&2
+            exit 1
+          fi
           
           # 環境変数の確認
           echo "::group::🔄 環境変数の確認"
@@ -177,12 +197,22 @@ jobs:
           
           # 環境変数が正しく設定されたことを確認
           if [ -z "$TOKEN" ]; then
-            echo "::error::❌ 環境変数の設定に失敗しました"
+            echo "::error::❌ 環境変数の設定に失敗しました" >&2
+            echo "TOKEN が空です" >&2
             exit 1
           fi
           
+          # 環境変数の確認
+          echo "::group::✅ 最終的な環境変数の確認"
+          env | grep -E 'TOKEN|AUTH_|DATABASE_URL|LOG_LEVEL|GITHUB_|SECRET_KEY|PROD_API_' | \
+            sed 's/TOKEN=.*/TOKEN=***/' | \
+            sed 's/SECRET_KEY=.*/SECRET_KEY=***/' | \
+            sed 's/PROD_API_PASSWORD=.*/PROD_API_PASSWORD=***/'
+          echo "::endgroup::"
+          
           # 正常終了
-          echo "::debug::認証処理が正常に完了しました"
+          echo "::notice::✅ 認証処理が正常に完了しました"
+          echo "スクリプトを正常に終了します" >&2
           exit 0
           
       - name: Verify environment
