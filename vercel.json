@@ -23,6 +23,10 @@
       "dest": "/api/$1"
     },
     {
+      "src": "/auth/(.*)",
+      "dest": "/api/auth/$1"
+    },
+    {
       "src": "/",
       "dest": "/api"
     },
