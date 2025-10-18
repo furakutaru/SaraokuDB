@@ -2,11 +2,8 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/**/*.py",
-      "use": "@vercel/python",
-      "config": {
-        "pythonVersion": "3.9"
-      }
+      "src": "api/main.py",
+      "use": "@vercel/python"
     },
     {
       "src": "static-frontend/package.json",
@@ -16,23 +13,10 @@
       }
     }
   ],
-  "installCommand": "cd api && python -m pip install -r requirements.txt",
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "/api/$1"
-    },
-    {
-      "src": "/api/auth/(.*)",
-      "dest": "/api/auth/$1"
-    },
-    {
-      "src": "/api/health",
-      "dest": "/api/health"
-    },
-    {
-      "src": "/api",
-      "dest": "/api"
     },
     {
       "src": "/(.*)",

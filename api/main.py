@@ -1,16 +1,16 @@
 from fastapi import FastAPI
-from .api import app
+from .api import app as api_router
 
 # メインアプリケーションとして設定
-api = FastAPI()
+app = FastAPI()
 
 # ルーターをマウント
-api.mount("/api", app)
+app.include_router(api_router, prefix="/api")
 
 # ルートエンドポイント
-@api.get("/")
+@app.get("/")
 async def root():
     return {"message": "Welcome to the API"}
 
-# Vercel が api 変数を探すため、明示的に公開
-__all__ = ['api']
+# Vercel が app 変数を探すため、明示的に公開
+app = app

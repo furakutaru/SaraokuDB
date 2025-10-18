@@ -48,13 +48,18 @@ from .auth.login import router as auth_router
 
 # Include routers with prefixes
 app.include_router(health_router, prefix="/api")
-# auth_router は既に /auth のプレフィックスを持っているので、/api のみを追加
-app.include_router(auth_router, prefix="/api")
+# auth_router は /auth のプレフィックスを持っていないので、/api/auth を追加
+app.include_router(auth_router, prefix="/api/auth")
 
 # Root endpoint
 @app.get("/")
 async def root():
     return {"message": "Welcome to the API"}
+
+# ヘルスチェックエンドポイント
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok"}
 
 # 現在のユーザーを取得する依存関係
 async def get_current_user(token: str = Depends(oauth2_scheme)):
