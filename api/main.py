@@ -41,11 +41,13 @@ async def log_requests(request: Request, call_next):
         logger.error(f"Error processing request: {str(e)}", exc_info=True)
         raise
 
-# ルーターのインポート（循環インポートを避けるため、ここでインポート）
-from .api import app as api_router
+# ルーターのインポート
+from .health import router as health_router
+from .auth.login import router as auth_router
 
 # ルーターをマウント
-app.include_router(api_router, prefix="/api")
+app.include_router(health_router, prefix="/api")
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
 # ルートエンドポイント
 @app.get("/")

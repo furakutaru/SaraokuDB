@@ -48,8 +48,8 @@ from .auth.login import router as auth_router
 
 # Include routers with prefixes
 app.include_router(health_router, prefix="/api")
-# auth_router は /auth のプレフィックスを持っていないので、/api/auth を追加
-app.include_router(auth_router, prefix="/api/auth")
+# auth_router を /api/auth にマウント
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
 # Root endpoint
 @app.get("/")
