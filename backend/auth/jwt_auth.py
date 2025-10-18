@@ -6,13 +6,11 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from passlib.context import CryptContext
 import os
 
+# 設定をインポート
+from ..config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+
 # パスワードのハッシュ化と検証のためのコンテキスト
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# 環境変数からシークレットキーを取得
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")  # 本番環境では必ず変更してください
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # ユーザーモデル（簡易的な実装）
 class User:

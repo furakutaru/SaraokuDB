@@ -17,7 +17,7 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter()
 
 @router.post("/token", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):

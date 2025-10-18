@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write  # リポジトリへの書き込み権限
+  pull-requests: write  # PR作成用
 
 jobs:
   scrape-and-update:
@@ -15,11 +16,15 @@ jobs:
     env:
       LOG_LEVEL: DEBUG
       GITHUB_ACTIONS: "true"
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: ${{ github.workspace }}
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+        with:
+          fetch-depth: 0  # 全履歴を取得
+          
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -33,6 +38,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install -r requirements.txt
           pip install -r backend/requirements.txt
           pip install requests beautifulsoup4 lxml tqdm sqlalchemy python-dotenv aiohttp
           
@@ -44,30 +50,58 @@ jobs:
       - name: Set up authentication and environment
         id: auth
         env:
-          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL || 'http://localhost:8001' }}
-          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME || 'testuser' }}
-          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD || 'testpass' }}
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
+          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
-          echo "::group::🔐 認証情報を設定中..."
+          echo "::group::🔐 環境変数を設定中..."
           echo "API Base URL: ${PROD_API_BASE_URL}"
+          
+          # 必須環境変数のチェック
+          if [ -z "$PROD_API_BASE_URL" ] || [ -z "$PROD_API_USERNAME" ] || [ -z "$PROD_API_PASSWORD" ] || [ -z "$SECRET_KEY" ]; then
+            echo "::error::❌ 必要な環境変数が設定されていません"
+            echo "PROD_API_BASE_URL: ${PROD_API_BASE_URL:0:10}..."
+            echo "PROD_API_USERNAME: ${PROD_API_USERNAME:0:2}..."
+            echo "PROD_API_PASSWORD: ${PROD_API_PASSWORD:0:2}..."
+            echo "SECRET_KEY: ${SECRET_KEY:0:5}..."
+            exit 1
+          fi
           
           # 認証トークンを取得
           echo "::group::🔑 認証トークンを取得中..."
           echo "リクエスト先: $PROD_API_BASE_URL/api/auth/token"
-          AUTH_RESPONSE=$(curl -v -X POST "$PROD_API_BASE_URL/api/auth/token" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "username=$PROD_API_USERNAME" \
-            -d "password=$PROD_API_PASSWORD" \
-            -w "\n%{http_code}" 2>&1 || echo "Curl failed")
           
-          # レスポンスからステータスコードとコンテンツを分離
-          HTTP_STATUS=$(echo "$AUTH_RESPONSE" | tail -n1)
-          AUTH_CONTENT=$(echo "$AUTH_RESPONSE" | head -n -1 | jq -r '.' 2>/dev/null || echo "$AUTH_RESPONSE" | head -n -1)
+          # リトライ処理付きで認証を試みる
+          MAX_RETRIES=3
+          RETRY_DELAY=5
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "::notice:: 認証試行 $i/$MAX_RETRIES"
+            
+            AUTH_RESPONSE=$(curl -s -v -X POST "$PROD_API_BASE_URL/api/auth/token" \
+              -H "Content-Type: application/x-www-form-urlencoded" \
+              -d "username=$PROD_API_USERNAME" \
+              -d "password=$PROD_API_PASSWORD" \
+              -w "\n%{http_code}" 2>&1 || echo "Curl failed")
+            
+            # レスポンスからステータスコードとコンテンツを分離
+            HTTP_STATUS=$(echo "$AUTH_RESPONSE" | tail -n1)
+            AUTH_CONTENT=$(echo "$AUTH_RESPONSE" | head -n -1 | jq -r '.' 2>/dev/null || echo "$AUTH_RESPONSE" | head -n -1)
+            
+            if [ "$HTTP_STATUS" = "200" ]; then
+              break
+            fi
+            
+            if [ $i -lt $MAX_RETRIES ]; then
+              echo "::warning:: 認証に失敗しました。${RETRY_DELAY}秒後に再試行します..."
+              sleep $RETRY_DELAY
+            fi
+          done
           
           # デバッグ情報を出力
           echo "::debug::認証レスポンス: $AUTH_RESPONSE"
           echo "::debug::ステータスコード: $HTTP_STATUS"
-          echo "::debug::レスポンス本文: $AUTH_CONTENT"
           
           # エラーチェック
           if [ "$HTTP_STATUS" != "200" ]; then
@@ -92,7 +126,8 @@ jobs:
           # 保護されたエンドポイントでトークンを検証
           echo "::group::🔍 トークンを検証中..."
           echo "リクエスト先: $PROD_API_BASE_URL/api/users/me"
-          USER_INFO=$(curl -v -X GET "$PROD_API_BASE_URL/api/users/me" \
+          
+          USER_INFO=$(curl -s -v -X GET "$PROD_API_BASE_URL/api/users/me" \
             -H "Authorization: Bearer $TOKEN" \
             -w "\n%{http_code}" 2>&1)
           
@@ -108,40 +143,93 @@ jobs:
             exit 1
           fi
           
-          echo "::group::"  # グループを閉じる
           # 基本環境変数の設定
           echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" >> $GITHUB_ENV
           echo "LOG_LEVEL=DEBUG" >> $GITHUB_ENV
           echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
+          echo "SECRET_KEY=$SECRET_KEY" >> $GITHUB_ENV
+          
+          # スクレイピング用のディレクトリ作成
+          mkdir -p logs
+          mkdir -p cache
+          
+          echo "::notice::✅ 環境設定が完了しました"
           
       - name: Verify environment
         run: |
-          echo "PROD_API_BASE_URL: ${{ env.PROD_API_BASE_URL != '' && '***' || 'Not Set' }}"
-          echo "AUTH_TOKEN: ${{ env.AUTH_TOKEN != '' && '***' || 'Not Set' }}"
+          echo "PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL != '' && '***' || 'Not Set' }}"
+          echo "AUTH_TOKEN: ${{ env.TOKEN != '' && '***' || 'Not Set' }}"
           
       - name: Run scraper with debug
         env:
-          AUTH_TOKEN: ${{ env.AUTH_TOKEN }}
+          AUTH_TOKEN: ${{ env.TOKEN }}
+          AUTH_HEADER: ${{ env.AUTH_HEADER }}
           PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          LOG_LEVEL: ${{ env.LOG_LEVEL }}
+          GITHUB_ACTIONS: true
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
           set -e  # エラーが発生したらスクリプトを終了
+          
+          # タイムスタンプを取得
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          LOG_FILE="logs/scraper_${TIMESTAMP}.log"
           
           # データベースの初期化
           echo "::group::💾 データベースを初期化しています..."
           cd backend
-          python -c "from database.models import Base, engine; Base.metadata.create_all(bind=engine)"
+          python -c "
+          from database.models import Base, engine
+          import logging
+          logging.basicConfig(level=logging.INFO)
+          logger = logging.getLogger(__name__)
+          logger.info('データベーステーブルを作成します...')
+          Base.metadata.create_all(bind=engine)
+          logger.info('データベーステーブルの作成が完了しました')
+          " 2>&1 | tee -a "../$LOG_FILE"
           
           # 出力ディレクトリの作成
           echo "::group::📁 出力ディレクトリを準備しています..."
           mkdir -p ../static-frontend/public/data
           
-          # スクレイパーの実行
+          # スクレイピングの実行
           echo "::group::🔄 スクレイパーを実行しています..."
           cd ../scripts
           
-          # スクリプトを実行
-          if ! python scrape_and_save.py; then
-            echo "::error::❌ スクレイピングスクリプトがエラーで終了しました"
+          # スクリプトを実行（タイムアウトとリトライ付き）
+          MAX_ATTEMPTS=3
+          ATTEMPT=1
+          SUCCESS=false
+          
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "::notice:: スクレイピングを試行中 (試行 $ATTEMPT/$MAX_ATTEMPTS)"
+            
+            # スクリプトを実行（タイムアウト: 30分）
+            timeout 1800 python -u scrape_and_save.py 2>&1 | tee -a "../$LOG_FILE"
+            EXIT_CODE=${PIPESTATUS[0]}
+            
+            if [ $EXIT_CODE -eq 0 ]; then
+              SUCCESS=true
+              echo "::notice::✅ スクレイピングが正常に完了しました"
+              break
+            elif [ $EXIT_CODE -eq 124 ]; then
+              echo "::warning::⚠️ スクレイピングがタイムアウトしました (30分経過)"
+            else
+              echo "::warning::⚠️ スクレイピングがエラーで終了しました (終了コード: $EXIT_CODE)"
+            fi
+            
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              RETRY_DELAY=$((ATTEMPT * 60))
+              echo "::notice::⏳ $RETRY_DELAY秒後に再試行します..."
+              sleep $RETRY_DELAY
+            fi
+            
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+          
+          if [ "$SUCCESS" = false ]; then
+            echo "::error::❌ スクレイピングが $MAX_ATTEMPTS 回失敗しました。処理を中止します。"
             exit 1
           fi
           
@@ -151,30 +239,69 @@ jobs:
             exit 1
           fi
           
-          # ログとバックアップ
-          echo "::group::💾 ログとバックアップを保存しています..."
-          mkdir -p ../logs
-          if [ -f scraper.log ]; then
-            cp scraper.log "../logs/scraper_$(date +%Y%m%d_%H%M%S).log"
+          # データのバリデーション
+          echo "::group::🔍 データを検証しています..."
+          if ! jq empty output.json 2>/dev/null; then
+            echo "::error::❌ 出力ファイルが有効なJSON形式ではありません"
+            exit 1
           fi
           
+          # データのサイズをチェック
+          FILESIZE=$(wc -c <"output.json")
+          if [ "$FILESIZE" -lt 100 ]; then
+            echo "::error::❌ 出力ファイルのサイズが小さすぎます (${FILESIZE}バイト)"
+            exit 1
+          fi
+          
+          echo "✅ データの検証が完了しました (サイズ: ${FILESIZE}バイト)"
+          
+          # データベースのバックアップ
+          echo "::group::💾 データベースをバックアップしています..."
           cd ..
-          if [ -f backend/data/horses.db ]; then
-            cp backend/data/horses.db "backend/data/horses_$(date +%Y%m%d_%H%M%S).db"
+          if [ -f "backend/data/horses.db" ]; then
+            cp "backend/data/horses.db" "backend/data/horses_${TIMESTAMP}.db"
+            echo "✅ データベースをバックアップしました: backend/data/horses_${TIMESTAMP}.db"
           fi
           
-          echo "✅ スクレイピングが正常に完了しました"
-          echo "::group::"
+          # ログをアップロード用に保存
+          echo "::notice::📝 ログファイル: $LOG_FILE"
           
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
+          echo "::notice::✨ スクレイピング処理が正常に完了しました"
+          
+      - name: Notify Slack on Failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
         with:
-          name: output-files
-          path: |
-            ./scripts/output.json
-            ./backend/data/horses.db
-            ./logs/*.log
+          payload: |
+            {
+              "text": "❌ スクレイピングジョブが失敗しました: ${{ github.workflow }} #${{ github.run_number }}",
+              "attachments": [
+                {
+                  "color": "#ff0000",
+                  "fields": [
+                    { "title": "Repository", "value": "${{ github.repository }}", "short": true },
+                    { "title": "Run ID", "value": "${{ github.run_id }}", "short": true },
+                    { "title": "Workflow", "value": "${{ github.workflow }}", "short": true },
+                    { "title": "Status", "value": "Failed ❌", "short": true },
+                    { "title": "View Logs", "value": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: '✅ スクレイピングが完了しました'
+          SLACK_MESSAGE: 'スクレイピングが正常に完了しました。\n実行ID: ${{ github.run_id }}\nブランチ: ${{ github.ref_name }}'
+          SLACK_COLOR: 'good'
+
+      - name: Notify failure
+        if: failure() && !cancelled()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_TITLE: '❌ スクレイピングが失敗しました'
+          SLACK_MESSAGE: 'スクレイピングがエラーで終了しました。\n実行ID: ${{ github.run_id }}\nブランチ: ${{ github.ref_name }}\nワークフロー: ${{ github.workflow }}'
+          SLACK_COLOR: 'danger'
           retention-days: 5
           
       - name: Commit and push changes

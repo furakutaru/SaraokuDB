@@ -42,12 +42,23 @@ async def log_requests(request: Request, call_next):
         raise
 
 # ルーターのインポート
-from .health import router as health_router
-from .auth.login import router as auth_router
+import sys
+from pathlib import Path
+
+# プロジェクトのルートをパスに追加
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+# ルーターをインポート
+from api.health import router as health_router
+from api.auth.login import router as auth_router
+from api.protected import router as protected_router
 
 # ルーターをマウント
 app.include_router(health_router, prefix="/api")
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(protected_router, prefix="/api", tags=["protected"])
 
 # ルートエンドポイント
 @app.get("/")
