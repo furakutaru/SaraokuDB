@@ -32,11 +32,19 @@ jobs:
           
       - name: Install system dependencies
         run: |
+          # jqをインストール
+          echo "Installing jq..."
           sudo apt-get update
-          sudo apt-get install -y jq curl  # JSON処理用
+          sudo apt-get install -y jq curl
+          
           # jqのパスを確認
-          which jq || echo "jq not found"
-          jq --version || echo "jq not in PATH"
+          echo "Checking jq installation..."
+          which jq || echo "jq not found in PATH"
+          jq --version || echo "jq version check failed"
+          
+          # パスを確認
+          echo "PATH: $PATH"
+          echo "jq path: $(which jq)"
           
       - name: Install Python dependencies
         run: |
@@ -115,15 +123,35 @@ jobs:
             exit 1
           fi
           
-          # トークンを抽出 (jqが使えない場合はgrepで抽出を試みる)
+          # トークンを抽出
           echo "::debug::AUTH_CONTENT: $AUTH_CONTENT"
-          if command -v jq >/dev/null 2>&1; then
+          
+          # jqのパスを明示的に指定
+          JQ_PATH=$(which jq || echo "/usr/bin/jq")
+          echo "::debug::jq path: $JQ_PATH"
+          
+          # トークン抽出を試みる
+          TOKEN=""
+          
+          # 方法1: jqを使用
+          if [ -x "$JQ_PATH" ]; then
             echo "::debug::Using jq to extract token"
-            TOKEN=$(echo "$AUTH_CONTENT" | jq -r '.access_token' 2>/dev/null || echo "")
-          else
-            echo "::debug::jq not found, using grep to extract token"
-            TOKEN=$(echo "$AUTH_CONTENT" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
+            TOKEN=$(echo "$AUTH_CONTENT" | $JQ_PATH -r '.access_token' 2>/dev/null || echo "")
           fi
+          
+          # 方法2: 方法1が失敗した場合、grepで抽出を試みる
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "::debug::jq extraction failed, trying with grep"
+            TOKEN=$(echo "$AUTH_CONTENT" | grep -o '"access_token":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+          fi
+          
+          # トークンが空の場合はエラー
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "::error::❌ トークンの抽出に失敗しました"
+            echo "::error::レスポンス: $AUTH_CONTENT"
+            exit 1
+          fi
+          
           echo "::debug::Extracted TOKEN: ${TOKEN:0:10}..."
           
           if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
@@ -202,9 +230,25 @@ jobs:
           echo "::group::📁 出力ディレクトリを準備しています..."
           mkdir -p ../static-frontend/public/data
           
-          # スクレイピングの実行
-          echo "::group::🔄 スクレイパーを実行しています..."
-          cd ../scripts
+          # スクリプトのパスを確認
+          SCRIPT_PATH="../scripts/scrape_and_save.py"
+          echo "::notice::スクリプトパス: $SCRIPT_PATH"
+          
+          if [ ! -f "$SCRIPT_PATH" ]; then
+            echo "::error::❌ スクリプトが見つかりません: $SCRIPT_PATH"
+            echo "現在のディレクトリ: $(pwd)"
+            ls -la ../scripts/
+            exit 1
+          fi
+          
+          # 環境変数をエクスポート
+          export AUTH_TOKEN="$AUTH_TOKEN"
+          export AUTH_HEADER="$AUTH_HEADER"
+          export PROD_API_BASE_URL="$PROD_API_BASE_URL"
+          export DATABASE_URL="$DATABASE_URL"
+          export LOG_LEVEL="$LOG_LEVEL"
+          export GITHUB_ACTIONS="true"
+          export SECRET_KEY="$SECRET_KEY"
           
           # スクリプトを実行（タイムアウトとリトライ付き）
           MAX_ATTEMPTS=3
@@ -215,7 +259,8 @@ jobs:
             echo "::notice:: スクレイピングを試行中 (試行 $ATTEMPT/$MAX_ATTEMPTS)"
             
             # スクリプトを実行（タイムアウト: 30分）
-            timeout 1800 python -u scrape_and_save.py 2>&1 | tee -a "../$LOG_FILE"
+            cd "$(dirname "$SCRIPT_PATH")"
+            timeout 1800 python -u "$(basename "$SCRIPT_PATH")" 2>&1 | tee -a "../../$LOG_FILE"
             EXIT_CODE=${PIPESTATUS[0]}
             
             if [ $EXIT_CODE -eq 0 ]; then
