@@ -94,8 +94,11 @@ jobs:
           REQUEST_BODY="username=$PROD_API_USERNAME&password=$PROD_API_PASSWORD"
           echo "::debug::リクエストボディ: ${REQUEST_BODY//$PROD_API_PASSWORD/***}"
           
-          # cURLコマンドを実行
-          CURL_CMD="curl -v -X POST \"$PROD_API_BASE_URL/auth/token\" \
+          # cURLコマンドを実行（エンドポイントを /api/auth/token に修正）
+          AUTH_URL="$PROD_API_BASE_URL/api/auth/token"
+          echo "::debug::認証URL: $AUTH_URL"
+          
+          CURL_CMD="curl -v -X POST \"$AUTH_URL\" \
             -H \"Content-Type: application/x-www-form-urlencoded\" \
             -d \"username=$PROD_API_USERNAME\" \
             -d \"password=$PROD_API_PASSWORD\" \
