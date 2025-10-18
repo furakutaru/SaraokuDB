@@ -272,7 +272,12 @@ def main():
         horses = scraper.scrape_horse_list(max_pages=0)  # 0は全ページ取得
         
         if not horses:
-            logger.warning("スクレイピング結果が0件です")
+            logger.warning("スクレイピング結果が0件です。以下のいずれかの可能性があります：")
+            logger.warning("1. オークションが開催されていない")
+            logger.warning("2. オークション準備中でデータが公開されていない")
+            logger.warning("3. スクレイピング対象のページ構造が変更されている")
+            logger.info("警告は出していますが、処理は正常終了とします。")
+            # 0件でもエラー終了せずに正常終了する
             return
             
         logger.info(f"合計 {len(horses)} 件の馬データを取得しました")
