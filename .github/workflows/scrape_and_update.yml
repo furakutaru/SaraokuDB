@@ -33,7 +33,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq  # JSON処理用
+          sudo apt-get install -y jq curl  # JSON処理用
           
       - name: Install Python dependencies
         run: |
@@ -88,7 +88,8 @@ jobs:
             
             # レスポンスからステータスコードとコンテンツを分離
             HTTP_STATUS=$(echo "$AUTH_RESPONSE" | tail -n1)
-            AUTH_CONTENT=$(echo "$AUTH_RESPONSE" | head -n -1 | jq -r '.' 2>/dev/null || echo "$AUTH_RESPONSE" | head -n -1)
+            AUTH_CONTENT_RAW=$(echo "$AUTH_RESPONSE" | head -n -1)
+            AUTH_CONTENT=$(echo "$AUTH_CONTENT_RAW" | jq -r '.' 2>/dev/null || echo "$AUTH_CONTENT_RAW")
             
             if [ "$HTTP_STATUS" = "200" ]; then
               break
@@ -111,8 +112,12 @@ jobs:
             exit 1
           fi
           
-          # トークンを抽出
-          TOKEN=$(echo "$AUTH_CONTENT" | jq -r '.access_token' 2>/dev/null)
+          # トークンを抽出 (jqが使えない場合はgrepで抽出を試みる)
+          if command -v jq &> /dev/null; then
+            TOKEN=$(echo "$AUTH_CONTENT" | jq -r '.access_token' 2>/dev/null || echo "")
+          else
+            TOKEN=$(echo "$AUTH_CONTENT" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
+          fi
           
           if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
             echo "::error::❌ トークンの抽出に失敗しました"
