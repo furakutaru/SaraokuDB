@@ -25,12 +25,7 @@ jobs:
         with:
           python-version: '3.11'
           
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq  # JSON処理用
-          
-      - name: Install Python dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
@@ -41,100 +36,84 @@ jobs:
           mkdir -p backend/data
           touch backend/data/horses.db
           
-      - name: Set up authentication and environment
-        id: auth
+      - name: Set environment variables
         env:
           PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
           PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
           PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
         run: |
-          # 基本環境変数の設定
           echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" >> $GITHUB_ENV
+          echo "PROD_API_BASE_URL=$PROD_API_BASE_URL" >> $GITHUB_ENV
+          echo "PROD_API_USERNAME=$PROD_API_USERNAME" >> $GITHUB_ENV
+          echo "PROD_API_PASSWORD=$PROD_API_PASSWORD" >> $GITHUB_ENV
           echo "LOG_LEVEL=DEBUG" >> $GITHUB_ENV
           echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
           
-          # 認証トークンを取得
-          echo "::group::🔑 認証トークンを取得中..."
-          AUTH_RESPONSE=$(curl -s -X POST \
+      - name: Verify environment variables
+        run: |
+          echo "PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL != '' && '***' || 'Not Set' }}"
+          echo "PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME != '' && '***' || 'Not Set' }}"
+          echo "PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD != '' && '***' || 'Not Set' }}"
+          
+      - name: Test API connection
+        env:
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
+          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
+        run: |
+          echo "Testing API connection..."
+          # 正しい認証エンドポイントを指定
+          response=$(curl -v -s -o /dev/null -w "%{http_code}" -X POST \
             "$PROD_API_BASE_URL/api/auth/token" \
             -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "username=$PROD_API_USERNAME&password=$PROD_API_PASSWORD")
+            -d "username=$PROD_API_USERNAME" \
+            -d "password=$PROD_API_PASSWORD")
             
-          # レスポンスを解析
-          AUTH_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.access_token')
-          
-          if [ -z "$AUTH_TOKEN" ] || [ "$AUTH_TOKEN" = "null" ]; then
-            echo "::error::❌ 認証に失敗しました。レスポンス: $AUTH_RESPONSE"
+          if [ "$response" != "200" ]; then
+            echo "API接続テストに失敗しました。ステータスコード: $response"
             exit 1
           fi
-          
-          # トークンを環境変数に設定
-          echo "AUTH_TOKEN=$AUTH_TOKEN" >> $GITHUB_ENV
-          echo "::group::"
-          echo "✅ 認証に成功しました"
-          
-      - name: Verify environment
-        run: |
-          echo "PROD_API_BASE_URL: ${{ env.PROD_API_BASE_URL != '' && '***' || 'Not Set' }}"
-          echo "AUTH_TOKEN: ${{ env.AUTH_TOKEN != '' && '***' || 'Not Set' }}"
+          echo "API接続テストに成功しました"
           
       - name: Run scraper with debug
-        env:
-          AUTH_TOKEN: ${{ env.AUTH_TOKEN }}
-          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
         run: |
           set -e  # エラーが発生したらスクリプトを終了
           
           # データベースの初期化
-          echo "::group::💾 データベースを初期化しています..."
+          echo "データベースを初期化しています..."
           cd backend
           python -c "from database.models import Base, engine; Base.metadata.create_all(bind=engine)"
           
           # 出力ディレクトリの作成
-          echo "::group::📁 出力ディレクトリを準備しています..."
+          echo "出力ディレクトリを作成しています..."
           mkdir -p ../static-frontend/public/data
           
           # スクレイパーの実行
-          echo "::group::🔄 スクレイパーを実行しています..."
+          echo "スクレイパーを実行しています..."
           cd ../scripts
           
-          # スクリプトを実行
+          # スクリプトを実行し、終了コードをチェック
           if ! python scrape_and_save.py; then
-            echo "::error::❌ スクレイピングスクリプトがエラーで終了しました"
+            echo "スクレイピングスクリプトがエラーで終了しました"
             exit 1
           fi
           
-          # 出力ファイルの確認
-          if [ ! -f "output.json" ]; then
-            echo "::error::❌ 出力ファイルが生成されていません"
-            exit 1
-          fi
-          
-          # ログとバックアップ
-          echo "::group::💾 ログとバックアップを保存しています..."
+          # ログファイルをアーティファクトとして保存
+          echo "ログファイルを保存しています..."
           mkdir -p ../logs
           if [ -f scraper.log ]; then
             cp scraper.log "../logs/scraper_$(date +%Y%m%d_%H%M%S).log"
+          else
+            echo "警告: ログファイルが見つかりませんでした"
           fi
           
+          # データベースのバックアップ
           cd ..
           if [ -f backend/data/horses.db ]; then
             cp backend/data/horses.db "backend/data/horses_$(date +%Y%m%d_%H%M%S).db"
+          else
+            echo "警告: データベースファイルが見つかりませんでした"
           fi
-          
-          echo "✅ スクレイピングが正常に完了しました"
-          echo "::group::"
-          
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: output-files
-          path: |
-            ./scripts/output.json
-            ./backend/data/horses.db
-            ./logs/*.log
-          retention-days: 5
           
       - name: Commit and push changes
         if: success()
