@@ -23,11 +23,15 @@
       "dest": "/api/$1"
     },
     {
-      "src": "/auth/(.*)",
+      "src": "/api/auth/(.*)",
       "dest": "/api/auth/$1"
     },
     {
-      "src": "/",
+      "src": "/api/health",
+      "dest": "/api/health"
+    },
+    {
+      "src": "/api",
       "dest": "/api"
     },
     {
