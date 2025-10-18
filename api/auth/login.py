@@ -10,14 +10,14 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 # Import the login function from the backend
-from backend.auth.auth import login_for_access_token
+from backend.auth.jwt_auth import login_for_access_token
 from pydantic import BaseModel
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/token", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):

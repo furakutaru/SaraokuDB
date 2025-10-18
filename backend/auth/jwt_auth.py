@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from passlib.context import CryptContext
 import os
 
@@ -30,10 +30,10 @@ if not username or not password:
 # 環境変数から取得した認証情報を使用
 hashed_password = pwd_context.hash(password)
 fake_users_db = {
-    username: {
-        "username": username,
-        "hashed_password": hashed_password,
-    }
+    username: User(
+        username=username,
+        hashed_password=hashed_password
+    )
 }
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -47,8 +47,10 @@ def get_password_hash(password: str):
 
 def get_user(db, username: str):
     if username in db:
-        user_dict = db[username]
-        return User(**user_dict)
+        user = db[username]
+        if isinstance(user, dict):
+            return User(**user)
+        return user  # Userオブジェクトをそのまま返す
     return None
 
 def authenticate_user(fake_db, username: str, password: str):
@@ -90,3 +92,28 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 async def get_current_active_user(current_user: User = Depends(get_current_user)):
     # 必要に応じてユーザーのアクティブ状態をチェック
     return current_user
+
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm) -> Dict[str, str]:
+    """
+    OAuth2互換のトークンログイン
+    """
+    print(f"認証試行: username={form_data.username}")
+    print(f"fake_users_db: {fake_users_db}")
+    
+    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    print(f"認証結果: {user}")
+    
+    if not user:
+        print("認証失敗: ユーザー名またはパスワードが正しくありません")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="ユーザー名またはパスワードが正しくありません",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
+    return {"access_token": access_token, "token_type": "bearer"}

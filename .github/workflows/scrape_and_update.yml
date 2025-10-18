@@ -44,34 +44,75 @@ jobs:
       - name: Set up authentication and environment
         id: auth
         env:
-          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
-          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
-          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL || 'http://localhost:8001' }}
+          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME || 'testuser' }}
+          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD || 'testpass' }}
         run: |
+          echo "::group::🔐 認証情報を設定中..."
+          echo "API Base URL: ${PROD_API_BASE_URL}"
+          
+          # 認証トークンを取得
+          echo "::group::🔑 認証トークンを取得中..."
+          echo "リクエスト先: $PROD_API_BASE_URL/api/auth/token"
+          AUTH_RESPONSE=$(curl -v -X POST "$PROD_API_BASE_URL/api/auth/token" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "username=$PROD_API_USERNAME" \
+            -d "password=$PROD_API_PASSWORD" \
+            -w "\n%{http_code}" 2>&1 || echo "Curl failed")
+          
+          # レスポンスからステータスコードとコンテンツを分離
+          HTTP_STATUS=$(echo "$AUTH_RESPONSE" | tail -n1)
+          AUTH_CONTENT=$(echo "$AUTH_RESPONSE" | head -n -1 | jq -r '.' 2>/dev/null || echo "$AUTH_RESPONSE" | head -n -1)
+          
+          # デバッグ情報を出力
+          echo "::debug::認証レスポンス: $AUTH_RESPONSE"
+          echo "::debug::ステータスコード: $HTTP_STATUS"
+          echo "::debug::レスポンス本文: $AUTH_CONTENT"
+          
+          # エラーチェック
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::❌ 認証に失敗しました。ステータスコード: $HTTP_STATUS"
+            echo "::error::レスポンス: $AUTH_CONTENT"
+            exit 1
+          fi
+          
+          # トークンを抽出
+          TOKEN=$(echo "$AUTH_CONTENT" | jq -r '.access_token' 2>/dev/null)
+          
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "::error::❌ トークンの抽出に失敗しました"
+            echo "::error::レスポンス: $AUTH_CONTENT"
+            exit 1
+          fi
+          
+          # 環境変数に設定
+          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+          echo "AUTH_HEADER=Bearer $TOKEN" >> $GITHUB_ENV
+          
+          # 保護されたエンドポイントでトークンを検証
+          echo "::group::🔍 トークンを検証中..."
+          echo "リクエスト先: $PROD_API_BASE_URL/api/users/me"
+          USER_INFO=$(curl -v -X GET "$PROD_API_BASE_URL/api/users/me" \
+            -H "Authorization: Bearer $TOKEN" \
+            -w "\n%{http_code}" 2>&1)
+          
+          USER_HTTP_STATUS=$(echo "$USER_INFO" | tail -n1)
+          USER_CONTENT=$(echo "$USER_INFO" | head -n -1 | jq -r '.' 2>/dev/null || echo "$USER_INFO" | head -n -1)
+          
+          if [ "$USER_HTTP_STATUS" = "200" ]; then
+            echo "✅ 認証に成功しました"
+            echo "::debug::ユーザー情報: $USER_CONTENT"
+          else
+            echo "::error::❌ トークンの検証に失敗しました。ステータスコード: $USER_HTTP_STATUS"
+            echo "::error::レスポンス: $USER_CONTENT"
+            exit 1
+          fi
+          
+          echo "::group::"  # グループを閉じる
           # 基本環境変数の設定
           echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" >> $GITHUB_ENV
           echo "LOG_LEVEL=DEBUG" >> $GITHUB_ENV
           echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
-          
-          # 認証トークンを取得
-          echo "::group::🔑 認証トークンを取得中..."
-          AUTH_RESPONSE=$(curl -s -X POST \
-            "$PROD_API_BASE_URL/api/auth/token" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "username=$PROD_API_USERNAME&password=$PROD_API_PASSWORD")
-            
-          # レスポンスを解析
-          AUTH_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.access_token')
-          
-          if [ -z "$AUTH_TOKEN" ] || [ "$AUTH_TOKEN" = "null" ]; then
-            echo "::error::❌ 認証に失敗しました。レスポンス: $AUTH_RESPONSE"
-            exit 1
-          fi
-          
-          # トークンを環境変数に設定
-          echo "AUTH_TOKEN=$AUTH_TOKEN" >> $GITHUB_ENV
-          echo "::group::"
-          echo "✅ 認証に成功しました"
           
       - name: Verify environment
         run: |

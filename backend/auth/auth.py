@@ -24,8 +24,14 @@ class TokenData(BaseModel):
 
 @router.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    print(f"認証試行: username={form_data.username}")
+    print(f"fake_users_db: {fake_users_db}")
+    
     user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    print(f"認証結果: {user}")
+    
     if not user:
+        print("認証失敗: ユーザー名またはパスワードが正しくありません")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="ユーザー名またはパスワードが正しくありません",
