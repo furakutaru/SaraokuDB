@@ -70,7 +70,7 @@ jobs:
           
           # 認証トークンを取得
           echo "::group::🔑 認証トークンを取得中..."
-          echo "リクエスト先: $PROD_API_BASE_URL/api/auth/token"
+          echo "リクエスト先: $PROD_API_BASE_URL/auth/token"
           
           # リトライ処理付きで認証を試みる
           MAX_RETRIES=3
@@ -79,7 +79,7 @@ jobs:
           for i in $(seq 1 $MAX_RETRIES); do
             echo "::notice:: 認証試行 $i/$MAX_RETRIES"
             
-            AUTH_RESPONSE=$(curl -s -v -X POST "$PROD_API_BASE_URL/api/auth/token" \
+            AUTH_RESPONSE=$(curl -s -v -X POST "$PROD_API_BASE_URL/auth/token" \
               -H "Content-Type: application/x-www-form-urlencoded" \
               -d "username=$PROD_API_USERNAME" \
               -d "password=$PROD_API_PASSWORD" \
@@ -125,9 +125,9 @@ jobs:
           
           # 保護されたエンドポイントでトークンを検証
           echo "::group::🔍 トークンを検証中..."
-          echo "リクエスト先: $PROD_API_BASE_URL/api/users/me"
+          echo "リクエスト先: $PROD_API_BASE_URL/users/me"
           
-          USER_INFO=$(curl -s -v -X GET "$PROD_API_BASE_URL/api/users/me" \
+          USER_INFO=$(curl -s -v -X GET "$PROD_API_BASE_URL/users/me" \
             -H "Authorization: Bearer $TOKEN" \
             -w "\n%{http_code}" 2>&1)
           
