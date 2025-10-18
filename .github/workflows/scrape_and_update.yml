@@ -67,27 +67,61 @@ jobs:
           PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
-          echo "::group::🔐 認証処理を開始します"
+          # デバッグ用に環境変数をログに出力（機密情報はマスク）
+          echo "::group::🔍 環境変数の確認"
+          echo "PROD_API_BASE_URL: ${PROD_API_BASE_URL:0:10}..."
+          echo "PROD_API_USERNAME: ${PROD_API_USERNAME:0:3}..."
+          echo "PROD_API_PASSWORD: ${PROD_API_PASSWORD:0:3}..."
+          echo "SECRET_KEY: ${SECRET_KEY:0:5}..."
+          echo "::endgroup::"
           
-          # 認証トークンを取得
-          echo "::notice:: 認証を試みます: $PROD_API_BASE_URL/auth/token"
+          echo "::group::🔐 認証処理を開始します"
           
           # 一時ファイルを作成
           TEMP_FILE=$(mktemp)
+          echo "::debug::一時ファイルを作成しました: $TEMP_FILE"
           
           # 認証リクエストを実行
-          curl -s -v -X POST "$PROD_API_BASE_URL/auth/token" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "username=$PROD_API_USERNAME" \
-            -d "password=$PROD_API_PASSWORD" \
-            -w "\n%{http_code}" > "$TEMP_FILE" 2>&1 || true
-            
+          echo "::notice:: 認証を試みます: $PROD_API_BASE_URL/auth/token"
+          
+          # リクエストボディを変数に格納
+          REQUEST_BODY="username=$PROD_API_USERNAME&password=$PROD_API_PASSWORD"
+          echo "::debug::リクエストボディ: ${REQUEST_BODY//$PROD_API_PASSWORD/***}"
+          
+          # cURLコマンドを実行
+          CURL_CMD="curl -v -X POST \"$PROD_API_BASE_URL/auth/token\" \
+            -H \"Content-Type: application/x-www-form-urlencoded\" \
+            -d \"username=$PROD_API_USERNAME\" \
+            -d \"password=$PROD_API_PASSWORD\" \
+            -w \"\\n%{http_code}\""
+          
+          echo "::debug::実行コマンド: ${CURL_CMD//$PROD_API_PASSWORD/***}"
+          
+          # コマンドを実行して一時ファイルに出力
+          eval $CURL_CMD > "$TEMP_FILE" 2>&1 || true
+          
           # レスポンスを取得
-          HTTP_STATUS=$(tail -n1 "$TEMP_FILE")
-          AUTH_CONTENT=$(head -n -1 "$TEMP_FILE")
-            
-          echo "::debug::認証レスポンス: $AUTH_CONTENT"
+          HTTP_STATUS=$(tail -n1 "$TEMP_FILE" 2>/dev/null || echo "")
+          AUTH_CONTENT=$(head -n -1 "$TEMP_FILE" 2>/dev/null || cat "$TEMP_FILE")
+          
           echo "::debug::HTTPステータス: $HTTP_STATUS"
+          echo "::debug::レスポンス: $AUTH_CONTENT"
+            
+          # ステータスコードが空でないか確認
+          if [ -z "$HTTP_STATUS" ]; then
+            echo "::error::❌ 認証レスポンスが空です"
+            echo "::error::レスポンス全体: $(cat "$TEMP_FILE")"
+            rm -f "$TEMP_FILE"
+            exit 1
+          fi
+          
+          # ステータスコードが数値か確認
+          if ! [[ "$HTTP_STATUS" =~ ^[0-9]+$ ]]; then
+            echo "::error::❌ 無効なHTTPステータスコード: $HTTP_STATUS"
+            echo "::error::レスポンス全体: $AUTH_CONTENT"
+            rm -f "$TEMP_FILE"
+            exit 1
+          fi
           
           # ステータスコードを確認
           if [ "$HTTP_STATUS" -ne 200 ]; then
@@ -96,6 +130,8 @@ jobs:
             rm -f "$TEMP_FILE"
             exit 1
           fi
+          
+          echo "::notice::✅ 認証リクエストは成功しました (ステータスコード: $HTTP_STATUS)"
           
           # トークンを抽出
           TOKEN=$(echo "$AUTH_CONTENT" | jq -r '.access_token' 2>/dev/null || \
