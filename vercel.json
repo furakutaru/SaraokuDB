@@ -7,8 +7,7 @@
       "config": {
         "maxLambdaSize": "15mb",
         "runtime": "python3.10",
-        "includeFiles": ["api/**/*.py", "api/requirements.txt", "api/.env*"],
-        "zeroConfig": true
+        "includeFiles": ["api/**/*.py", "api/requirements.txt", "api/.env*"]
       }
     },
     {
@@ -19,18 +18,8 @@
       }
     }
   ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/main.py",
-      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/static-frontend/$1"
-    }
-  ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/main.py" }
+    { "source": "/api/(.*)", "destination": "/api/main.py" },
+    { "source": "/(.*)", "destination": "/static-frontend/$1" }
   ]
 }
