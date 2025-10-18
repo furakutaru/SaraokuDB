@@ -34,6 +34,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y jq curl  # JSON処理用
+          # jqのパスを確認
+          which jq || echo "jq not found"
+          jq --version || echo "jq not in PATH"
           
       - name: Install Python dependencies
         run: |
@@ -113,11 +116,15 @@ jobs:
           fi
           
           # トークンを抽出 (jqが使えない場合はgrepで抽出を試みる)
-          if command -v jq &> /dev/null; then
+          echo "::debug::AUTH_CONTENT: $AUTH_CONTENT"
+          if command -v jq >/dev/null 2>&1; then
+            echo "::debug::Using jq to extract token"
             TOKEN=$(echo "$AUTH_CONTENT" | jq -r '.access_token' 2>/dev/null || echo "")
           else
+            echo "::debug::jq not found, using grep to extract token"
             TOKEN=$(echo "$AUTH_CONTENT" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4 || echo "")
           fi
+          echo "::debug::Extracted TOKEN: ${TOKEN:0:10}..."
           
           if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
             echo "::error::❌ トークンの抽出に失敗しました"
