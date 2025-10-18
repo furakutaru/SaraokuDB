@@ -60,7 +60,7 @@ jobs:
           
       - name: Set up authentication and environment
         id: auth
-        continue-on-error: false  # エラーがあっても続行
+        continue-on-error: false
         env:
           PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
           PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
@@ -68,25 +68,21 @@ jobs:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
           echo "::group::🔐 環境変数を設定中..."
-          echo "API Base URL: ${PROD_API_BASE_URL}"
+          echo "API Base URL: ${PROD_API_BASE_URL:0:10}..."  # デバッグ用に先頭10文字のみ表示
           
           # 必須環境変数のチェック
           if [ -z "$PROD_API_BASE_URL" ] || [ -z "$PROD_API_USERNAME" ] || [ -z "$PROD_API_PASSWORD" ] || [ -z "$SECRET_KEY" ]; then
             echo "::error::❌ 必要な環境変数が設定されていません"
             echo "PROD_API_BASE_URL: ${PROD_API_BASE_URL:0:10}..."
-            echo "PROD_API_USERNAME: ${PROD_API_USERNAME:0:2}..."
-            echo "PROD_API_PASSWORD: ${PROD_API_PASSWORD:0:2}..."
-            echo "SECRET_KEY: ${SECRET_KEY:0:5}..."
             exit 1
           fi
           
-          # 認証トークンを取得
-          echo "::group::🔑 認証トークンを取得中..."
           echo "リクエスト先: $PROD_API_BASE_URL/auth/token"
           
           # リトライ処理付きで認証を試みる
           MAX_RETRIES=3
           RETRY_DELAY=5
+          AUTH_SUCCESS=false
           
           for i in $(seq 1 $MAX_RETRIES); do
             echo "::notice:: 認証試行 $i/$MAX_RETRIES"
@@ -101,96 +97,97 @@ jobs:
             HTTP_STATUS=$(echo "$AUTH_RESPONSE" | tail -n1)
             AUTH_CONTENT_RAW=$(echo "$AUTH_RESPONSE" | head -n -1)
             AUTH_CONTENT=$(echo "$AUTH_CONTENT_RAW" | jq -r '.' 2>/dev/null || echo "$AUTH_CONTENT_RAW")
-            
-            if [ "$HTTP_STATUS" = "200" ]; then
+
+            echo "::debug::認証レスポンス: $AUTH_CONTENT"
+            echo "::debug::HTTPステータス: $HTTP_STATUS"
+
+            # ステータスコードが200の場合
+            if [ "$HTTP_STATUS" -eq 200 ]; then
+              # トークンを抽出
+              echo "::debug::AUTH_CONTENT: $AUTH_CONTENT"
+              
+              # jqのパスを明示的に指定
+              JQ_PATH=$(which jq || echo "/usr/bin/jq")
+              echo "::debug::jq path: $JQ_PATH"
+              
+              # トークン抽出を試みる
+              TOKEN=""
+              
+              # 方法1: jqを使用
+              if [ -x "$JQ_PATH" ]; then
+                echo "::debug::Using jq to extract token"
+                TOKEN=$(echo "$AUTH_CONTENT" | $JQ_PATH -r '.access_token' 2>/dev/null || echo "")
+              fi
+              
+              # 方法2: 方法1が失敗した場合、grepで抽出を試みる
+              if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+                echo "::debug::jq extraction failed, trying with grep"
+                TOKEN=$(echo "$AUTH_CONTENT" | grep -o '"access_token":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+              fi
+              
+              # トークンが空の場合はエラー
+              if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+                echo "::error::❌ トークンの抽出に失敗しました"
+                echo "::error::レスポンス: $AUTH_CONTENT"
+                exit 1
+              fi
+              
+              echo "::debug::Extracted TOKEN: ${TOKEN:0:10}..."
+              
+              # 環境変数に設定
+              echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+              echo "AUTH_HEADER=Bearer $TOKEN" >> $GITHUB_ENV
+              
+              # 基本環境変数の設定
+              echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" >> $GITHUB_ENV
+              echo "LOG_LEVEL=DEBUG" >> $GITHUB_ENV
+              echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
+              echo "SECRET_KEY=$SECRET_KEY" >> $GITHUB_ENV
+              echo "PROD_API_BASE_URL=$PROD_API_BASE_URL" >> $GITHUB_ENV
+              
+              echo "::group::✅ 環境変数が設定されました"
+              echo "DATABASE_URL: sqlite:///$(pwd)/backend/data/horses.db"
+              echo "LOG_LEVEL: DEBUG"
+              echo "GITHUB_ACTIONS: true"
+              echo "PROD_API_BASE_URL: $PROD_API_BASE_URL"
+              echo "::endgroup::"
+              
+              echo "::group::🔄 環境変数の確認"
+              echo "TOKEN: ${TOKEN:0:10}..."
+              echo "AUTH_HEADER: Bearer ${TOKEN:0:10}..."
+              echo "::endgroup::"
+              
+              # スクレイピング用のディレクトリ作成
+              mkdir -p logs
+              mkdir -p cache
+              
+              echo "::notice::✅ 環境設定が完了しました"
+              AUTH_SUCCESS=true
               break
-            fi
-            
-            if [ $i -lt $MAX_RETRIES ]; then
-              echo "::warning:: 認証に失敗しました。${RETRY_DELAY}秒後に再試行します..."
-              sleep $RETRY_DELAY
+            else
+              # エラーメッセージを表示
+              echo "::error::❌ 認証に失敗しました (ステータスコード: $HTTP_STATUS)"
+              echo "::error::レスポンス: $AUTH_CONTENT"
+              
+              # リトライ処理
+              if [ $i -lt $MAX_RETRIES ]; then
+                echo "::notice:: $RETRY_DELAY秒後に再試行します... ($((i+1))/$MAX_RETRIES)"
+                sleep $RETRY_DELAY
+              else
+                echo "::error::❌ 最大試行回数に達しました"
+                exit 1
+              fi
             fi
           done
           
-          # デバッグ情報を出力
-          echo "::debug::認証レスポンス: $AUTH_RESPONSE"
-          echo "::debug::ステータスコード: $HTTP_STATUS"
-          
-          # エラーチェック
-          if [ "$HTTP_STATUS" != "200" ]; then
-            echo "::error::❌ 認証に失敗しました。ステータスコード: $HTTP_STATUS"
-            echo "::error::レスポンス: $AUTH_CONTENT"
+          # 認証が成功したか確認
+          if [ "$AUTH_SUCCESS" = true ]; then
+            echo "::notice::✅ 認証ステップが正常に完了しました"
+            exit 0  # 明示的に正常終了
+          else
+            echo "::error::❌ 認証に失敗しました"
             exit 1
           fi
-          
-          # トークンを抽出
-          echo "::debug::AUTH_CONTENT: $AUTH_CONTENT"
-          
-          # jqのパスを明示的に指定
-          JQ_PATH=$(which jq || echo "/usr/bin/jq")
-          echo "::debug::jq path: $JQ_PATH"
-          
-          # トークン抽出を試みる
-          TOKEN=""
-          
-          # 方法1: jqを使用
-          if [ -x "$JQ_PATH" ]; then
-            echo "::debug::Using jq to extract token"
-            TOKEN=$(echo "$AUTH_CONTENT" | $JQ_PATH -r '.access_token' 2>/dev/null || echo "")
-          fi
-          
-          # 方法2: 方法1が失敗した場合、grepで抽出を試みる
-          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-            echo "::debug::jq extraction failed, trying with grep"
-            TOKEN=$(echo "$AUTH_CONTENT" | grep -o '"access_token":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
-          fi
-          
-          # トークンが空の場合はエラー
-          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-            echo "::error::❌ トークンの抽出に失敗しました"
-            echo "::error::レスポンス: $AUTH_CONTENT"
-            exit 1
-          fi
-          
-          echo "::debug::Extracted TOKEN: ${TOKEN:0:10}..."
-          
-          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-            echo "::error::❌ トークンの抽出に失敗しました"
-            echo "::error::レスポンス: $AUTH_CONTENT"
-            exit 1
-          fi
-          
-          # 環境変数に設定
-          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
-          echo "AUTH_HEADER=Bearer $TOKEN" >> $GITHUB_ENV
-          
-          # トークン検証をスキップ
-          echo "::notice::✅ 認証に成功しました。トークン検証はスキップします。"
-          
-          # 基本環境変数の設定
-          echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" >> $GITHUB_ENV
-          echo "LOG_LEVEL=DEBUG" >> $GITHUB_ENV
-          echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
-          echo "SECRET_KEY=$SECRET_KEY" >> $GITHUB_ENV
-          echo "PROD_API_BASE_URL=$PROD_API_BASE_URL" >> $GITHUB_ENV
-          
-          echo "::group::✅ 環境変数が設定されました"
-          echo "DATABASE_URL: sqlite:///$(pwd)/backend/data/horses.db"
-          echo "LOG_LEVEL: DEBUG"
-          echo "GITHUB_ACTIONS: true"
-          echo "PROD_API_BASE_URL: $PROD_API_BASE_URL"
-          echo "::endgroup::"
-          
-          echo "::group::🔄 環境変数の確認"
-          echo "TOKEN: ${TOKEN:0:10}..."
-          echo "AUTH_HEADER: Bearer ${TOKEN:0:10}..."
-          echo "::endgroup::"
-          
-          # スクレイピング用のディレクトリ作成
-          mkdir -p logs
-          mkdir -p cache
-          
-          echo "::notice::✅ 環境設定が完了しました"
           
       - name: Verify environment
         run: |
