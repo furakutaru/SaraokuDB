@@ -29,5 +29,8 @@
       "src": "/(.*)",
       "dest": "/static-frontend/$1"
     }
+  ],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/main.py" }
   ]
 }
