@@ -268,42 +268,6 @@ jobs:
           
           echo "::notice::✨ スクレイピング処理が正常に完了しました"
           
-      - name: Notify Slack on Failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          payload: |
-            {
-              "text": "❌ スクレイピングジョブが失敗しました: ${{ github.workflow }} #${{ github.run_number }}",
-              "attachments": [
-                {
-                  "color": "#ff0000",
-                  "fields": [
-                    { "title": "Repository", "value": "${{ github.repository }}", "short": true },
-                    { "title": "Run ID", "value": "${{ github.run_id }}", "short": true },
-                    { "title": "Workflow", "value": "${{ github.workflow }}", "short": true },
-                    { "title": "Status", "value": "Failed ❌", "short": true },
-                    { "title": "View Logs", "value": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
-                  ]
-                }
-              ]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_TITLE: '✅ スクレイピングが完了しました'
-          SLACK_MESSAGE: 'スクレイピングが正常に完了しました。\n実行ID: ${{ github.run_id }}\nブランチ: ${{ github.ref_name }}'
-          SLACK_COLOR: 'good'
-
-      - name: Notify failure
-        if: failure() && !cancelled()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_TITLE: '❌ スクレイピングが失敗しました'
-          SLACK_MESSAGE: 'スクレイピングがエラーで終了しました。\n実行ID: ${{ github.run_id }}\nブランチ: ${{ github.ref_name }}\nワークフロー: ${{ github.workflow }}'
-          SLACK_COLOR: 'danger'
-          retention-days: 5
-          
       - name: Commit and push changes
         if: success()
         run: |
