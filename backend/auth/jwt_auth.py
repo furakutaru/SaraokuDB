@@ -29,8 +29,18 @@ if not username or not password:
 if len(password.encode('utf-8')) > 72:
     password = password[:72]  # 72バイトを超える場合は切り詰める
 
+def truncate_utf8(text: str, max_bytes: int = 72) -> str:
+    """UTF-8エンコード時のバイト数を考慮して文字列を切り詰める"""
+    if not text:
+        return text
+    
+    encoded = text.encode('utf-8')[:max_bytes]
+    return encoded.decode('utf-8', errors='ignore').rstrip('\x00')
+
 # 環境変数から取得した認証情報を使用
-hashed_password = pwd_context.hash(password)
+# パスワードをUTF-8エンコードして72バイトに制限
+safe_password = truncate_utf8(password, 72)
+hashed_password = pwd_context.hash(safe_password)
 fake_users_db = {
     username: User(
         username=username,
@@ -56,14 +66,13 @@ def get_user(db, username: str):
     return None
 
 def authenticate_user(fake_db, username: str, password: str):
-    # パスワードの長さを72バイトに制限
-    if len(password.encode('utf-8')) > 72:
-        password = password[:72]  # 72バイトを超える場合は切り詰める
-        
+    # パスワードの長さを72バイトに制限（UTF-8エンコードを考慮）
+    safe_password = truncate_utf8(password, 72)
+    
     user = get_user(fake_db, username)
     if not user:
         return False
-    if not verify_password(password, user.hashed_password):
+    if not verify_password(safe_password, user.hashed_password):
         return False
     return user
 
