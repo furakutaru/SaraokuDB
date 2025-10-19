@@ -133,10 +133,24 @@ def map_horses_list(horses: List[Any]) -> Tuple[List[Dict[str, Any]], List[Dict[
         horse_dict['sold_price'] = sold_price
         horse_dict['is_unsold'] = is_unsold
         
+        # detail_url が存在するか確認してログに出力
+        if 'detail_url' in horse_dict:
+            logger.info(f"Horse ID {horse_dict.get('id')} has detail_url: {horse_dict.get('detail_url')}")
+        else:
+            logger.warning(f"Horse ID {horse_dict.get('id')} is missing detail_url")
+        
         # Field alias for FE expectations: dam_sire -> damsire
         if 'dam_sire' in horse_dict:
             horse_dict['damsire'] = horse_dict.pop('dam_sire')
             
-        horses_data.append(horse_dict)
+        # フロントエンドに必要なフィールドを確実に含める
+        horse_data = {
+            **horse_dict,
+            # 既存のフィールドに加えて、detail_url を明示的に含める
+            'detail_url': horse_dict.get('detail_url'),
+            'auction_url': horse_dict.get('detail_url'),  # 互換性のため
+        }
+        
+        horses_data.append(horse_data)
 
     return horses_data, auction_histories

@@ -80,8 +80,25 @@ export async function fetchHorsesList(): Promise<HorsesListResponse> {
     console.log('[horseApi] レスポンスデータの詳細:', {
       responseData: responseData,
       firstHorse: responseData?.horses?.[0],
-      firstAuctionHistory: responseData?.auction_histories?.[0] || responseData?.auctionHistories?.[0]
+      firstAuctionHistory: responseData?.auction_histories?.[0] || responseData?.auctionHistories?.[0],
+      // 最初の馬の全プロパティをログに出力
+      firstHorseKeys: responseData?.horses?.[0] ? Object.keys(responseData.horses[0]) : []
     });
+    
+    // デバッグ: 最初の数件の馬のdetail_urlとauction_urlをログに出力
+    if (responseData?.horses) {
+      const sampleHorses = responseData.horses.slice(0, 5);
+      console.log('[horseApi] サンプル馬のURL情報:', 
+        sampleHorses.map((h: any) => ({
+          id: h.id,
+          name: h.name,
+          detail_url: h.detail_url,
+          auction_url: h.auction_url,
+          hasDetailUrl: !!h.detail_url,
+          hasAuctionUrl: !!h.auction_url
+        }))
+      );
+    }
     
     // レスポンスが配列の場合は、それをhorsesとして扱う
     let horses: any[] = [];

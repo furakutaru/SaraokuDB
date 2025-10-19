@@ -504,7 +504,8 @@ export default function AnalysisContent() {
 
   // 詳細ページのURLを安全に取得するヘルパー関数
   const getDetailUrl = (horse: HorseWithAuction): string | undefined => {
-    return horse.detail_url || undefined;
+    // detail_url または auction_url のいずれかが存在する場合に返す
+    return (horse as any).detail_url || (horse as any).auction_url || undefined;
   };
 
 
