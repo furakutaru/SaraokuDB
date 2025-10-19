@@ -1433,7 +1433,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                             />
                           </td>
                           <td className="px-2 py-1 border text-right">{
-                            h.unsold ? '不成立' : formatPrizeMan(h.sold_price || 0)
+                            h.unsold ? '主取り' : (h.sold_price ? formatPrizeMan(h.sold_price) : '-')
                           }</td>
                           <td className="px-2 py-1 border text-right">{formatPrizeMan(h.total_prize_start)}</td>
                         </tr>

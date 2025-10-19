@@ -230,8 +230,15 @@ class RakutenAuctionScraper:
                     # 数字のみを抽出（カンマを削除）
                     price = int(re.sub(r'[^0-9]', '', price_text))
                     auction_data['sold_price'] = price
+                    # 落札価格が0の場合は未落札として扱う
+                    if price == 0:
+                        auction_data['unsold'] = True
+                        print(f"[デバッグ] 落札価格が0のため、unsoldフラグをTrueに設定しました")
                 except (ValueError, TypeError) as e:
                     print(f"[警告] 落札価格の数値変換に失敗: {price_text} - {str(e)}")
+                    # 価格が取得できない場合も未落札の可能性がある
+                    auction_data['unsold'] = True
+                    print("[デバッグ] 落札価格が取得できないため、unsoldフラグをTrueに設定しました")
 
             # 6. 入札数の取得
             bid_elem = soup.find(class_=re.compile(r'bid-num|bid-count'))

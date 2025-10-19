@@ -8,27 +8,40 @@ def _parse_first_int(value: Any) -> Optional[int]:
     if value is None:
         return None
     if isinstance(value, int):
-        return value
+        return value if value != 0 else None
     if isinstance(value, float):
-        return int(value)
+        return int(value) if value != 0 else None
     if isinstance(value, str):
         s = value.strip()
-        # JSON array string, e.g. "[8500000]"
+        # Handle empty string
+        if not s:
+            return None
+            
+        # Try to parse as JSON array first
         if s.startswith("[") and s.endswith("]"):
             try:
                 arr = json.loads(s)
                 if isinstance(arr, list) and len(arr) > 0:
-                    last = arr[-1]
-                    try:
-                        return int(str(last).strip().strip('"'))
-                    except Exception:
-                        return None
-            except Exception:
+                    first = arr[0]
+                    if first is not None:
+                        if isinstance(first, str):
+                            # Handle comma-separated numbers in array
+                            num = int(first.replace(',', ''))
+                            return num if num != 0 else None
+                        num = int(first)
+                        return num if num != 0 else None
                 return None
-        # plain number string
-        num = s.strip('"')
-        if num.isdigit():
-            return int(num)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+        
+        # Try to parse as plain string (e.g., "1,000,000" or "1000000")
+        try:
+            # Remove any commas and try to convert to int
+            num = int(s.replace(',', ''))
+            return num if num != 0 else None
+        except (ValueError, TypeError):
+            pass
+    
     return None
 
 
@@ -70,11 +83,15 @@ def serialize_horse(horse: Any) -> Dict[str, Any]:
     with normalized primitives for age/sold_price/etc.
     """
     age_norm = _parse_first_int(getattr(horse, 'age', None))
-    sold_price_norm = _parse_first_int(getattr(horse, 'sold_price', None))
+    sold_price = getattr(horse, 'sold_price', None)
+    sold_price_norm = _parse_first_int(sold_price) if sold_price is not None else None
     auction_date_norm = _parse_last_str(getattr(horse, 'auction_date', None))
     seller_norm = _parse_first_str(getattr(horse, 'seller', None))
     sex_norm = _parse_first_str(getattr(horse, 'sex', None))
     comment_norm = _parse_first_str(getattr(horse, 'comment', None))
+    
+    # デバッグ用にsold_priceの値をログに出力
+    print(f"DEBUG - sold_price: {sold_price}, sold_price_norm: {sold_price_norm}")
 
     return {
         "id": getattr(horse, 'id', None),

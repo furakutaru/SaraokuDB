@@ -13,7 +13,7 @@ export interface AuctionHistory {
 interface AuctionHistoryCardProps {
   history: AuctionHistory[];
   formatDate: (date: string) => string;
-  formatPrizeMan: (price: number) => string;
+  formatPrizeMan: (price: number | string | null | undefined, isUnsold?: boolean) => string;
 }
 
 const AuctionHistoryCard: React.FC<AuctionHistoryCardProps> = ({
@@ -42,7 +42,7 @@ const AuctionHistoryCard: React.FC<AuctionHistoryCardProps> = ({
                     {formatDate(item.auction_date || '')}
                   </Typography>
                   <p className="text-sm text-gray-500">
-                    落札価格: {item.unsold ? '不成立' : formatPrizeMan(item.sold_price || 0)}
+                    落札価格: {formatPrizeMan(item.sold_price, item.unsold)}
                   </p>
                 </div>
                 {item.detail_url && (

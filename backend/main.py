@@ -42,10 +42,8 @@ app.include_router(auction_histories_router, prefix="/api")  # tagsはルータ�
 app.include_router(auth_router, prefix="/api", tags=["auth"])
 
 # CORS settings
-origins = [
-    "http://localhost:3000",  # Next.js 開発サーバー
-    "http://127.0.0.1:3000",  # ローカルホストの別表記
-]
+# すべてのオリジンからのリクエストを許可（開発環境用）
+origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -55,6 +53,7 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],
 )
+
 
 # Root endpoint
 @app.get("/")

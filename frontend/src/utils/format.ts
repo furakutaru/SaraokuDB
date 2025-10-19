@@ -39,7 +39,7 @@ export function calculateGrowthRate(start: number, latest: number): string {
 
 // 数値を「○万円」形式の文字列に変換する関数
 export function formatManYen(value: number): string {
-  if (value === 0) return '0万円';
+  if (value === 0) return '0円';
   if (!value) return '-';
   return `${(value / 10000).toFixed(1)}万円`;
 }
@@ -50,10 +50,23 @@ function formatNumberWithCommas(num: number): string {
 }
 
 // 円単位の数値をフォーマットする
-export function formatPrizeMan(val: number | string | null | undefined): string {
-  if (val === null || val === undefined || val === '' || isNaN(Number(val))) return '-';
-  const num = Math.round(Number(val));
-  return `¥${formatNumberWithCommas(num)}`;
+export function formatPrizeMan(
+  val: number | string | null | undefined,
+  isUnsold?: boolean
+): string {
+  // 未落札の場合は「主取り」と表示
+  if (isUnsold) {
+    return '主取り';
+  }
+
+  // 数値に変換
+  const num = Number(val);
+  
+  // 数値に変換できない、または数値が 0 の場合は '-' を返す
+  if (isNaN(num) || num === 0) return '-';
+  
+  // 数値を3桁区切りでフォーマットして返す
+  return `¥${formatNumberWithCommas(Math.round(num))}`;
 }
 
 // For values in Yen (number/string/object), display as 万円

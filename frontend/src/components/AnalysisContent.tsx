@@ -17,10 +17,57 @@ const formatCurrency = (value: number | string | null | undefined): string => {
   }).format(numValue);
 };
 
-// 価格をフォーマットするヘルパー関数（formatCurrencyのエイリアス）
-const formatSoldPrice = (price: number | string | null | undefined, isUnsold: boolean = false): string => {
-  if (isUnsold) return '主取り';
-  return formatCurrency(price);
+// 落札価格を表示するヘルパー関数
+const formatSoldPrice = (price: number | string | null | undefined | any[], isUnsold: boolean = false, rawPrice?: any): string => {
+  console.log('formatSoldPrice input:', { price, rawPrice, isUnsold, type: Array.isArray(price) ? 'array' : typeof price });
+  
+  // 未落札フラグがtrueの場合は「主取り」を表示
+  if (isUnsold) {
+    return '主取り';
+  }
+  
+  // rawPriceが存在する場合はそちらを優先
+  if (rawPrice !== undefined && rawPrice !== null) {
+    console.log('Using rawPrice:', rawPrice, 'type:', typeof rawPrice);
+    price = rawPrice;
+  }
+  
+  // 配列の場合は最初の要素を使用
+  if (Array.isArray(price)) {
+    console.log('Price is an array, using first element:', price[0]);
+    price = price.length > 0 ? price[0] : null;
+  }
+
+  // 価格がnullまたはundefinedまたは空文字または0の場合はハイフンを表示
+  if (price === null || price === undefined || price === '' || price === 0) {
+    console.log('Price is null/undefined/empty/0, returning "-"');
+    return '-';
+  }
+
+  try {
+    // 文字列の場合はカンマを削除して数値に変換
+    let numPrice: number;
+    if (typeof price === 'string') {
+      const cleanPrice = price.replace(/[^0-9.-]+/g, '');
+      numPrice = parseFloat(cleanPrice);
+      console.log('Converted string to number:', { original: price, cleaned: cleanPrice, numPrice });
+    } else {
+      numPrice = Number(price);
+      console.log('Converted to number:', { original: price, numPrice });
+    }
+    
+    if (isNaN(numPrice) || numPrice <= 0) {
+      console.log('Invalid price value:', numPrice, 'original:', price);
+      return '-';
+    }
+    
+    const formatted = new Intl.NumberFormat('ja-JP').format(numPrice) + '円';
+    console.log('Formatted price:', formatted);
+    return formatted;
+  } catch (error) {
+    console.error('Error formatting price:', error, { price, rawPrice, type: typeof price });
+    return '-';
+  }
 };
 
 // 賞金をフォーマットするヘルパー関数（formatCurrencyのエイリアス）
@@ -299,7 +346,28 @@ export default function AnalysisContent() {
       data.metadata.average_price = avg;
     } else {
       data.metadata.average_price = 0;
-      console.warn('有効な落札価格データが見つかりませんでした');
+      // デバッグ用: 馬のデータをログに出力（より詳細に）
+      console.group('馬のデータの詳細');
+      horses.forEach((h, index) => {
+        console.group(`馬 ${index + 1}: ${h.name} (ID: ${h.id})`);
+        console.log('sold_price:', h.sold_price, 'type:', typeof h.sold_price);
+        console.log('unsold:', h.unsold);
+        console.log('sold_price が数値かどうか:', typeof h.sold_price === 'number');
+        console.log('sold_price が0より大きいか:', h.sold_price != null && h.sold_price > 0);
+        console.log('sold_price が有効な数値か:', h.sold_price != null && !isNaN(Number(h.sold_price)));
+        console.log('--- 生データ ---');
+        console.log(JSON.stringify(h, null, 2));
+        console.groupEnd();
+      });
+      console.groupEnd();
+      
+      console.warn('有効な落札価格データがありません。以下の可能性があります：', {
+        '馬の総数': horses.length,
+        'sold_price が数値の馬の数': horses.filter(h => typeof h.sold_price === 'number').length,
+        'sold_price が0より大きい馬の数': horses.filter(h => h.sold_price != null && h.sold_price > 0).length,
+        'unsold が true の馬の数': horses.filter(h => h.unsold).length,
+        'sold_price が null または undefined の馬の数': horses.filter(h => h.sold_price === null || h.sold_price === undefined).length
+      });
     }
   }
 
@@ -349,9 +417,14 @@ export default function AnalysisContent() {
   const displayPrize = formatPrize;
 
   // ROIを計算するヘルパー関数
-  const calcROI = (prizeLatest: number | undefined, prizeStart: number | undefined, price: number | string | null | undefined): string => {
-    if (prizeLatest === undefined || prizeStart === undefined || !price) return '-';
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+  const calcROI = (prizeLatest: number | null | undefined, prizeStart: number | null | undefined, price: number | string | null | undefined): string => {
+    // 賞金データがない場合は計算不可
+    if (prizeLatest === undefined || prizeLatest === null || prizeStart === undefined || prizeStart === null) return '-';
+    
+    // 価格を数値に変換
+    const numPrice = price === null || price === undefined ? 0 : (typeof price === 'string' ? parseFloat(price) : price);
+    
+    // 価格が無効な場合は計算不可
     if (isNaN(numPrice) || numPrice <= 0) return '-';
     
     // 落札後に稼いだ賞金総額 = 現在の総賞金 - オークション時の総賞金
@@ -433,6 +506,7 @@ export default function AnalysisContent() {
   const getDetailUrl = (horse: HorseWithAuction): string | undefined => {
     return horse.detail_url || undefined;
   };
+
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -516,10 +590,21 @@ export default function AnalysisContent() {
                     })()}
                   </td>
                   <td className="px-3 py-2">
-                    {displayPrice(horse.sold_price, horse.is_unsold)}
+                    {(function() {
+                      const rawPrice = (horse as any).sold_price_raw || (horse as any).raw_sold_price;
+                      console.log('Debug - horse object:', {
+                        id: horse.id,
+                        name: horse.name,
+                        sold_price: horse.sold_price,
+                        is_unsold: horse.is_unsold,
+                        raw_sold_price: rawPrice
+                      });
+                      return null;
+                    })()}
+                    {formatSoldPrice(horse.sold_price, horse.is_unsold || false, (horse as any).sold_price_raw || (horse as any).raw_sold_price)}
                   </td>
-                  <td className="px-3 py-2">{displayPrize(horse.total_prize_start)}</td>
-                  <td className="px-3 py-2">{displayPrize(horse.total_prize_latest)}</td>
+                  <td className="px-3 py-2">{formatPrize(horse.total_prize_start)}</td>
+                  <td className="px-3 py-2">{formatPrize(horse.total_prize_latest)}</td>
                   <td className="px-3 py-2">
                     {calcROI(horse.total_prize_latest, horse.total_prize_start, horse.sold_price)}
                   </td>

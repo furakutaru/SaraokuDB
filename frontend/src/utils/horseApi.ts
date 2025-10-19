@@ -76,6 +76,13 @@ export async function fetchHorsesList(): Promise<HorsesListResponse> {
       rawKeys: responseData ? Object.keys(responseData) : []
     });
     
+    // レスポンスデータの詳細なログを出力
+    console.log('[horseApi] レスポンスデータの詳細:', {
+      responseData: responseData,
+      firstHorse: responseData?.horses?.[0],
+      firstAuctionHistory: responseData?.auction_histories?.[0] || responseData?.auctionHistories?.[0]
+    });
+    
     // レスポンスが配列の場合は、それをhorsesとして扱う
     let horses: any[] = [];
     let auctionHistories: any[] = [];
