@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, create_engine
+from sqlalchemy import Column, Integer, String, Float, Text, DateTime, ForeignKey, create_engine
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -34,6 +35,29 @@ class Horse(Base):
     unsold_count = Column(Integer, default=0)  # 主取り回数
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # リレーションシップ
+    auction_histories = relationship("AuctionHistory", back_populates="horse")
+
+
+class AuctionHistory(Base):
+    __tablename__ = 'auction_histories'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    horse_id = Column(Integer, ForeignKey('horses.id'), nullable=False)
+    auction_date = Column(String(10), nullable=False)  # YYYY-MM-DD形式
+    price = Column(Integer, nullable=False)  # 落札価格
+    seller = Column(String(100))  # 販売者
+    buyer = Column(String(100))   # 落札者
+    auction_house = Column(String(100))  # 市場名
+    auction_name = Column(String(200))   # セール名
+    lot_number = Column(String(20))      # ロット番号
+    auction_url = Column(String(500))    # オークションURL
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # リレーションシップ
+    horse = relationship("Horse", back_populates="auction_histories")
 
 # データベース設定
 # プロジェクトルートの絶対パスを取得

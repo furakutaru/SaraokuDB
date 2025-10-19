@@ -49,6 +49,27 @@ class HorseResponse(HorseBase):
     # Pydantic v2: enable ORM mode equivalent
     model_config = ConfigDict(from_attributes=True)
 
+class AuctionHistoryBase(BaseModel):
+    horse_id: int
+    auction_date: str
+    price: int
+    seller: Optional[str] = None
+    buyer: Optional[str] = None
+    auction_house: Optional[str] = None
+    auction_name: Optional[str] = None
+    lot_number: Optional[str] = None
+    auction_url: Optional[str] = None
+
+class AuctionHistoryCreate(AuctionHistoryBase):
+    pass
+
+class AuctionHistory(AuctionHistoryBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
 class StatisticsResponse(BaseModel):
     total_horses: int
     average_price: int
