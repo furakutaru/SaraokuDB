@@ -1,12 +1,20 @@
+import sys
+import os
+import logging
+from pathlib import Path
+from typing import List, Optional
+import json
+
+# Add the backend directory to Python path
+sys.path.append(str(Path(__file__).parent.parent))
+
 from fastapi import FastAPI, Request, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.middleware.cors import CORSMiddleware
 from jose import JWTError, jwt
-import logging
-import sys
-import os
-from pathlib import Path
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
 
 # 環境変数の読み込み
 load_dotenv()
@@ -14,6 +22,10 @@ load_dotenv()
 # 認証関連の設定をインポート
 from backend.config import SECRET_KEY, ALGORITHM
 from backend.auth.jwt_auth import oauth2_scheme, get_current_user, User, get_user, fake_users_db
+
+# データベース関連のインポート
+from backend.database.models import get_db, Horse
+from backend.services.horse_service import HorseService
 
 # Set up logging
 logging.basicConfig(
@@ -26,6 +38,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+# CORSミドルウェアの設定
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # フロントエンドのURL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Middleware to log requests
 @app.middleware("http")
@@ -64,6 +85,175 @@ async def health_check():
 @app.get("/api/users/me")
 async def read_users_me(current_user: dict = Depends(get_current_user)):
     return current_user
+
+# データベースセッションの依存関係
+def get_db_session():
+    db = next(get_db())
+    try:
+        yield db
+    finally:
+        db.close()
+
+# 馬データを取得するエンドポイント
+@app.get("/api/horses")
+async def get_horses(skip: int = 0, limit: int = 100, db: Session = Depends(get_db_session)):
+    """
+    馬データの一覧をデータベースから取得します。
+    
+    Parameters:
+    - skip: スキップするレコード数（ページネーション用）
+    - limit: 取得する最大レコード数（ページネーション用）
+    """
+    def safe_json_parse(json_str, default=None):
+        try:
+            if json_str and isinstance(json_str, str):
+                return json.loads(json_str)
+            return default if default is not None else []
+        except json.JSONDecodeError:
+            return default if default is not None else []
+
+    try:
+        # デバッグ用にデータベース接続を確認
+        logger.info("データベースから馬データを取得します...")
+        
+        # 直接クエリを実行してデータを取得
+        horses = db.query(Horse).offset(skip).limit(limit).all()
+        logger.info(f"取得した馬データの数: {len(horses)}")
+        
+        if not horses:
+            logger.warning("データベースから馬データを取得できませんでした")
+            return {"horses": []}
+        
+        # データベースの結果をシリアライズ
+        serialized_horses = []
+        for horse in horses:
+            try:
+                # 各フィールドの型をチェックして適切に処理
+                def get_value(field_value, default=None):
+                    if field_value is None:
+                        return default
+                    # 文字列の場合はJSONとしてパースを試みる
+                    if isinstance(field_value, str):
+                        try:
+                            parsed = json.loads(field_value)
+                            if isinstance(parsed, list):
+                                return parsed[-1] if parsed else default
+                            return parsed
+                        except json.JSONDecodeError:
+                            return field_value
+                    # 数値やその他の型はそのまま返す
+                    return field_value
+                
+                # 各フィールドの値を取得
+                sex = get_value(horse.sex, "不明")
+                age = get_value(horse.age)
+                sold_price = get_value(horse.sold_price)
+                comment = get_value(horse.comment, "")
+                auction_date = get_value(horse.auction_date)
+                seller = get_value(horse.seller, "不明")
+                
+                # デバッグ用に馬の基本情報をログに出力
+                logger.debug(f"処理中の馬データ - ID: {horse.id}, 名前: {horse.name}")
+                
+                serialized_horse = {
+                    "id": horse.id,
+                    "auction_id": str(horse.auction_id) if horse.auction_id is not None else f"unknown_{horse.id}",
+                    "name": horse.name or "未登録",
+                    "sex": sex,
+                    "age": age,
+                    "sire": horse.sire or "不明",
+                    "dam": horse.dam or "不明",
+                    "damsire": horse.dam_sire or "不明",
+                    "weight": horse.weight,
+                    "total_prize_start": horse.total_prize_start,
+                    "total_prize_latest": horse.total_prize_latest,
+                    "sold_price": sold_price,
+                    "auction_date": auction_date,
+                    "seller": seller,
+                    "comment": comment,
+                    "image_url": horse.image_url or "",
+                    "primary_image": horse.primary_image or "",
+                    "jbis_url": horse.jbis_url or "",
+                    "detail_url": horse.detail_url or "",
+                    "unsold_count": horse.unsold_count or 0,
+                    "created_at": horse.created_at.isoformat() if horse.created_at else None,
+                    "updated_at": horse.updated_at.isoformat() if horse.updated_at else None
+                }
+                serialized_horses.append(serialized_horse)
+                
+            except Exception as e:
+                logger.error(f"馬データのシリアライズ中にエラーが発生しました (ID: {getattr(horse, 'id', 'unknown')}): {str(e)}", exc_info=True)
+                continue  # エラーが発生したレコードはスキップ
+                
+        logger.info(f"シリアライズされた馬データの数: {len(serialized_horses)}")
+        
+        if not serialized_horses:
+            logger.warning("有効な馬データが見つかりませんでした")
+            return {"horses": []}
+            
+        return {"horses": serialized_horses}
+        
+    except Exception as e:
+        logger.error(f"馬データの取得中にエラーが発生しました: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"馬データの取得中にエラーが発生しました: {str(e)}"
+        )
+
+# オークション履歴を取得するエンドポイント
+@app.get("/api/auction_histories")
+async def get_auction_histories(skip: int = 0, limit: int = 100, db: Session = Depends(get_db_session)):
+    """
+    オークション履歴の一覧をデータベースから取得します。
+    
+    Parameters:
+    - skip: スキップするレコード数（ページネーション用）
+    - limit: 取得する最大レコード数（ページネーション用）
+    """
+    def safe_json_parse(json_str, default=None):
+        try:
+            if json_str and isinstance(json_str, str):
+                return json.loads(json_str)
+            return default if default is not None else []
+        except json.JSONDecodeError:
+            return default if default is not None else []
+
+    try:
+        # オークション履歴を取得（馬テーブルから生成）
+        horses = db.query(Horse).filter(Horse.auction_date.isnot(None)).offset(skip).limit(limit).all()
+        
+        auction_histories = []
+        for horse in horses:
+            try:
+                # 安全にJSONをパース
+                auction_dates = safe_json_parse(horse.auction_date, [])
+                prices = safe_json_parse(horse.sold_price, [])
+                sellers = safe_json_parse(horse.seller, [])
+                
+                # 各履歴エントリを生成
+                for i, (auction_date, price, seller) in enumerate(zip(auction_dates, prices, sellers)):
+                    auction_histories.append({
+                        "id": f"{horse.id}_{i}",
+                        "horse_id": horse.id,
+                        "horse_name": horse.name or "不明",
+                        "auction_date": auction_date,
+                        "price": price,
+                        "seller": seller or "不明",
+                        "is_unsold": price == 0 or price is None
+                    })
+                    
+            except Exception as e:
+                logger.error(f"オークション履歴の処理中にエラーが発生しました (馬ID: {getattr(horse, 'id', 'unknown')}): {str(e)}")
+                continue  # エラーが発生したレコードはスキップ
+        
+        return {"auction_histories": auction_histories}
+        
+    except Exception as e:
+        logger.error(f"オークション履歴の取得中にエラーが発生しました: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"オークション履歴の取得中にエラーが発生しました: {str(e)}"
+        )
 
 # Error handlers
 @app.exception_handler(404)

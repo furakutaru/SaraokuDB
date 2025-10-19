@@ -40,19 +40,45 @@ export const useDataIntegrityCheck = () => {
         setError(null);
         
         // データを取得
-        const response = await fetch('/data/horses.json');
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8001';
+        const [horsesRes, auctionHistoriesRes] = await Promise.all([
+          fetch(`${apiBaseUrl}/api/horses`),
+          fetch(`${apiBaseUrl}/api/auction_histories`)
+        ]);
         
-        if (!response.ok) {
-          throw new Error('馬データの取得に失敗しました');
+        if (!horsesRes.ok) {
+          const errorData = await horsesRes.json().catch(() => ({}));
+          throw new Error(`馬データの取得に失敗しました: ${horsesRes.status} ${horsesRes.statusText} - ${JSON.stringify(errorData)}`);
         }
         
-        const data = await response.json();
+        if (!auctionHistoriesRes.ok) {
+          const errorData = await auctionHistoriesRes.json().catch(() => ({}));
+          throw new Error(`オークション履歴の取得に失敗しました: ${auctionHistoriesRes.status} ${auctionHistoriesRes.statusText} - ${JSON.stringify(errorData)}`);
+        }
         
-        if (!data || typeof data !== 'object' || !Array.isArray(data.horses)) {
+        const horsesResponse = await horsesRes.json();
+        const auctionHistoriesResponse = await auctionHistoriesRes.json();
+        
+        // バックエンドからのレスポンス形式に合わせてデータを取得
+        const horses = horsesResponse.horses || [];
+        const auctionHistories = auctionHistoriesResponse.auction_histories || [];
+        
+        // データを正規化
+        const normalizedData = {
+          horses: Array.isArray(horses) ? horses : [],
+          auctionHistories: Array.isArray(auctionHistories) ? auctionHistories : [],
+          metadata: {
+            last_updated: new Date().toISOString(),
+            total_horses: Array.isArray(horses) ? horses.length : 0,
+            total_auction_records: Array.isArray(auctionHistories) ? auctionHistories.length : 0
+          }
+        };
+        
+        if (!normalizedData || typeof normalizedData !== 'object' || !Array.isArray(normalizedData.horses)) {
           throw new Error('無効なデータ形式です: horses配列が見つかりません');
         }
         
-        const horsesData = data.horses;
+        const horsesData = normalizedData.horses;
         
         // 整合性チェックを実行
         const issues: DataIssue[] = [];

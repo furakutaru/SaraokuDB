@@ -21,10 +21,17 @@ const metadata = {
 
 // 馬データを新しい形式に変換
 const combinedHorses = horses.map(horse => {
-  // 賞金を数値に変換
-  const prizeMoney = horse.prize_money?.total_prize 
-    ? parseInt(horse.prize_money.total_prize.replace(/[^0-9]/g, '')) 
-    : 0;
+  // 賞金を数値に変換（より堅牢な処理に変更）
+  let prizeMoney = 0;
+  try {
+    if (horse.prize_money?.total_prize) {
+      const prizeStr = String(horse.prize_money.total_prize);
+      prizeMoney = parseInt(prizeStr.replace(/[^0-9]/g, '')) || 0;
+    }
+  } catch (e) {
+    console.warn(`賞金のパースエラー (horse.id: ${horse.id}):`, e.message);
+    prizeMoney = 0;
+  }
 
   // オークション履歴を処理
   const auctionHistory = [];
@@ -42,28 +49,44 @@ const combinedHorses = horses.map(horse => {
     })));
   }
 
-  // 最新のオークション情報
-  const latestAuction = auctionHistory.length > 0 ? auctionHistory[0] : null;
-
-  // UnifiedHorse インターフェースに合わせてデータを整形
+  // 基本情報を設定
+  const basicInfo = {
+    name: horse.name,
+    id: horse.id,
+    auction_id: horse.auction_id,
+    detail_url: horse.detail_url,
+    sex: horse.sex,
+    age: horse.age,
+    sire: horse.sire,
+    dam: horse.dam,
+    damsire: horse.damsire,
+    auction_date: horse.auction_date,
+    weight: horse.weight,
+    jbis_url: horse.jbis_url,
+    prize_money: horse.prize_money,
+    comment: horse.comment,
+    disease_tags: horse.disease_tags || []
   };
 
-  // オークション履歴
+  // オークション履歴を取得
   const horseAuctionHistory = auctionHistory
     .filter(ah => ah.horse_id === horse.id)
     .map(ah => ({
-      auction_date: ah.auction_date,
-      price: ah.sold_price,
+      auction_date: ah.auction_date || ah.date,
+      price: ah.sold_price || ah.price,
       weight: ah.weight,
       seller: ah.seller,
-      is_unsold: ah.is_unsold,
-      comment: ah.comment
+      is_unsold: ah.is_unsold || false,
+      comment: ah.comment || ''
     }));
 
   // 最新のオークション情報
   const latestAuction = horseAuctionHistory.length > 0 
     ? horseAuctionHistory[0] 
     : null;
+
+  // レース記録を初期化（必要に応じて調整）
+  const raceRecords = [];
 
   // メタデータ
   const horseMetadata = {

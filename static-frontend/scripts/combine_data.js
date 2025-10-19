@@ -8,14 +8,17 @@ const auctionHistoryPath = path.join(dataDir, 'auction_history.json');
 const outputPath = path.join(dataDir, 'horses_combined.json');
 
 // データを読み込む
-const horses = JSON.parse(fs.readFileSync(horsesPath, 'utf-8'));
+const horsesData = JSON.parse(fs.readFileSync(horsesPath, 'utf-8'));
 const auctionHistory = JSON.parse(fs.readFileSync(auctionHistoryPath, 'utf-8'));
+
+// horses.json が配列形式でもオブジェクト形式でも対応
+const horses = Array.isArray(horsesData) ? horsesData : (horsesData.horses || []);
 
 // メタデータを準備
 const metadata = {
   version: '1.1',
   last_updated: new Date().toISOString(),
-  total_horses: horses.length,
+  total_horses: Array.isArray(horses) ? horses.length : (horses.horses || []).length,
   data_source: 'jbis'
 };
 
@@ -42,13 +45,7 @@ const combinedHorses = horses.map(horse => {
     })));
   }
 
-  // 最新のオークション情報
-  const latestAuction = auctionHistory.length > 0 ? auctionHistory[0] : null;
-
-  // UnifiedHorse インターフェースに合わせてデータを整形
-  };
-
-  // オークション履歴
+  // オークション履歴を取得
   const horseAuctionHistory = auctionHistory
     .filter(ah => ah.horse_id === horse.id)
     .map(ah => ({
@@ -64,6 +61,28 @@ const combinedHorses = horses.map(horse => {
   const latestAuction = horseAuctionHistory.length > 0 
     ? horseAuctionHistory[0] 
     : null;
+
+  // 基本情報を設定
+  const basicInfo = {
+    name: horse.name,
+    id: horse.id,
+    auction_id: horse.auction_id,
+    detail_url: horse.detail_url,
+    sex: horse.sex,
+    age: horse.age,
+    sire: horse.sire,
+    dam: horse.dam,
+    damsire: horse.damsire,
+    auction_date: horse.auction_date,
+    weight: horse.weight,
+    jbis_url: horse.jbis_url,
+    prize_money: horse.prize_money,
+    comment: horse.comment,
+    disease_tags: horse.disease_tags || []
+  };
+
+  // レース記録を設定（必要に応じて調整）
+  const raceRecords = [];
 
   // メタデータ
   const horseMetadata = {

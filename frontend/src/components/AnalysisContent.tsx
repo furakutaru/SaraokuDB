@@ -122,24 +122,44 @@ export default function AnalysisContent() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // 両方のJSONを並行して取得
+        
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8001';
+        
+        // 両方のAPIを並行して呼び出し
         const [horsesResponse, auctionHistoryResponse] = await Promise.all([
-          fetch('/data/horses.json'),
-          fetch('/data/auction_history.json')
+          fetch(`${apiBaseUrl}/api/horses`, { cache: 'no-store' }),
+          fetch(`${apiBaseUrl}/api/auction_histories`, { cache: 'no-store' })
         ]);
 
         if (!horsesResponse.ok || !auctionHistoryResponse.ok) {
           throw new Error('データの取得に失敗しました');
         }
 
-        const horsesData = await horsesResponse.json();
-        const auctionHistory = await auctionHistoryResponse.json();
+        // レスポンスをJSONとしてパース
+        const horsesResponseData = await horsesResponse.json();
+        const auctionHistoryResponseData = await auctionHistoryResponse.json();
+
+        // データの正規化
+        let horsesData = Array.isArray(horsesResponseData.horses) ? horsesResponseData.horses : [];
+        let auctionHistory = Array.isArray(auctionHistoryResponseData.auction_histories) 
+          ? auctionHistoryResponseData.auction_histories 
+          : [];
+        
+        // メタデータを準備
+        const metadata = {
+          total_horses: horsesData.length,
+          total_auctions: auctionHistory.length,
+          average_price: auctionHistory.length > 0 
+            ? auctionHistory.reduce((sum: number, h: any) => sum + (h.sold_price || 0), 0) / auctionHistory.length
+            : 0,
+          last_updated: new Date().toISOString()
+        };
 
         // オークション履歴を馬IDでグループ化
         const auctionHistoryByHorseId = groupAuctionHistory(auctionHistory);
         
         // 馬データにオークション履歴をマージ
-        const horsesWithHistory = (horsesData.horses as HorseWithAuction[]).map(horse => {
+        const horsesWithHistory = horsesData.map((horse: any) => {
           const history = auctionHistoryByHorseId[horse.id] || [];
           const latestAuction = history[0]; // 最新のオークション情報
           
@@ -160,14 +180,7 @@ export default function AnalysisContent() {
         setData({
           horses: horsesWithHistory,
           auction_history: auctionHistory,
-          metadata: horsesData.metadata || {
-            total_horses: horsesWithHistory.length,
-            total_auctions: auctionHistory.length,
-            average_price: auctionHistory.length > 0 
-              ? auctionHistory.reduce((sum: number, h: AuctionHistory) => sum + (h.sold_price || 0), 0) / auctionHistory.length
-              : 0,
-            last_updated: new Date().toISOString()
-          }
+          metadata: metadata
         });
       } catch (e: any) {
         console.error('データ取得エラー:', e);

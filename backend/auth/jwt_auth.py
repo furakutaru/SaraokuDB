@@ -7,7 +7,13 @@ from passlib.context import CryptContext
 import os
 
 # 設定をインポート
-from ..config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+import sys
+from pathlib import Path
+
+# Add the backend directory to Python path
+sys.path.append(str(Path(__file__).parent.parent.parent))
+
+from backend.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
 # パスワードのハッシュ化と検証のためのコンテキスト
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
