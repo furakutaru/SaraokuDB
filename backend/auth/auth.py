@@ -24,7 +24,20 @@ class TokenData(BaseModel):
     username: Optional[str] = None
 
 @router.post("/token", response_model=Token)
-async def login_for_token(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_token(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends()
+):
+    """
+    認証トークンを発行するエンドポイント
+    
+    Args:
+        request: FastAPIのリクエストオブジェクト
+        form_data: ユーザー名とパスワードを含むフォームデータ
+        
+    Returns:
+        Token: アクセストークンとトークンタイプ
+    """
     return await login_for_access_token(request, form_data)
 
 # テスト用のエンドポイント（認証が必要）

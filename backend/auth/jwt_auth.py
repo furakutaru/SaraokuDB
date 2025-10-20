@@ -8,21 +8,14 @@ import os
 import logging
 
 # ロギングの設定
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 設定をインポート
-import sys
-from pathlib import Path
-
-# Add the backend directory to Python path
-sys.path.append(str(Path(__file__).parent.parent.parent))
-
-from backend.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from ..config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
 # パスワードのハッシュ化と検証のためのコンテキスト
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # ユーザーモデル（簡易的な実装）
 class User:
@@ -30,37 +23,62 @@ class User:
         self.username = username
         self.hashed_password = hashed_password
 
-# 環境変数から認証情報を取得（デフォルト値付き）
-username = os.getenv("PROD_API_USERNAME", "admin")
-password = os.getenv("PROD_API_PASSWORD", "admin123")
+def get_environment_info():
+    """環境情報を取得するヘルパー関数"""
+    env = os.getenv("ENV", "development").lower()
+    is_prod = env == "production"
+    is_ci = os.getenv("CI") == "true" or os.getenv("GITHUB_ACTIONS") == "true"
+    return {
+        "env": env,
+        "is_prod": is_prod,
+        "is_ci": is_ci,
+        "is_dev": not is_prod and not is_ci
+    }
 
-# デバッグ用ログ
-print(f"[DEBUG] Username: {username}")
-print(f"[DEBUG] Password: {'*' * len(password) if password else 'None'}")
+# 環境情報を取得
+env_info = get_environment_info()
+
+# 環境変数から認証情報を取得（環境に応じてデフォルト値を設定）
+def get_env_var(name: str, default: str = None, required: bool = False) -> str:
+    """環境変数を取得し、必要に応じてデフォルト値を設定"""
+    value = os.getenv(name, default)
+    if required and not value and env_info["is_prod"]:
+        raise ValueError(f"必須の環境変数 {name} が設定されていません")
+    return value
+
+# 認証情報の取得
+username = get_env_var("PROD_API_USERNAME", "dev_user", required=env_info["is_prod"] or env_info["is_ci"])
+password = get_env_var("PROD_API_PASSWORD", "dev_password", required=env_info["is_prod"] or env_info["is_ci"])
+
+# 開発環境でのみ警告を表示
+if env_info["is_dev"] and (not os.getenv("PROD_API_USERNAME") or not os.getenv("PROD_API_PASSWORD")):
+    logger.warning("本番環境では必ず PROD_API_USERNAME と PROD_API_PASSWORD を設定してください")
+
+# パスワードの長さを72バイトに制限
+if password and len(password.encode('utf-8')) > 72:
+    password = password[:72]  # 72バイトを超える場合は切り詰める
 
 def truncate_utf8(text: str, max_bytes: int = 72) -> str:
     """UTF-8エンコード時のバイト数を考慮して文字列を切り詰める"""
     if not text:
         return text
     
-    # パスワードの長さを72バイトに制限
-    encoded = text.encode('utf-8') 
-    if len(encoded) > max_bytes:
-        encoded = encoded[:max_bytes]
+    encoded = text.encode('utf-8')[:max_bytes]
     return encoded.decode('utf-8', errors='ignore').rstrip('\x00')
 
 # 環境変数から取得した認証情報を使用
 # パスワードをUTF-8エンコードして72バイトに制限
 safe_password = truncate_utf8(password, 72)
 hashed_password = pwd_context.hash(safe_password)
-
-# ユーザーデータベースの初期化
 fake_users_db = {
     username: User(
         username=username,
         hashed_password=hashed_password
     )
 }
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def verify_password(plain_password: str, hashed_password: str):
     return pwd_context.verify(plain_password, hashed_password)
@@ -119,48 +137,37 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     # 必要に応じてユーザーのアクティブ状態をチェック
     return current_user
 
-async def login_for_access_token(request: Request, form_data: OAuth2PasswordRequestForm = Depends()) -> Dict[str, str]:
+async def login_for_access_token(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends()
+) -> Dict[str, str]:
     """
     OAuth2互換のトークンログイン
-    """
-    # 環境変数の確認
-    env_username = os.getenv('PROD_API_USERNAME')
-    env_password = os.getenv('PROD_API_PASSWORD')
     
-    # デバッグ情報を出力
-    logger.debug("=" * 50)
-    logger.debug("認証処理を開始します")
-    logger.debug(f"リクエストURL: {request.url}")
-    logger.debug(f"HTTPメソッド: {request.method}")
-    logger.debug(f"リクエストヘッダー: {dict(request.headers)}")
-    logger.debug(f"フォームデータ: username={form_data.username}, password={'*' * len(form_data.password) if form_data.password else 'None'}")
-    logger.debug(f"環境変数 USERNAME: {env_username}")
-    logger.debug(f"環境変数 PASSWORD 長さ: {len(env_password) if env_password else '未設定'}")
-    logger.debug(f"SECRET_KEY: {os.getenv('SECRET_KEY')}")
-    logger.debug(f"ALGORITHM: {ALGORITHM}")
-    logger.debug(f"ACCESS_TOKEN_EXPIRE_MINUTES: {ACCESS_TOKEN_EXPIRE_MINUTES}")
+    Args:
+        request: FastAPIのリクエストオブジェクト
+        form_data: ユーザー名とパスワードを含むフォームデータ
+        
+    Returns:
+        Dict[str, str]: アクセストークンとトークンタイプを含む辞書
+        
+    Raises:
+        HTTPException: 認証に失敗した場合
+    """
+    # デバッグ情報のロギング
+    if env_info["is_dev"]:
+        logger.debug(f"認証試行: username={form_data.username}")
+        logger.debug(f"環境: {env_info}")
     
     try:
-        # 環境変数の検証
-        if not all([env_username, env_password]):
-            error_msg = "認証に必要な環境変数が設定されていません"
-            logger.error(error_msg)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=error_msg
-            )
-        
-        # ユーザーデータベースの確認
-        logger.debug(f"fake_users_db キー: {list(fake_users_db.keys())}")
-        logger.debug(f"fake_users_db 値: {fake_users_db}")
-        
-        # ユーザー認証
-        logger.debug(f"ユーザー認証を開始: username={form_data.username}")
+        # 認証処理
         user = authenticate_user(fake_users_db, form_data.username, form_data.password)
-        logger.debug(f"認証結果: {user}")
         
         if not user:
-            error_msg = f"認証失敗: ユーザー名またはパスワードが正しくありません (username: {form_data.username})"
+            error_msg = "認証に失敗しました: ユーザー名またはパスワードが正しくありません"
+            if env_info["is_dev"]:
+                error_msg = f"{error_msg} (username: {form_data.username})"
+            
             logger.warning(error_msg)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -169,36 +176,26 @@ async def login_for_access_token(request: Request, form_data: OAuth2PasswordRequ
             )
         
         # トークン発行
-        logger.debug("アクセストークンを発行します")
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        token_data = {"sub": user.username}
-        logger.debug(f"トークンデータ: {token_data}")
-        
         access_token = create_access_token(
-            data=token_data, 
+            data={"sub": user.username},
             expires_delta=access_token_expires
         )
         
         logger.info(f"認証成功: {user.username}")
-        logger.debug(f"発行されたトークン: {access_token[:20]}...")
-        
-        return {
-            "access_token": access_token, 
-            "token_type": "bearer"
-        }
-        
-    except HTTPException as he:
-        # 既存のHTTP例外はそのままスロー
-        logger.error(f"HTTPエラーが発生しました: {str(he)}")
-        raise he
+        return {"access_token": access_token, "token_type": "bearer"}
         
     except Exception as e:
-        # その他の例外をキャッチしてログに記録
-        error_msg = f"認証処理中に予期せぬエラーが発生しました: {str(e)}"
+        error_msg = f"認証処理中にエラーが発生しました: {str(e)}"
         logger.error(error_msg, exc_info=True)
+        
+        # 本番環境では詳細なエラーを表示しない
+        if not env_info["is_prod"]:
+            detail = error_msg
+        else:
+            detail = "認証処理中にエラーが発生しました"
+            
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_msg
+            detail=detail
         )
-    
-    return {"access_token": access_token, "token_type": "bearer"}
