@@ -17,6 +17,7 @@ from backend.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
 # パスワードのハッシュ化と検証のためのコンテキスト
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # ユーザーモデル（簡易的な実装）
 class User:
@@ -32,31 +33,29 @@ password = os.getenv("PROD_API_PASSWORD", "admin123")
 print(f"[DEBUG] Username: {username}")
 print(f"[DEBUG] Password: {'*' * len(password) if password else 'None'}")
 
-# パスワードの長さを72バイトに制限
-if len(password.encode('utf-8')) > 72:
-    password = password[:72]  # 72バイトを超える場合は切り詰める
-
 def truncate_utf8(text: str, max_bytes: int = 72) -> str:
     """UTF-8エンコード時のバイト数を考慮して文字列を切り詰める"""
     if not text:
         return text
     
-    encoded = text.encode('utf-8')[:max_bytes]
+    # パスワードの長さを72バイトに制限
+    encoded = text.encode('utf-8') 
+    if len(encoded) > max_bytes:
+        encoded = encoded[:max_bytes]
     return encoded.decode('utf-8', errors='ignore').rstrip('\x00')
 
 # 環境変数から取得した認証情報を使用
 # パスワードをUTF-8エンコードして72バイトに制限
 safe_password = truncate_utf8(password, 72)
 hashed_password = pwd_context.hash(safe_password)
+
+# ユーザーデータベースの初期化
 fake_users_db = {
     username: User(
         username=username,
         hashed_password=hashed_password
     )
 }
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def verify_password(plain_password: str, hashed_password: str):
     return pwd_context.verify(plain_password, hashed_password)
