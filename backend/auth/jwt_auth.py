@@ -123,41 +123,82 @@ async def login_for_access_token(request: Request, form_data: OAuth2PasswordRequ
     """
     OAuth2互換のトークンログイン
     """
-    logger.debug(f"認証リクエスト受信: {request.method} {request.url}")
+    # 環境変数の確認
+    env_username = os.getenv('PROD_API_USERNAME')
+    env_password = os.getenv('PROD_API_PASSWORD')
+    
+    # デバッグ情報を出力
+    logger.debug("=" * 50)
+    logger.debug("認証処理を開始します")
+    logger.debug(f"リクエストURL: {request.url}")
+    logger.debug(f"HTTPメソッド: {request.method}")
     logger.debug(f"リクエストヘッダー: {dict(request.headers)}")
-    logger.debug(f"認証試行: username={form_data.username}")
-    logger.debug(f"環境変数 USERNAME: {os.getenv('PROD_API_USERNAME')}")
-    logger.debug(f"環境変数 PASSWORD 長さ: {len(os.getenv('PROD_API_PASSWORD', '')) if os.getenv('PROD_API_PASSWORD') else '未設定'}")
+    logger.debug(f"フォームデータ: username={form_data.username}, password={'*' * len(form_data.password) if form_data.password else 'None'}")
+    logger.debug(f"環境変数 USERNAME: {env_username}")
+    logger.debug(f"環境変数 PASSWORD 長さ: {len(env_password) if env_password else '未設定'}")
+    logger.debug(f"SECRET_KEY: {os.getenv('SECRET_KEY')}")
+    logger.debug(f"ALGORITHM: {ALGORITHM}")
+    logger.debug(f"ACCESS_TOKEN_EXPIRE_MINUTES: {ACCESS_TOKEN_EXPIRE_MINUTES}")
     
     try:
+        # 環境変数の検証
+        if not all([env_username, env_password]):
+            error_msg = "認証に必要な環境変数が設定されていません"
+            logger.error(error_msg)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=error_msg
+            )
+        
+        # ユーザーデータベースの確認
         logger.debug(f"fake_users_db キー: {list(fake_users_db.keys())}")
+        logger.debug(f"fake_users_db 値: {fake_users_db}")
         
         # ユーザー認証
+        logger.debug(f"ユーザー認証を開始: username={form_data.username}")
         user = authenticate_user(fake_users_db, form_data.username, form_data.password)
-        logger.debug(f"認証結果: {user is not None}")
+        logger.debug(f"認証結果: {user}")
         
         if not user:
-            logger.warning(f"認証失敗: ユーザー名またはパスワードが正しくありません (username: {form_data.username})")
+            error_msg = f"認証失敗: ユーザー名またはパスワードが正しくありません (username: {form_data.username})"
+            logger.warning(error_msg)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="ユーザー名またはパスワードが正しくありません",
+                detail=error_msg,
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
         # トークン発行
+        logger.debug("アクセストークンを発行します")
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": user.username}, expires_delta=access_token_expires
-        )
-        logger.info(f"認証成功: {user.username}")
+        token_data = {"sub": user.username}
+        logger.debug(f"トークンデータ: {token_data}")
         
-        return {"access_token": access_token, "token_type": "bearer"}
+        access_token = create_access_token(
+            data=token_data, 
+            expires_delta=access_token_expires
+        )
+        
+        logger.info(f"認証成功: {user.username}")
+        logger.debug(f"発行されたトークン: {access_token[:20]}...")
+        
+        return {
+            "access_token": access_token, 
+            "token_type": "bearer"
+        }
+        
+    except HTTPException as he:
+        # 既存のHTTP例外はそのままスロー
+        logger.error(f"HTTPエラーが発生しました: {str(he)}")
+        raise he
         
     except Exception as e:
-        logger.error(f"認証処理中にエラーが発生しました: {str(e)}", exc_info=True)
+        # その他の例外をキャッチしてログに記録
+        error_msg = f"認証処理中に予期せぬエラーが発生しました: {str(e)}"
+        logger.error(error_msg, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"認証処理中にエラーが発生しました: {str(e)}"
+            detail=error_msg
         )
     
     return {"access_token": access_token, "token_type": "bearer"}
