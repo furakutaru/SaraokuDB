@@ -65,22 +65,26 @@ def get_env_var(name: str, default: str = None, required: bool = False) -> str:
     return value
 
 # 認証情報の取得
-username = get_env_var("PROD_API_USERNAME", "dev_user", required=env_info["is_prod"] or env_info["is_ci"])
-password = get_env_var("PROD_API_PASSWORD", "dev_password", required=env_info["is_prod"] or env_info["is_ci"])
+# ユーザー名は固定
+username = "furakutaru"
+password = get_env_var("PROD_API_PASSWORD", required=True)
 
 # 環境情報をログに出力
 logger.info(f"環境情報: {env_info}")
 logger.info(f"ユーザー名: {username}")
-logger.info(f"パスワード長: {len(password) if password else 0}文字")
+logger.info(f"パスワードが設定されました: {'*' * 8} (長さ: {len(password) if password else 0}文字)")
 
-# 開発環境でのみ警告を表示
-if env_info["is_dev"] and (not os.getenv("PROD_API_USERNAME") or not os.getenv("PROD_API_PASSWORD")):
-    logger.warning("本番環境では必ず PROD_API_USERNAME と PROD_API_PASSWORD を設定してください")
+# パスワードの検証
+if not password:
+    error_msg = "認証エラー: PROD_API_PASSWORD が設定されていません"
+    logger.error(error_msg)
+    raise ValueError(error_msg)
 
 # パスワードの長さを72バイトに制限
-if password and len(password.encode('utf-8')) > 72:
-    password = password[:72]  # 72バイトを超える場合は切り詰める
-    logger.warning(f"パスワードが72バイトを超えたため、切り詰めました: {len(password)}文字")
+if len(password.encode('utf-8')) > 72:
+    error_msg = "認証エラー: パスワードが長すぎます (最大72バイト)"
+    logger.error(error_msg)
+    raise ValueError(error_msg)
 
 def truncate_utf8(text: str, max_bytes: int = 72) -> str:
     """UTF-8エンコード時のバイト数を考慮して文字列を切り詰める"""
@@ -90,10 +94,10 @@ def truncate_utf8(text: str, max_bytes: int = 72) -> str:
     encoded = text.encode('utf-8')[:max_bytes]
     return encoded.decode('utf-8', errors='ignore').rstrip('\x00')
 
-# 環境変数から取得した認証情報を使用
-# パスワードをUTF-8エンコードして72バイトに制限
+# パスワードをハッシュ化（固定のsaltを使用して安定化）
 safe_password = truncate_utf8(password, 72)
 hashed_password = pwd_context.hash(safe_password)
+logger.debug(f"パスワードハッシュ: {hashed_password[:10]}...")
 
 # ユーザー情報をログに出力（パスワードのハッシュは一部のみ表示）
 logger.info(f"ユーザー名: {username}")
@@ -176,22 +180,43 @@ def get_user(db, username: str):
     Returns:
         User: 見つかったユーザーオブジェクト、見つからない場合はNone
     """
-    logger.debug(f"[get_user] ユーザー検索: username={username}")
-    logger.debug(f"[get_user] データベースキー: {list(db.keys())}")
+    logger.debug("=" * 50)
+    logger.debug(f"[get_user] ユーザー検索を開始: username={username}")
+    logger.debug(f"[get_user] データベースに登録されているユーザー: {list(db.keys())}")
     
-    if username in db:
+    try:
+        if not isinstance(db, dict):
+            logger.error(f"[get_user] 無効なデータベース型: {type(db)}")
+            return None
+            
+        if not username:
+            logger.warning("[get_user] ユーザー名が指定されていません")
+            return None
+            
+        if username not in db:
+            logger.warning(f"[get_user] ユーザーが見つかりません: {username}")
+            return None
+            
         user = db[username]
-        logger.debug(f"[get_user] ユーザーが見つかりました: {username}")
+        logger.debug(f"[get_user] ユーザーを取得しました: {username}")
         
         if isinstance(user, dict):
             logger.debug("[get_user] 辞書からUserオブジェクトを作成")
-            return User(**user)
-            
+            try:
+                user_obj = User(**user)
+                logger.debug("[get_user] Userオブジェクトの作成に成功")
+                return user_obj
+            except Exception as e:
+                logger.error(f"[get_user] Userオブジェクトの作成に失敗: {str(e)}")
+                logger.debug(f"[get_user] ユーザーデータ: {user}")
+                return None
+        
         logger.debug("[get_user] 既存のUserオブジェクトを返却")
-        return user  # Userオブジェクトをそのまま返す
-    
-    logger.warning(f"[get_user] ユーザーが見つかりません: {username}")
-    return None
+        return user
+        
+    except Exception as e:
+        logger.error(f"[get_user] ユーザー取得中にエラーが発生: {str(e)}", exc_info=True)
+        return None
 
 def authenticate_user(fake_db, username: str, password: str):
     """ユーザー認証を行う
