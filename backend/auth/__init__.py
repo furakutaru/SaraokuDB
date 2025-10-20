@@ -27,7 +27,7 @@ def get_auth_components():
         'login_for_access_token': login_for_access_token,
     }
 
-from .auth import router as auth_router
+from .auth import auth_router, debug_router, router
 
 __all__ = [
     'get_auth_components',
@@ -36,5 +36,7 @@ __all__ = [
     'fake_users_db',
     'authenticate_user',
     'create_access_token',
-    'auth_router'
+    'auth_router',
+    'debug_router',
+    'router'
 ]

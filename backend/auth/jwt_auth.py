@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 # ロギングの設定
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # 設定の読み込み

@@ -46,7 +46,7 @@ def get_auth_components() -> Dict[str, Any]:
     return auth_components
 
 # 認証ルーターをインポート
-from auth.auth import router as auth_router
+from auth import auth_router, debug_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -58,7 +58,8 @@ app = FastAPI(
 
 # Include routers
 app.include_router(health_router, prefix="/api")
-app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(auth_router, prefix="/api")
+app.include_router(debug_router, prefix="/api")
 app.include_router(horses.router, prefix="/api")
 app.include_router(auction_histories_router, prefix="/api")  # tagsはルーター側で設定済み
 
