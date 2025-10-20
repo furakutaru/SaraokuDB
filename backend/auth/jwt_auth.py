@@ -124,16 +124,43 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         bool: パスワードが一致する場合はTrue、それ以外はFalse
     """
     try:
+        logger.debug("=" * 50)
+        logger.debug("パスワード検証を開始します")
+        logger.debug(f"平文パスワード: {'*' * len(plain_password) if plain_password else 'None'}")
+        logger.debug(f"ハッシュ化パスワード: {hashed_password}")
+        
         if not plain_password or not hashed_password:
-            logger.warning("Password or hash is empty")
+            logger.warning("パスワードまたはハッシュが空です")
+            logger.warning(f"plain_password is None: {plain_password is None}")
+            logger.warning(f"hashed_password is None: {hashed_password is None}")
             return False
             
-        logger.debug(f"Verifying password for user (hash: {hashed_password[:10]}...)")
+        # パスワードのハッシュ化形式を確認
+        if not hashed_password.startswith('$2b$'):
+            logger.error(f"無効なハッシュ形式: {hashed_password[:10]}...")
+            return False
+            
+        logger.debug("パスワードを検証中...")
         is_valid = pwd_context.verify(plain_password, hashed_password)
-        logger.debug(f"Password verification result: {is_valid}")
+        
+        if not is_valid:
+            logger.warning("パスワードが一致しません")
+            # パスワードの長さと先頭数文字をログに出力（セキュリティに配慮）
+            logger.debug(f"入力パスワード長: {len(plain_password)}")
+            logger.debug(f"ハッシュ先頭: {hashed_password[:10]}...")
+            
+            # パスワードの文字コードを確認
+            try:
+                logger.debug(f"パスワードの文字コード: {plain_password.encode('utf-8')}")
+            except Exception as e:
+                logger.error(f"パスワードの文字コード変換エラー: {str(e)}")
+        else:
+            logger.info("パスワードが一致しました")
+            
         return is_valid
+        
     except Exception as e:
-        logger.error(f"Error verifying password: {str(e)}")
+        logger.error(f"パスワード検証中にエラーが発生しました: {str(e)}", exc_info=True)
         return False
 
 def get_password_hash(password: str):
@@ -177,28 +204,42 @@ def authenticate_user(fake_db, username: str, password: str):
     Returns:
         User: 認証に成功した場合はユーザーオブジェクト、失敗した場合はNone
     """
-    logger.debug(f"[authenticate_user] 認証開始: username={username}")
+    logger.debug("=" * 50)
+    logger.debug(f"[authenticate_user] 認証を開始します: username={username}")
     
-    # パスワードの長さを72バイトに制限（UTF-8エンコードを考慮）
-    safe_password = truncate_utf8(password, 72)
-    logger.debug(f"[authenticate_user] パスワードを切り詰め: {len(safe_password)}文字")
-    
-    # ユーザーを取得
-    user = get_user(fake_db, username)
-    if not user:
-        logger.warning(f"[authenticate_user] ユーザーが見つかりません: {username}")
+    try:
+        # パスワードの長さを72バイトに制限（UTF-8エンコードを考慮）
+        safe_password = truncate_utf8(password, 72)
+        logger.debug(f"[authenticate_user] パスワードを切り詰め: {len(safe_password)}文字")
+        
+        # ユーザーを取得
+        logger.debug(f"[authenticate_user] ユーザーを検索中: username={username}")
+        user = get_user(fake_db, username)
+        
+        if not user:
+            logger.warning(f"[authenticate_user] ユーザーが見つかりません: {username}")
+            logger.debug(f"[authenticate_user] 利用可能なユーザー: {list(fake_db.keys())}")
+            return None
+        
+        # ユーザー情報をログに出力（機密情報はマスク）
+        logger.debug(f"[authenticate_user] ユーザー情報を取得: username={user.username}")
+        
+        # パスワード検証
+        logger.debug("[authenticate_user] パスワードを検証中...")
+        is_valid = verify_password(safe_password, user.hashed_password)
+        
+        if not is_valid:
+            logger.warning(f"[authenticate_user] パスワードが一致しません: username={username}")
+            # ハッシュの先頭部分のみをログに出力
+            logger.debug(f"[authenticate_user] 期待されるハッシュ: {user.hashed_password[:10]}...")
+            return None
+        
+        logger.info(f"[authenticate_user] 認証に成功しました: {username}")
+        return user
+        
+    except Exception as e:
+        logger.error(f"[authenticate_user] 認証中にエラーが発生しました: {str(e)}", exc_info=True)
         return None
-    
-    # パスワード検証
-    logger.debug(f"[authenticate_user] パスワードを検証: user.hashed_password={user.hashed_password}")
-    is_valid = verify_password(safe_password, user.hashed_password)
-    
-    if not is_valid:
-        logger.warning(f"[authenticate_user] パスワードが一致しません: username={username}")
-        return None
-    
-    logger.debug(f"[authenticate_user] 認証成功: {username}")
-    return user
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
