@@ -1,10 +1,15 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from passlib.context import CryptContext
 import os
+import logging
+
+# ロギングの設定
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # 設定をインポート
 import sys
@@ -114,27 +119,45 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     # 必要に応じてユーザーのアクティブ状態をチェック
     return current_user
 
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm) -> Dict[str, str]:
+async def login_for_access_token(request: Request, form_data: OAuth2PasswordRequestForm = Depends()) -> Dict[str, str]:
     """
     OAuth2互換のトークンログイン
     """
-    print(f"認証試行: username={form_data.username}")
-    print(f"fake_users_db: {fake_users_db}")
+    logger.debug(f"認証リクエスト受信: {request.method} {request.url}")
+    logger.debug(f"リクエストヘッダー: {dict(request.headers)}")
+    logger.debug(f"認証試行: username={form_data.username}")
+    logger.debug(f"環境変数 USERNAME: {os.getenv('PROD_API_USERNAME')}")
+    logger.debug(f"環境変数 PASSWORD 長さ: {len(os.getenv('PROD_API_PASSWORD', '')) if os.getenv('PROD_API_PASSWORD') else '未設定'}")
     
-    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
-    print(f"認証結果: {user}")
-    
-    if not user:
-        print("認証失敗: ユーザー名またはパスワードが正しくありません")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="ユーザー名またはパスワードが正しくありません",
-            headers={"WWW-Authenticate": "Bearer"},
+    try:
+        logger.debug(f"fake_users_db キー: {list(fake_users_db.keys())}")
+        
+        # ユーザー認証
+        user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+        logger.debug(f"認証結果: {user is not None}")
+        
+        if not user:
+            logger.warning(f"認証失敗: ユーザー名またはパスワードが正しくありません (username: {form_data.username})")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="ユーザー名またはパスワードが正しくありません",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # トークン発行
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.username}, expires_delta=access_token_expires
         )
-    
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
+        logger.info(f"認証成功: {user.username}")
+        
+        return {"access_token": access_token, "token_type": "bearer"}
+        
+    except Exception as e:
+        logger.error(f"認証処理中にエラーが発生しました: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"認証処理中にエラーが発生しました: {str(e)}"
+        )
     
     return {"access_token": access_token, "token_type": "bearer"}
