@@ -6,13 +6,31 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from passlib.context import CryptContext
 import os
 import logging
+import sys
+from pathlib import Path
 
 # ロギングの設定
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 設定をインポート
-from ..config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+try:
+    # 本番環境用
+    from backend.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+    logger.info("Using backend.config for configuration")
+except ImportError:
+    try:
+        # ローカル開発環境用
+        from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+        logger.info("Using local config for configuration")
+    except ImportError as e:
+        logger.error("Failed to import configuration: %s", str(e))
+        # 環境変数から直接取得するフォールバック
+        import os
+        SECRET_KEY = os.getenv("SECRET_KEY")
+        ALGORITHM = os.getenv("ALGORITHM", "HS256")
+        ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+        logger.warning("Using environment variables for configuration")
 
 # パスワードのハッシュ化と検証のためのコンテキスト
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -95,8 +113,28 @@ logger.info(f"ユーザーデータベースに登録されました: {list(fake
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-def verify_password(plain_password: str, hashed_password: str):
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """パスワードを検証する
+    
+    Args:
+        plain_password: 平文のパスワード
+        hashed_password: ハッシュ化されたパスワード
+        
+    Returns:
+        bool: パスワードが一致する場合はTrue、それ以外はFalse
+    """
+    try:
+        if not plain_password or not hashed_password:
+            logger.warning("Password or hash is empty")
+            return False
+            
+        logger.debug(f"Verifying password for user (hash: {hashed_password[:10]}...)")
+        is_valid = pwd_context.verify(plain_password, hashed_password)
+        logger.debug(f"Password verification result: {is_valid}")
+        return is_valid
+    except Exception as e:
+        logger.error(f"Error verifying password: {str(e)}")
+        return False
 
 def get_password_hash(password: str):
     return pwd_context.hash(password)
@@ -197,16 +235,15 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
 async def login_for_access_token(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends()
-) -> Dict[str, str]:
-    """
-    OAuth2互換のトークンログイン
+) -> Dict[str, Any]:
+    """OAuth2互換のトークンログイン
     
     Args:
         request: FastAPIのリクエストオブジェクト
         form_data: ユーザー名とパスワードを含むフォームデータ
         
     Returns:
-        Dict[str, str]: アクセストークンとトークンタイプを含む辞書
+        Dict[str, Any]: アクセストークン、トークンタイプ、有効期限を含む辞書
         
     Raises:
         HTTPException: 認証に失敗した場合
@@ -221,19 +258,19 @@ async def login_for_access_token(
     logger.debug(f"フォームデータ: username={form_data.username}, password={'*' * len(form_data.password) if form_data.password else 'None'}")
     logger.debug(f"環境変数 USERNAME: {os.getenv('PROD_API_USERNAME', 'Not Set')}")
     logger.debug(f"環境変数 PASSWORD 長さ: {len(os.getenv('PROD_API_PASSWORD', '')) if os.getenv('PROD_API_PASSWORD') else 'Not Set'}")
-    logger.debug(f"SECRET_KEY: {os.getenv('SECRET_KEY', 'Not Set')}")
+    logger.debug(f"SECRET_KEY: {'*' * 8}{SECRET_KEY[-4:] if SECRET_KEY else 'None'}")
     logger.debug(f"ALGORITHM: {ALGORITHM}")
     logger.debug(f"ACCESS_TOKEN_EXPIRE_MINUTES: {ACCESS_TOKEN_EXPIRE_MINUTES}")
     logger.debug(f"fake_users_db キー: {list(fake_users_db.keys())}")
-    logger.debug(f"fake_users_db 値: {fake_users_db}")
     
     try:
         # 認証処理
+        logger.info(f"Login attempt for user: {form_data.username}")
         user = authenticate_user(fake_users_db, form_data.username, form_data.password)
         
         if not user:
             error_msg = "認証に失敗しました: ユーザー名またはパスワードが正しくありません"
-            if env_info["is_dev"]:
+            if env_info["is_dev"] or env_info["is_ci"]:
                 error_msg = f"{error_msg} (username: {form_data.username})"
             
             logger.warning(error_msg)
@@ -251,7 +288,15 @@ async def login_for_access_token(
         )
         
         logger.info(f"認証成功: {user.username}")
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {
+            "access_token": access_token, 
+            "token_type": "bearer",
+            "expires_in": int(access_token_expires.total_seconds())
+        }
+        
+    except HTTPException:
+        # 既に処理済みのHTTP例外はそのままスロー
+        raise
         
     except Exception as e:
         error_msg = f"認証処理中にエラーが発生しました: {str(e)}"
