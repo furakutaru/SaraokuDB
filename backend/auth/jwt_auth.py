@@ -50,6 +50,11 @@ def get_env_var(name: str, default: str = None, required: bool = False) -> str:
 username = get_env_var("PROD_API_USERNAME", "dev_user", required=env_info["is_prod"] or env_info["is_ci"])
 password = get_env_var("PROD_API_PASSWORD", "dev_password", required=env_info["is_prod"] or env_info["is_ci"])
 
+# 環境情報をログに出力
+logger.info(f"環境情報: {env_info}")
+logger.info(f"ユーザー名: {username}")
+logger.info(f"パスワード長: {len(password) if password else 0}文字")
+
 # 開発環境でのみ警告を表示
 if env_info["is_dev"] and (not os.getenv("PROD_API_USERNAME") or not os.getenv("PROD_API_PASSWORD")):
     logger.warning("本番環境では必ず PROD_API_USERNAME と PROD_API_PASSWORD を設定してください")
@@ -57,6 +62,7 @@ if env_info["is_dev"] and (not os.getenv("PROD_API_USERNAME") or not os.getenv("
 # パスワードの長さを72バイトに制限
 if password and len(password.encode('utf-8')) > 72:
     password = password[:72]  # 72バイトを超える場合は切り詰める
+    logger.warning(f"パスワードが72バイトを超えたため、切り詰めました: {len(password)}文字")
 
 def truncate_utf8(text: str, max_bytes: int = 72) -> str:
     """UTF-8エンコード時のバイト数を考慮して文字列を切り詰める"""
@@ -70,12 +76,21 @@ def truncate_utf8(text: str, max_bytes: int = 72) -> str:
 # パスワードをUTF-8エンコードして72バイトに制限
 safe_password = truncate_utf8(password, 72)
 hashed_password = pwd_context.hash(safe_password)
+
+# ユーザー情報をログに出力（パスワードのハッシュは一部のみ表示）
+logger.info(f"ユーザー名: {username}")
+logger.info(f"パスワードハッシュ: {hashed_password[:10]}...")
+
+# ユーザーデータベースを初期化
 fake_users_db = {
     username: User(
         username=username,
         hashed_password=hashed_password
     )
 }
+
+# データベースの内容をログに出力
+logger.info(f"ユーザーデータベースに登録されました: {list(fake_users_db.keys())}")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -87,22 +102,64 @@ def get_password_hash(password: str):
     return pwd_context.hash(password)
 
 def get_user(db, username: str):
+    """データベースからユーザーを取得する
+    
+    Args:
+        db: ユーザーデータベース
+        username: 検索するユーザー名
+        
+    Returns:
+        User: 見つかったユーザーオブジェクト、見つからない場合はNone
+    """
+    logger.debug(f"[get_user] ユーザー検索: username={username}")
+    logger.debug(f"[get_user] データベースキー: {list(db.keys())}")
+    
     if username in db:
         user = db[username]
+        logger.debug(f"[get_user] ユーザーが見つかりました: {username}")
+        
         if isinstance(user, dict):
+            logger.debug("[get_user] 辞書からUserオブジェクトを作成")
             return User(**user)
+            
+        logger.debug("[get_user] 既存のUserオブジェクトを返却")
         return user  # Userオブジェクトをそのまま返す
+    
+    logger.warning(f"[get_user] ユーザーが見つかりません: {username}")
     return None
 
 def authenticate_user(fake_db, username: str, password: str):
+    """ユーザー認証を行う
+    
+    Args:
+        fake_db: ユーザーデータベース
+        username: ユーザー名
+        password: パスワード
+        
+    Returns:
+        User: 認証に成功した場合はユーザーオブジェクト、失敗した場合はNone
+    """
+    logger.debug(f"[authenticate_user] 認証開始: username={username}")
+    
     # パスワードの長さを72バイトに制限（UTF-8エンコードを考慮）
     safe_password = truncate_utf8(password, 72)
+    logger.debug(f"[authenticate_user] パスワードを切り詰め: {len(safe_password)}文字")
     
+    # ユーザーを取得
     user = get_user(fake_db, username)
     if not user:
-        return False
-    if not verify_password(safe_password, user.hashed_password):
-        return False
+        logger.warning(f"[authenticate_user] ユーザーが見つかりません: {username}")
+        return None
+    
+    # パスワード検証
+    logger.debug(f"[authenticate_user] パスワードを検証: user.hashed_password={user.hashed_password}")
+    is_valid = verify_password(safe_password, user.hashed_password)
+    
+    if not is_valid:
+        logger.warning(f"[authenticate_user] パスワードが一致しません: username={username}")
+        return None
+    
+    logger.debug(f"[authenticate_user] 認証成功: {username}")
     return user
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -155,9 +212,20 @@ async def login_for_access_token(
         HTTPException: 認証に失敗した場合
     """
     # デバッグ情報のロギング
-    if env_info["is_dev"]:
-        logger.debug(f"認証試行: username={form_data.username}")
-        logger.debug(f"環境: {env_info}")
+    logger.setLevel(logging.DEBUG)  # デバッグログを有効化
+    logger.debug("=" * 50)
+    logger.debug("認証処理を開始します")
+    logger.debug(f"リクエストURL: {request.url}")
+    logger.debug(f"HTTPメソッド: {request.method}")
+    logger.debug(f"リクエストヘッダー: {dict(request.headers)}")
+    logger.debug(f"フォームデータ: username={form_data.username}, password={'*' * len(form_data.password) if form_data.password else 'None'}")
+    logger.debug(f"環境変数 USERNAME: {os.getenv('PROD_API_USERNAME', 'Not Set')}")
+    logger.debug(f"環境変数 PASSWORD 長さ: {len(os.getenv('PROD_API_PASSWORD', '')) if os.getenv('PROD_API_PASSWORD') else 'Not Set'}")
+    logger.debug(f"SECRET_KEY: {os.getenv('SECRET_KEY', 'Not Set')}")
+    logger.debug(f"ALGORITHM: {ALGORITHM}")
+    logger.debug(f"ACCESS_TOKEN_EXPIRE_MINUTES: {ACCESS_TOKEN_EXPIRE_MINUTES}")
+    logger.debug(f"fake_users_db キー: {list(fake_users_db.keys())}")
+    logger.debug(f"fake_users_db 値: {fake_users_db}")
     
     try:
         # 認証処理
