@@ -12,8 +12,12 @@ for path in [str(project_root), str(backend_dir)]:
         sys.path.insert(0, path)
 
 import uvicorn
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
+import logging
+from typing import Dict, Any, List, Optional, Union, Callable
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
@@ -24,8 +28,25 @@ from database.schemas import HorseResponse
 # Import routers
 from routers import horses
 from routers.auction_histories import router as auction_histories_router
-from auth.auth import router as auth_router
 from api.health import router as health_router
+
+# 認証コンポーネントを取得
+auth_components = {}
+
+def get_auth_components() -> Dict[str, Any]:
+    """認証コンポーネントを遅延読み込み
+    
+    Returns:
+        Dict[str, Any]: 認証に必要なコンポーネントの辞書
+    """
+    global auth_components
+    if not auth_components:
+        from auth import get_auth_components as _get_auth_components
+        auth_components = _get_auth_components()
+    return auth_components
+
+# 認証ルーターをインポート
+from auth.auth import router as auth_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -37,9 +58,9 @@ app = FastAPI(
 
 # Include routers
 app.include_router(health_router, prefix="/api")
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(horses.router, prefix="/api")
 app.include_router(auction_histories_router, prefix="/api")  # tagsはルーター側で設定済み
-app.include_router(auth_router, prefix="/api", tags=["auth"])
 
 # CORS settings
 # すべてのオリジンからのリクエストを許可（開発環境用）
@@ -122,6 +143,12 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     print("アプリケーションを終了します")
+    try:
+        # データベース接続を閉じるなどのクリーンアップ処理
+        if 'engine' in globals():
+            engine.dispose()
+    except Exception as e:
+        print(f"シャットダウン中のエラー: {e}")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
