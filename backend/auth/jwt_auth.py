@@ -95,8 +95,8 @@ def get_env_var(name: str, default: str = None, required: bool = False) -> str:
 # ユーザー名は固定
 username = "furakutaru"
 
-# 環境変数からパスワードを取得
-password = os.getenv("PROD_API_PASSWORD")
+# 環境変数からパスワードを取得（前後の空白を削除）
+password = os.getenv("PROD_API_PASSWORD", "").strip()
 
 # パスワードのデバッグ情報をログに出力
 logger.info("=" * 50)
@@ -104,6 +104,16 @@ logger.info("認証情報の設定:")
 logger.info(f"ユーザー名: {username}")
 logger.info(f"PROD_API_PASSWORD の長さ: {len(password) if password else 0}")
 logger.info(f"環境変数一覧: {', '.join([k for k in os.environ if 'PASS' in k or 'SECRET' in k or 'TOKEN' in k])}")
+
+# 環境変数のデバッグ情報を追加
+logger.debug("=" * 50)
+logger.debug("環境変数一覧 (デバッグ):")
+for key, value in os.environ.items():
+    if 'PASS' in key or 'SECRET' in key or 'TOKEN' in key:
+        logger.debug(f"{key} = {'*' * 8}{value[-4:] if value else ''}")
+    else:
+        logger.debug(f"{key} = {value}")
+logger.debug("=" * 50)
 
 if not password:
     error_msg = "認証エラー: PROD_API_PASSWORD が設定されていません"
@@ -176,6 +186,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         logger.debug(f"平文パスワード: {'*' * len(plain_password) if plain_password else 'None'}")
         logger.debug(f"ハッシュ化パスワード: {hashed_password[:10]}...")
         
+        # 平文パスワードの前後の空白を削除
+        if plain_password:
+            plain_password = plain_password.strip()
+            logger.debug(f"トリム後の平文パスワード: {'*' * len(plain_password)}")
+        
         if not plain_password or not hashed_password:
             logger.warning("パスワードまたはハッシュが空です")
             logger.warning(f"plain_password is None: {plain_password is None}")
@@ -216,7 +231,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
 
 def get_password_hash(password: str):
-    return pwd_context.hash(password)
+    # 固定のsaltを使用してハッシュ化を安定化
+    return pwd_context.hash(password, salt=b'fixed_salt_for_github_actions_123')
 
 def get_user(db, username: str):
     """データベースからユーザーを取得する
