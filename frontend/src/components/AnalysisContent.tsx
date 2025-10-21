@@ -73,21 +73,8 @@ const formatSoldPrice = (price: number | string | null | undefined | any[], isUn
 // 賞金をフォーマットするヘルパー関数（formatCurrencyのエイリアス）
 const formatPrize = formatCurrency;
 
-// 性別をフォーマットするヘルパー関数
-const formatSex = (sex: string | undefined) => {
-  if (!sex) return { text: '-', icon: '❓', color: 'bg-gray-400' };
-  
-  switch(sex.toLowerCase()) {
-    case '牡':
-      return { text: '牡', icon: '♂', color: 'bg-blue-500' };
-    case '牝':
-      return { text: '牝', icon: '♀', color: 'bg-pink-500' };
-    case 'セ':
-      return { text: 'セ', icon: '⚥', color: 'bg-purple-500' };
-    default:
-      return { text: sex, icon: '❓', color: 'bg-gray-400' };
-  }
-};
+// normalize.ts から formatSex と getSexColor をインポート
+import { formatSex, getSexColor } from '@/utils/normalize';
 
 // 通貨フォーマットのエイリアス
 const formatPrice = formatCurrency;
@@ -549,14 +536,9 @@ export default function AnalysisContent() {
                     <Link href={`/horses/${horse.id}`} className="hover:underline text-blue-700 whitespace-nowrap">{horse.name}</Link>
                   </td>
                   <td className="px-3 py-2">
-                    {(() => {
-                      const sexInfo = formatSex(horse.sex);
-                      return (
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${sexInfo.color}`}>
-                          {sexInfo.icon} {sexInfo.text}
-                        </span>
-                      );
-                    })()}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getSexColor(horse.sex)}`}>
+                      {formatSex(horse.sex)}
+                    </span>
                   </td>
                   <td className="px-3 py-2">{displayAge(horse.age)}</td>
                   <td className="px-3 py-2">{horse.sire || '-'}</td>

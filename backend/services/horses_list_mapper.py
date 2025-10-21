@@ -66,32 +66,24 @@ def map_horses_list(horses: List[Any]) -> Tuple[List[Dict[str, Any]], List[Dict[
             # オークション履歴がない場合は、Horseテーブルのsold_priceを使用
             sold_price = horse_dict.get('sold_price')
             logger.info(f"Raw sold_price from DB: {sold_price} (type: {type(sold_price)})")
+        
+        # 性別の処理（記号をそのまま保持）
+        if 'sex' in horse_dict and horse_dict['sex']:
+            sex = str(horse_dict['sex']).strip()
+            # 前後の空白と制御文字を削除
+            sex = ''.join(c for c in sex if c not in ' \t\n\r\f\v')
+            horse_dict['sex'] = sex
+        
+        # raw_sold_price に元の値を保持
+        if sold_price is not None:
+            horse_dict['raw_sold_price'] = sold_price
             
-            # 文字列の配列表現（例: '[270000]'）を処理
-            if isinstance(sold_price, str) and sold_price.startswith('[') and sold_price.endswith(']'):
-                try:
-                    # 文字列をリストに変換
-                    price_list = eval(sold_price)
-                    if isinstance(price_list, list) and len(price_list) > 0:
-                        logger.info(f"Converted string array to list: {price_list}")
-                        sold_price = price_list[0]
-                        # raw_sold_price にも元の値を保持
-                        horse_dict['raw_sold_price'] = sold_price
-                except Exception as e:
-                    logger.error(f"Error parsing sold_price string: {e}")
-            # 通常の配列の場合
-            elif isinstance(sold_price, list) and len(sold_price) > 0:
-                logger.info(f"sold_price is a list, using first element: {sold_price[0]}")
-                sold_price = sold_price[0]
-                # raw_sold_price にも元の値を保持
-                horse_dict['raw_sold_price'] = sold_price
-            # 数値の場合も raw_sold_price に設定
-            elif sold_price is not None:
-                horse_dict['raw_sold_price'] = sold_price
-            is_unsold = (horse_dict.get('unsold_count') or 0) > 0
+        # 未落札フラグを設定
+        is_unsold = (horse_dict.get('unsold_count') or 0) > 0
+        if not latest_auction:
             logger.warning(f"No auction history found for horse ID: {horse.id}. Using sold_price from Horse table: {sold_price} (type: {type(sold_price)}), is_unsold: {is_unsold}")
             
-            # デバッグ用: オークションテーブルの存在確認
+        # デバッグ用: オークションテーブルの存在確認
             from sqlalchemy import inspect, text
             inspector = inspect(db.get_bind())
             tables = inspector.get_table_names()

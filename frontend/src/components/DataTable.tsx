@@ -9,6 +9,7 @@ import RoiBadge from './common/RoiBadge';
 import HorseLink from './common/HorseLink';
 import ExternalLink from './common/ExternalLink';
 import DiseaseTags from './common/DiseaseTags';
+import { formatSex, getSexColor } from '../utils/normalize';
 
 export type DisplayHorse = Horse & { [key: string]: any };
 
@@ -50,7 +51,11 @@ export default function DataTable({ horses, sortKey, sortOrder, onSort, renderSo
               <td className="px-3 py-2 font-medium text-gray-900">
                 <HorseLink id={horse.id} name={horse.name} />
               </td>
-              <td className="px-3 py-2">{horse.sex}</td>
+              <td className="px-3 py-2">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSexColor(horse.sex)} text-white`}>
+                  {formatSex(horse.sex)}
+                </span>
+              </td>
               <td className="px-3 py-2">{displayAge(horse.age)}</td>
               <td className="px-3 py-2">{horse.sire}</td>
               <td className="px-3 py-2 text-right">

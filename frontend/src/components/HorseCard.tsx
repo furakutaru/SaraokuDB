@@ -1,6 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Horse, AuctionHistory } from '@/types/horse';
+import { formatSex, getSexColor } from '@/utils/normalize';
 
 // 血統情報から指定された種類の馬名を抽出する関数
 const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsire'): string => {
@@ -134,7 +135,9 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
             <span className="font-semibold">{horse.name}</span>
             <span className="ml-2 text-gray-500">{horse.age}歳</span>
             <span className="ml-2">
-              <Badge variant="outline">{horse.sex}</Badge>
+              <Badge variant="outline" className={getSexColor(horse.sex)}>
+                {formatSex(horse.sex)}
+              </Badge>
             </span>
           </h3>
           <p className="text-sm font-medium text-gray-900">
