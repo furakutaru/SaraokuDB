@@ -1513,6 +1513,7 @@ class ImprovedRakutenScraper:
                 try:
                     # 馬情報を抽出
                     horse_info = self._process_horse_info(card, i, total_horses)
+                    
                     if horse_info:
                         horses.append(horse_info)
                         success_count += 1

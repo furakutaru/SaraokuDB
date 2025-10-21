@@ -281,18 +281,46 @@ jobs:
           ATTEMPT=1
           SUCCESS=false
           
+          # スクリプトのディレクトリに移動
+          SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+          SCRIPT_NAME="$(basename "$SCRIPT_PATH")"
+          
+          # 出力ディレクトリを絶対パスで設定
+          OUTPUT_DIR="$GITHUB_WORKSPACE/static-frontend/public/data"
+          mkdir -p "$OUTPUT_DIR"
+          
           while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
             echo "::notice:: スクレイピングを試行中 (試行 $ATTEMPT/$MAX_ATTEMPTS)"
             
             # スクリプトを実行（タイムアウト: 30分）
-            cd "$(dirname "$SCRIPT_PATH")"
-            timeout 1800 python -u "$(basename "$SCRIPT_PATH")" 2>&1 | tee -a "../../$LOG_FILE"
+            cd "$SCRIPT_DIR"
+            
+            # 現在のディレクトリとファイルを確認
+            echo "::group::📂 現在のディレクトリとファイル"
+            pwd
+            ls -la
+            echo "::endgroup::"
+            
+            # スクリプトを実行
+            echo "::notice::スクリプトを実行します: $SCRIPT_NAME"
+            timeout 1800 python -u "$SCRIPT_NAME" --output-dir "$OUTPUT_DIR" 2>&1 | tee -a "$GITHUB_WORKSPACE/$LOG_FILE"
             EXIT_CODE=${PIPESTATUS[0]}
             
             if [ $EXIT_CODE -eq 0 ]; then
-              SUCCESS=true
-              echo "::notice::✅ スクレイピングが正常に完了しました"
-              break
+              # 出力ファイルを確認
+              OUTPUT_FILE="$OUTPUT_DIR/horses.json"
+              if [ -f "$OUTPUT_FILE" ]; then
+                FILESIZE=$(wc -c <"$OUTPUT_FILE")
+                if [ "$FILESIZE" -gt 100 ]; then
+                  SUCCESS=true
+                  echo "::notice::✅ スクレイピングが正常に完了しました (出力ファイル: $OUTPUT_FILE, サイズ: ${FILESIZE}バイト)"
+                  break
+                else
+                  echo "::warning::⚠️ 出力ファイルのサイズが小さすぎます (${FILESIZE}バイト)"
+                fi
+              else
+                echo "::warning::⚠️ 出力ファイルが見つかりません: $OUTPUT_FILE"
+              fi
             elif [ $EXIT_CODE -eq 124 ]; then
               echo "::warning::⚠️ スクレイピングがタイムアウトしました (30分経過)"
             else
@@ -310,14 +338,22 @@ jobs:
           
           if [ "$SUCCESS" = false ]; then
             echo "::error::❌ スクレイピングが $MAX_ATTEMPTS 回失敗しました。処理を中止します。"
+            
+            # エラー時のデバッグ情報を出力
+            echo "::group::🐛 デバッグ情報"
+            echo "現在のディレクトリ: $(pwd)"
+            echo "スクリプトの場所: $SCRIPT_DIR/$SCRIPT_NAME"
+            echo "出力ディレクトリ: $OUTPUT_DIR"
+            echo "ディレクトリの内容:"
+            ls -la "$OUTPUT_DIR"
+            
+            # ログの最後の100行を表示
+            echo "\nログの最後の100行:"
+            tail -n 100 "$GITHUB_WORKSPACE/$LOG_FILE" || echo "ログファイルが見つかりません"
+            echo "::endgroup::"
+            
             exit 1
-          fi
-          
-          # 出力ファイルの確認
-          if [ ! -f "output.json" ]; then
-            echo "::error::❌ 出力ファイルが生成されていません"
-            exit 1
-          fi
+          fifi
           
           # データのバリデーション
           echo "::group::🔍 データを検証しています..."
