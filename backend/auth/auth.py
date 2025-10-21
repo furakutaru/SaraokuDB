@@ -33,7 +33,7 @@ class TokenData(BaseModel):
 @auth_router.post("/token", response_model=Token)
 async def login_for_token(
     request: Request,
-    form_data: OAuth2PasswordRequestForm = Depends()
+    form_data: OAuth2PasswordRequestForm = Depends(),
 ):
     """
     認証トークンを発行するエンドポイント
@@ -44,8 +44,24 @@ async def login_for_token(
         
     Returns:
         Token: アクセストークンとトークンタイプ
+        
+    Raises:
+        HTTPException: 認証に失敗した場合
     """
-    return await login_for_access_token(request, form_data)
+    try:
+        # 認証を実行
+        result = await login_for_access_token(form_data)
+        return result
+    except HTTPException as e:
+        # 認証エラーの場合はそのままスロー
+        raise
+    except Exception as e:
+        # その他のエラーは500エラーとして返す
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"認証処理中にエラーが発生しました: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 # テスト用のエンドポイント（認証が必要）
 @auth_router.get("/users/me/")
