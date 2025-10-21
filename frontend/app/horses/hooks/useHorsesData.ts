@@ -21,24 +21,28 @@ export const useHorsesData = (): HorsesData => {
       
       // 馬の一覧を取得
       const response = await fetchHorsesList();
-      let horsesData: HorseData;
+      let horses: Horse[] = [];
       
       if (typeof response === 'string') {
-        horsesData = { horses: [] };
+        // エラーメッセージの場合は空の配列を設定
+        horses = [];
       } else if ('data' in response) {
-        horsesData = response.data as HorseData;
+        // dataプロパティがある場合は、その中からhorsesを取得
+        const data = response.data as Partial<HorseData>;
+        horses = data.horses || [];
       } else {
-        horsesData = response as unknown as HorseData;
+        // 直接Horseの配列が返ってきた場合
+        horses = Array.isArray(response) ? response : [];
       }
       
       // 各馬のオークション履歴を取得
       const horsesWithHistory = await Promise.all(
-        (horsesData.horses || []).map(async (horse: Horse) => {
+        horses.map(async (horse: Horse) => {
           if (!horse.id) return horse;
           
           try {
             // 馬のデータからオークション履歴を取得
-            const auctionHistories = getAuctionHistories({ horses: [horse] }) || [];
+            const auctionHistories = horse.auction_histories || [];
             
             return {
               ...horse,
@@ -68,9 +72,9 @@ export const useHorsesData = (): HorsesData => {
   }, [fetchData]);
 
   return {
-    horses,
+    horses: horses || [],
     loading,
     error,
     refreshData: fetchData,
-  };
+  } as const;
 };
