@@ -303,7 +303,16 @@ jobs:
             
             # スクリプトを実行
             echo "::notice::スクリプトを実行します: $SCRIPT_NAME"
-            timeout 1800 python -u "$SCRIPT_NAME" --output-dir "$OUTPUT_DIR" 2>&1 | tee -a "$GITHUB_WORKSPACE/$LOG_FILE"
+            echo "::notice::出力ディレクトリ: $OUTPUT_DIR"
+            
+            # 出力ディレクトリの確認
+            echo "::group::📂 出力ディレクトリの確認"
+            ls -la "$OUTPUT_DIR" || echo "出力ディレクトリが存在しません"
+            echo "::endgroup::"
+            
+            # スクリプトを実行（絶対パスで指定）
+            cd "$SCRIPT_DIR"
+            python -u "$SCRIPT_NAME" --output-dir "$OUTPUT_DIR" 2>&1 | tee -a "$GITHUB_WORKSPACE/$LOG_FILE"
             EXIT_CODE=${PIPESTATUS[0]}
             
             if [ $EXIT_CODE -eq 0 ]; then
@@ -353,7 +362,7 @@ jobs:
             echo "::endgroup::"
             
             exit 1
-          fifi
+          fi
           
           # データのバリデーション
           echo "::group::🔍 データを検証しています..."

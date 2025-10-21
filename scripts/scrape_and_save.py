@@ -246,6 +246,14 @@ class ScraperClient:
             return False
 
 def main():
+    import argparse
+    
+    # コマンドライン引数の解析
+    parser = argparse.ArgumentParser(description='楽天競馬オークションのスクレイピングを実行します')
+    parser.add_argument('--output-dir', type=str, default=None,
+                      help='出力ディレクトリのパス')
+    args = parser.parse_args()
+    
     # クライアントの初期化
     client = ScraperClient()
     
@@ -262,7 +270,10 @@ def main():
     scraper = ImprovedRakutenScraper(config)
     
     # 出力ディレクトリのパス
-    output_dir = Path(__file__).parent.parent / 'static-frontend' / 'public' / 'data'
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+    else:
+        output_dir = Path(__file__).parent.parent / 'static-frontend' / 'public' / 'data'
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / 'horses.json'
     
