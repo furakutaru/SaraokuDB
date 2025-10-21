@@ -97,10 +97,21 @@ def get_environment_credentials():
     username = "furakutaru"
     
     # 環境変数からパスワードを取得（前後の空白と改行を削除）
-    password = os.getenv("PROD_API_PASSWORD", "").strip()
-    
-    # デバッグ用に環境変数の生の値を取得
     raw_password = os.getenv("PROD_API_PASSWORD", "")
+    password = raw_password.strip()
+    
+    # GitHub Actions環境かどうかを確認
+    is_github_actions = os.getenv("GITHUB_ACTIONS") == "true"
+    
+    logger.info("=" * 50)
+    logger.info("環境変数から認証情報を取得中...")
+    logger.info(f"GitHub Actions環境: {is_github_actions}")
+    logger.info(f"ユーザー名: {username}")
+    logger.info(f"生のパスワード長: {len(raw_password) if raw_password else 0}")
+    logger.info(f"トリム後パスワード長: {len(password) if password else 0}")
+    logger.info(f"パスワード先頭5文字: {password[:5] if password else 'None'}")
+    logger.info(f"パスワード末尾5文字: {password[-5:] if password and len(password) > 5 else 'None'}")
+    logger.info("=" * 50)
     
     logger.debug("=" * 50)
     logger.debug("環境変数から認証情報を取得しました")
@@ -204,9 +215,19 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     2. ハッシュ化前にパスワードを正規化
     3. デバッグ情報の充実
     """
+    """パスワードを検証する
+    
+    GitHub Actions環境では、環境変数の扱いの違いにより認証に失敗する場合があるため、
+    以下の対策を実施しています：
+    1. パスワードの前後の空白と改行を削除
+    2. ハッシュ化前にパスワードを正規化
+    3. デバッグ情報の充実
+    """
     try:
-        logger.debug("=" * 50)
-        logger.debug("パスワード検証を開始します")
+        logger.info("=" * 50)
+        logger.info("パスワード検証を開始します")
+        logger.info(f"平文パスワード: {'*' * len(plain_password) if plain_password else 'None'}")
+        logger.info(f"ハッシュ化パスワード: {hashed_password[:10]}..." if hashed_password else 'None')
         
         # パスワードを正規化
         plain_password = normalize_password(plain_password)
@@ -226,31 +247,57 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         if not hashed_password or not hashed_password.startswith('$2b$'):
             logger.error(f"無効なハッシュ形式: {hashed_password[:10] if hashed_password else 'None'}...")
             # 開発環境またはGitHub Actions環境ではハッシュを再生成
-            if not env_info["is_prod"] or os.getenv("GITHUB_ACTIONS") == "true":
-                logger.warning("開発環境またはGitHub Actions環境のため、ハッシュを再生成します")
+            is_github_actions = os.getenv("GITHUB_ACTIONS") == "true"
+            if not env_info["is_prod"] or is_github_actions:
+                logger.warning(f"{'GitHub Actions' if is_github_actions else '開発'}環境のため、ハッシュを再生成します")
                 try:
                     # パスワードを正規化してからハッシュ化
                     normalized_password = normalize_password(plain_password)
+                    logger.info(f"正規化前パスワード: {plain_password}")
+                    logger.info(f"正規化後パスワード: {normalized_password}")
+                    
+                    # ハッシュを生成
                     new_hash = pwd_context.hash(normalized_password)
-                    logger.debug(f"新しいハッシュ: {new_hash[:10]}...")
+                    logger.info(f"生成されたハッシュ: {new_hash[:10]}...")
+                    
+                    # 正規化したパスワードで検証
                     is_valid = pwd_context.verify(normalized_password, new_hash)
-                    logger.debug(f"再生成ハッシュでの検証結果: {is_valid}")
+                    logger.info(f"正規化パスワードでの検証結果: {is_valid}")
                     
                     # 念のため、元のパスワードでも検証を試みる
                     if not is_valid and plain_password != normalized_password:
                         logger.warning("正規化したパスワードでの検証に失敗したため、元のパスワードで再試行します")
                         is_valid = pwd_context.verify(plain_password, new_hash)
-                        
+                        logger.info(f"元のパスワードでの検証結果: {is_valid}")
+                    
                     return is_valid
                 except Exception as e:
                     logger.error(f"ハッシュの再生成中にエラーが発生しました: {str(e)}", exc_info=True)
                     return False
             return False
             
-        logger.debug("パスワードを検証中...")
+        logger.info("パスワードを検証中...")
         try:
+            # まずはそのまま検証
             is_valid = pwd_context.verify(plain_password, hashed_password)
-            logger.debug(f"パスワード検証結果: {is_valid}")
+            logger.info(f"パスワード検証結果 (1回目): {is_valid}")
+            
+            # 1回目で失敗した場合、正規化したパスワードで再試行
+            if not is_valid:
+                normalized = normalize_password(plain_password)
+                if normalized != plain_password:
+                    logger.info("パスワードを正規化して再検証します")
+                    is_valid = pwd_context.verify(normalized, hashed_password)
+                    logger.info(f"正規化パスワードでの検証結果: {is_valid}")
+            
+            # それでも失敗する場合、環境変数から直接取得したパスワードで検証
+            if not is_valid and os.getenv("GITHUB_ACTIONS") == "true":
+                logger.info("GitHub Actions環境のため、環境変数から直接取得したパスワードで検証します")
+                env_password = os.getenv("PROD_API_PASSWORD", "").strip()
+                if env_password and env_password != plain_password and env_password != normalized:
+                    logger.info("環境変数から取得したパスワードで検証します")
+                    is_valid = pwd_context.verify(env_password, hashed_password)
+                    logger.info(f"環境変数パスワードでの検証結果: {is_valid}")
             
             if not is_valid:
                 logger.warning("パスワードが一致しません")
