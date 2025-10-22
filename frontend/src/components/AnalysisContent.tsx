@@ -39,10 +39,10 @@ const formatSoldPrice = (price: number | string | null | undefined | any[], isUn
     price = price.length > 0 ? price[0] : null;
   }
 
-  // 価格がnullまたはundefinedまたは空文字または0の場合はハイフンを表示
+  // 価格がnullまたはundefinedまたは空文字または0の場合は「主取り」を表示
   if (price === null || price === undefined || price === '' || price === 0) {
-    console.log('Price is null/undefined/empty/0, returning "-"');
-    return '-';
+    console.log('Price is null/undefined/empty/0, returning "主取り"');
+    return '主取り';
   }
 
   try {
