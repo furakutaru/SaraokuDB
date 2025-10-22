@@ -4,6 +4,13 @@ import { Horse, AuctionHistory } from '@/types/horse';
 import { formatSex, getSexColor } from '@/utils/normalize';
 import { formatPrizeMan } from '@/utils/format';
 
+// HorseWithAuction 型を拡張
+interface HorseWithAuction extends Horse {
+  latest_auction?: AuctionHistory | null;
+  disease_tags?: string[];
+  race_record?: string | null;
+}
+
 // 血統情報から指定された種類の馬名を抽出する関数
 const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsire'): string => {
   if (!text) return '';
@@ -41,7 +48,7 @@ const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsi
 };
 
 interface HorseCardProps {
-  horse: Horse;
+  horse: HorseWithAuction;
   auctionHistory?: AuctionHistory[];
   onClick: () => void;
 }
@@ -106,10 +113,10 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
   const price = latestAuctionInfo?.sold_price ?? horse.sold_price ?? null;
   const isUnsold = latestAuctionInfo?.is_unsold ?? horse.is_unsold ?? false;
   
-  // 血統情報を抽出（直接のプロパティがあればそれを使用、なければ空文字）
+  // 血統情報を抽出（直接のプロパティを使用）
   const sire = horse.sire || '';
   const dam = horse.dam || '';
-  const damsire = horse.damsire || horse.dam_sire || '';
+  const damsire = horse.damsire || '';
 
   // 病気タグの有無をチェック
   const hasDiseaseTags = Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0;
@@ -173,14 +180,12 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
         
         {/* 3行目: 疾病情報 */}
         {hasDiseaseTags && (
-          <div className="pt-1">
-            <div className="flex flex-wrap gap-1">
-              {(horse.disease_tags as string[]).map((tag: string, index: number) => (
-                <Badge key={index} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
+          <div className="flex flex-wrap gap-1 mt-2">
+            {horse.disease_tags?.map((tag, index) => (
+              <Badge key={index} variant="secondary" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
           </div>
         )}
       </div>

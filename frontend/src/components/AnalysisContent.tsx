@@ -125,12 +125,10 @@ import { Horse, AuctionHistory, HorseWithCalculations } from '@/types/horse';
 
 // フロントエンドで使用する馬の型（Horse型を拡張）
 interface HorseWithAuction extends Horse {
-  // フロントエンドで使用する追加プロパティ
   dam_sire: string; // damsireのエイリアス
   detail_url: string; // auction_urlのエイリアス
   comment?: string; // コメント
-  weight?: number | null; // 体重
-  disease_tags?: string[]; // 疾患タグ
+  // Horse インターフェースに weight と disease_tags を追加したので、ここでは不要
   // オークション情報（将来的な機能拡張用）
   latestAuction?: AuctionHistory;
   total_prize_start?: number;
@@ -660,7 +658,7 @@ export default function AnalysisContent() {
                       };
                       
                       // 病歴が「なし」の場合は青で表示、それ以外はピンクで「あり」と表示
-                      return isNoDisease(horse.disease_tags) ? (
+                      return isNoDisease((horse as Horse & { disease_tags?: any[] }).disease_tags) ? (
                         <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full whitespace-nowrap inline-block w-12">
                           なし
                         </span>
