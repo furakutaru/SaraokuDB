@@ -720,7 +720,7 @@ const RaceRecordDisplay = ({ record, raceRecords }: { record: any, raceRecords?:
       if (typeof record === 'string') {
         // 空のオブジェクトを表す文字列の場合
         if (record === '{}' || record === '[]') {
-          return <span className="font-medium">データなし</span>;
+          return <span className="font-medium">未出走</span>;
         }
         // JSON文字列の可能性がある場合
         if ((record.startsWith('{') && record.endsWith('}')) || 
@@ -737,9 +737,9 @@ const RaceRecordDisplay = ({ record, raceRecords }: { record: any, raceRecords?:
       
       // オブジェクトの場合
       if (typeof record === 'object') {
-        // 空のオブジェクトの場合は「データなし」を表示
+        // 空のオブジェクトの場合は「未出走」を表示
         if (Object.keys(record).length === 0) {
-          return <span className="font-medium">データなし</span>;
+          return <span className="font-medium">未出走</span>;
         }
         // total_races と wins が存在する場合は新しい形式で表示
         if (record.total_races !== undefined && record.wins !== undefined) {
