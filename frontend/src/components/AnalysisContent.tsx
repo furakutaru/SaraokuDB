@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { CustomButton } from '@/components/ui/CustomButton';
 import Link from 'next/link';
 
 // 通貨をフォーマットするヘルパー関数
@@ -521,9 +522,24 @@ export default function AnalysisContent() {
         </div>
         {/* 指標ボタン（白文字色付き） */}
         <div className="flex gap-4 mb-6">
-          <Button onClick={() => setShowType('all')} variant="default" className={showType==='all'?"bg-blue-600 text-white":"bg-blue-400 text-white"}>全馬</Button>
-          <Button onClick={() => setShowType('roi')} variant="default" className={showType==='roi'?"bg-green-600 text-white":"bg-green-400 text-white"}>ROIランキング</Button>
-          <Button onClick={() => setShowType('value')} variant="default" className={showType==='value'?"bg-orange-600 text-white":"bg-orange-400 text-white"}>妙味馬</Button>
+          <Button 
+            onClick={() => setShowType('all')} 
+            className={`${showType==='all' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 hover:bg-blue-500'} text-white hover:text-white`}
+          >
+            全馬
+          </Button>
+          <Button 
+            onClick={() => setShowType('roi')} 
+            className={`${showType==='roi' ? 'bg-green-600 hover:bg-green-700' : 'bg-green-400 hover:bg-green-500'} text-white hover:text-white`}
+          >
+            ROIランキング
+          </Button>
+          <CustomButton 
+            onClick={() => setShowType('value')}
+            active={showType === 'value'}
+          >
+            妙味馬
+          </CustomButton>
         </div>
         {/* DataTable風の表 */}
         <div className="overflow-x-auto bg-white rounded-lg shadow w-full">
