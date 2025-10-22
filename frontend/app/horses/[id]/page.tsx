@@ -14,7 +14,8 @@ import {
   calculateGrowthRate, 
   toArray, 
   formatDate,
-  formatPrizeMan 
+  formatPrizeMan,
+  formatCurrency
 } from '../../../src/utils/format';
 import { AuctionHistory } from '../../../src/types/horse';
 import { HorseWithCalculations } from '../../../src/types/horse';
@@ -1433,7 +1434,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                             />
                           </td>
                           <td className="px-2 py-1 border text-right">{
-                            h.unsold ? '主取り' : (h.sold_price ? formatPrizeMan(h.sold_price) : '-')
+                            h.unsold ? '主取り' : (h.sold_price ? formatCurrency(h.sold_price) : '-')
                           }</td>
                           <td className="px-2 py-1 border text-right">{formatPrizeMan(h.total_prize_start)}</td>
                         </tr>
@@ -1486,18 +1487,26 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                     <div className="text-center text-blue-600 font-bold">主取り{horse.unsold_count}回</div>
                   )}
                   
-                  {/* 落札時の賞金 */}
+                  {/* 落札価格 */}
                   <div className="text-center">
-                    <div className="text-sm text-gray-600 mb-1">落札時の賞金</div>
+                    <div className="text-sm text-gray-600 mb-1">落札価格</div>
                     <div className="text-red-600 text-3xl font-extrabold">
                       {(() => {
-                        const prize = latestHistory?.total_prize_start;
-                        console.log('total_prize_start:', {
-                          value: prize,
-                          type: typeof prize,
-                          formatted: formatPrizeFromYen(prize)
-                        });
-                        return formatPrizeFromYen(prize);
+                        const price = latestHistory?.sold_price;
+                        const isUnsold = latestHistory?.unsold || false;
+                        
+                        // 未落札の場合は「主取り」を表示
+                        if (isUnsold) {
+                          return '主取り';
+                        }
+                        
+                        // 価格が無効な場合はハイフンを表示
+                        if (price === null || price === undefined || price === 0) {
+                          return '-';
+                        }
+                        
+                        // 価格をフォーマット（通貨形式で表示）
+                        return formatCurrency(price);
                       })()}
                     </div>
                   </div>

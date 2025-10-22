@@ -155,10 +155,21 @@ export function formatPrizeFromYen(val: number | string | string[] | { total_pri
   return `${(num / 10000).toFixed(1)}万円`;
 }
 
-/**
- * 戦績をフォーマットする
- * 例: "6\u62260\u52dd[0-0-0-6]" → "6戦0勝 [0-0-0-6]"
- */
+// 通貨をフォーマットする（例: 1820000 → "¥1,820,000"）
+export function formatCurrency(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '-';
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(numValue) || numValue <= 0) return '-';
+  
+  return new Intl.NumberFormat('ja-JP', {
+    style: 'currency',
+    currency: 'JPY',
+    maximumFractionDigits: 0
+  }).format(numValue);
+}
+
+// 戦績をフォーマットする
+// 例: "6\u62260\u52dd[0-0-0-6]" → "6戦0勝 [0-0-0-6]"
 export function formatRaceRecord(record: string | null | undefined): string {
   if (!record) return '未出走';
   
