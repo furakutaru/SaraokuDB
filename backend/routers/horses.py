@@ -169,6 +169,7 @@ async def get_horses(
             for i, horse in enumerate(horses, 1):
                 print(f"{i:3d}. ID: {horse.id}, 馬名: {horse.name}, オークション日: {horse.auction_date}")
             
+            # map_horses_listは (horses_data, auction_histories) のタプルを返す
             horses_data, auction_histories = map_horses_list(horses)
             
             print(f"\n=== フロントエンド用データ変換後 ===")

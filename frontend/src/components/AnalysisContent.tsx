@@ -122,12 +122,14 @@ interface HorseWithAuction extends Horse {
 
 interface HorseData {
   horses: Horse[];
-  auction_history: AuctionHistory[];
+  auction_histories: AuctionHistory[];
   metadata: {
-    total_horses: number;
-    total_auctions: number;
-    average_price: number;
-    last_updated: string;
+    total: number;
+    count: number;
+    total_auctions?: number;
+    average_price?: number;
+    last_updated?: string;
+    total_horses?: number; // 後方互換性のため
   };
 }
 
@@ -144,9 +146,24 @@ const groupAuctionHistory = (auctionHistory: AuctionHistory[]): Record<string, A
 };
 
 export default function AnalysisContent() {
-  const [data, setData] = useState<HorseData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [horses, setHorses] = useState<Horse[]>([]);
+  const [auctionHistory, setAuctionHistory] = useState<AuctionHistory[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [metadata, setMetadata] = useState<{
+    total: number;
+    count: number;
+    total_auctions?: number;
+    average_price?: number;
+    last_updated?: string;
+    total_horses?: number; // 後方互換性のため
+  }>({
+    total: 0,
+    count: 0,
+    total_auctions: 0,
+    average_price: 0,
+    last_updated: new Date().toISOString(),
+  });
   const [showType, setShowType] = useState<'all' | 'roi' | 'value'>('all');
   const [sortKey, setSortKey] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -156,49 +173,56 @@ export default function AnalysisContent() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError(null);
         
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8001';
         
-        // 両方のAPIを並行して呼び出し
-        const [horsesResponse, auctionHistoryResponse] = await Promise.all([
-          fetch(`${apiBaseUrl}/api/horses`, { cache: 'no-store' }),
-          fetch(`${apiBaseUrl}/api/auction_histories`, { cache: 'no-store' })
-        ]);
+        // 1回のAPI呼び出しでデータを取得
+        const response = await fetch(`${apiBaseUrl}/api/horses`, { 
+          cache: 'no-store' 
+        });
 
-        if (!horsesResponse.ok || !auctionHistoryResponse.ok) {
+        if (!response.ok) {
           throw new Error('データの取得に失敗しました');
         }
 
         // レスポンスをJSONとしてパース
-        const horsesResponseData = await horsesResponse.json();
-        const auctionHistoryResponseData = await auctionHistoryResponse.json();
-
+        const responseData = await response.json();
+        
         // データの正規化
-        let horsesData = Array.isArray(horsesResponseData.horses) ? horsesResponseData.horses : [];
-        let auctionHistory = Array.isArray(auctionHistoryResponseData.auction_histories) 
-          ? auctionHistoryResponseData.auction_histories 
+        let horsesData = Array.isArray(responseData.horses) ? responseData.horses : [];
+        let auctionHistories = Array.isArray(responseData.auction_histories) 
+          ? responseData.auction_histories 
           : [];
         
         // メタデータを準備
-        const metadata = {
-          total_horses: horsesData.length,
-          total_auctions: auctionHistory.length,
-          average_price: auctionHistory.length > 0 
-            ? auctionHistory.reduce((sum: number, h: any) => sum + (h.sold_price || 0), 0) / auctionHistory.length
+        const metadata = responseData.metadata || {
+          total: horsesData.length,
+          count: horsesData.length,
+          total_auctions: auctionHistories.length,
+          average_price: auctionHistories.length > 0 
+            ? auctionHistories.reduce((sum: number, h: any) => sum + (h.sold_price || 0), 0) / auctionHistories.length
             : 0,
           last_updated: new Date().toISOString()
         };
+        
+        // 後方互換性のための処理
+        if (metadata.total_horses === undefined) {
+          metadata.total_horses = metadata.total;
+        }
 
         // オークション履歴を馬IDでグループ化
-        const auctionHistoryByHorseId = groupAuctionHistory(auctionHistory);
+        const auctionHistoryByHorseId = groupAuctionHistory(auctionHistories);
         
-        // 馬データにオークション履歴をマージ
+        // 馬データにオークション情報をマージ
         const horsesWithHistory = horsesData.map((horse: any) => {
-          const history = auctionHistoryByHorseId[horse.id] || [];
-          const latestAuction = history[0]; // 最新のオークション情報
+          // 既存のオークション情報を保持
+          const latestAuction = horse.latestAuction || (auctionHistoryByHorseId[horse.id] || [])[0];
           
+          // 馬の基本情報を保持しつつ、オークション情報をマージ
           return {
             ...horse,
+            latestAuction: latestAuction || null,
             latest_auction: latestAuction || null,
             sold_price: latestAuction?.sold_price || null,
             is_unsold: latestAuction?.is_unsold || false,
@@ -208,14 +232,14 @@ export default function AnalysisContent() {
             total_prize_start: latestAuction?.total_prize_start || horse.total_prize_start,
             total_prize_latest: latestAuction?.total_prize_latest || horse.total_prize_latest,
             comment: latestAuction?.comment || horse.comment
-          } as HorseWithAuction;
+          } as Horse;
         });
 
-        setData({
-          horses: horsesWithHistory,
-          auction_history: auctionHistory,
-          metadata: metadata
-        });
+        // データを状態に保存
+        setHorses(horsesWithHistory);
+        setAuctionHistory(auctionHistories);
+        setMetadata(metadata);
+        setLoading(false);
       } catch (e: any) {
         console.error('データ取得エラー:', e);
         setError('データの読み込みに失敗しました: ' + e.message);
@@ -230,44 +254,37 @@ export default function AnalysisContent() {
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
-  if (error || !data) {
+  if (error || !horses.length) {
     return <div className="min-h-screen flex items-center justify-center text-red-600">{error || 'データがありません'}</div>;
   }
 
-  // 馬データを処理（オークション履歴から最新の情報をマージ）
-  const horsesWithLatest: HorseWithAuction[] = data.horses.map(horse => {
-    // 最新のオークション情報を取得
-    const latestAuction = data.auction_history
-      .filter(ah => ah.horse_id === horse.id)
-      .sort((a, b) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0];
-
-    // 馬のデータを HorseWithAuction にキャスト
-    const horseWithAuction = horse as HorseWithAuction;
-    
-    // 体重データを優先的に使用するソースを決定
-    // 1. 最新のオークション履歴のweight
-    // 2. 馬の基本情報のweight
-    const effectiveWeight = latestAuction?.weight ?? horseWithAuction.weight ?? null;
-
-    return {
-      ...horseWithAuction,
-      dam_sire: horseWithAuction.damsire || '',
-      detail_url: horseWithAuction.auction_url || '',
-      // オークション情報
-      latestAuction: latestAuction || undefined,
-      total_prize_start: latestAuction?.total_prize_start || horseWithAuction.total_prize_start || 0,
-      total_prize_latest: latestAuction?.total_prize_latest || horseWithAuction.total_prize_latest || 0,
-      is_unsold: latestAuction?.is_unsold || horseWithAuction.is_unsold || false,
-      auction_date: latestAuction?.auction_date || horseWithAuction.auction_date || '',
-      seller: latestAuction?.seller || horseWithAuction.seller || '',
-      sold_price: latestAuction?.sold_price || horseWithAuction.sold_price || 0,
-      // 体重を設定
-      weight: effectiveWeight
-    };
+  // 表示する馬のリストをフィルタリング
+  const filteredHorses = horses.filter(horse => {
+    if (showType === 'roi') {
+      return horse.roi !== undefined && horse.roi > 0;
+    } else if (showType === 'value') {
+      const price = horse.sold_price || 0;
+      const prize = horse.total_prize_latest || 0;
+      return price > 0 && prize > 0 && prize >= price * 2;
+    }
+    return true;
   });
 
-  // すべての馬を表示（現在は主取り馬のフィルタリングは行わない）
-  let horses = horsesWithLatest;
+  // ソート
+  if (sortKey) {
+    filteredHorses.sort((a: Horse, b: Horse) => {
+      let aValue = (a as any)[sortKey] || 0;
+      let bValue = (b as any)[sortKey] || 0;
+      
+      // 数値に変換
+      if (typeof aValue === 'string') aValue = parseFloat(aValue) || 0;
+      if (typeof bValue === 'string') bValue = parseFloat(bValue) || 0;
+      
+      return sortOrder === 'asc' 
+        ? (aValue as number) - (bValue as number)
+        : (bValue as number) - (aValue as number);
+    });
+  }
 
   // サマリー - RIO計算を詳細ページと合わせる
   const avgRIO = horses.length > 0 ? (
@@ -300,7 +317,7 @@ export default function AnalysisContent() {
   ) : 0;
   
   // 平均価格を計算してメタデータを更新
-  if (data.metadata) {
+  if (metadata) {
     const validPrices = horses
       .map(h => {
         // 価格が数値でない場合は0として扱う
@@ -330,9 +347,9 @@ export default function AnalysisContent() {
     if (validPrices.length > 0) {
       const sum = validPrices.reduce((a, b) => a + b, 0);
       const avg = Math.round(sum / validPrices.length);
-      data.metadata.average_price = avg;
+      metadata.average_price = avg;
     } else {
-      data.metadata.average_price = 0;
+      metadata.average_price = 0;
       // デバッグ用: 馬のデータをログに出力（より詳細に）
       console.group('馬のデータの詳細');
       horses.forEach((h, index) => {
@@ -383,13 +400,11 @@ export default function AnalysisContent() {
     const prizeLatest = h.total_prize_latest || 0;
     const earnedPrize = prizeLatest - prizeStart;
     const rio = soldPrice > 0 ? earnedPrize / soldPrice : 0;
-    return soldPrice > 0 && rio > avgRIO && soldPrice < (data.metadata?.average_price || 0);
+    return soldPrice > 0 && rio > avgRIO && soldPrice < (metadata?.average_price || 0);
   });
 
   // 表示切替
-  let tableHorses: HorseWithAuction[] = [...horses];
-  if (showType === 'roi') tableHorses = [...roiRanking];
-  if (showType === 'value') tableHorses = [...valueHorses];
+  let tableHorses: Horse[] = [...filteredHorses];
 
   // 年齢を表示するヘルパー関数（null/undefined/空文字の場合は'-'を表示）
   const displayAge = (age: string | number | null | undefined): string => {
@@ -428,7 +443,7 @@ export default function AnalysisContent() {
   };
 
   // ソート関数の型定義
-  type SortFunction = (a: HorseWithAuction, b: HorseWithAuction) => number;
+  type SortFunction = (a: Horse, b: Horse) => number;
   const sortFunctions: Record<string, SortFunction> = {
     name: (a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'ja'),
     sex: (a, b) => (a?.sex ?? '').localeCompare(b?.sex ?? '', 'ja'),
@@ -473,13 +488,13 @@ export default function AnalysisContent() {
     });
   }
 
-  // ソートハンドラ
+  // ソートハンドラー
   const handleSort = (key: string) => {
     if (sortKey === key) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortOrder(key === 'name' ? 'asc' : 'desc');
+      setSortOrder('desc');
     }
   };
 
@@ -490,11 +505,10 @@ export default function AnalysisContent() {
   };
 
   // 詳細ページのURLを安全に取得するヘルパー関数
-  const getDetailUrl = (horse: HorseWithAuction): string | undefined => {
+  const getDetailUrl = (horse: Horse): string | undefined => {
     // detail_url または auction_url のいずれかが存在する場合に返す
     return (horse as any).detail_url || (horse as any).auction_url || undefined;
   };
-
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -502,7 +516,7 @@ export default function AnalysisContent() {
         {/* サマリー 横並びテキスト */}
         <div className="mb-6 text-lg font-semibold text-gray-700 flex flex-wrap gap-8">
           <span>総馬数: {horses.length}</span>
-          <span>平均落札価格: {formatCurrency(data.metadata.average_price)}</span>
+          <span>平均落札価格: {formatCurrency(metadata.average_price)}</span>
           <span>平均ROI: {avgRIO.toFixed(2)}%</span>
         </div>
         {/* 指標ボタン（白文字色付き） */}
@@ -573,17 +587,6 @@ export default function AnalysisContent() {
                     })()}
                   </td>
                   <td className="px-3 py-2">
-                    {(function() {
-                      const rawPrice = (horse as any).sold_price_raw || (horse as any).raw_sold_price;
-                      console.log('Debug - horse object:', {
-                        id: horse.id,
-                        name: horse.name,
-                        sold_price: horse.sold_price,
-                        is_unsold: horse.is_unsold,
-                        raw_sold_price: rawPrice
-                      });
-                      return null;
-                    })()}
                     {formatSoldPrice(horse.sold_price, horse.is_unsold || false, (horse as any).sold_price_raw || (horse as any).raw_sold_price)}
                   </td>
                   <td className="px-3 py-2">{formatPrize(horse.total_prize_start)}</td>

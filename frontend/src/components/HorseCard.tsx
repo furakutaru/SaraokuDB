@@ -46,18 +46,12 @@ interface HorseCardProps {
 }
 
 export default function HorseCard({ horse, auctionHistory = [], onClick }: HorseCardProps) {
-  // この馬に関連するオークション履歴を取得
-  const getHorseAuctionHistory = (): AuctionHistory[] => {
-    if (!auctionHistory || auctionHistory.length === 0) return [];
-    return auctionHistory
-      .filter(history => history.horse_id === horse.id)
-      .sort((a, b) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime());
-  };
+  // 最新のオークション履歴を取得
+  const latestAuction = horse.latest_auction || null;
 
   // 最新のオークション情報を取得
   const getLatestAuction = (): AuctionHistory | null => {
-    const history = getHorseAuctionHistory();
-    return history.length > 0 ? history[0] : null;
+    return latestAuction;
   };
 
   // 最新の落札価格を取得
@@ -107,18 +101,27 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
   };
 
   // 最新のオークション情報を取得（propsから受け取る）
-  const latestAuction = getLatestAuction();
-  const price = latestAuction?.sold_price ?? null;
-  const isUnsold = latestAuction?.is_unsold ?? false;
+  const latestAuctionInfo = getLatestAuction();
+  const price = latestAuctionInfo?.sold_price ?? horse.sold_price ?? null;
+  const isUnsold = latestAuctionInfo?.is_unsold ?? horse.is_unsold ?? false;
   
+  // 血統情報を抽出（直接のプロパティがあればそれを使用、なければ空文字）
+  const sire = horse.sire || '';
+  const dam = horse.dam || '';
+  const damsire = horse.damsire || horse.dam_sire || '';
+
   // 病気タグの有無をチェック
-  const hasDiseaseTags = 'disease_tags' in horse && Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0;
+  const hasDiseaseTags = Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0;
 
   return (
     <div className="relative group cursor-pointer" onClick={onClick}>
       <div className="aspect-w-3 aspect-h-2 w-full overflow-hidden rounded-lg bg-gray-200">
         <img
-          src={typeof horse.image_url === 'string' ? horse.image_url : horse.image_url?.image_url || '/placeholder-horse.jpg'}
+          src={
+            typeof horse.image_url === 'string' 
+              ? horse.image_url 
+              : (horse.image_url as any)?.image_url || '/placeholder-horse.jpg'
+          }
           alt={horse.name || 'Unknown Horse'}
           className="h-48 w-full object-cover object-center group-hover:opacity-75"
         />
@@ -149,26 +152,26 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
         <div className="grid grid-cols-2 gap-4">
           {/* 左カラム: 血統情報 */}
           <div className="text-sm text-gray-600 space-y-1 overflow-hidden">
-            <p className="whitespace-nowrap overflow-hidden text-ellipsis">父：{horse.sire || '不明'}</p>
-            <p className="whitespace-nowrap overflow-hidden text-ellipsis">母：{horse.dam || '不明'}</p>
-            {(horse.damsire && horse.damsire !== '不明') && (
-              <p className="whitespace-nowrap overflow-hidden text-ellipsis">母父：{horse.damsire}</p>
-            )}
+            <div className="grid grid-cols-2 gap-1">
+              <div>父: {sire || '不明'}</div>
+              <div>母: {dam || '不明'}</div>
+              <div>母父: {damsire || '不明'}</div>
+            </div>
           </div>
           
           {/* 右カラム: 総賞金と馬体重 */}
           <div className="text-sm text-gray-500 space-y-1">
-            {latestAuction?.total_prize_latest !== undefined && (
-              <p>総賞金: {latestAuction.total_prize_latest.toLocaleString()}万円</p>
+            {latestAuctionInfo?.total_prize_latest !== undefined && (
+              <p>総賞金: {latestAuctionInfo.total_prize_latest.toLocaleString()}万円</p>
             )}
-            {latestAuction?.weight && latestAuction.weight > 0 && (
-              <p>{latestAuction.weight}kg</p>
+            {latestAuctionInfo?.weight && latestAuctionInfo.weight > 0 && (
+              <p>{latestAuctionInfo.weight}kg</p>
             )}
           </div>
         </div>
         
         {/* 3行目: 疾病情報 */}
-        {('disease_tags' in horse) && Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0 && (
+        {hasDiseaseTags && (
           <div className="pt-1">
             <div className="flex flex-wrap gap-1">
               {(horse.disease_tags as string[]).map((tag: string, index: number) => (

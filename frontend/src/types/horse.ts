@@ -67,40 +67,60 @@ export interface Horse extends BaseHorse {
   trainer?: string;
   location?: string;
   
-  // オークション関連
+  // オークション情報
   auction_date?: string;
   sold_price?: number | null;
   is_unsold?: boolean;
   seller?: string;
-  
-  // 賞金関連
   total_prize_start?: number;
   total_prize_latest?: number;
-  prize_money?: PrizeMoney;
   
-  // 表示用のフォーマット済み文字列
+  // 血統情報
+  pedigree?: string;
+  dam_sire?: string; // 互換性のため
+  
+  // 最新のオークション情報
+  latestAuction?: {
+    id: string | number;
+    horse_id: string | number;
+    auction_date: string;
+    sold_price: number | null;
+    total_prize_start: number;
+    total_prize_latest: number;
+    weight: number | null;
+    seller: string;
+    is_unsold: boolean;
+    comment: string;
+    created_at: string;
+  } | null;
+  
+  // 表示用フィールド
+  prize_money?: PrizeMoney;
   display_prize?: string;
   display_roi?: string;
   display_weight?: string;
   display_price?: string;
   
-  // ソート用の数値
+  // ソート用フィールド
   sort_price?: number;
   sort_prize?: number;
   sort_roi?: number;
   
-  // 計算済みの値
+  // 計算フィールド
   roi?: number;
   price_per_kg?: number;
   effectiveWeight?: number | null;
   
-  // 互換性のためのフィールド
-  /** @deprecated 代わりに detail_url を使用してください */
+  // 疾病情報
+  disease_tags?: string[];
+  
+  // 互換性のためのエイリアス
   auction_url?: string;
-  /** @deprecated 代わりに is_unsold を使用してください */
-  unsold?: boolean;
-  /** @deprecated 代わりに sold_price を使用してください */
-  price?: number | null;
+  unsold?: boolean; // is_unsold のエイリアス
+  price?: number | null; // sold_price のエイリアス
+  
+  // その他のフィールド
+  [key: string]: any;
 }
 
 // メタデータのインターフェース
