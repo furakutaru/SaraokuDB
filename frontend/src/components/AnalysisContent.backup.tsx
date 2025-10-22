@@ -1392,7 +1392,7 @@ const AnalysisContent = () => {
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire', sortKey, sortOrder)}</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('weight')}>馬体重 (kg){renderSortIcon('weight', sortKey, sortOrder)}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price', sortKey, sortOrder)}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_start')}>オークション時賞金{renderSortIcon('total_prize_start', sortKey, sortOrder)}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_start')}>落札時賞金{renderSortIcon('total_prize_start', sortKey, sortOrder)}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_latest')}>現在賞金{renderSortIcon('total_prize_latest', sortKey, sortOrder)}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('roi')}>ROI{renderSortIcon('roi', sortKey, sortOrder)}</th>
                 <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">リンク</th>
