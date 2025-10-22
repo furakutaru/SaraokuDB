@@ -62,7 +62,8 @@ interface Horse {
 
 export default function TestHorsePage() {
   const searchParams = useSearchParams();
-  const horseId = searchParams.get('id') || '14927';
+  // searchParams が null の場合はデフォルト値を使用
+  const horseId = searchParams?.get('id') || '14927';
   
   const [horse, setHorse] = useState<Horse | null>(null);
   const [loading, setLoading] = useState(true);

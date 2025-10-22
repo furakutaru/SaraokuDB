@@ -1,4 +1,4 @@
-import { Horse } from '../types/horse';
+import { Horse } from '@/types/horse';
 
 export type MissingField = {
   field: string;
@@ -42,7 +42,8 @@ export const checkMissingData = (horse: Horse): MissingField[] => {
     }
 
     if (isMissing) {
-      missingFields.push({ field: key, label, severity });
+      const fieldName = key as string;
+      missingFields.push({ field: fieldName, label, severity });
     }
   });
 

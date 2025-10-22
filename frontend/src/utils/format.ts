@@ -72,6 +72,45 @@ export function formatPrizeMan(
   return `${(num / 10000).toFixed(1).replace(/\.0$/, '')}万円`; // 例: 17.0万円 → 17万円
 }
 
+// 賞金をフォーマットするヘルパー関数（「17.5万円」形式で表示）
+export function formatPrize(value: number | string | null | undefined, raceRecord?: any): string {
+  // デバッグ用のログを追加
+  console.log('formatPrize - value:', value, 'raceRecord:', raceRecord);
+  
+  // レース成績が「データなし」または空のオブジェクト、またはレース成績がない場合は「未出走」を返す
+  if (raceRecord === undefined || 
+      raceRecord === null || 
+      raceRecord === 'データなし' || 
+      (raceRecord && typeof raceRecord === 'object' && Object.keys(raceRecord).length === 0) ||
+      (raceRecord && typeof raceRecord === 'object' && raceRecord.formatted_record === 'データなし') ||
+      (raceRecord && typeof raceRecord === 'object' && raceRecord.total_races === 0) ||
+      (raceRecord && typeof raceRecord === 'object' && 
+       !('total_races' in raceRecord) && 
+       !('formatted_record' in raceRecord) && 
+       !('wins' in raceRecord))) {
+    console.log('formatPrize - 未出走と判定');
+    return '未出走';
+  }
+  
+  if (value === null || value === undefined || value === '') return '-';
+  
+  // 数値に変換
+  const numValue = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]+/g, '')) : Number(value);
+  
+  if (isNaN(numValue) || numValue <= 0) return '-';
+  
+  // 1万円未満の場合はそのまま表示
+  if (numValue < 10000) {
+    return `${numValue.toLocaleString('ja-JP')}円`;
+  }
+  
+  // 1万円以上の場合は「X.XX万円」形式で表示
+  const manValue = numValue / 10000;
+  // 小数点以下1桁まで表示（例: 17.5万円）
+  const formattedValue = manValue % 1 === 0 ? manValue.toFixed(0) : manValue.toFixed(1);
+  return `${formattedValue}万円`;
+}
+
 // 円単位の数値を「○万円」形式に変換する
 // 例: 175000 → "17.5万円"
 export function formatPrizeFromYen(val: number | string | string[] | { total_prize: string } | null | undefined): string {

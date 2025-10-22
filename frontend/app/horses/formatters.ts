@@ -1,4 +1,4 @@
-import { Horse } from '../types';
+import { Horse } from './types';
 
 /**
  * 主取りフラグをチェックするヘルパー関数
@@ -6,15 +6,28 @@ import { Horse } from '../types';
  * @returns 主取りの場合はtrue、それ以外はfalse
  */
 export const isUnsoldHorse = (horse: Horse): boolean => {
-  return (
-    horse.unsold === true ||
-    horse.is_unsold === true ||
-    (typeof horse.is_unsold === 'string' && horse.is_unsold.toLowerCase() === 'true') ||
-    horse.sold_price === null ||
-    horse.sold_price === undefined ||
-    horse.sold_price === '[null]' ||
-    horse.sold_price === 'null'
-  );
+  // sold_price が null または undefined の場合は主取りとみなす
+  if (horse.sold_price === null || horse.sold_price === undefined) {
+    return true;
+  }
+  
+  // sold_price が文字列で 'null' または '[null]' の場合は主取りとみなす
+  if (typeof horse.sold_price === 'string' && (horse.sold_price === 'null' || horse.sold_price === '[null]')) {
+    return true;
+  }
+  
+  // unsold または is_unsold フラグが true の場合は主取りとみなす
+  if (horse.unsold === true || horse.is_unsold === true) {
+    return true;
+  }
+  
+  // is_unsold が文字列で 'true' の場合は主取りとみなす
+  const isUnsoldValue = horse.is_unsold;
+  if (typeof isUnsoldValue === 'string' && String(isUnsoldValue).toLowerCase() === 'true') {
+    return true;
+  }
+  
+  return false;
 };
 
 /**

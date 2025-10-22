@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Typography, Stack } from '@mui/material';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import SexBadge from '@/app/horses/components/SexBadge';
+import SexBadge from '../../components/SexBadge';
 
 interface HorseInfoCardProps {
   sex: string | string[];

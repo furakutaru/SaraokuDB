@@ -18,7 +18,7 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
 // 型定義のインポート
-import { Horse } from '../types';
+import { Horse, Auction } from '../types';
 
 // 価格を表示用にフォーマットする関数
 const formatPrice = (price: any): string => {
@@ -155,7 +155,7 @@ export const HorseTable: React.FC<HorseTableProps> = ({
         <TableBody>
           {horses.map((horse) => {
             // 最新のオークション情報を取得
-            const latestAuction = horse.auction_histories?.[0] || {};
+            const latestAuction: Auction | undefined = horse.auctions?.[0];
             
             return (
               <TableRow 
@@ -189,9 +189,9 @@ export const HorseTable: React.FC<HorseTableProps> = ({
                 <TableCell>{formatSeller(latestAuction?.seller || horse.seller)}</TableCell>
                 <TableCell>
                   {latestAuction?.auction_date 
-                    ? format(new Date(latestAuction.auction_date), 'yyyy/MM/dd', { locale: ja })
+                    ? format(new Date(String(latestAuction.auction_date)), 'yyyy/MM/dd', { locale: ja })
                     : horse.auction_date 
-                      ? format(new Date(horse.auction_date), 'yyyy/MM/dd', { locale: ja })
+                      ? format(new Date(String(horse.auction_date)), 'yyyy/MM/dd', { locale: ja })
                       : '-'}
                 </TableCell>
               </TableRow>

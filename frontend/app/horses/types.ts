@@ -14,6 +14,16 @@ export interface AuctionHistory {
   updated_at: string;
 }
 
+// オークション情報
+export interface Auction {
+  id: number | string;
+  auction_date: string | string[];
+  sold_price: number | null;
+  seller: string | null;
+  is_unsold: boolean;
+  [key: string]: any; // その他のプロパティに対応するため
+}
+
 // 馬の基本情報
 export interface Horse {
   id: number | string;
@@ -28,6 +38,7 @@ export interface Horse {
   jbis_url: string;
   detail_url: string;
   auction_url: string;
+  auctions?: Auction[]; // オークション情報を追加
   disease_tags?: string[];
   weight: number | null;
   race_record?: string;
@@ -37,9 +48,10 @@ export interface Horse {
   sold_price?: string | number | null;
   seller?: string | null;
   auction_date?: string | string[] | null;
+  unsold?: boolean;
+  is_unsold?: boolean;
   total_prize_start?: number;
   total_prize_latest?: number;
-  is_unsold?: boolean;
   history?: AuctionHistory | AuctionHistory[];
   latestHistory?: {
     sex?: string;
@@ -67,7 +79,7 @@ export interface HorseData {
 }
 
 // ページネーション情報
-interface Pagination {
+export interface Pagination {
   currentPage: number;
   totalPages: number;
   totalItems: number;
@@ -75,7 +87,7 @@ interface Pagination {
 }
 
 // フィルターオプション
-interface FilterOptions {
+export interface FilterOptions {
   sex?: string;
   minAge?: number;
   maxAge?: number;

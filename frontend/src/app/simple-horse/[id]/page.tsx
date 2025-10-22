@@ -16,11 +16,28 @@ interface Horse {
 }
 
 export default function SimpleHorsePage() {
-  const params = useParams();
   const router = useRouter();
+  const params = useParams<{ id: string }>();
   const [horse, setHorse] = useState<Horse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // params が null の場合はエラーを表示
+  if (!params) {
+    return (
+      <Box className="p-4">
+        <Typography color="error">エラー: パラメータが正しく取得できませんでした</Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={() => router.push('/')}
+          className="mt-4"
+        >
+          ホームに戻る
+        </Button>
+      </Box>
+    );
+  }
 
   useEffect(() => {
     const fetchHorseData = async () => {

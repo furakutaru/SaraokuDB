@@ -1,14 +1,58 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { Horse, Metadata } from '../types/horse';
+// 型定義を直接インポート
 import { 
-  PaginatedResponse, 
-  ApiResponse, 
-  HorsesResponse, 
-  HorseResponse, 
-  StatisticsResponse, 
-  AuctionDatesResponse,
-  ErrorResponse
-} from '../types/api';
+  Horse, 
+  ApiMetadata,
+  AuctionHistory,
+  Pagination,
+  FilterOptions,
+  SortOption,
+  TableColumn
+} from '../horses/types';
+
+// レスポンス型を定義
+interface BaseResponse<T> {
+  success: boolean;
+  data: T;
+  error?: string;
+  metadata?: ApiMetadata;
+}
+
+interface PaginatedResponse<T> {
+  data: T[];
+  pagination: Pagination;
+  metadata?: ApiMetadata;
+}
+
+interface HorsesResponse extends BaseResponse<Horse[]> {
+  pagination?: Pagination;
+}
+
+interface HorseResponse extends BaseResponse<Horse> {}
+
+// 統計情報のレスポンス型
+interface StatisticsData {
+  totalHorses: number;
+  totalAuctions: number;
+  averagePrice: number;
+  last_updated: string;
+  total_horses: number;
+  total_auction_records: number;
+  [key: string]: any;
+}
+
+interface StatisticsResponse extends BaseResponse<StatisticsData> {}
+
+interface AuctionDatesResponse extends BaseResponse<string[]> {}
+
+interface ErrorResponse {
+  success: false;
+  error: string;
+  message?: string;
+  status?: number;
+  errors?: any;
+  code?: number;
+}
 
 // 環境変数からAPIのベースURLを取得、デフォルトは開発環境用
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
@@ -43,19 +87,25 @@ function handleApiError(error: any): ErrorResponse {
   if (error.response) {
     // サーバーからエラーレスポンスがある場合
     return {
-      message: error.response.data?.message || 'サーバーエラーが発生しました',
+      success: false,
+      error: error.response.data?.error || 'サーバーエラーが発生しました',
+      message: error.response.data?.message,
       status: error.response.status,
       errors: error.response.data?.errors,
     };
   } else if (error.request) {
     // リクエストは送信されたが、レスポンスが受け取れなかった場合
     return {
-      message: 'サーバーからの応答がありません。ネットワーク接続を確認してください。',
+      success: false,
+      error: 'サーバーからの応答がありません',
+      message: 'ネットワーク接続を確認してください。',
     };
   } else {
     // リクエストの設定中にエラーが発生した場合
     return {
-      message: error.message || 'リクエストの送信中にエラーが発生しました。',
+      success: false,
+      error: 'リクエストエラー',
+      message: error.message || 'リクエストの送信中にエラーが発生しました',
     };
   }
 }
@@ -127,10 +177,10 @@ const horseApi = {
   },
   
   // 馬の詳細を取得
-  getHorseById: async (id: string | number): Promise<Horse | null> => {
+  async getHorseById(id: string | number): Promise<Horse | null> {
     try {
       const response = await apiClient.get<HorseResponse>(`/horses/${id}`);
-      return response.data;
+      return response.data.data; 
     } catch (error) {
       const apiError = handleApiError(error);
       console.error(`Error fetching horse ${id}:`, apiError.message);
@@ -142,7 +192,7 @@ const horseApi = {
   createHorse: async (horseData: Partial<Horse>): Promise<Horse | null> => {
     try {
       const response = await apiClient.post<HorseResponse>('/horses/', horseData);
-      return response.data;
+      return response.data.data; // response.data を response.data.data に修正
     } catch (error) {
       const apiError = handleApiError(error);
       console.error('Error creating horse:', apiError.message);
@@ -154,7 +204,7 @@ const horseApi = {
   updateHorse: async (id: string | number, horseData: Partial<Horse>): Promise<Horse | null> => {
     try {
       const response = await apiClient.put<HorseResponse>(`/horses/${id}`, horseData);
-      return response.data;
+      return response.data.data; // response.data を response.data.data に修正
     } catch (error) {
       const apiError = handleApiError(error);
       console.error(`Error updating horse ${id}:`, apiError.message);
@@ -178,10 +228,11 @@ const horseApi = {
 // 統計情報関連のAPI
 const statsApi = {
   // 統計情報を取得
-  getStatistics: async (): Promise<Metadata | null> => {
+  async getStatistics(): Promise<StatisticsData | null> {
     try {
       const response = await apiClient.get<StatisticsResponse>('/statistics/');
-      return response.data;
+      // StatisticsResponse の data プロパティをそのまま返す
+      return response.data.data || null;
     } catch (error) {
       const apiError = handleApiError(error);
       console.error('Error fetching statistics:', apiError.message);
@@ -190,7 +241,7 @@ const statsApi = {
   },
   
   // オークション開催日一覧を取得
-  getAuctionDates: async (): Promise<string[]> => {
+  async getAuctionDates(): Promise<string[]> {
     try {
       const response = await apiClient.get<AuctionDatesResponse>('/auction-dates/');
       return Array.isArray(response.data) ? response.data : [];
@@ -199,7 +250,7 @@ const statsApi = {
       console.error('Failed to fetch auction dates:', apiError.message);
       return [];
     }
-  },
+  }
 };
 
 export { apiClient, horseApi, statsApi };

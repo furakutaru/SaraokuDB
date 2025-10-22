@@ -77,11 +77,33 @@ const formatSoldPrice = (price: number | string | null | undefined | any[], isUn
 };
 
 // 賞金をフォーマットするヘルパー関数（「17.5万円」形式で表示）
-const formatPrize = (value: number | string | null | undefined): string => {
+const formatPrize = (value: number | string | null | undefined, raceRecord?: any): string => {
+  // デバッグ用のログを追加
+  console.log('formatPrize - value:', value, 'raceRecord:', raceRecord);
+  
+  // レース成績が「データなし」または空のオブジェクト、またはレース成績がない場合は「未出走」を返す
+  const isEmptyRaceRecord = 
+    raceRecord === undefined || 
+    raceRecord === null || 
+    raceRecord === 'データなし' || 
+    (raceRecord && typeof raceRecord === 'object' && Object.keys(raceRecord).length === 0) ||
+    (raceRecord && typeof raceRecord === 'object' && raceRecord.formatted_record === 'データなし') ||
+    (raceRecord && typeof raceRecord === 'object' && raceRecord.total_races === 0) ||
+    (raceRecord && typeof raceRecord === 'object' && 
+     !('total_races' in raceRecord) && 
+     !('formatted_record' in raceRecord) && 
+     !('wins' in raceRecord)) ||
+    (raceRecord && typeof raceRecord === 'object' && raceRecord.record_format === 'simple' && raceRecord.total_races === 0);
+
+  if (isEmptyRaceRecord) {
+    console.log('formatPrize - 未出走と判定');
+    return '未出走';
+  }
+  
   if (value === null || value === undefined || value === '') return '-';
   
   // 数値に変換
-  const numValue = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]+/g, '')) : Number(value);
+  const numValue = Number(value);
   
   if (isNaN(numValue) || numValue <= 0) return '-';
   
@@ -138,6 +160,8 @@ interface HorseWithAuction extends Horse {
   seller?: string;
   // Horseインターフェースのプロパティをオーバーライド
   sold_price?: number | null;
+  race_record?: string;
+  race_records?: any;  // より具体的な型に置き換えることが望ましい
   // その他のプロパティ
   [key: string]: any; // 動的なプロパティに対応
 }
@@ -168,7 +192,7 @@ const groupAuctionHistory = (auctionHistory: AuctionHistory[]): Record<string, A
 };
 
 export default function AnalysisContent() {
-  const [horses, setHorses] = useState<Horse[]>([]);
+  const [horses, setHorses] = useState<HorseWithAuction[]>([]);
   const [auctionHistory, setAuctionHistory] = useState<AuctionHistory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -208,36 +232,38 @@ export default function AnalysisContent() {
           throw new Error('データの取得に失敗しました');
         }
 
-        // レスポンスをJSONとしてパース
-        const responseData = await response.json();
+        const data = await response.json();
         
-        // データの正規化
-        let horsesData = Array.isArray(responseData.horses) ? responseData.horses : [];
-        let auctionHistories = Array.isArray(responseData.auction_histories) 
-          ? responseData.auction_histories 
-          : [];
+        // Horse型からHorseWithAuction型に変換
+        const horsesWithAuction = data.horses.map((horse: any) => ({
+          ...horse,
+          dam_sire: horse.dam_sire || '',
+          detail_url: horse.detail_url || '',
+          comment: horse.comment,
+          race_record: horse.race_record,
+          race_records: horse.race_records
+        }));
         
-        // メタデータを準備
-        const metadata = responseData.metadata || {
-          total: horsesData.length,
-          count: horsesData.length,
-          total_auctions: auctionHistories.length,
-          average_price: auctionHistories.length > 0 
-            ? auctionHistories.reduce((sum: number, h: any) => sum + (h.sold_price || 0), 0) / auctionHistories.length
-            : 0,
-          last_updated: new Date().toISOString()
+        setHorses(horsesWithAuction);
+        setAuctionHistory(data.auction_histories || []);
+        
+        // メタデータを更新
+        const newMetadata = {
+          total: data.metadata?.total || 0,
+          count: data.metadata?.count || 0,
+          total_auctions: data.metadata?.total_auctions,
+          average_price: data.metadata?.average_price,
+          last_updated: data.metadata?.last_updated,
+          total_horses: data.metadata?.total_horses || data.metadata?.total || 0
         };
         
-        // 後方互換性のための処理
-        if (metadata.total_horses === undefined) {
-          metadata.total_horses = metadata.total;
-        }
+        setMetadata(newMetadata);
 
         // オークション履歴を馬IDでグループ化
-        const auctionHistoryByHorseId = groupAuctionHistory(auctionHistories);
+        const auctionHistoryByHorseId = groupAuctionHistory(data.auction_histories || []);
         
         // 馬データにオークション情報をマージ
-        const horsesWithHistory = horsesData.map((horse: any) => {
+        const horsesWithHistory = horsesWithAuction.map((horse: HorseWithAuction) => {
           // 既存のオークション情報を保持
           const latestAuction = horse.latestAuction || (auctionHistoryByHorseId[horse.id] || [])[0];
           
@@ -253,14 +279,16 @@ export default function AnalysisContent() {
             weight: latestAuction?.weight ?? horse.weight ?? null,
             total_prize_start: latestAuction?.total_prize_start || horse.total_prize_start,
             total_prize_latest: latestAuction?.total_prize_latest || horse.total_prize_latest,
-            comment: latestAuction?.comment || horse.comment
-          } as Horse;
+            comment: latestAuction?.comment || horse.comment,
+            race_record: horse.race_record,
+            race_records: horse.race_records
+          } as HorseWithAuction;
         });
 
         // データを状態に保存
         setHorses(horsesWithHistory);
-        setAuctionHistory(auctionHistories);
-        setMetadata(metadata);
+        setAuctionHistory(data.auction_histories);
+        setMetadata(newMetadata);
         setLoading(false);
       } catch (e: any) {
         console.error('データ取得エラー:', e);
@@ -626,8 +654,19 @@ export default function AnalysisContent() {
                   <td className="px-3 py-2">
                     {formatSoldPrice(horse.sold_price, horse.is_unsold || false, (horse as any).sold_price_raw || (horse as any).raw_sold_price)}
                   </td>
-                  <td className="px-3 py-2">{formatPrize(horse.total_prize_start)}</td>
-                  <td className="px-3 py-2">{formatPrize(horse.total_prize_latest)}</td>
+                  <td className="px-3 py-2">
+                    {(() => {
+                      const raceRecord = (horse as HorseWithAuction).race_record || (horse as HorseWithAuction).race_records;
+                      console.log('Debug - raceRecord:', raceRecord, 'total_prize_start:', horse.total_prize_start);
+                      return formatPrize(horse.total_prize_start, raceRecord);
+                    })()}
+                  </td>
+                  <td className="px-3 py-2">
+                    {(() => {
+                      const raceRecord = (horse as HorseWithAuction).race_record || (horse as HorseWithAuction).race_records;
+                      return formatPrize(horse.total_prize_latest, raceRecord);
+                    })()}
+                  </td>
                   <td className="px-3 py-2">
                     {calcROI(horse.total_prize_latest, horse.total_prize_start, horse.sold_price)}
                   </td>

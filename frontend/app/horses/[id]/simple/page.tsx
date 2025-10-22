@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, Typography } from '@mui/material';
 
+interface PageParams {
+  id: string;
+  [key: string]: string | string[];
+}
+
 interface Horse {
   id: number;
   name: string;
@@ -16,16 +21,27 @@ interface Horse {
 }
 
 export default function SimpleHorsePage() {
-  const params = useParams();
+  const params = useParams<PageParams>();
   const [horse, setHorse] = useState<Horse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // params が null の場合は何もしない
+    if (!params) {
+      setError('パラメータが正しく設定されていません');
+      setLoading(false);
+      return;
+    }
+
     const fetchHorseData = async () => {
       try {
+        if (!params.id) {
+          throw new Error('馬IDが指定されていません');
+        }
+        
         const horseId = Number(params.id);
-        if (!horseId || isNaN(horseId)) {
+        if (isNaN(horseId)) {
           throw new Error('無効な馬IDです');
         }
 
@@ -64,11 +80,18 @@ export default function SimpleHorsePage() {
       }
     };
 
-    fetchHorseData();
-  }, [params.id]);
+    // params が存在する場合のみフェッチを実行
+    if (params) {
+      fetchHorseData();
+    }
+  }, [params]); // params 全体を依存配列に含める
 
   if (loading) {
     return <div>読み込み中...</div>;
+  }
+
+  if (!params) {
+    return <div>パラメータが正しく設定されていません</div>;
   }
 
   if (error) {

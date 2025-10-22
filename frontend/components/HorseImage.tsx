@@ -1,7 +1,7 @@
 import React from 'react';
 
-interface HorseImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
-  src?: string | null;
+interface HorseImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
+  src?: string;
   alt: string;
   fallbackSrc?: string;
 }

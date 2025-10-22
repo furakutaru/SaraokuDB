@@ -93,9 +93,8 @@ export interface Horse extends BaseHorse {
   roi?: number;
   price_per_kg?: number;
   effectiveWeight?: number | null;
-  
-  // 体重情報
-  weight?: number | null;
+  weight?: number | null; // 馬の体重（kg）
+  comment?: string; // コメント情報
   
   // 互換性のためのフィールド
   /** @deprecated 代わりに detail_url を使用してください */

@@ -1,4 +1,4 @@
-import { Horse, AuctionHistory } from '../types/horse';
+import { Horse, AuctionHistory } from '../horses/types';
 
 // seller が配列JSON文字列や配列のことがあるため、先頭の文字列を日本語テキストとして返す
 function parseSeller(value: any): string {
@@ -50,15 +50,16 @@ export function transformHorseData(apiData: any): Horse {
   const transformed: Horse = {
     // IDはバックエンドで管理されるため、存在しない場合は空文字列を設定
     id: horseId,
-    name: apiData.name || '不明な馬名',
-    sex: Array.isArray(apiData.sex) ? apiData.sex[0] || '' : (apiData.sex || ''),
-    age: Array.isArray(apiData.age) ? apiData.age[0] || 0 : (apiData.age || 0),
+    name: apiData.name || '不明な馬',
+    sex: apiData.sex || '不明',
+    age: apiData.age || 0,
     sire: apiData.sire || '不明',
     dam: apiData.dam || '不明',
-    damsire: apiData.dam_sire || apiData.damsire || '不明',
+    damsire: apiData.damsire || '不明',
     image_url: apiData.image_url || '',
     jbis_url: apiData.jbis_url || '',
     auction_url: apiData.auction_url || '',
+    weight: apiData.weight || null,
     disease_tags: apiData.disease_tags 
       ? (Array.isArray(apiData.disease_tags) 
           ? apiData.disease_tags 
@@ -69,13 +70,13 @@ export function transformHorseData(apiData: any): Horse {
     seller: parseSeller(apiData.seller || ''),
     created_at: apiData.created_at || new Date().toISOString(),
     updated_at: apiData.updated_at || new Date().toISOString(),
-    auction_history: []
+    auction_histories: []
   };
 
   // オークション履歴を処理
   if (apiData.auction_history && Array.isArray(apiData.auction_history)) {
     // 配列形式の履歴データを処理
-    transformed.auction_history = apiData.auction_history.map((history: any, index: number) => ({
+    transformed.auction_histories = apiData.auction_history.map((history: any, index: number) => ({
       // 履歴IDもバックエンドで管理されるため、存在しない場合は空文字列を設定
       id: history.id || '',
       horse_id: horseId,
@@ -91,7 +92,7 @@ export function transformHorseData(apiData: any): Horse {
     }));
   } else if (apiData.auction_date) {
     // 単一のオークションエントリ用のフォールバック
-    transformed.auction_history = [{
+    transformed.auction_histories = [{
       id: `history-${horseId}-0`,
       horse_id: horseId,
       auction_date: Array.isArray(apiData.auction_date) ? apiData.auction_date[0] : apiData.auction_date,
@@ -102,11 +103,12 @@ export function transformHorseData(apiData: any): Horse {
       seller: parseSeller(apiData.seller || ''),
       is_unsold: apiData.is_unsold || false,
       comment: Array.isArray(apiData.comment) ? apiData.comment[0] : (apiData.comment || ''),
-      created_at: apiData.created_at || new Date().toISOString()
+      created_at: apiData.created_at || new Date().toISOString(),
+      updated_at: apiData.updated_at || new Date().toISOString()
     }];
   } else if (apiData.history && Array.isArray(apiData.history)) {
     // 既存のhistory配列がある場合
-    transformed.auction_history = apiData.history.map((history: any, index: number) => ({
+    transformed.auction_histories = apiData.history.map((history: any, index: number) => ({
       id: history.id || `history-${horseId}-${index}`,
       horse_id: horseId,
       auction_date: history.auction_date || (Array.isArray(apiData.auction_date) ? apiData.auction_date[index] : apiData.auction_date) || new Date().toISOString().split('T')[0],
@@ -117,11 +119,12 @@ export function transformHorseData(apiData: any): Horse {
       seller: parseSeller(history.seller ?? apiData.seller ?? ''),
       is_unsold: (history.is_unsold ?? (history.sold_price === null || history.sold_price === 0)) || false,
       comment: history.comment || apiData.comment || '',
-      created_at: history.created_at || new Date().toISOString()
+      created_at: history.created_at || new Date().toISOString(),
+      updated_at: history.updated_at || new Date().toISOString()
     }));
   } else if (apiData.sold_price || apiData.auction_date) {
     // オークションデータがあるが履歴配列がない場合
-    transformed.auction_history = [{
+    transformed.auction_histories = [{
       id: `history-${horseId}-${Date.now()}`,
       horse_id: horseId,
       auction_date: apiData.auction_date || '',
@@ -132,7 +135,8 @@ export function transformHorseData(apiData: any): Horse {
       seller: parseSeller(apiData.seller || ''),
       is_unsold: apiData.is_unsold || false,
       comment: apiData.comment || '',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }];
   }
 

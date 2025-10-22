@@ -16,7 +16,16 @@ interface Horse {
 }
 
 export default function SimpleHorsePage() {
-  const params = useParams();
+  const params = useParams<{ id: string }>();
+  
+  // params が null の場合はエラーを表示
+  if (!params) {
+    return (
+      <div className="p-4">
+        <p className="text-red-500">エラー: パラメータが正しく取得できませんでした</p>
+      </div>
+    );
+  }
   const [horse, setHorse] = useState<Horse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -15,18 +15,37 @@ interface Horse {
   // 他の必要なフィールドを追加
 }
 
+interface PageParams {
+  id: string;
+  [key: string]: string | string[];
+}
+
 export default function SimpleHorsePage() {
-  const params = useParams();
+  const params = useParams<PageParams>();
   const router = useRouter();
   const [horse, setHorse] = useState<Horse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // params が null の場合は何もしない
+    if (!params) {
+      setError('パラメータが正しく設定されていません');
+      setLoading(false);
+      return;
+    }
+
     const fetchHorseData = async () => {
+      // id が存在しない場合はエラー
+      if (!params.id) {
+        setError('馬IDが指定されていません');
+        setLoading(false);
+        return;
+      }
+
       try {
         const horseId = Number(params.id);
-        if (!horseId || isNaN(horseId)) {
+        if (isNaN(horseId)) {
           throw new Error('無効な馬IDです');
         }
 
@@ -99,7 +118,7 @@ export default function SimpleHorsePage() {
     };
 
     fetchHorseData();
-  }, [params.id]);
+  }, [params]);
 
   if (loading) {
     return (
