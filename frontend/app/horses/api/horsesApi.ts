@@ -19,9 +19,13 @@ export const getAuctionHistories = (horse: { auction_histories?: AuctionHistory[
 export const fetchHorsesList = async (): Promise<HorseData> => {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-    console.log('API URL:', `${apiUrl}/api/horses`);
+    // 最新のオークションに出品された馬のみを取得するためのパラメータを追加
+    const url = new URL(`${apiUrl}/api/horses`);
+    url.searchParams.append('latest_auction', 'true');
     
-    const response = await fetch(`${apiUrl}/api/horses`, {
+    console.log('API URL:', url.toString());
+    
+    const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
