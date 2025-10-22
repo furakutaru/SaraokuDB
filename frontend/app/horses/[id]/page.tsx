@@ -1434,7 +1434,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                             />
                           </td>
                           <td className="px-2 py-1 border text-right">{
-                            h.unsold ? '主取り' : (h.sold_price ? formatCurrency(h.sold_price) : '-')
+                            h.unsold || h.is_unsold || !h.sold_price ? '主取り' : formatCurrency(h.sold_price)
                           }</td>
                           <td className="px-2 py-1 border text-right">{formatPrizeMan(h.total_prize_start)}</td>
                         </tr>
@@ -1492,21 +1492,11 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                     <div className="text-sm text-gray-600 mb-1">落札価格</div>
                     <div className="text-red-600 text-3xl font-extrabold">
                       {(() => {
-                        const price = latestHistory?.sold_price;
-                        const isUnsold = latestHistory?.unsold || false;
-                        
-                        // 未落札の場合は「主取り」を表示
-                        if (isUnsold) {
+                        // オークション履歴と同じロジックで表示
+                        if (latestHistory?.unsold || latestHistory?.is_unsold || !latestHistory?.sold_price) {
                           return '主取り';
                         }
-                        
-                        // 価格が無効な場合はハイフンを表示
-                        if (price === null || price === undefined || price === 0) {
-                          return '-';
-                        }
-                        
-                        // 価格をフォーマット（通貨形式で表示）
-                        return formatCurrency(price);
+                        return formatCurrency(latestHistory.sold_price);
                       })()}
                     </div>
                   </div>
