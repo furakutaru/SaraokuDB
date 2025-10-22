@@ -20,7 +20,7 @@ const formatCurrency = (value: number | string | null | undefined): string => {
 
 // 落札価格を表示するヘルパー関数
 const formatSoldPrice = (price: number | string | null | undefined | any[], isUnsold: boolean = false, rawPrice?: any): string => {
-  console.log('formatSoldPrice input:', { price, rawPrice, isUnsold, type: Array.isArray(price) ? 'array' : typeof price });
+  // デバッグ用ログは削除またはコメントアウト
   
   // 未落札フラグがtrueの場合は「主取り」を表示
   if (isUnsold) {
@@ -29,19 +29,28 @@ const formatSoldPrice = (price: number | string | null | undefined | any[], isUn
   
   // rawPriceが存在する場合はそちらを優先
   if (rawPrice !== undefined && rawPrice !== null) {
-    console.log('Using rawPrice:', rawPrice, 'type:', typeof rawPrice);
     price = rawPrice;
+  }
+
+  // 配列の文字列表現（例: "[380000]"）を処理
+  if (typeof price === 'string' && price.startsWith('[') && price.endsWith(']')) {
+    try {
+      const parsedArray = JSON.parse(price);
+      if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+        price = parsedArray[0];
+      }
+    } catch (e) {
+      console.error('Error parsing price as array:', e);
+    }
   }
   
   // 配列の場合は最初の要素を使用
   if (Array.isArray(price)) {
-    console.log('Price is an array, using first element:', price[0]);
     price = price.length > 0 ? price[0] : null;
   }
 
   // 価格がnullまたはundefinedまたは空文字または0の場合は「主取り」を表示
   if (price === null || price === undefined || price === '' || price === 0) {
-    console.log('Price is null/undefined/empty/0, returning "主取り"');
     return '主取り';
   }
 
@@ -51,28 +60,42 @@ const formatSoldPrice = (price: number | string | null | undefined | any[], isUn
     if (typeof price === 'string') {
       const cleanPrice = price.replace(/[^0-9.-]+/g, '');
       numPrice = parseFloat(cleanPrice);
-      console.log('Converted string to number:', { original: price, cleaned: cleanPrice, numPrice });
     } else {
       numPrice = Number(price);
-      console.log('Converted to number:', { original: price, numPrice });
     }
     
     if (isNaN(numPrice) || numPrice <= 0) {
-      console.log('Invalid price value:', numPrice, 'original:', price);
       return '-';
     }
     
-    const formatted = new Intl.NumberFormat('ja-JP').format(numPrice) + '円';
-    console.log('Formatted price:', formatted);
-    return formatted;
+    // 落札価格は「¥1,000」形式で表示
+    return `¥${numPrice.toLocaleString('ja-JP')}`;
   } catch (error) {
-    console.error('Error formatting price:', error, { price, rawPrice, type: typeof price });
+    console.error('Error formatting price:', error);
     return '-';
   }
 };
 
-// 賞金をフォーマットするヘルパー関数（formatCurrencyのエイリアス）
-const formatPrize = formatCurrency;
+// 賞金をフォーマットするヘルパー関数（「17.5万円」形式で表示）
+const formatPrize = (value: number | string | null | undefined): string => {
+  if (value === null || value === undefined || value === '') return '-';
+  
+  // 数値に変換
+  const numValue = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]+/g, '')) : Number(value);
+  
+  if (isNaN(numValue) || numValue <= 0) return '-';
+  
+  // 1万円未満の場合はそのまま表示
+  if (numValue < 10000) {
+    return `${numValue.toLocaleString('ja-JP')}円`;
+  }
+  
+  // 1万円以上の場合は「X.XX万円」形式で表示
+  const manValue = numValue / 10000;
+  // 小数点以下1桁まで表示（例: 17.5万円）
+  const formattedValue = manValue % 1 === 0 ? manValue.toFixed(0) : manValue.toFixed(1);
+  return `${formattedValue}万円`;
+};
 
 // normalize.ts から formatSex と getSexColor をインポート
 import { formatSex, getSexColor } from '@/utils/normalize';

@@ -10,7 +10,7 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { 
   formatWeight, 
-  formatManYen, 
+  formatPrizeFromYen, 
   calculateGrowthRate, 
   toArray, 
   formatDate,
@@ -313,9 +313,9 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
                     total_prize_start: staticBase.total_prize_start ?? 0,
                     roi: 0,
                     price_per_kg: 0,
-                    display_price: formatManYen(staticBase.sold_price || 0),
+                    display_price: formatPrizeFromYen(staticBase.sold_price || 0),
                     display_weight: formatWeight(staticBase.weight),
-                    display_prize: formatManYen(staticBase.total_prize_latest ?? 0),
+                    display_prize: formatPrizeFromYen(staticBase.total_prize_latest ?? 0),
                     display_roi: '0%',
                     sort_price: Number(staticBase.sold_price) || 0,
                     sort_prize: staticBase.total_prize_latest ?? 0,
@@ -406,9 +406,9 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
             total_prize_start: horseBaseData.total_prize_start ?? 0,
             roi: 0,
             price_per_kg: 0,
-            display_price: formatManYen(horseBaseData.sold_price || 0),
+            display_price: formatPrizeFromYen(horseBaseData.sold_price || 0),
             display_weight: formatWeight(horseBaseData.weight),
-            display_prize: formatManYen(horseBaseData.total_prize_latest ?? 0),
+            display_prize: formatPrizeFromYen(horseBaseData.total_prize_latest ?? 0),
             display_roi: '0%',
             sort_price: Number(horseBaseData.sold_price) || 0,
             sort_prize: horseBaseData.total_prize_latest ?? 0,
@@ -563,9 +563,9 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
       updated_at: horseBaseData.updated_at || new Date().toISOString(),
       
       // 表示用
-      display_price: formatManYen(horseBaseData.sold_price || 0),
+      display_price: formatPrizeFromYen(horseBaseData.sold_price || 0),
       display_weight: formatWeight(horseBaseData.weight),
-      display_prize: formatManYen(horseBaseData.total_prize_latest ?? 0),
+      display_prize: formatPrizeFromYen(horseBaseData.total_prize_latest ?? 0),
       display_roi: '0%',
       sort_price: Number(horseBaseData.sold_price) || 0,
       sort_prize: horseBaseData.total_prize_latest ?? 0,
@@ -1486,83 +1486,24 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                     <div className="text-center text-blue-600 font-bold">主取り{horse.unsold_count}回</div>
                   )}
                   
-                  {/* 落札価格（最新） */}
+                  {/* 落札時の賞金 */}
                   <div className="text-center">
-                    <div className="text-sm text-gray-600 mb-1">落札価格</div>
+                    <div className="text-sm text-gray-600 mb-1">落札時の賞金</div>
                     <div className="text-red-600 text-3xl font-extrabold">
                       {(() => {
-                      // 主取りの場合は「主取り」と表示
-                      const soldPrice = latestHistory?.sold_price;
-                      
-                      // 型を明示的に変換して比較
-                      const unsoldValue = latestHistory?.unsold;
-                      const isUnsold = Boolean(unsoldValue) && (
-                        unsoldValue === true || 
-                        Number(unsoldValue) === 1 || 
-                        String(unsoldValue).trim() === '1' ||
-                        String(unsoldValue).toLowerCase() === 'true'
-                      );
-                      
-                      // 数値に変換して比較
-                      const soldPriceNum = soldPrice === null || soldPrice === undefined 
-                        ? null 
-                        : Number(soldPrice);
-                      
-                      if (isUnsold || 
-                          soldPrice === null ||
-                          soldPrice === undefined ||
-                          soldPriceNum === 0 ||
-                          String(soldPrice).trim() === '0' ||
-                          String(soldPrice).toLowerCase() === 'null' ||
-                          String(soldPrice) === '[null]') {
-                        return '主取り';
-                      }
-                      
-                      // sold_price が配列の場合は最後の有効な価格を使用
-                      if (Array.isArray(latestHistory?.sold_price)) {
-                        const validPrices = latestHistory.sold_price
-                          .map(price => Number(price))
-                          .filter(price => !isNaN(price) && price > 0);
-                          
-                        if (validPrices.length > 0) {
-                          return `¥${validPrices[validPrices.length - 1].toLocaleString()}`;
-                        }
-                      } 
-                      // sold_price が文字列の場合
-                      else if (latestHistory?.sold_price) {
-                        const soldPrice = latestHistory.sold_price;
-                        
-                        // 文字列に変換
-                        const priceStr = String(soldPrice);
-                        
-                        // "[null]" または "null" の場合は主取りと表示
-                        if (priceStr === '[null]' || priceStr === 'null') {
-                          return '主取り';
-                        }
-                        
-                        // 数値に変換可能な場合は数値として表示
-                        const numericStr = priceStr.replace(/[^0-9.-]+/g, '');
-                        const price = Number(numericStr);
-                        
-                        if (!isNaN(price) && price > 0) {
-                          return `¥${price.toLocaleString()}`;
-                        }
-                      }
-                      // sold_price が数値の場合
-                      else if (latestHistory?.sold_price) {
-                        const price = Number(latestHistory.sold_price);
-                        if (!isNaN(price) && price > 0) {
-                          return `¥${price.toLocaleString()}`;
-                        }
-                      }
-                      
-                      // 上記のいずれにも該当しない場合は価格未設定
-                      return '価格未設定';
+                        const prize = latestHistory?.total_prize_start;
+                        console.log('total_prize_start:', {
+                          value: prize,
+                          type: typeof prize,
+                          formatted: formatPrizeFromYen(prize)
+                        });
+                        return formatPrizeFromYen(prize);
                       })()}
                     </div>
                   </div>
                 </div>
-                {/* 履歴が2回以上ある場合のみ履歴表示 */}
+
+                {/* 落札価格履歴 */}
                 {horse.history.length > 1 && (
                   <div className="text-center mt-2">
                     <div className="text-sm text-gray-600 mb-2">落札価格履歴</div>
@@ -1585,10 +1526,17 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                         const latestPrice = prices[prices.length - 1];
                         const date = toArray(h.auction_date)[0] || '';
                         
+                        // デバッグ用ログ
+                        console.log('latestPrice:', {
+                          value: latestPrice,
+                          type: typeof latestPrice,
+                          formatted: formatPrizeFromYen(latestPrice)
+                        });
+                        
                         return (
                           <div key={i} className="text-lg font-bold mb-1">
                             <span className="text-red-600">
-                              ¥{latestPrice.toLocaleString()}
+                              {formatPrizeFromYen(latestPrice)}
                             </span>
                             {date && (
                               <span className="text-xs text-gray-500 ml-2">

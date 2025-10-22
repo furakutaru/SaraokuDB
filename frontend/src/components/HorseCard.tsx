@@ -2,6 +2,7 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Horse, AuctionHistory } from '@/types/horse';
 import { formatSex, getSexColor } from '@/utils/normalize';
+import { formatPrizeMan } from '@/utils/format';
 
 // 血統情報から指定された種類の馬名を抽出する関数
 const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsire'): string => {
@@ -66,7 +67,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
     return isNaN(priceNum) ? null : priceNum;
   };
 
-  // 価格を表示用にフォーマット
+  // 価格を表示用にフォーマット（落札価格は「¥1,000」形式で表示）
   const displayPrice = (price: number | null | undefined, isUnsold: boolean = false) => {
     console.log(`Displaying price for ${horse.name}:`, { 
       price, 
@@ -85,7 +86,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
       const priceNum = typeof price === 'number' ? price : Number(price);
       if (!isNaN(priceNum) && priceNum > 0) {
         console.log(`  Using provided price: ${priceNum}`);
-        return '¥' + priceNum.toLocaleString();
+        return '¥' + priceNum.toLocaleString('ja-JP');
       }
     }
     
@@ -93,7 +94,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
     const latestPrice = getLatestSoldPrice();
     if (latestPrice !== null) {
       console.log(`  Using latest price: ${latestPrice}`);
-      return '¥' + latestPrice.toLocaleString();
+      return '¥' + latestPrice.toLocaleString('ja-JP');
     }
     
     // 価格が見つからない場合はハイフンを表示
@@ -162,7 +163,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
           {/* 右カラム: 総賞金と馬体重 */}
           <div className="text-sm text-gray-500 space-y-1">
             {latestAuctionInfo?.total_prize_latest !== undefined && (
-              <p>総賞金: {latestAuctionInfo.total_prize_latest.toLocaleString()}万円</p>
+              <p>総賞金: {formatPrizeMan(latestAuctionInfo.total_prize_latest)}</p>
             )}
             {latestAuctionInfo?.weight && latestAuctionInfo.weight > 0 && (
               <p>{latestAuctionInfo.weight}kg</p>

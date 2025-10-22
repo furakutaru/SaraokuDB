@@ -37,11 +37,13 @@ export function calculateGrowthRate(start: number, latest: number): string {
   return (latest - start >= 0 ? '+' : '') + rate;
 }
 
-// 数値を「○万円」形式の文字列に変換する関数
+// 数値を「○万円」または「〇円」形式の文字列に変換する関数
 export function formatManYen(value: number): string {
   if (value === 0) return '0円';
   if (!value) return '-';
-  return `${(value / 10000).toFixed(1)}万円`;
+  if (value < 10000) return `${value}円`;
+  const manYen = (value / 10000).toFixed(1);
+  return `${manYen}万円`;
 }
 
 // 数値を3桁区切りでフォーマットする
@@ -49,7 +51,7 @@ function formatNumberWithCommas(num: number): string {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-// 円単位の数値をフォーマットする
+// 円単位の賞金をフォーマットする（例: 175000 → "17.5万円"）
 export function formatPrizeMan(
   val: number | string | null | undefined,
   isUnsold?: boolean
@@ -65,25 +67,53 @@ export function formatPrizeMan(
   // 数値に変換できない、または数値が 0 の場合は '-' を返す
   if (isNaN(num) || num === 0) return '-';
   
-  // 数値を3桁区切りでフォーマットして返す
-  return `¥${formatNumberWithCommas(Math.round(num))}`;
+  // 数値を「○万円」形式にフォーマットして返す
+  if (num < 10000) return `${num.toLocaleString('ja-JP')}円`;
+  return `${(num / 10000).toFixed(1).replace(/\.0$/, '')}万円`; // 例: 17.0万円 → 17万円
 }
 
-// For values in Yen (number/string/object), display as 万円
-export function formatPrizeFromYen(val: number | string | { total_prize: string } | null | undefined): string {
+// 円単位の数値を「○万円」形式に変換する
+// 例: 175000 → "17.5万円"
+export function formatPrizeFromYen(val: number | string | string[] | { total_prize: string } | null | undefined): string {
   if (val === null || val === undefined || val === '') return '-';
+  
+  let num: number;
+  
   if (typeof val === 'number') {
-    return val > 0 ? `${(val / 10000).toLocaleString('ja-JP')}万円` : '0万円';
+    num = val;
+  } else if (Array.isArray(val)) {
+    // 配列の場合は最初の要素を数値に変換
+    const firstVal = val[0];
+    if (firstVal === undefined) return '-';
+    num = Number(String(firstVal).replace(/[^0-9.-]/g, ''));
+  } else if (typeof val === 'string') {
+    // 文字列が配列形式（例: "[380000]"）の場合はパースしてから処理
+    if (val.startsWith('[') && val.endsWith(']')) {
+      try {
+        const parsedArray = JSON.parse(val);
+        if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+          const firstVal = parsedArray[0];
+          num = Number(String(firstVal).replace(/[^0-9.-]/g, ''));
+        } else {
+          return '0万円';
+        }
+      } catch (e) {
+        console.error('Error parsing array string:', e);
+        return '0万円';
+      }
+    } else {
+      // 通常の文字列の場合は数値に変換
+      num = Number(val.replace(/[^0-9.-]/g, ''));
+    }
+  } else if (typeof val === 'object' && val !== null && 'total_prize' in val) {
+    num = Number(String(val.total_prize).replace(/[^0-9.-]/g, ''));
+  } else {
+    return '0万円';
   }
-  if (typeof val === 'string') {
-    const num = Number(val.replace(/[^0-9]/g, ''));
-    return !isNaN(num) && num > 0 ? `${(num / 10000).toLocaleString('ja-JP')}万円` : '0万円';
-  }
-  if (typeof val === 'object' && val !== null && 'total_prize' in val) {
-    const num = Number(String(val.total_prize).replace(/[^0-9]/g, ''));
-    return !isNaN(num) && num > 0 ? `${(num / 10000).toLocaleString('ja-JP')}万円` : '0万円';
-  }
-  return '0万円';
+  
+  if (isNaN(num) || num === 0) return '0万円';
+  if (num < 10000) return `${num}円`;
+  return `${(num / 10000).toFixed(1)}万円`;
 }
 
 /**
