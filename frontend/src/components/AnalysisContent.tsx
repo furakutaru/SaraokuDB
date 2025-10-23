@@ -323,12 +323,34 @@ export default function AnalysisContent() {
   // ソート
   if (sortKey) {
     filteredHorses.sort((a: Horse, b: Horse) => {
-      let aValue = (a as any)[sortKey] || 0;
-      let bValue = (b as any)[sortKey] || 0;
+      let aValue = (a as any)[sortKey];
+      let bValue = (b as any)[sortKey];
       
-      // 数値に変換
-      if (typeof aValue === 'string') aValue = parseFloat(aValue) || 0;
-      if (typeof bValue === 'string') bValue = parseFloat(bValue) || 0;
+      // 価格の特別な処理
+      if (sortKey === 'sold_price') {
+        // 文字列の場合はカンマを削除して数値に変換
+        const parsePrice = (price: any): number => {
+          if (price === null || price === undefined) return 0;
+          if (typeof price === 'number') return price;
+          if (typeof price === 'string') {
+            // カンマを削除して数値に変換
+            const cleanPrice = price.replace(/[^0-9.-]+/g, '');
+            return parseFloat(cleanPrice) || 0;
+          }
+          return 0;
+        };
+        
+        aValue = parsePrice(aValue);
+        bValue = parsePrice(bValue);
+      } else {
+        // その他のフィールドの処理
+        aValue = aValue || 0;
+        bValue = bValue || 0;
+        
+        // 数値に変換
+        if (typeof aValue === 'string') aValue = parseFloat(aValue) || 0;
+        if (typeof bValue === 'string') bValue = parseFloat(bValue) || 0;
+      }
       
       return sortOrder === 'asc' 
         ? (aValue as number) - (bValue as number)
