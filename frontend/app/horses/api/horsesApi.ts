@@ -44,7 +44,26 @@ export const fetchHorsesList = async (): Promise<HorseData> => {
     }
 
     const data = await response.json();
-    console.log('API Response:', data);
+    console.log('API Response data type:', typeof data);
+    
+    // 最初の馬のデータをログに出力
+    const sampleHorse = data.horses?.[0];
+    console.log('Sample horse data:', JSON.stringify(sampleHorse, null, 2));
+    
+    // すべての馬のsold_priceを確認
+    if (data.horses) {
+      console.log('All sold_prices:');
+      data.horses.forEach((horse: any, index: number) => {
+        const price = horse.auction_histories?.[0]?.sold_price;
+        console.log(`Horse ${index + 1} (${horse.name}):`, {
+          value: price,
+          type: typeof price,
+          auction_histories: horse.auction_histories?.[0] 
+            ? 'exists' 
+            : 'no auction history'
+        });
+      });
+    }
     
     // レスポンスが配列の場合はオブジェクトに変換
     if (Array.isArray(data)) {

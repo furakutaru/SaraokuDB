@@ -429,33 +429,57 @@ export default function HorsesPage() {
       if (!a || !b) return 0;
       
       let comparison = 0;
-      const aValue = a[sortField as keyof typeof a];
-      const bValue = b[sortField as keyof typeof b];
+      
+      // 価格の数値変換関数
+      const parsePrice = (price: any): number => {
+        if (price === null || price === undefined) return 0;
+        if (typeof price === 'number') return price;
+        if (typeof price !== 'string') return 0;
+        
+        // 文字列から数値に変換（カンマや通貨記号を除去）
+        const numStr = price.toString().replace(/[^0-9.-]+/g, '');
+        return parseFloat(numStr) || 0;
+      };
 
-      if (aValue === bValue) return 0;
-      if (aValue === null || aValue === undefined) return sortOrder === 'asc' ? 1 : -1;
-      if (bValue === null || bValue === undefined) return sortOrder === 'asc' ? -1 : 1;
+      // ソート対象の値を取得
+      let aValue: any;
+      let bValue: any;
 
-      try {
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          comparison = aValue.localeCompare(bValue);
-        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
-          comparison = aValue - bValue;
-        } else if (aValue instanceof Date && bValue instanceof Date) {
-          comparison = aValue.getTime() - bValue.getTime();
-        } else {
-          // 日付文字列の場合は日付として比較を試みる
-          const aDate = new Date(String(aValue));
-          const bDate = new Date(String(bValue));
-          if (!isNaN(aDate.getTime()) && !isNaN(bDate.getTime())) {
-            comparison = aDate.getTime() - bDate.getTime();
+      if (sortField === 'sold_price') {
+        // sold_priceの場合は数値として比較
+        aValue = parsePrice(a.sold_price);
+        bValue = parsePrice(b.sold_price);
+        comparison = aValue - bValue;
+      } else {
+        // その他のフィールドは元のロジックで比較
+        aValue = a[sortField as keyof typeof a];
+        bValue = b[sortField as keyof typeof b];
+
+        if (aValue === bValue) return 0;
+        if (aValue === null || aValue === undefined) return sortOrder === 'asc' ? 1 : -1;
+        if (bValue === null || bValue === undefined) return sortOrder === 'asc' ? -1 : 1;
+
+        try {
+          if (typeof aValue === 'string' && typeof bValue === 'string') {
+            comparison = aValue.localeCompare(bValue);
+          } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+            comparison = aValue - bValue;
+          } else if (aValue instanceof Date && bValue instanceof Date) {
+            comparison = aValue.getTime() - bValue.getTime();
           } else {
-            comparison = String(aValue).localeCompare(String(bValue));
+            // 日付文字列の場合は日付として比較を試みる
+            const aDate = new Date(String(aValue));
+            const bDate = new Date(String(bValue));
+            if (!isNaN(aDate.getTime()) && !isNaN(bDate.getTime())) {
+              comparison = aDate.getTime() - bDate.getTime();
+            } else {
+              comparison = String(aValue).localeCompare(String(bValue));
+            }
           }
+        } catch (e) {
+          console.error('ソートエラー:', e, { a, b, sortField });
+          comparison = 0;
         }
-      } catch (e) {
-        console.error('ソートエラー:', e, { a, b, sortField });
-        comparison = 0;
       }
 
       return sortOrder === 'asc' ? comparison : -comparison;

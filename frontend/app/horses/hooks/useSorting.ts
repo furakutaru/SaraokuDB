@@ -18,8 +18,36 @@ export const useSorting = (horses: Horse[]): UseSortingReturn => {
 
     // ソート対象の値を取得
     if (sortField === 'sold_price') {
-      aValue = a.auction_histories?.[0]?.sold_price || 0;
-      bValue = b.auction_histories?.[0]?.sold_price || 0;
+      // デバッグ用: ソート前の値をログに出力
+      console.log('Before sorting - a:', {
+        raw: a.auction_histories?.[0]?.sold_price,
+        type: typeof a.auction_histories?.[0]?.sold_price
+      });
+      console.log('Before sorting - b:', {
+        raw: b.auction_histories?.[0]?.sold_price,
+        type: typeof b.auction_histories?.[0]?.sold_price
+      });
+
+      // 文字列から数値に変換（カンマや「万円」を除去）
+      const parsePrice = (price: any): number => {
+        console.log('Parsing price:', { price, type: typeof price });
+        
+        if (price === null || price === undefined) return 0;
+        if (typeof price === 'number') return price;
+        if (typeof price !== 'string') return 0;
+        
+        // 金額から数字以外と「万」を除去
+        const numStr = price.replace(/[^0-9.]/g, '');
+        const result = parseFloat(numStr) || 0;
+        console.log('Parsed result:', { price, numStr, result });
+        return result;
+      };
+
+      aValue = parsePrice(a.auction_histories?.[0]?.sold_price);
+      bValue = parsePrice(b.auction_histories?.[0]?.sold_price);
+      
+      // デバッグ用: ソートに使用する値をログに出力
+      console.log('Sorting values:', { aValue, bValue, sortOrder });
     } else if (sortField === 'age') {
       aValue = a.age || 0;
       bValue = b.age || 0;
