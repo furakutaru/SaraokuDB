@@ -57,7 +57,17 @@ class RequestIdAdapter(logging.LoggerAdapter):
         return f'[{request_id}] {msg}', kwargs
 
 # 環境変数の読み込み
-load_dotenv(Path(__file__).parent.parent / 'backend' / '.env')
+env_path = Path(__file__).parent.parent / 'backend' / '.env'
+if env_path.exists():
+    load_dotenv(env_path, override=True)
+
+# デバッグ用: 環境変数の確認
+logger.info("=== 環境変数の確認 ===")
+logger.info(f"PROD_API_BASE_URL: {'***' if os.getenv('PROD_API_BASE_URL') else 'Not Set'}")
+logger.info(f"PROD_API_USERNAME: {'***' if os.getenv('PROD_API_USERNAME') else 'Not Set'}")
+logger.info(f"PROD_API_PASSWORD: {'***' if os.getenv('PROD_API_PASSWORD') else 'Not Set'}")
+logger.info(f"GITHUB_ACTIONS: {os.getenv('GITHUB_ACTIONS')}")
+logger.info("=====================")
 
 class ScraperClient:
     def __init__(self):

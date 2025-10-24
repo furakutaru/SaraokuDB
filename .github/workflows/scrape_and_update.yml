@@ -230,15 +230,21 @@ jobs:
           
       - name: Run scraper with debug
         env:
+          # 認証関連
           TOKEN: ${{ steps.auth.outputs.token }}
           AUTH_HEADER: ${{ steps.auth.outputs.auth_header }}
           NEXT_PUBLIC_API_URL: ${{ secrets.PROD_API_BASE_URL }}
+          # 本番環境認証情報
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
+          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
+          # アプリケーション設定
           LOG_LEVEL: DEBUG
           GITHUB_ACTIONS: "true"
           PYTHONUNBUFFERED: 1
           PYTHONPATH: ${{ github.workspace }}
+          # データベース設定
           SQLITE_DB_DIR: ${{ github.workspace }}/backend/data
-          # SQLiteの設定
           SQLITE_TIMEOUT: 30
           SQLITE_JOURNAL_MODE: WAL  # Write-Ahead Logging モードを使用
         run: |
