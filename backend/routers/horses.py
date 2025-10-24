@@ -13,7 +13,7 @@ from services.horse_serializer import serialize_horse
 from services.horses_list_mapper import map_horses_list
 
 # ルーターの設定
-router = APIRouter(tags=["horses"])
+router = APIRouter(prefix="/horses", tags=["horses"])
 
 from fastapi import Request
 import logging
@@ -33,7 +33,7 @@ import os
 logger.info(f"Current file path: {os.path.abspath(__file__)}")
 logger.info(f"Current working directory: {os.getcwd()}")
 
-@router.get("/horses/latest", response_model=Dict[str, Any], tags=["horses"])
+@router.get("/latest", response_model=Dict[str, Any], tags=["horses"])
 async def get_latest_horses(
     request: Request,
     skip: int = 0,
@@ -44,7 +44,7 @@ async def get_latest_horses(
     logger.info("Calling /horses/latest endpoint")
     return await get_horses(request, skip, limit, None, 'true', db)
 
-@router.get("/horses", response_model=Dict[str, Any], tags=["horses"])
+@router.get("", response_model=Dict[str, Any], tags=["horses"])
 async def get_horses(
     request: Request,
     skip: int = 0,
