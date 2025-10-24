@@ -17,14 +17,107 @@ import subprocess
 import sys
 import time
 import uuid
-import traceback
 import random
+import traceback
+import urllib.parse
+import requests
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse, parse_qs, urlunparse
+
+
+class ApiAuthenticator:
+    """API認証を管理するクラス"""
+    
+    def __init__(self, api_base_url: str, api_username: str, api_password: str):
+        """
+        認証マネージャーを初期化
+        
+        Args:
+            api_base_url: APIのベースURL (例: 'https://api.example.com')
+            api_username: 認証用ユーザー名
+            api_password: 認証用パスワード
+        """
+        self.api_base_url = api_base_url.rstrip('/')
+        self.api_username = api_username
+        self.api_password = api_password
+        self.token = None
+        self.session = requests.Session()
+        
+        # セッション設定
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        })
+    
+    def authenticate(self) -> bool:
+        """API認証を行いトークンを取得"""
+        try:
+            auth_url = f"{self.api_base_url}/api/auth/token"
+            logger = logging.getLogger(__name__)
+            logger.info(f"認証URL: {auth_url}")
+            
+            # フォームデータとして送信
+            data = {
+                'username': self.api_username,
+                'password': self.api_password
+            }
+            
+            # ヘッダーを設定
+            headers = {
+                'accept': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+            
+            # フォームデータとして送信
+            response = self.session.post(
+                auth_url,
+                data=data,
+                headers=headers,
+                timeout=30
+            )
+            
+            response.raise_for_status()
+            token_data = response.json()
+            self.token = token_data.get('access_token')
+            
+            if not self.token:
+                raise ValueError("認証トークンを取得できませんでした")
+            
+            # 認証トークンをセッションヘッダーに設定
+            self.session.headers.update({
+                'Authorization': f'Bearer {self.token}'
+            })
+            
+            logger.info("認証に成功しました")
+            return True
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"認証リクエストに失敗しました: {str(e)}")
+            if hasattr(e, 'response') and e.response is not None:
+                logger.error(f"ステータスコード: {e.response.status_code}")
+                logger.error(f"レスポンス: {e.response.text}")
+            return False
+        except Exception as e:
+            logger.error(f"認証処理中にエラーが発生しました: {str(e)}")
+            logger.error(traceback.format_exc())
+            return False
+    
+    def get_session(self) -> requests.Session:
+        """認証済みのセッションを取得"""
+        if not self.token and not self.authenticate():
+            raise RuntimeError("認証に失敗しました")
+        return self.session
+    
+    def refresh_token(self) -> bool:
+        """トークンをリフレッシュ"""
+        self.token = None
+        return self.authenticate()
+
 
 # プロジェクトのルートディレクトリをPythonパスに追加
 project_root = Path(__file__).parent.parent
@@ -2622,7 +2715,25 @@ def update_horses_database(horses: List[Dict[str, Any]]) -> bool:
     Returns:
         bool: データベース更新が成功した場合はTrue、失敗した場合はFalse
     """
+    # 環境変数からAPI認証情報を取得
+    api_base_url = os.getenv('PROD_API_BASE_URL')
+    api_username = os.getenv('PROD_API_USERNAME')
+    api_password = os.getenv('PROD_API_PASSWORD')
+    
+    if not all([api_base_url, api_username, api_password]):
+        logger.error("API認証情報が設定されていません。環境変数を確認してください。")
+        return False
+    
+    # API認証を実行
+    logger.info("API認証を開始します...")
     try:
+        auth = ApiAuthenticator(api_base_url, api_username, api_password)
+        if not auth.authenticate():
+            logger.error("API認証に失敗しました。認証情報を確認してください。")
+            return False
+            
+        logger.info("API認証に成功しました。データベースを更新しています...")
+        
         # データベース更新スクリプトのパスを取得（絶対パスに変換）
         update_script_path = (Path(__file__).parent / 'update_database.py').resolve()
         
@@ -2644,42 +2755,31 @@ def update_horses_database(horses: List[Dict[str, Any]]) -> bool:
             with open(temp_json, 'w', encoding='utf-8') as f:
                 json.dump(horses, f, ensure_ascii=False, indent=2)
             
-            # 環境変数を設定
-            env = os.environ.copy()
+            # データベースディレクトリのパスを設定
             db_dir = str(Path(__file__).parent.parent / 'backend' / 'data')
-            env['SQLITE_DB_DIR'] = db_dir
+            db_path = str(Path(db_dir) / 'horses.db')
             
-            # スクリプトのフルパスを取得
-            script_path = str(update_script_path)
-            temp_json_path = str(temp_json)
+            # データベースディレクトリが存在しない場合は作成
+            Path(db_dir).mkdir(exist_ok=True, parents=True, mode=0o755)
             
-            logger.info(f"データベース更新スクリプトを実行します: {script_path}")
-            logger.info(f"一時ファイル: {temp_json_path}")
-            logger.info(f"現在の作業ディレクトリ: {os.getcwd()}")
-            logger.info(f"データベースディレクトリ: {db_dir}")
-            
-            # データベースディレクトリの存在確認とパーミッション設定
-            db_dir_path = Path(db_dir)
-            if not db_dir_path.exists():
-                logger.info(f"データベースディレクトリを作成します: {db_dir}")
-                db_dir_path.mkdir(parents=True, exist_ok=True, mode=0o755)
-            
-            # データベースファイルのパーミッションを設定
-            db_file = db_dir_path / 'horses.db'
-            if db_file.exists():
-                try:
-                    db_file.chmod(0o666)  # 読み書き可能に設定
-                    logger.info(f"データベースファイルのパーミッションを設定しました: {db_file}")
-                except Exception as e:
-                    logger.warning(f"データベースファイルのパーミッション設定に失敗しました: {e}")
-            
-            # サブプロセスでデータベース更新スクリプトを実行
+            # データベース更新スクリプトを実行
             result = subprocess.run(
-                ['python3', script_path, '--input', temp_json_path, '--debug'],
+                [
+                    sys.executable,  # 現在のPythonインタープリタを使用
+                    'update_database.py',
+                    '--input', str(temp_json)
+                ],
                 capture_output=True,
                 text=True,
                 cwd=Path(__file__).parent,  # スクリプトのディレクトリをカレントディレクトリに設定
-                env=env  # 環境変数を引き継ぐ
+                env={
+                    **os.environ,
+                    'AUTH_HEADER': f'Bearer {auth.token}',
+                    'DATABASE_URL': os.getenv('DATABASE_URL', f'sqlite:///{db_path}'),
+                    'LOG_LEVEL': 'DEBUG',
+                    'GITHUB_ACTIONS': 'true',
+                    'SQLITE_DB_DIR': db_dir
+                }
             )
             
             # 実行結果をログに出力
@@ -2716,21 +2816,7 @@ def update_horses_database(horses: List[Dict[str, Any]]) -> bool:
                 
         except Exception as e:
             logger.error(f"データベース更新スクリプトの実行中にエラーが発生しました: {str(e)}")
-            import traceback
             logger.error(traceback.format_exc())
-            
-            # エラーが発生した場合も一時ファイルを残す
-            if 'temp_json' in locals() and temp_json.exists():
-                debug_dir = Path(__file__).parent / 'debug_data'
-                debug_dir.mkdir(exist_ok=True, mode=0o755)
-                debug_file = debug_dir / f'error_{int(time.time())}.json'
-                try:
-                    import shutil
-                    shutil.copy2(temp_json, debug_file)
-                    logger.info(f"エラー発生時のデータを保存しました: {debug_file}")
-                except Exception as copy_error:
-                    logger.error(f"エラーデータの保存に失敗しました: {copy_error}")
-            
             return False
         finally:
             # 一時ファイルを削除
@@ -2740,24 +2826,10 @@ def update_horses_database(horses: List[Dict[str, Any]]) -> bool:
                     logger.debug(f"一時ファイルを削除しました: {temp_json}")
                 except Exception as e:
                     logger.warning(f"一時ファイルの削除に失敗しました: {e}")
-                
+                    
     except Exception as e:
-        logger.error(f"データベース更新中に予期しないエラーが発生しました: {str(e)}")
-        import traceback
+        logger.error(f"API認証中にエラーが発生しました: {str(e)}")
         logger.error(traceback.format_exc())
-        
-        # エラーが発生した場合も一時ファイルを残す
-        if 'temp_json' in locals() and temp_json.exists():
-            debug_dir = Path(__file__).parent / 'debug_data'
-            debug_dir.mkdir(exist_ok=True, mode=0o755)
-            debug_file = debug_dir / f'fatal_error_{int(time.time())}.json'
-            try:
-                import shutil
-                shutil.copy2(temp_json, debug_file)
-                logger.info(f"致命的なエラー発生時のデータを保存しました: {debug_file}")
-            except Exception as copy_error:
-                logger.error(f"エラーデータの保存に失敗しました: {copy_error}")
-        
         return False
 
 def save_horses(horses: List[Dict[str, Any]], output_path: Path) -> bool:
