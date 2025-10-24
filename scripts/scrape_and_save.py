@@ -108,8 +108,12 @@ class ScraperClient:
             response = self.session.post(
                 auth_url,
                 json=auth_data,
+                data={
+                    'username': 'furakutaru',
+                    'password': 'uma_5272002'
+                },
                 headers={
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded',
                     'Accept': 'application/json'
                 }
             )
