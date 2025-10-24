@@ -91,28 +91,48 @@ export interface AuctionHistory {
 export type AuctionHistories = AuctionHistory[] | undefined;
 
 /**
+ * APIメタデータ型
+ */
+export interface ApiMetadata {
+  /** 最終更新日時 */
+  last_updated?: string;
+  /** 総レコード数 */
+  total?: number;
+  /** スキップ数 */
+  skip?: number;
+  /** リミット数 */
+  limit?: number;
+  /** その他のメタデータ */
+  [key: string]: any;
+}
+
+/**
  * 馬データのレスポンス型
  */
 export interface HorseData {
-  /** 馬の配列 */
+  /** 馬のリスト */
   horses: Horse[];
-  /** オークション履歴 (キャメルケース版) */
-  auctionHistories?: AuctionHistory[];
-  /** オークション履歴 (スネークケース版) */
+  /** オークション履歴のリスト */
   auction_histories?: AuctionHistory[];
   /** メタデータ */
-  metadata?: {
-    /** 最終更新日時 */
-    last_updated?: string;
-    /** 総馬数 */
-    total_horses?: number;
-    /** 総オークション記録数 */
-    total_auction_records?: number;
-    /** その他のメタデータ */
-    [key: string]: any;
-  };
-  /** その他のプロパティ */
-  [key: string]: any;
+  metadata: ApiMetadata;
+  /** レガシー互換用のプロパティ */
+  total?: number;
+  last_updated?: string;
+  [key: string]: any; // その他のプロパティを許容
+}
+
+/**
+ * 単一の馬データのレスポンス型
+ */
+export interface HorseResponse {
+  /** 馬データ */
+  horse?: Horse;
+  /** オークション履歴 */
+  auction_histories?: AuctionHistory[];
+  /** メタデータ */
+  metadata?: ApiMetadata;
+  [key: string]: any; // その他のプロパティを許容
 }
 
 /**
@@ -129,5 +149,5 @@ export type SortableField = 'name' | 'age' | 'sold_price' | 'auction_date' | 'to
 export * from './components/Button.types';
 export * from './components/HorseImage.types';
 
-// API関連の型定義を再エクスポート
-export * from './api/horses.types';
+// API関連の型定義をエクスポート
+export * from './api.types';

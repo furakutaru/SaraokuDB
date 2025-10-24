@@ -57,16 +57,20 @@ app = FastAPI(
 )
 
 # Include routers
-# Vercelでは /api が自動的には付与されないため、各ルーターで完全なパスを指定
-app.include_router(health_router, prefix="/api")
-app.include_router(auth_router, prefix="/api")
-app.include_router(debug_router, prefix="/api")
-app.include_router(horses.router, prefix="")
-app.include_router(auction_histories_router, prefix="/api")
+# 各ルーターのprefixは各ファイルで設定されているため、ここでは指定しない
+app.include_router(health_router)
+app.include_router(auth_router)
+app.include_router(debug_router)
+app.include_router(horses.router)
+app.include_router(auction_histories_router)
 
 # CORS settings
-# すべてのオリジンからのリクエストを許可（開発環境用）
-origins = ["*"]
+# 許可するオリジンを明示的に指定
+origins = [
+    "http://localhost:3000",  # ローカル開発環境
+    "http://localhost:8000",  # 代替ポート
+    "https://saraoku-db.vercel.app",  # 本番環境
+]
 
 app.add_middleware(
     CORSMiddleware,

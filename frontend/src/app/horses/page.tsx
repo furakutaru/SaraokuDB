@@ -8,55 +8,63 @@ import Link from 'next/link';
 import HorseImage from '@/components/HorseImage';
 import HorseCard from '@/components/HorseCard';
 import { useRouter } from 'next/navigation';
-import { Horse as BaseHorse, AuctionHistory, HorseData } from '@/types/horse';
+import { Horse as BaseHorse, AuctionHistory, HorseData, HorseWithCalculations } from '@/types/horse';
 
 // コンポーネントで使用する馬の型を定義
 export interface Horse {
+  // 基本情報
   id: string | number;
   name?: string;
   auction_id?: string;
   sex: string;
+  age?: number;
   sire: string;
   dam: string;
   damsire: string;
-  image_url: any;
+  weight?: number | null;
+  image_url: string | { image_url: string };
   jbis_url?: string;
   detail_url?: string;
   created_at?: string;
   updated_at?: string;
   birth_year?: number;
-  age?: number;
   color?: string;
   breeder?: string;
   owner?: string;
   trainer?: string;
   location?: string;
-  auction_date?: string | string[];
   sold_price?: number | null;
   is_unsold?: boolean;
   seller?: string;
+  
+  // オークション関連
+  auction_history?: AuctionHistory[];
+  auction_date?: string | string[];
+  
+  // 計算済みプロパティ
   total_prize_start?: number;
   total_prize_latest?: number;
-  prize_money?: { total_prize: string };
+  unsold_count?: number;
+  roi?: number;
+  price_per_kg?: number;
+  primary_image?: string;
+  display_price?: string;
+  display_weight?: string;
   display_prize?: string;
   display_roi?: string;
-  display_weight?: string;
-  display_price?: string;
   sort_price?: number;
   sort_prize?: number;
   sort_roi?: number;
-  roi?: number;
-  price_per_kg?: number;
+  prize_money?: { total_prize: string };
   effectiveWeight?: number | null;
   auction_url?: string;
   unsold?: boolean;
   price?: number | null;
-  race_records: {
+  race_records?: {
     total_prize_money: number;
     last_race_date?: string;
     last_prize_update?: string;
   };
-  auction_history?: AuctionHistory[];
   latest_auction?: AuctionHistory | null;
 }
 
@@ -307,15 +315,38 @@ export default function HorsesPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {sortedHorses.map((horse: Horse) => (
+              {sortedHorses.map((horse: Horse) => {
+                // Horse を HorseWithCalculations に変換
+                const horseWithCalculations = {
+                  ...horse,
+                  // HorseWithCalculations の必須プロパティにデフォルト値を設定
+                  total_prize_start: 0,
+                  unsold_count: 0,
+                  roi: 0,
+                  price_per_kg: 0,
+                  primary_image: typeof horse.image_url === 'string' ? horse.image_url : horse.image_url?.image_url || '',
+                  display_price: '',
+                  display_weight: '',
+                  display_prize: '',
+                  display_roi: '',
+                  sort_price: 0,
+                  sort_prize: 0,
+                  sort_roi: 0,
+                  auction_history: horse.auction_history || [],
+                  // auction_date の型を明示的に変換
+                  auction_date: Array.isArray(horse.auction_date) ? horse.auction_date[0] : horse.auction_date
+                } as HorseWithCalculations;
+                
+                return (
                 <div key={horse.id} onClick={() => router.push(`/horses/${horse.id}`)}>
                   <HorseCard 
-                    horse={horse} 
+                    horse={horseWithCalculations} 
                     auctionHistory={horse.auction_history || []}
                     onClick={() => router.push(`/horses/${horse.id}`)}
                   />
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

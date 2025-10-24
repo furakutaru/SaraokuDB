@@ -6,12 +6,12 @@
 export interface BaseAuctionHistory {
   id: string | number;
   horse_id: string | number;
-  auction_date: string | string[];
+  auction_date: string;
   sold_price: number | null;
   total_prize_start: number;
   total_prize_latest: number;
   weight: number | null;
-  seller: string | null;
+  seller: string;
   is_unsold: boolean;
   comment: string;
   created_at: string;
@@ -68,7 +68,7 @@ export interface Horse extends BaseHorse {
   location?: string;
   
   // オークション関連
-  auction_date?: string | string[];
+  auction_date?: string;
   sold_price?: number | null;
   is_unsold?: boolean;
   seller?: string;
@@ -93,8 +93,6 @@ export interface Horse extends BaseHorse {
   roi?: number;
   price_per_kg?: number;
   effectiveWeight?: number | null;
-  weight?: number | null; // 馬の体重（kg）
-  comment?: string; // コメント情報
   
   // 互換性のためのフィールド
   /** @deprecated 代わりに detail_url を使用してください */

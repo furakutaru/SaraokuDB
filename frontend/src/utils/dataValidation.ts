@@ -1,17 +1,22 @@
 import { Horse } from '@/types/horse';
 
+// Horse 型を拡張して weight プロパティを含める
+type HorseWithWeight = Horse & {
+  weight?: number | null;
+};
+
 export type MissingField = {
   field: string;
   label: string;
   severity: 'error' | 'warning' | 'info';
 };
 
-export const checkMissingData = (horse: Horse): MissingField[] => {
+export const checkMissingData = (horse: HorseWithWeight): MissingField[] => {
   const missingFields: MissingField[] = [];
   
   // Required fields that should always be present
   const requiredFields: Array<{
-    key: keyof Horse;
+    key: keyof HorseWithWeight;
     label: string;
     severity: 'error' | 'warning' | 'info';
   }> = [
@@ -21,14 +26,12 @@ export const checkMissingData = (horse: Horse): MissingField[] => {
     { key: 'sire', label: '父', severity: 'warning' },
     { key: 'dam', label: '母', severity: 'warning' },
     { key: 'damsire', label: '母父', severity: 'warning' },
-    { key: 'weight', label: '馬体重', severity: 'warning' },
-    { key: 'total_prize_latest', label: '獲得賞金', severity: 'info' },
-    { key: 'comment', label: 'コメント', severity: 'info' },
+    { key: 'weight', label: '馬体重', severity: 'info' }
   ];
 
   // Check each required field
   requiredFields.forEach(({ key, label, severity }) => {
-    const value = horse[key as keyof Horse];
+    const value = horse[key as keyof HorseWithWeight];
     let isMissing = false;
 
     if (value === null || value === undefined) {
@@ -50,7 +53,7 @@ export const checkMissingData = (horse: Horse): MissingField[] => {
   return missingFields;
 };
 
-export const getMissingDataSummary = (horses: Horse[]) => {
+export const getMissingDataSummary = (horses: HorseWithWeight[]) => {
   const summary = {
     totalHorses: horses.length,
     missingFields: {

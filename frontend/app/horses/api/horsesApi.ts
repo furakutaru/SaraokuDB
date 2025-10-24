@@ -1,4 +1,5 @@
-import type { Horse, AuctionHistory, HorseData } from '../types';
+import type { Horse, AuctionHistory } from '../types';
+import type { HorseData, HorseResponse, FetchHorsesParams, ApiMetadata } from '../types/api.types';
 
 // APIレスポンスの型定義
 interface ApiHorse {
@@ -124,161 +125,108 @@ const parseSoldPrice = (price: any): number | null => {
 const processHorseData = (horse: any): Horse | null => {
   if (!horse) return null;
   
-  try {
-    // デバッグ用ログ
-    console.log('Horse data before mapping:', JSON.stringify({
-      id: horse.id,
-      name: horse.name,
-      sold_price: horse.sold_price,
-      auction_histories: horse.auction_histories ? 'exists' : 'not exists',
-      has_latest_auction: !!(horse.auction_histories?.[0])
-    }, null, 2));
-
-    // オークション履歴を処理
-    const auctionHistories = Array.isArray(horse.auction_histories) 
-      ? horse.auction_histories 
-      : [];
-    
-    // 最新のオークション情報を取得
-    const latestAuction = auctionHistories[0] || {};
-    
-    // 販売価格をパース
-    const soldPrice = parseSoldPrice(horse.sold_price) || 
-                     parseSoldPrice(latestAuction.sold_price) || 
-                     null;
-    
-    // 馬データを構築
-    const processedHorse: any = {
-      ...horse,
-      sold_price: soldPrice,
-      auction_date: latestAuction.auction_date || horse.auction_date || null,
-      seller: latestAuction.seller || horse.seller || null,
-      is_unsold: latestAuction.is_unsold || horse.is_unsold || false,
-      latest_auction: latestAuction || null,
-      auction_histories: auctionHistories,
-      // 必須プロパティのデフォルト値を設定
-      image_url: horse.image_url || '',
-      jbis_url: horse.jbis_url || '',
-      detail_url: horse.detail_url || '',
-      auction_url: horse.auction_url || '',
-      weight: horse.weight || 0,
-      // その他の必須プロパティ
-      sire: horse.sire || '',
-      dam: horse.dam || '',
-      damsire: horse.damsire || '',
-      race_records: horse.race_records || { total_prize_money: 0 }
-    };
-    
-    console.log('Processed horse data:', JSON.stringify({
-      id: processedHorse.id,
-      name: processedHorse.name,
-      sold_price: processedHorse.sold_price,
-      auction_histories_count: processedHorse.auction_histories?.length || 0
-    }, null, 2));
-    
-    return processedHorse as Horse;
-  } catch (error) {
-    console.error('Error processing horse data:', error, 'Horse data:', horse);
-    return null;
-  }
+  return {
+    id: horse.id,
+    name: horse.name || '名前不明',
+    sex: horse.sex || '不明',
+    age: horse.age || 0,
+    weight: horse.weight || null,
+    sire: horse.sire || '不明',
+    dam: horse.dam || '不明',
+    damsire: horse.damsire || '不明',
+    auction_history: horse.auction_histories || [],
+    ...horse,
+  };
 };
 
-// 認証トークンは直接fetchHorsesList内で処理するため、この関数は削除
+// 認証トークンを取得する関数
+const getAuthToken = (): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('authToken');
+  }
+  return null;
+};
 
-export const fetchHorsesList = async (): Promise<HorseData> => {
+// 認証ヘッダーを取得する関数
+const getAuthHeaders = (): HeadersInit => {
+  const token = getAuthToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+};
+
+/**
+ * 馬の一覧を取得する
+ * @param params 
+ * @returns 馬のデータ
+ */
+
+export const fetchHorsesList = async (params: FetchHorsesParams = {}): Promise<HorseData> => {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-    const url = new URL(`${apiUrl}/api/horses/`);
-    
-    // 認証トークンを取得
-    let token: string | null = null;
-    
-    // ブラウザ環境でのみlocalStorageからトークンを取得
-    if (typeof window !== 'undefined') {
-      token = localStorage.getItem('authToken');
-    }
-    
-    // 環境変数からトークンを取得（GitHub Actions用）
-    if (!token && process.env.NEXT_PUBLIC_AUTH_TOKEN) {
-      token = process.env.NEXT_PUBLIC_AUTH_TOKEN;
-    }
-    
-    const headers: HeadersInit = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    };
-    
-    // トークンがあればヘッダーに追加
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-      console.log('認証トークンを設定しました');
-    } else {
-      console.warn('認証トークンが設定されていません');
-    }
+    const url = new URL(`${apiUrl}/api/horses`);
     
     // クエリパラメータを追加
-    url.searchParams.append('latest_auction', 'true');
-    url.searchParams.append('limit', '100');
-    
-    console.log('API URL:', url.toString());
-    
+    if (params.latest_auction) {
+      url.searchParams.append('latest_auction', 'true');
+    }
+    if (params.limit) {
+      url.searchParams.append('limit', params.limit.toString());
+    }
+
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers,
+      headers: {
+        'Accept': 'application/json',
+        ...getAuthHeaders(),
+      },
       cache: 'no-store',
-      credentials: 'include', // クッキーを含める
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API Error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText
-      });
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const data = await response.json().catch(error => {
-      console.error('JSONパースエラー:', error);
-      throw new Error('無効なJSONレスポンスです');
+    const data = await response.json();
+    
+    // レスポンスの形式を確認し、必要に応じて加工
+    const horses = Array.isArray(data) ? data : 
+                 (data?.horses || []);
+    
+    // メタデータを取得（存在する場合）
+    const metadata = data?.metadata || {};
+    
+    const processedHorses = horses
+      .map(processHorseData)
+      .filter((h: Horse | null): h is Horse => h !== null);
+    
+    console.log('APIレスポンス:', {
+      総数: metadata.total || processedHorses.length,
+      取得件数: processedHorses.length,
+      メタデータ: metadata
     });
     
-    console.log('API Response:', data);
-    
-    try {
-      // レスポンスが配列の場合はそのまま処理
-      if (Array.isArray(data)) {
-        const processedHorses = data
-          .map(processHorseData)
-          .filter((h: Horse | null): h is Horse => h !== null);
-          
-        console.log(`処理済み馬データ: ${processedHorses.length}件`);
-        return { horses: processedHorses };
+    return { 
+      horses: processedHorses,
+      total: metadata.total || processedHorses.length,
+      metadata: {
+        ...metadata,
+        last_updated: metadata.last_updated || new Date().toISOString()
       }
-      
-      // レスポンスがオブジェクトでhorsesプロパティを持つ場合
-      if (data && typeof data === 'object' && 'horses' in data) {
-        const horses = Array.isArray(data.horses) 
-          ? data.horses
-              .map(processHorseData)
-              .filter((h: Horse | null): h is Horse => h !== null)
-          : [];
-        
-        console.log(`処理済み馬データ: ${horses.length}件`);
-        return { horses };
-      }
-      
-      // 予期しないレスポンス形式の場合はエラーをスロー
-      throw new Error('予期しないレスポンス形式です');
-    } catch (error) {
-      console.error('レスポンス処理中にエラーが発生しました:', error);
-      console.error('元のレスポンスデータ:', data);
-      throw error; // エラーを再スローして呼び出し元で処理できるようにする
-    }
+    };
   } catch (error) {
     console.error('Error fetching horses:', error);
-    return { horses: [] };
+    return { 
+      horses: [], 
+      total: 0,
+      metadata: {
+        total: 0,
+        skip: 0,
+        limit: 0,
+        last_updated: new Date().toISOString()
+      }
+    };
   }
 };
 
@@ -314,14 +262,23 @@ export const fetchHorseById = async (id: string | number): Promise<Horse | null>
     }
 
     // 馬の基本情報をパース
-    const horseData = await horseResponse.json();
+    const responseData = await horseResponse.json();
     
-    // オークション履歴をマージ
-    if (Array.isArray(auctionHistoriesResponse)) {
-      horseData.auction_histories = auctionHistoriesResponse;
-    } else {
-      horseData.auction_histories = [];
+    // レスポンスから馬データを抽出（新しい形式と古い形式の両方に対応）
+    const horseData = responseData.horse || responseData;
+    
+    // オークション履歴をマージ（既存の履歴があればそれを使用、なければ取得した履歴を使用）
+    if (!horseData.auction_histories || horseData.auction_histories.length === 0) {
+      horseData.auction_histories = Array.isArray(auctionHistoriesResponse) ? 
+        auctionHistoriesResponse : [];
     }
+    
+    console.log('馬データ取得:', {
+      id: horseData.id,
+      name: horseData.name,
+      オークション履歴件数: horseData.auction_histories?.length || 0,
+      最終更新: responseData.metadata?.last_updated || '不明'
+    });
     
     return horseData as Horse;
   } catch (error) {

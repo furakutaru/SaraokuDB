@@ -1,11 +1,20 @@
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, ForeignKey, create_engine
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Float, Text, DateTime, ForeignKey, create_engine, text
+from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declared_attr
 from datetime import datetime
 import os
+from dotenv import load_dotenv
+
+# .envファイルから環境変数を読み込む
+load_dotenv()
 
 Base = declarative_base()
+
+# 共通のカラムミックスイン
+class TimestampMixin:
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 # sex, seller, sold_price, commentを履歴（配列/JSON文字列）で保存
 class Horse(Base):
@@ -60,11 +69,24 @@ class AuctionHistory(Base):
     horse = relationship("Horse", back_populates="auction_histories")
 
 # データベース設定
-# プロジェクトルートの絶対パスを取得
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, 'data', 'horses.db')
-DATABASE_URL = f"sqlite:///{DB_PATH}"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Neon PostgreSQL接続URLを環境変数から取得
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set")
+
+# SSLモードを設定（Neonでは必須）
+if DATABASE_URL.startswith('postgres'):
+    DATABASE_URL += "?sslmode=require"
+
+# エンジン設定
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10
+)
+
+# セッションファクトリ
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
@@ -75,15 +97,39 @@ def get_db():
         db.close()
 
 def check_db_connection():
+    """データベース接続を確認する関数"""
     db = None
     try:
         db = next(get_db())
-        from sqlalchemy import text
+        # PostgreSQL用の接続チェック
         db.execute(text("SELECT 1"))
-        print("データベースに接続されました")
+        print("✅ データベースに正常に接続されました")
+        
+        # テーブルが存在するか確認
+        table_exists = db.execute(
+            text(
+                """
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'horses'
+                )
+                """
+            )
+        ).scalar()
+        
+        if table_exists:
+            print("✅ horses テーブルが存在します")
+            # レコード数を取得
+            count = db.execute(text("SELECT COUNT(*) FROM horses")).scalar()
+            print(f"✅ レコード数: {count}件")
+        else:
+            print("⚠️ horses テーブルが存在しません。マイグレーションが必要です。")
+        
         return True
     except Exception as e:
-        print(f"データベース接続エラー: {str(e)}")
+        print(f"❌ データベース接続エラー: {str(e)}")
+        print(f"接続URL: {DATABASE_URL}")
         return False
     finally:
         if db:

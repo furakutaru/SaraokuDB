@@ -45,7 +45,7 @@ async def get_latest_horses(
     logger.info("Calling /horses/latest endpoint")
     return await get_horses(request, skip, limit, None, 'true', db)
 
-@router.get("/", response_model=Dict[str, Any], tags=["horses"])
+@router.get("/horses", response_model=Dict[str, Any], tags=["horses"])
 async def get_horses(
     request: Request,
     skip: int = 0,
@@ -61,6 +61,16 @@ async def get_horses(
         limit: 取得する最大レコード数
         auction_date: オークション日でフィルタリング（部分一致）
         latest_auction: 'true'の場合、最新のオークション日でフィルタリング
+        
+    Returns:
+        {
+            "horses": List[Dict],  # 馬のリスト
+            "metadata": {
+                "total": int,     # 総レコード数
+                "skip": int,      # スキップ数
+                "limit": int      # リミット数
+            }
+        }
     """
     try:
         logger.info("\n=== Starting get_horses endpoint ===")
@@ -251,16 +261,16 @@ async def get_horses(
         
         # 5. レスポンスの作成
         print("\n5. Creating response...")
-
+        
+        # フロントエンドが期待する形式に合わせてレスポンスを整形
         response = {
             "horses": horses_data,
-            # 下位互換: camelCase と snake_case の両方を返す
             "auction_histories": auction_histories,
-            "auctionHistories": auction_histories,
             "metadata": {
-                "last_updated": datetime.utcnow().isoformat(),
-                "total_horses": total_count,
-                "total_auction_records": len(auction_histories)
+                "total": total_count,
+                "skip": skip,
+                "limit": limit,
+                "last_updated": datetime.utcnow().isoformat()
             }
         }
         print("Response created successfully")

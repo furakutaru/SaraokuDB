@@ -41,11 +41,14 @@ export const useDataIntegrityCheck = () => {
         
         // データを取得
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8001';
+        
+        // 馬データとオークションデータを並行して取得
         const [horsesRes, auctionHistoriesRes] = await Promise.all([
           fetch(`${apiBaseUrl}/api/horses`),
           fetch(`${apiBaseUrl}/api/auction_histories`)
         ]);
         
+        // レスポンスのチェック
         if (!horsesRes.ok) {
           const errorData = await horsesRes.json().catch(() => ({}));
           throw new Error(`馬データの取得に失敗しました: ${horsesRes.status} ${horsesRes.statusText} - ${JSON.stringify(errorData)}`);
@@ -56,29 +59,34 @@ export const useDataIntegrityCheck = () => {
           throw new Error(`オークション履歴の取得に失敗しました: ${auctionHistoriesRes.status} ${auctionHistoriesRes.statusText} - ${JSON.stringify(errorData)}`);
         }
         
+        // レスポンスをJSONに変換
         const horsesResponse = await horsesRes.json();
         const auctionHistoriesResponse = await auctionHistoriesRes.json();
         
-        // バックエンドからのレスポンス形式に合わせてデータを取得
-        const horses = horsesResponse.horses || [];
-        const auctionHistories = auctionHistoriesResponse.auction_histories || [];
+        // レスポンスの構造を確認
+        const horses = Array.isArray(horsesResponse) ? horsesResponse : 
+                     (horsesResponse?.horses || []);
+        
+        const auctionHistories = Array.isArray(auctionHistoriesResponse) ? auctionHistoriesResponse : 
+                               (auctionHistoriesResponse?.auction_histories || []);
         
         // データを正規化
         const normalizedData = {
-          horses: Array.isArray(horses) ? horses : [],
-          auctionHistories: Array.isArray(auctionHistories) ? auctionHistories : [],
+          horses,
+          auctionHistories,
           metadata: {
             last_updated: new Date().toISOString(),
-            total_horses: Array.isArray(horses) ? horses.length : 0,
-            total_auction_records: Array.isArray(auctionHistories) ? auctionHistories.length : 0
+            total_horses: horses.length,
+            total_auction_records: auctionHistories.length,
+            ...(horsesResponse.metadata || {})
           }
         };
         
-        if (!normalizedData || typeof normalizedData !== 'object' || !Array.isArray(normalizedData.horses)) {
-          throw new Error('無効なデータ形式です: horses配列が見つかりません');
-        }
-        
-        const horsesData = normalizedData.horses;
+        console.log('Fetched data:', {
+          horsesCount: horses.length,
+          auctionHistoriesCount: auctionHistories.length,
+          metadata: normalizedData.metadata
+        });
         
         // 整合性チェックを実行
         const issues: DataIssue[] = [];
@@ -86,7 +94,7 @@ export const useDataIntegrityCheck = () => {
         // 必須フィールドのチェック
         const requiredFields = ['id', 'name', 'sex', 'age', 'sire', 'dam', 'damsire'];
         
-        horsesData.forEach((horse: any) => {
+        horses.forEach((horse: any) => {
           const horseIssues: DataIssue['issues'] = [];
           
           // 必須フィールドのチェック（historyはオプショナル）
@@ -135,7 +143,7 @@ export const useDataIntegrityCheck = () => {
         });
         
         // 結果をセット
-        const totalHorses = horsesData.length;
+        const totalHorses = horses.length;
         const horsesWithIssues = new Set(issues.map(issue => issue.id)).size;
         const totalIssues = issues.reduce((sum, issue) => sum + issue.issues.length, 0);
         

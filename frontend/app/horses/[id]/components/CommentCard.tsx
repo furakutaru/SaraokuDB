@@ -69,7 +69,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                         // Remove square brackets and quotes at the beginning and end
                         .replace(/^\s*[\[\]"]+|[\]"\s]+$/g, '')
                         // Decode Unicode escape sequences
-                        .replace(/\\u([\dA-Fa-f]{4})/g, (match, grp) => 
+                        .replace(/\\u([\dA-Fa-f]{4})/g, (match: string, grp: string) => 
                           String.fromCharCode(parseInt(grp, 16))
                         )
                         // Replace escaped newlines with actual newlines

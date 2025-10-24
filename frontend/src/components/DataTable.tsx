@@ -2,6 +2,11 @@
 
 import React from 'react';
 import { Horse } from '../types/horse';
+
+// Horse 型を拡張して weight プロパティを含める
+type HorseWithWeight = Horse & {
+  weight?: number | null;
+};
 import SortableHeader from './common/SortableHeader';
 import PriceDisplay from './common/PriceDisplay';
 import WeightDisplay from './common/WeightDisplay';
@@ -11,14 +16,14 @@ import ExternalLink from './common/ExternalLink';
 import DiseaseTags from './common/DiseaseTags';
 import { formatSex, getSexColor } from '../utils/normalize';
 
-export type DisplayHorse = Horse & { [key: string]: any };
+export type DisplayHorse = HorseWithWeight & { [key: string]: any };
 
 interface DataTableProps {
   horses: DisplayHorse[];
-  sortKey: keyof Horse;
+  sortKey: keyof HorseWithWeight;
   sortOrder: 'asc' | 'desc';
-  onSort: (key: keyof Horse) => void;
-  renderSortIcon: (key: keyof Horse, currentKey: keyof Horse, currentOrder: 'asc' | 'desc') => JSX.Element;
+  onSort: (key: keyof HorseWithWeight) => void;
+  renderSortIcon: (key: keyof HorseWithWeight, currentKey: keyof HorseWithWeight, currentOrder: 'asc' | 'desc') => JSX.Element;
 }
 
 const displayAge = (age: string | number | null | undefined): string => {

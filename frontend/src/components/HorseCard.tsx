@@ -1,15 +1,10 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Horse, AuctionHistory } from '@/types/horse';
+import { Horse, AuctionHistory, HorseWithCalculations } from '@/types/horse';
 import { formatSex, getSexColor } from '@/utils/normalize';
 import { formatPrizeMan } from '@/utils/format';
 
-// HorseWithAuction 型を拡張
-interface HorseWithAuction extends Horse {
-  latest_auction?: AuctionHistory | null;
-  disease_tags?: string[];
-  race_record?: string | null;
-}
+// HorseWithCalculations 型を使用
 
 // 血統情報から指定された種類の馬名を抽出する関数
 const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsire'): string => {
@@ -48,7 +43,7 @@ const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsi
 };
 
 interface HorseCardProps {
-  horse: HorseWithAuction;
+  horse: HorseWithCalculations;
   auctionHistory?: AuctionHistory[];
   onClick: () => void;
 }
@@ -181,7 +176,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
         {/* 3行目: 疾病情報 */}
         {hasDiseaseTags && (
           <div className="flex flex-wrap gap-1 mt-2">
-            {horse.disease_tags?.map((tag, index) => (
+            {horse.disease_tags?.map((tag: string, index: number) => (
               <Badge key={index} variant="secondary" className="text-xs">
                 {tag}
               </Badge>

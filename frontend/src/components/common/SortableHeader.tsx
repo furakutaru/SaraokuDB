@@ -3,13 +3,18 @@
 import React from 'react';
 import { Horse } from '../../types/horse';
 
+// Horse 型を拡張して weight プロパティを含める
+type HorseWithWeight = Horse & {
+  weight?: number | null;
+};
+
 interface SortableHeaderProps {
   label: string;
-  columnKey: keyof Horse;
-  activeKey: keyof Horse;
+  columnKey: keyof HorseWithWeight;
+  activeKey: keyof HorseWithWeight;
   order: 'asc' | 'desc';
-  onSort: (key: keyof Horse) => void;
-  renderSortIcon: (key: keyof Horse, currentKey: keyof Horse, currentOrder: 'asc' | 'desc') => JSX.Element;
+  onSort: (key: keyof HorseWithWeight) => void;
+  renderSortIcon: (key: keyof HorseWithWeight, currentKey: keyof HorseWithWeight, currentOrder: 'asc' | 'desc') => JSX.Element;
   className?: string;
 }
 

@@ -145,26 +145,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Horse, AuctionHistory, HorseWithCalculations } from '@/types/horse';
 
-// フロントエンドで使用する馬の型（Horse型を拡張）
-interface HorseWithAuction extends Horse {
-  dam_sire: string; // damsireのエイリアス
-  detail_url: string; // auction_urlのエイリアス
-  comment?: string; // コメント
-  // Horse インターフェースに weight と disease_tags を追加したので、ここでは不要
-  // オークション情報（将来的な機能拡張用）
-  latestAuction?: AuctionHistory;
-  total_prize_start?: number;
-  total_prize_latest?: number;
-  is_unsold?: boolean;
-  auction_date?: string;
-  seller?: string;
-  // Horseインターフェースのプロパティをオーバーライド
-  sold_price?: number | null;
-  race_record?: string;
-  race_records?: any;  // より具体的な型に置き換えることが望ましい
-  // その他のプロパティ
-  [key: string]: any; // 動的なプロパティに対応
-}
+// HorseWithCalculations 型を使用
 
 interface HorseData {
   horses: Horse[];
@@ -192,7 +173,8 @@ const groupAuctionHistory = (auctionHistory: AuctionHistory[]): Record<string, A
 };
 
 export default function AnalysisContent() {
-  const [horses, setHorses] = useState<HorseWithAuction[]>([]);
+  const [horses, setHorses] = useState<HorseWithCalculations[]>([]);
+  const [filteredHorses, setFilteredHorses] = useState<HorseWithCalculations[]>([]);
   const [auctionHistory, setAuctionHistory] = useState<AuctionHistory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -234,7 +216,7 @@ export default function AnalysisContent() {
 
         const data = await response.json();
         
-        // Horse型からHorseWithAuction型に変換
+        // Horse型からHorseWithCalculations型に変換
         const horsesWithAuction = data.horses.map((horse: any) => ({
           ...horse,
           dam_sire: horse.dam_sire || '',
@@ -263,7 +245,7 @@ export default function AnalysisContent() {
         const auctionHistoryByHorseId = groupAuctionHistory(data.auction_histories || []);
         
         // 馬データにオークション情報をマージ
-        const horsesWithHistory = horsesWithAuction.map((horse: HorseWithAuction) => {
+        const horsesWithHistory = horsesWithAuction.map((horse: HorseWithCalculations) => {
           // 既存のオークション情報を保持
           const latestAuction = horse.latestAuction || (auctionHistoryByHorseId[horse.id] || [])[0];
           
@@ -282,7 +264,7 @@ export default function AnalysisContent() {
             comment: latestAuction?.comment || horse.comment,
             race_record: horse.race_record,
             race_records: horse.race_records
-          } as HorseWithAuction;
+          } as HorseWithCalculations;
         });
 
         // データを状態に保存
@@ -309,7 +291,7 @@ export default function AnalysisContent() {
   }
 
   // 表示する馬のリストをフィルタリング
-  const filteredHorses = horses.filter(horse => {
+  const filteredHorsesList = horses.filter(horse => {
     if (showType === 'roi') {
       return horse.roi !== undefined && horse.roi > 0;
     } else if (showType === 'value') {
@@ -322,7 +304,7 @@ export default function AnalysisContent() {
 
   // ソート
   if (sortKey) {
-    filteredHorses.sort((a: Horse, b: Horse) => {
+    filteredHorsesList.sort((a: HorseWithCalculations, b: HorseWithCalculations) => {
       let aValue = (a as any)[sortKey];
       let bValue = (b as any)[sortKey];
       
@@ -476,7 +458,7 @@ export default function AnalysisContent() {
   });
 
   // 表示切替
-  let tableHorses: Horse[] = [...filteredHorses];
+  let tableHorses: HorseWithCalculations[] = [...filteredHorsesList];
 
   // 年齢を表示するヘルパー関数（null/undefined/空文字の場合は'-'を表示）
   const displayAge = (age: string | number | null | undefined): string => {
@@ -515,7 +497,7 @@ export default function AnalysisContent() {
   };
 
   // ソート関数の型定義
-  type SortFunction = (a: Horse, b: Horse) => number;
+  type SortFunction = (a: HorseWithCalculations, b: HorseWithCalculations) => number;
   const sortFunctions: Record<string, SortFunction> = {
     name: (a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'ja'),
     sex: (a, b) => (a?.sex ?? '').localeCompare(b?.sex ?? '', 'ja'),
@@ -678,14 +660,14 @@ export default function AnalysisContent() {
                   </td>
                   <td className="px-3 py-2">
                     {(() => {
-                      const raceRecord = (horse as HorseWithAuction).race_record || (horse as HorseWithAuction).race_records;
+                      const raceRecord = (horse as HorseWithCalculations).race_record || (horse as HorseWithCalculations).race_records;
                       console.log('Debug - raceRecord:', raceRecord, 'total_prize_start:', horse.total_prize_start);
                       return formatPrize(horse.total_prize_start, raceRecord);
                     })()}
                   </td>
                   <td className="px-3 py-2">
                     {(() => {
-                      const raceRecord = (horse as HorseWithAuction).race_record || (horse as HorseWithAuction).race_records;
+                      const raceRecord = (horse as HorseWithCalculations).race_record || (horse as HorseWithCalculations).race_records;
                       return formatPrize(horse.total_prize_latest, raceRecord);
                     })()}
                   </td>

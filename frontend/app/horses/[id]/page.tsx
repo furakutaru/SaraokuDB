@@ -42,34 +42,10 @@ import {
 } from '../../../src/utils/format';
 import { BaseAuctionHistory } from '../../../src/types/horse';
 
-// AuctionHistory 型を拡張して必要なプロパティを追加
-type AuctionHistory = Omit<BaseAuctionHistory, 'auction_date'> & {
-  id?: string | number;
-  horse_id?: string | number;
-  auction_date: string | string[];  // undefined を許容しない
-  sold_price?: number | null;
-  total_prize_start?: number;
-  total_prize_latest?: number;
-  weight?: number | null;
-  seller?: string | null;
-  is_unsold?: boolean;
-  unsold?: boolean;
-  comment?: string;
-  created_at?: string;
-  updated_at?: string;
-  detail_url?: string | null;
-  auction_url?: string;
-  price?: number;
-  name?: string;
-  sex?: string;
-  age?: string | number;
-  race_record?: any;
-  primary_image?: string;
-  disease_tags?: string;
-  [key: string]: any; // その他のプロパティに対応
-};
-import { HorseWithCalculations } from '../../../src/types/horse';
 import { ExtendedAuctionHistory, RaceRecord } from './types';
+import { HorseWithCalculations } from '../../../src/types/horse';
+
+type AuctionHistory = ExtendedAuctionHistory;
 import { HeaderCard } from './components';
 import ExternalLinks from './components/ExternalLinks';
 import { ErrorMessage, SimpleError } from './components/ErrorDisplay';
@@ -97,8 +73,7 @@ import { getHorseData as getHorseDataFromApi } from '../../../src/utils/horseApi
 // 型定義は ./types.ts に移動しました
 
 // HorseWithCalculations を拡張して、ページ固有のプロパティを追加
-interface HorseWithPageProps extends Omit<HorseWithCalculations, 'history' | 'auction_histories' | 'effectiveAuction' | 'auction_history'> {
-  // 基本情報
+interface HorseWithPageProps extends Omit<HorseWithCalculations, 'auction_history'> {
   id: string | number;
   name: string;
   sex: string;
@@ -107,51 +82,46 @@ interface HorseWithPageProps extends Omit<HorseWithCalculations, 'history' | 'au
   dam: string;
   damsire: string;
   weight?: number | null;
-  
-  // オークション情報
   auction_id?: string;
-  history: AuctionHistory[];  // オークション履歴
-  auction_history?: AuctionHistory[];  // オークション履歴（互換性のため）
-  sold_price?: number | null;  // 落札価格
-  total_prize_start: number;   // 初出走前の獲得賞金
-  total_prize_latest: number | null;  // 最新の獲得賞金
-  is_unsold?: boolean;  // 未落札フラグ
-  unsold?: boolean;     // 未落札フラグ（互換性のため）
-  unsold_count: number; // 未落札回数
-  seller?: string | null;      // 出品者
-  
-  // 画像関連
-  image_url: string | { image_url: string };  // 互換性のため
-  primary_image: string;  // メイン画像URL
-  
-  // リンク
-  jbis_url?: string;  // JRA-VAN URL
-  detail_url: string; // 詳細ページURL
-  rakuten_url?: string; // 楽天競馬URL
-  auction_url?: string; // オークションURL（互換性のため）
-  
-  // その他
-  disease_tags: string[];  // 疾病タグ
-  created_at?: string;     // 作成日時
-  updated_at?: string;     // 更新日時
-  dam_sire?: string;       // 母の父（互換性のため）
-  comment?: string;        // コメント
-  
-  // 表示用フォーマット済みデータ
-  display_price: string;   // 表示用価格
-  display_weight: string;  // 表示用体重
-  display_prize: string;   // 表示用賞金
-  display_roi: string;     // 表示用ROI
-  
-  // ソート用データ
-  sort_price: number;      // 価格ソート用
-  sort_prize: number;      // 賞金ソート用
-  sort_roi: number;        // ROIソート用
-  
-  // 計算済みデータ
-  roi: number;             // 投資収益率
-  price_per_kg: number;    // キロ単価
-};
+  history: AuctionHistory[];  // 履歴データ
+  // オプショナルなオークション履歴
+  auction_history?: ExtendedAuctionHistory[];  // オプショナルなオークション履歴
+  sold_price?: number | null;
+  total_prize_start: number;
+  total_prize_latest: number | null;
+  is_unsold?: boolean;
+  unsold?: boolean;
+  unsold_count: number;
+  seller?: string | null;
+  // 画像URLは文字列またはオブジェクトのどちらか
+  image_url: string | { image_url: string };
+  // 互換性のため、文字列としてのimage_urlも保持
+  primary_image: string;
+  jbis_url?: string;
+  detail_url: string;
+  rakuten_url?: string;
+  auction_url?: string;
+  disease_tags: string[];
+  created_at?: string;
+  updated_at?: string;
+  dam_sire?: string;
+  comment?: string;
+  // 表示用のフォーマット済み文字列
+  display_price: string;
+  display_weight: string;
+  display_prize: string;
+  display_roi: string;
+  // ソート用の数値
+  sort_price: number;
+  sort_prize: number;
+  sort_roi: number;
+  // 計算済みの数値
+  roi: number;
+  price_per_kg: number;
+  [key: string]: any; // その他のプロパティを許容
+}
+
+
 interface HorseData {
   metadata: any;
   horses: HorseWithPageProps[];
@@ -377,8 +347,54 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
                     // その他のプロパティ
                     name: staticBase.name || '不明',
                     age: Number(staticBase.age) || 0,
-                    history: [historyEntry],
-                    auction_history: [historyEntry]
+                    history: [{
+                      id: staticBase.id,
+                      horse_id: staticBase.horse_id,
+                      auction_date: staticBase.auction_date || '',
+                      sold_price: staticBase.sold_price,
+                      total_prize_start: staticBase.total_prize_start,
+                      total_prize_latest: staticBase.total_prize_latest,
+                      weight: staticBase.weight,
+                      seller: staticBase.seller,
+                      is_unsold: staticBase.is_unsold,
+                      unsold: staticBase.unsold,
+                      comment: staticBase.comment,
+                      created_at: staticBase.created_at,
+                      updated_at: staticBase.updated_at,
+                      detail_url: staticBase.detail_url,
+                      auction_url: staticBase.auction_url,
+                      price: staticBase.price,
+                      name: staticBase.name,
+                      sex: staticBase.sex,
+                      age: staticBase.age,
+                      race_record: staticBase.race_record,
+                      primary_image: staticBase.primary_image,
+                      disease_tags: staticBase.disease_tags
+                    } as AuctionHistory],
+                    auction_history: [{
+                      id: staticBase.id,
+                      horse_id: staticBase.horse_id,
+                      auction_date: staticBase.auction_date || '',
+                      sold_price: staticBase.sold_price,
+                      total_prize_start: staticBase.total_prize_start,
+                      total_prize_latest: staticBase.total_prize_latest,
+                      weight: staticBase.weight,
+                      seller: staticBase.seller,
+                      is_unsold: staticBase.is_unsold,
+                      unsold: staticBase.unsold,
+                      comment: staticBase.comment,
+                      created_at: staticBase.created_at,
+                      updated_at: staticBase.updated_at,
+                      detail_url: staticBase.detail_url,
+                      auction_url: staticBase.auction_url,
+                      price: staticBase.price,
+                      name: staticBase.name,
+                      sex: staticBase.sex,
+                      age: staticBase.age,
+                      race_record: staticBase.race_record,
+                      primary_image: staticBase.primary_image,
+                      disease_tags: staticBase.disease_tags
+                    } as AuctionHistory]
                   };
 
                   console.log('[horse detail] Use static horses.json mapped horse:', horse);
@@ -474,7 +490,7 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
               // 基本プロパティ
               ...historyEntry,
               // 必須プロパティのデフォルト値を設定
-              id: historyEntry.id || `temp-${Date.now()}`,
+              id: historyEntry.id || `history-${Date.now()}`,
               horse_id: historyEntry.horse_id || `horse-${Date.now()}`,
               auction_date: historyEntry.auction_date || new Date().toISOString().split('T')[0],
               sold_price: historyEntry.sold_price ?? null,
@@ -483,12 +499,19 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
               weight: historyEntry.weight ?? null,
               seller: historyEntry.seller || '不明',
               is_unsold: historyEntry.is_unsold ?? false,
+              unsold: historyEntry.unsold ?? false,
               comment: historyEntry.comment || '',
               created_at: historyEntry.created_at || new Date().toISOString(),
-              // ExtendedAuctionHistory 固有のプロパティ
+              updated_at: historyEntry.updated_at || new Date().toISOString(),
+              detail_url: historyEntry.detail_url || null,
+              auction_url: historyEntry.auction_url || null,
+              price: historyEntry.price || null,
               name: historyEntry.name || horseBaseData.name || '不明',
               sex: historyEntry.sex || horseBaseData.sex || '不明',
-              age: historyEntry.age || horseBaseData.age || 0
+              age: historyEntry.age || horseBaseData.age || 0,
+              race_record: historyEntry.race_record || null,
+              primary_image: historyEntry.primary_image || null,
+              disease_tags: historyEntry.disease_tags || null
             }],
             // 未落札回数が0より大きい場合にのみunsoldをtrueに設定
             unsold: (horseBaseData.unsold_count > 0) || (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false)

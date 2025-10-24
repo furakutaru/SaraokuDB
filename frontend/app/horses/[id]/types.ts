@@ -11,15 +11,34 @@ export type RaceRecord = string | {
   [key: string]: any;
 };
 
-// オークション履歴の拡張型
-export interface ExtendedAuctionHistory extends Omit<BaseAuctionHistory, 'race_record' | 'auction_date'> {
+// BaseAuctionHistoryから必要なプロパティを継承
+interface ExtendedBaseAuctionHistory {
+  id: string | number;
+  horse_id: string | number;
   auction_date: string | string[];
-  name?: string;
-  sex?: string;
-  age?: string | number;
-  race_record?: RaceRecord | string;
-  primary_image?: string;
-  disease_tags?: string;
-  detail_url?: string;
-  unsold?: boolean;
+  sold_price: number | null;
+  total_prize_start: number;
+  total_prize_latest: number | null;
+  weight: number | null;
+  seller: string | null;
+  is_unsold: boolean;
+  unsold: boolean;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
+  detail_url: string | null;
+  auction_url: string | null;
+  price: number | null;
+  name: string | null;
+  sex: string | null;
+  age: string | number | null;
+  race_record: RaceRecord | null;
+  primary_image: string | null;
+  disease_tags: string | null;
+  [key: string]: any; // 他のプロパティを許容
+}
+
+// オークション履歴の拡張型
+export interface ExtendedAuctionHistory extends Omit<ExtendedBaseAuctionHistory, 'race_record'> {
+  race_record?: RaceRecord | string | null;
 }
