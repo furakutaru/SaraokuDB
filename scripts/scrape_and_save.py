@@ -147,6 +147,7 @@ class ScraperClient:
         try:
             save_url = f"{self.api_base_url}/api/horses"
             logger.info(f"保存URL: {save_url}")
+            logger.info(f"リクエストヘッダー: {self.session.headers}")
             
             # データのコピーを作成（元データを変更しないため）
             data_to_send = horse_data.copy()
@@ -160,6 +161,9 @@ class ScraperClient:
                 data_to_send['disease_tags'] = ", ".join(data_to_send['disease_tags'])
             elif 'disease_tags' not in data_to_send or data_to_send['disease_tags'] is None:
                 data_to_send['disease_tags'] = ""
+                
+            # デバッグ用に送信データをログに出力
+            logger.debug(f"送信データ: {json.dumps(data_to_send, ensure_ascii=False, indent=2)}")
             
             # race_recordsが存在しない場合は空のリストを設定
             if 'race_records' not in data_to_send:
