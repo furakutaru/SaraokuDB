@@ -10,18 +10,20 @@ type FilterOptions = {
   showUnsoldOnly: boolean;
 };
 
-export const useFilters = (horses: Horse[], initialFilters?: Partial<FilterOptions>) => {
-  const [filters, setFilters] = useState<FilterOptions>({
-    searchQuery: '',
-    sexFilter: 'all',
-    priceRange: [0, 0],
-    ageRange: [0, 30],
-    showUnsoldOnly: false,
-    ...initialFilters,
-  });
+export const useFilters = (horses: Horse[] = [], initialFilters?: Partial<FilterOptions>) => {
+  const [filters, setFilters] = useState<FilterOptions>(() => ({
+    searchQuery: initialFilters?.searchQuery || '',
+    sexFilter: initialFilters?.sexFilter || 'all',
+    priceRange: initialFilters?.priceRange || [0, 10000],
+    ageRange: initialFilters?.ageRange || [0, 30],
+    showUnsoldOnly: initialFilters?.showUnsoldOnly || false,
+  }));
 
+  // 入力がundefinedやnullの場合に空の配列を使用
+  const safeHorses = Array.isArray(horses) ? horses : [];
+  
   // フィルターを適用した馬のリストを返す
-  const filteredHorses = horses.filter(horse => {
+  const filteredHorses = safeHorses.filter(horse => {
     // 検索クエリによるフィルタリング
     const searchQuery = filters.searchQuery.toLowerCase();
     const matchesSearch = 
@@ -40,7 +42,9 @@ export const useFilters = (horses: Horse[], initialFilters?: Partial<FilterOptio
     const numericHorsePrice = typeof horsePrice === 'string' ? parseFloat(horsePrice) || 0 : horsePrice;
     const matchesPrice = 
       numericHorsePrice >= filters.priceRange[0] && 
-      (filters.priceRange[1] === 0 || numericHorsePrice <= filters.priceRange[1]);
+      (filters.priceRange[1] === 0 || 
+       filters.priceRange[1] === 10000 || 
+       numericHorsePrice <= filters.priceRange[1]);
 
     // 年齢によるフィルタリング
     const matchesAge = 
@@ -75,15 +79,22 @@ export const useFilters = (horses: Horse[], initialFilters?: Partial<FilterOptio
     setFilters({
       searchQuery: '',
       sexFilter: 'all',
-      priceRange: [0, 0],
+      priceRange: [0, 10000],
       ageRange: [0, 30],
       showUnsoldOnly: false,
     });
   }, []);
 
+  // 常に同じ構造のオブジェクトを返す
   return {
-    filteredHorses,
-    filters,
+    filteredHorses: filteredHorses || [],
+    filters: filters || {
+      searchQuery: '',
+      sexFilter: 'all',
+      priceRange: [0, 10000],
+      ageRange: [0, 30],
+      showUnsoldOnly: false,
+    },
     updateFilters,
     resetFilters,
   };

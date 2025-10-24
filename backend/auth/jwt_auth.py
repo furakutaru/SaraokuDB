@@ -148,7 +148,7 @@ else:
 fake_users_db = {
     "furakutaru": {
         "username": "furakutaru",
-        "hashed_password": pwd_context.hash(password) if password else "",
+        "hashed_password": pwd_context.hash(password[:72]) if password else "",
     }
 }
 
@@ -159,11 +159,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     """パスワードを検証する"""
     if not plain_password or not hashed_password:
         return False
-    return pwd_context.verify(plain_password, hashed_password)
+    # パスワードを72バイトに制限して検証
+    return pwd_context.verify(plain_password[:72], hashed_password)
 
 def get_password_hash(password: str) -> str:
-    """パスワードをハッシュ化する"""
-    return pwd_context.hash(password)
+    """パスワードをハッシュ化する（72バイトに制限）"""
+    return pwd_context.hash(password[:72] if password else "")
 
 def get_user(db, username: str) -> Optional[User]:
     """ユーザーを取得する"""

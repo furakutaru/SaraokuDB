@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,19 +11,6 @@ import { useRouter } from 'next/navigation';
 import { Horse as BaseHorse, AuctionHistory, HorseData } from '@/types/horse';
 
 // コンポーネントで使用する馬の型を定義
-// 日付をパースするヘルパー関数
-const parseDate = (date: string | string[] | undefined): Date => {
-  try {
-    if (!date) return new Date(0);
-    const dateStr = Array.isArray(date) ? date[0] : date;
-    if (!dateStr) return new Date(0);
-    return new Date(dateStr);
-  } catch (error) {
-    console.error('日付のパースに失敗しました:', { date, error });
-    return new Date(0);
-  }
-};
-
 export interface Horse {
   id: string | number;
   name?: string;
@@ -73,12 +60,11 @@ export interface Horse {
   latest_auction?: AuctionHistory | null;
 }
 
-type HorseType = Horse;
 import { Header } from '@/components/Header';
 
 export default function HorsesPage() {
   const router = useRouter();
-  const [horses, setHorses] = useState<HorseType[]>([]);
+  const [horses, setHorses] = useState<Horse[]>([]);
   const [auctionHistory, setAuctionHistory] = useState<AuctionHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +73,19 @@ export default function HorsesPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showOnlyLatestAuction, setShowOnlyLatestAuction] = useState(true);
   const [latestAuctionDate, setLatestAuctionDate] = useState<string | null>(null);
+
+  // 日付をパースするヘルパー関数 (useCallbackでメモ化)
+  const parseDate = useCallback((date: string | string[] | undefined): Date => {
+    try {
+      if (!date) return new Date(0);
+      const dateStr = Array.isArray(date) ? date[0] : date;
+      if (!dateStr) return new Date(0);
+      return new Date(dateStr);
+    } catch (error) {
+      console.error('日付のパースに失敗しました:', { date, error });
+      return new Date(0);
+    }
+  }, []);
 
   // 馬データを取得
   useEffect(() => {
@@ -149,7 +148,7 @@ export default function HorsesPage() {
     };
 
     fetchData();
-  }, []);
+  }, [parseDate]);
 
   // フィルタリングとソートを適用した馬のリストを取得
   const filteredHorses = horses.filter(horse => {
@@ -308,7 +307,7 @@ export default function HorsesPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {sortedHorses.map((horse: HorseType) => (
+              {sortedHorses.map((horse: Horse) => (
                 <div key={horse.id} onClick={() => router.push(`/horses/${horse.id}`)}>
                   <HorseCard 
                     horse={horse} 

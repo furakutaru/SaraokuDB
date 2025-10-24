@@ -8,11 +8,18 @@ type UseSortingReturn = {
   handleSort: (field: SortableField) => void;
 };
 
-export const useSorting = (horses: Horse[]): UseSortingReturn => {
-  const [sortField, setSortField] = useState<SortableField>('name');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+export const useSorting = (horses: Horse[] = []): UseSortingReturn => {
+  const [sortState, setSortState] = useState<{
+    field: SortableField;
+    order: SortOrder;
+  }>({ field: 'name', order: 'asc' });
+  
+  const { field: sortField, order: sortOrder } = sortState;
 
-  const sortedHorses = [...horses].sort((a, b) => {
+  // 入力がundefinedやnullの場合に空の配列を使用
+  const safeHorses = Array.isArray(horses) ? horses : [];
+  
+  const sortedHorses = [...safeHorses].sort((a, b) => {
     let aValue: any;
     let bValue: any;
 
@@ -87,16 +94,17 @@ export const useSorting = (horses: Horse[]): UseSortingReturn => {
   });
 
   const handleSort = useCallback((field: SortableField) => {
-    setSortField(field);
-    setSortOrder(prevOrder => 
-      prevOrder === 'asc' && sortField === field ? 'desc' : 'asc'
-    );
-  }, [sortField]);
+    setSortState(prev => ({
+      field,
+      order: prev.field === field && prev.order === 'asc' ? 'desc' : 'asc'
+    }));
+  }, []);
 
+  // 常に同じ構造のオブジェクトを返す
   return {
-    sortField,
-    sortOrder,
-    sortedHorses,
+    sortedHorses: sortedHorses || [],
+    sortField: sortField || 'name',
+    sortOrder: sortOrder || 'asc',
     handleSort,
   };
 };
