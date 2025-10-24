@@ -154,20 +154,35 @@ const processHorseData = (horse: any): Horse | null => {
   } as unknown as Horse;
 };
 
+// 認証トークンを取得するヘルパー関数
+const getAuthToken = (): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('authToken') || null;
+  }
+  return null;
+};
+
 export const fetchHorsesList = async (): Promise<HorseData> => {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-    // 最新のオークションに出品された馬のみを取得するためのパラメータを追加
-    const url = new URL(`${apiUrl}/api/horses`);
-    url.searchParams.append('latest_auction', 'true');
+    const url = new URL(`${apiUrl}/api/horses/`);  // 末尾のスラッシュを追加
     
+    // 認証トークンを取得
+    const token = getAuthToken();
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+    };
+    
+    // トークンがあればヘッダーに追加
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     console.log('API URL:', url.toString());
     
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers,
       cache: 'no-store',
     });
 
@@ -182,7 +197,7 @@ export const fetchHorsesList = async (): Promise<HorseData> => {
     }
 
     const data = await response.json();
-    console.log('API Response data type:', typeof data);
+    console.log('API Response:', data);
     
     // レスポンスが配列の場合はそのまま処理
     if (Array.isArray(data)) {

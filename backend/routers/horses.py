@@ -44,7 +44,7 @@ async def get_latest_horses(
     logger.info("Calling /horses/latest endpoint")
     return await get_horses(request, skip, limit, None, 'true', db)
 
-@router.get("", response_model=Dict[str, Any], tags=["horses"])
+@router.get("/", response_model=Dict[str, Any], tags=["horses"])
 async def get_horses(
     request: Request,
     skip: int = 0,
