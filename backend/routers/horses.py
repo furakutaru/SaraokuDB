@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+import re
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from datetime import datetime
@@ -81,42 +82,73 @@ async def get_horses(
             raw_dates = db.query(Horse.auction_date).filter(Horse.auction_date.isnot(None)).all()
             print(f"Fetched {len(raw_dates)} auction_date entries")
             
-            # テキストから 'YYYY-MM-DD' を抽出して最大日付を決定
-            import re, json
-            date_pattern = re.compile(r"\d{4}-\d{2}-\d{2}")
+            # テキストから日付を抽出する正規表現パターン
+            date_pattern = re.compile(r"(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})")
             extracted_dates = []
+            
             for (ad,) in raw_dates:
                 if not ad:
                     continue
                 try:
+                    # デバッグ用に生の値を出力
+                    print(f"Processing date string: {ad} (type: {type(ad)})")
+                    
                     # JSON配列文字列の場合
                     if isinstance(ad, str) and ad.strip().startswith('['):
-                        arr = json.loads(ad)
-                        for item in arr:
-                            if isinstance(item, str) and date_pattern.fullmatch(item):
-                                extracted_dates.append(item)
+                        try:
+                            arr = json.loads(ad)
+                            for item in arr:
+                                if isinstance(item, str):
+                                    # 日付文字列から日付を抽出
+                                    matches = date_pattern.findall(item)
+                                    for match in matches:
+                                        # YYYY-MM-DD形式に変換
+                                        year, month, day = match
+                                        date_str = f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+                                        extracted_dates.append(date_str)
+                        except json.JSONDecodeError:
+                            # JSONとして解析できない場合は、単一の日付文字列として処理
+                            matches = date_pattern.findall(ad)
+                            for match in matches:
+                                year, month, day = match
+                                date_str = f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+                                extracted_dates.append(date_str)
                     else:
-                        # 平文（単一日付）またはその他の文字列
-                        m = date_pattern.search(str(ad))
-                        if m:
-                            extracted_dates.append(m.group(0))
+                        # 単一の日付文字列の場合
+                        matches = date_pattern.findall(str(ad))
+                        for match in matches:
+                            year, month, day = match
+                            date_str = f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+                            extracted_dates.append(date_str)
+                            
                 except Exception as e:
                     print(f"Error processing auction_date entry: {e} | value={ad}")
+                    import traceback
+                    traceback.print_exc()
+            
+            print(f"Extracted dates: {extracted_dates}")
             
             if extracted_dates:
-                latest_date = max(extracted_dates)
-                print(f"Latest auction date resolved: {latest_date}")
-                
-                # 最新のオークション日を含むレコードにLIKEでフィルタ
-                query = query.filter(Horse.auction_date.like(f"%{latest_date}%"))
-                # 念のため、オークション日がNULLのレコードを除外
-                query = query.filter(Horse.auction_date.isnot(None))
-                
-                # デバッグ用: フィルタリング後のクエリを表示
-                print("\n=== Filtered Query (by latest_date LIKE) ===")
-                print(str(query.statement.compile(compile_kwargs={"literal_binds": True})))
+                try:
+                    latest_date = max(extracted_dates)
+                    print(f"Latest auction date resolved: {latest_date}")
+                    
+                    # 最新のオークション日を含むレコードにLIKEでフィルタ
+                    query = query.filter(Horse.auction_date.like(f"%{latest_date}%"))
+                    # 念のため、オークション日がNULLのレコードを除外
+                    query = query.filter(Horse.auction_date.isnot(None))
+                    
+                    # デバッグ用: フィルタリング後のクエリを表示
+                    print("\n=== Filtered Query (by latest_date LIKE) ===")
+                    print(str(query.statement.compile(compile_kwargs={"literal_binds": True})))
+                except Exception as e:
+                    print(f"Error finding latest date: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return {"items": [], "total": 0, "error": f"Error finding latest date: {str(e)}"}
             else:
                 print("Warning: No valid auction dates found in the database (after parsing)")
+                return {"items": [], "total": 0, "error": "No valid auction dates found"}
                 return {"items": [], "total": 0}
         
         # 3. フィルタリング
