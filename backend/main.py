@@ -60,7 +60,7 @@ app = FastAPI(
 app.include_router(health_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(debug_router, prefix="/api")
-app.include_router(horses.router, prefix="/api")  # /api/horses でアクセスできるように修正
+app.include_router(horses.router, prefix="/api")
 app.include_router(auction_histories_router, prefix="/api")  # tagsはルーター側で設定済み
 
 # CORS settings
