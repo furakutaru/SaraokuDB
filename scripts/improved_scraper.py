@@ -2633,15 +2633,21 @@ def update_horses_database(horses: List[Dict[str, Any]]) -> bool:
         
         # 一時ディレクトリのパスを絶対パスで設定
         temp_dir = (Path(__file__).parent / 'temp').resolve()
-        temp_dir.mkdir(exist_ok=True, parents=True, mode=0o755)  # 適切なパーミッションを設定
-        temp_json = temp_dir / 'temp_horses.json'
+        temp_dir.mkdir(exist_ok=True, parents=True, mode=0o755)
+        temp_json = temp_dir / f'temp_horses_{int(time.time())}.json'  # 一意のファイル名を使用
         
         logger.info(f"一時ファイルに馬データを保存します: {temp_json}")
+        logger.info(f"保存する馬データ数: {len(horses)}")
         
         try:
             # 馬データを一時ファイルに保存
             with open(temp_json, 'w', encoding='utf-8') as f:
                 json.dump(horses, f, ensure_ascii=False, indent=2)
+            
+            # 環境変数を設定
+            env = os.environ.copy()
+            db_dir = str(Path(__file__).parent.parent / 'backend' / 'data')
+            env['SQLITE_DB_DIR'] = db_dir
             
             # スクリプトのフルパスを取得
             script_path = str(update_script_path)
@@ -2650,36 +2656,85 @@ def update_horses_database(horses: List[Dict[str, Any]]) -> bool:
             logger.info(f"データベース更新スクリプトを実行します: {script_path}")
             logger.info(f"一時ファイル: {temp_json_path}")
             logger.info(f"現在の作業ディレクトリ: {os.getcwd()}")
+            logger.info(f"データベースディレクトリ: {db_dir}")
+            
+            # データベースディレクトリの存在確認とパーミッション設定
+            db_dir_path = Path(db_dir)
+            if not db_dir_path.exists():
+                logger.info(f"データベースディレクトリを作成します: {db_dir}")
+                db_dir_path.mkdir(parents=True, exist_ok=True, mode=0o755)
+            
+            # データベースファイルのパーミッションを設定
+            db_file = db_dir_path / 'horses.db'
+            if db_file.exists():
+                try:
+                    db_file.chmod(0o666)  # 読み書き可能に設定
+                    logger.info(f"データベースファイルのパーミッションを設定しました: {db_file}")
+                except Exception as e:
+                    logger.warning(f"データベースファイルのパーミッション設定に失敗しました: {e}")
             
             # サブプロセスでデータベース更新スクリプトを実行
             result = subprocess.run(
-                ['python3', script_path, '--input', temp_json_path],
+                ['python3', script_path, '--input', temp_json_path, '--debug'],
                 capture_output=True,
                 text=True,
-                cwd=Path(__file__).parent  # スクリプトのディレクトリをカレントディレクトリに設定
+                cwd=Path(__file__).parent,  # スクリプトのディレクトリをカレントディレクトリに設定
+                env=env  # 環境変数を引き継ぐ
             )
             
             # 実行結果をログに出力
+            logger.info("=" * 80)
+            logger.info("データベース更新スクリプトの実行結果")
+            logger.info("=" * 80)
+            
             if result.stdout:
-                logger.info(f"スクリプト出力: {result.stdout}")
+                logger.info(f"スクリプト出力:\n{result.stdout}")
             if result.stderr:
-                logger.error(f"スクリプトエラー: {result.stderr}")
+                logger.error(f"スクリプトエラー:\n{result.stderr}")
+            
+            logger.info("-" * 80)
+            logger.info(f"終了コード: {result.returncode}")
             
             if result.returncode == 0:
-                logger.info("データベースの更新に成功しました")
+                logger.info("✅ データベースの更新に成功しました")
                 return True
             else:
-                logger.error(f"データベースの更新に失敗しました (終了コード: {result.returncode})")
+                logger.error(f"❌ データベースの更新に失敗しました (終了コード: {result.returncode})")
+                
+                # エラーが発生した場合は、一時ファイルを残してデバッグに役立てる
+                debug_dir = Path(__file__).parent / 'debug_data'
+                debug_dir.mkdir(exist_ok=True, mode=0o755)
+                debug_file = debug_dir / f'error_{int(time.time())}.json'
+                try:
+                    import shutil
+                    shutil.copy2(temp_json, debug_file)
+                    logger.info(f"デバッグ用にデータを保存しました: {debug_file}")
+                except Exception as e:
+                    logger.error(f"デバッグデータの保存に失敗しました: {e}")
+                
                 return False
                 
         except Exception as e:
             logger.error(f"データベース更新スクリプトの実行中にエラーが発生しました: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
+            
+            # エラーが発生した場合も一時ファイルを残す
+            if 'temp_json' in locals() and temp_json.exists():
+                debug_dir = Path(__file__).parent / 'debug_data'
+                debug_dir.mkdir(exist_ok=True, mode=0o755)
+                debug_file = debug_dir / f'error_{int(time.time())}.json'
+                try:
+                    import shutil
+                    shutil.copy2(temp_json, debug_file)
+                    logger.info(f"エラー発生時のデータを保存しました: {debug_file}")
+                except Exception as copy_error:
+                    logger.error(f"エラーデータの保存に失敗しました: {copy_error}")
+            
             return False
         finally:
             # 一時ファイルを削除
-            if temp_json.exists():
+            if 'temp_json' in locals() and temp_json.exists():
                 try:
                     temp_json.unlink()
                     logger.debug(f"一時ファイルを削除しました: {temp_json}")
@@ -2690,6 +2745,19 @@ def update_horses_database(horses: List[Dict[str, Any]]) -> bool:
         logger.error(f"データベース更新中に予期しないエラーが発生しました: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
+        
+        # エラーが発生した場合も一時ファイルを残す
+        if 'temp_json' in locals() and temp_json.exists():
+            debug_dir = Path(__file__).parent / 'debug_data'
+            debug_dir.mkdir(exist_ok=True, mode=0o755)
+            debug_file = debug_dir / f'fatal_error_{int(time.time())}.json'
+            try:
+                import shutil
+                shutil.copy2(temp_json, debug_file)
+                logger.info(f"致命的なエラー発生時のデータを保存しました: {debug_file}")
+            except Exception as copy_error:
+                logger.error(f"エラーデータの保存に失敗しました: {copy_error}")
+        
         return False
 
 def save_horses(horses: List[Dict[str, Any]], output_path: Path) -> bool:

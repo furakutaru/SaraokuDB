@@ -81,15 +81,20 @@ def init_db():
         Session: SQLAlchemyセッション
     """
     try:
-        # データベースファイルのパスを修正
-        db_path = Path(__file__).parent.parent / 'backend' / 'data' / 'horses.db'
-        db_path.parent.mkdir(parents=True, exist_ok=True)
+        # データベースファイルのパスを環境変数から取得
+        db_dir = os.environ.get('SQLITE_DB_DIR', str(Path(__file__).parent.parent / 'backend' / 'data'))
+        os.makedirs(db_dir, exist_ok=True, mode=0o755)
         
+        db_path = Path(db_dir) / 'horses.db'
         logger.info(f"データベースパス: {db_path}")
         
-        # SQLiteデータベースに接続
-        db_uri = f'sqlite:///{db_path}'
-        engine = create_engine(db_uri)
+        # SQLiteデータベースに接続（ロックタイムアウトとジャーナルモードを設定）
+        db_uri = f'sqlite:///{db_path}?timeout=30&check_same_thread=False'
+        engine = create_engine(db_uri, connect_args={
+            'timeout': 30,
+            'check_same_thread': False,
+            'isolation_level': 'IMMEDIATE'  # 明示的なロックを取得
+        })
         
         # テーブルが存在しない場合は作成
         Base.metadata.create_all(engine)

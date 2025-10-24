@@ -32,19 +32,22 @@ jobs:
           
       - name: Install system dependencies
         run: |
-          # jqをインストール
-          echo "Installing jq..."
+          # 必要なパッケージをインストール
+          echo "Installing required packages..."
           sudo apt-get update
-          sudo apt-get install -y jq curl
+          sudo apt-get install -y jq curl sqlite3
           
-          # jqのパスを確認
-          echo "Checking jq installation..."
+          # インストールの確認
+          echo "Checking installations..."
           which jq || echo "jq not found in PATH"
           jq --version || echo "jq version check failed"
+          which sqlite3 || echo "sqlite3 not found in PATH"
+          sqlite3 --version || echo "sqlite3 version check failed"
           
           # パスを確認
           echo "PATH: $PATH"
           echo "jq path: $(which jq)"
+          echo "sqlite3 path: $(which sqlite3)"
           
       - name: Install Python dependencies
         run: |
@@ -230,19 +233,57 @@ jobs:
           TOKEN: ${{ steps.auth.outputs.token }}
           AUTH_HEADER: ${{ steps.auth.outputs.auth_header }}
           NEXT_PUBLIC_API_URL: ${{ secrets.PROD_API_BASE_URL }}
-          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
-          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
-          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
+          LOG_LEVEL: DEBUG
           GITHUB_ACTIONS: "true"
-          LOG_LEVEL: "DEBUG"
-          DATABASE_URL: ${{ env.DATABASE_URL }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          PYTHONUNBUFFERED: 1
+          PYTHONPATH: ${{ github.workspace }}
+          SQLITE_DB_DIR: ${{ github.workspace }}/backend/data
+          # SQLiteの設定
+          SQLITE_TIMEOUT: 30
+          SQLITE_JOURNAL_MODE: WAL  # Write-Ahead Logging モードを使用
         run: |
           set -e  # エラーが発生したらスクリプトを終了
           
           # タイムスタンプを取得
           TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          LOG_FILE="logs/scraper_${TIMESTAMP}.log"
+          LOG_DIR="logs"
+          LOG_FILE="$LOG_DIR/scraper_${TIMESTAMP}.log"
+          
+          # ログディレクトリが存在しない場合は作成
+          mkdir -p "$LOG_DIR"
+          
+          # 環境情報をログに記録
+          echo "===== Environment Information =====" | tee -a "$LOG_FILE"
+          echo "Current directory: $(pwd)" | tee -a "$LOG_FILE"
+          echo "Python version: $(python --version 2>&1)" | tee -a "$LOG_FILE"
+          echo "Pip version: $(pip --version 2>&1)" | tee -a "$LOG_FILE"
+          echo "SQLite version: $(sqlite3 --version 2>&1)" | tee -a "$LOG_FILE"
+          echo "Environment variables:" | tee -a "$LOG_FILE"
+          env | sort | tee -a "$LOG_FILE"
+          echo "==================================" | tee -a "$LOG_FILE"
+          
+          # データベースディレクトリの確認
+          echo "Checking database directory..." | tee -a "$LOG_FILE"
+          ls -la "$SQLITE_DB_DIR" 2>&1 | tee -a "$LOG_FILE" || true
+          
+          # データベースファイルの確認
+          DB_FILE="$SQLITE_DB_DIR/horses.db"
+          if [ -f "$DB_FILE" ]; then
+            echo "Database file exists: $DB_FILE" | tee -a "$LOG_FILE"
+            echo "Database file size: $(du -h "$DB_FILE" | cut -f1)" | tee -a "$LOG_FILE"
+            echo "Database file permissions: $(stat -c "%a %n" "$DB_FILE" 2>&1)" | tee -a "$LOG_FILE"
+            
+            # データベースの整合性チェック
+            echo "Checking database integrity..." | tee -a "$LOG_FILE"
+            sqlite3 "$DB_FILE" "PRAGMA integrity_check;" 2>&1 | tee -a "$LOG_FILE" || true
+            
+            # データベースの統計情報を表示
+            echo "Database statistics:" | tee -a "$LOG_FILE"
+            sqlite3 "$DB_FILE" ".tables" 2>&1 | tee -a "$LOG_FILE"
+            sqlite3 "$DB_FILE" "SELECT name FROM sqlite_master WHERE type='table';" 2>&1 | tee -a "$LOG_FILE"
+          else
+            echo "Database file does not exist: $DB_FILE" | tee -a "$LOG_FILE"
+          fi
           
           # データベースの初期化
           echo "::group::💾 データベースを初期化しています..."
