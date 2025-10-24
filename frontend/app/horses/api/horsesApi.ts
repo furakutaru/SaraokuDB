@@ -183,18 +183,7 @@ const processHorseData = (horse: any): Horse | null => {
   }
 };
 
-// 認証トークンを取得するヘルパー関数
-const getAuthToken = (): string | null => {
-  // GitHub Actions環境では環境変数からトークンを取得
-  if (process.env.GITHUB_ACTIONS === 'true' && process.env.AUTH_TOKEN) {
-    return process.env.AUTH_TOKEN;
-  }
-  // ブラウザ環境の場合
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('authToken') || null;
-  }
-  return null;
-};
+// 認証トークンは直接fetchHorsesList内で処理するため、この関数は削除
 
 export const fetchHorsesList = async (): Promise<HorseData> => {
   try {
@@ -202,26 +191,42 @@ export const fetchHorsesList = async (): Promise<HorseData> => {
     const url = new URL(`${apiUrl}/api/horses/`);
     
     // 認証トークンを取得
-    const token = getAuthToken();
+    let token: string | null = null;
+    
+    // ブラウザ環境でのみlocalStorageからトークンを取得
+    if (typeof window !== 'undefined') {
+      token = localStorage.getItem('authToken');
+    }
+    
+    // 環境変数からトークンを取得（GitHub Actions用）
+    if (!token && process.env.NEXT_PUBLIC_AUTH_TOKEN) {
+      token = process.env.NEXT_PUBLIC_AUTH_TOKEN;
+    }
+    
     const headers: HeadersInit = {
       'Accept': 'application/json',
+      'Content-Type': 'application/json',
     };
     
     // トークンがあればヘッダーに追加
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
-      console.log('認証トークンを設定しました（トークンの長さ）:', token.length);
+      console.log('認証トークンを設定しました');
     } else {
       console.warn('認証トークンが設定されていません');
     }
-
+    
+    // クエリパラメータを追加
+    url.searchParams.append('latest_auction', 'true');
+    url.searchParams.append('limit', '100');
+    
     console.log('API URL:', url.toString());
-    console.log('リクエストヘッダー:', JSON.stringify(headers));
     
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers,
       cache: 'no-store',
+      credentials: 'include', // クッキーを含める
     });
 
     if (!response.ok) {
@@ -234,28 +239,43 @@ export const fetchHorsesList = async (): Promise<HorseData> => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json().catch(error => {
+      console.error('JSONパースエラー:', error);
+      throw new Error('無効なJSONレスポンスです');
+    });
+    
     console.log('API Response:', data);
     
-    // レスポンスが配列の場合はそのまま処理
-    if (Array.isArray(data)) {
-      return { 
-        horses: data.map(processHorseData).filter((h: Horse | null): h is Horse => h !== null)
-      };
-    }
-    
-    // レスポンスがオブジェクトでhorsesプロパティを持つ場合
-    if (data && typeof data === 'object' && 'horses' in data) {
-      const horses = Array.isArray(data.horses) 
-        ? data.horses.map(processHorseData).filter((h: Horse | null): h is Horse => h !== null)
-        : [];
+    try {
+      // レスポンスが配列の場合はそのまま処理
+      if (Array.isArray(data)) {
+        const processedHorses = data
+          .map(processHorseData)
+          .filter((h: Horse | null): h is Horse => h !== null);
+          
+        console.log(`処理済み馬データ: ${processedHorses.length}件`);
+        return { horses: processedHorses };
+      }
       
-      return { horses };
+      // レスポンスがオブジェクトでhorsesプロパティを持つ場合
+      if (data && typeof data === 'object' && 'horses' in data) {
+        const horses = Array.isArray(data.horses) 
+          ? data.horses
+              .map(processHorseData)
+              .filter((h: Horse | null): h is Horse => h !== null)
+          : [];
+        
+        console.log(`処理済み馬データ: ${horses.length}件`);
+        return { horses };
+      }
+      
+      // 予期しないレスポンス形式の場合はエラーをスロー
+      throw new Error('予期しないレスポンス形式です');
+    } catch (error) {
+      console.error('レスポンス処理中にエラーが発生しました:', error);
+      console.error('元のレスポンスデータ:', data);
+      throw error; // エラーを再スローして呼び出し元で処理できるようにする
     }
-    
-    // 予期しないレスポンス形式の場合は空の配列を返す
-    console.warn('予期しないレスポンス形式:', data);
-    return { horses: [] };
   } catch (error) {
     console.error('Error fetching horses:', error);
     return { horses: [] };
