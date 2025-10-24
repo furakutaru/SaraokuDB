@@ -99,15 +99,19 @@ class ScraperClient:
             logger.info(f"認証URL: {auth_url}")
             
             # リクエストデータを準備
-            data = {
+            auth_data = {
                 'username': self.api_username,
                 'password': self.api_password
             }
             
-            # 認証リクエストを送信
+            # 認証リクエストを送信（JSON形式で送信）
             response = self.session.post(
                 auth_url,
-                data=data
+                json=auth_data,
+                headers={
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
             )
             
             # レスポンスのステータスコードを確認
