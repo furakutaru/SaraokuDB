@@ -157,6 +157,12 @@ class ScraperClient:
             # データのコピーを作成（元データを変更しないため）
             data_to_send = horse_data.copy()
             
+            # race_records が辞書型の場合はリストに変換
+            if 'race_records' in data_to_send and isinstance(data_to_send['race_records'], dict):
+                data_to_send['race_records'] = [data_to_send['race_records']]
+            elif 'race_records' in data_to_send and data_to_send['race_records'] is None:
+                data_to_send['race_records'] = []
+            
             # 必須フィールドのバリデーションと型変換
             if 'image_url' not in data_to_send or data_to_send['image_url'] is None:
                 data_to_send['image_url'] = ""
