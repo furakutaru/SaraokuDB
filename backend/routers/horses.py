@@ -13,7 +13,7 @@ from services.horse_serializer import serialize_horse
 from services.horses_list_mapper import map_horses_list
 
 # ルーターの設定
-router = APIRouter(prefix="/horses", tags=["horses"])
+router = APIRouter(tags=["horses"])
 
 from fastapi import Request
 import logging
