@@ -145,7 +145,11 @@ class ScraperClient:
     def save_horse(self, horse_data):
         """馬データをAPIに保存"""
         try:
-            save_url = f"{self.api_base_url}/api/horses"
+            # URLの最後にスラッシュを追加
+            base_url = self.api_base_url.rstrip('/')
+            save_url = f"{base_url}/api/horses/"  # 末尾にスラッシュを追加
+            
+            logger.info(f"API ベースURL: {self.api_base_url}")
             logger.info(f"保存URL: {save_url}")
             logger.info(f"リクエストヘッダー: {self.session.headers}")
             
@@ -161,9 +165,6 @@ class ScraperClient:
                 data_to_send['disease_tags'] = ", ".join(data_to_send['disease_tags'])
             elif 'disease_tags' not in data_to_send or data_to_send['disease_tags'] is None:
                 data_to_send['disease_tags'] = ""
-                
-            # デバッグ用に送信データをログに出力
-            logger.debug(f"送信データ: {json.dumps(data_to_send, ensure_ascii=False, indent=2)}")
             
             # race_recordsが存在しない場合は空のリストを設定
             if 'race_records' not in data_to_send:
@@ -194,25 +195,40 @@ class ScraperClient:
                         formatted_race_records.append(formatted_record)
                 data_to_send['race_records'] = formatted_race_records
             
-            # デバッグ用にリクエストボディをログに出力
-            logger.debug(f"リクエストボディ: {json.dumps(data_to_send, ensure_ascii=False, indent=2)}")
+            # デバッグ用に送信データをログに出力
+            logger.debug(f"送信データ: {json.dumps(data_to_send, ensure_ascii=False, indent=2)}")
             
             # リクエストを送信
+            logger.info(f"APIリクエストを送信します: {save_url}")
+            logger.debug(f"リクエストボディ: {json.dumps(data_to_send, ensure_ascii=False, indent=2)}")
+            
             response = self.session.post(
                 save_url,
-                json=data_to_send
+                json=data_to_send,
+                timeout=30  # 30秒のタイムアウトを設定
             )
+            
+            # レスポンスの詳細をログに出力
+            logger.info(f"レスポンスステータス: {response.status_code}")
+            logger.debug(f"レスポンスヘッダー: {dict(response.headers)}")
+            logger.debug(f"レスポンスボディ: {response.text}")
             
             # レスポンスのステータスコードを確認
             response.raise_for_status()
-            logger.info(f"馬データを保存しました: {data_to_send.get('name')}")
-            return response.json()
-        except requests.exceptions.HTTPError as e:
-            if e.response is not None:
-                logger.error(f"APIリクエストエラー: {e.response.status_code} - {e.response.text}")
+            
+            result = response.json()
+            logger.info(f"馬データを保存しました: {data_to_send.get('name')} (ID: {result.get('id')})")
+            return result
+            
+        except requests.exceptions.RequestException as e:
+            error_msg = str(e)
+            if hasattr(e, 'response') and e.response is not None:
+                error_msg = f"{e.response.status_code} - {e.response.text}"
+                logger.error(f"APIリクエストエラー: {error_msg}")
+                logger.error(f"レスポンスヘッダー: {dict(e.response.headers) if hasattr(e.response, 'headers') else 'N/A'}")
             else:
-                logger.error(f"APIリクエストエラー: {str(e)}")
-            return False
+                logger.error(f"リクエストエラー: {error_msg}")
+            raise
         except Exception as e:
             logger.error(f"馬データの保存中にエラーが発生しました: {str(e)}")
             return False

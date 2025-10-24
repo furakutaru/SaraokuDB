@@ -375,15 +375,29 @@ class HorseCreate(BaseModel):
 
 @router.post("/", response_model=HorseResponse, status_code=status.HTTP_201_CREATED)
 async def create_horse(
+    request: Request,
     horse: HorseCreate,
     db: Session = Depends(get_db)
 ):
     """新しい馬データを作成するエンドポイント"""
     try:
-        # リクエストボディをログに出力
-        import json
-        logger.info(f"新しい馬データのリクエストを受け付けました: {horse.name} (auction_id: {horse.auction_id})")
+        # リクエスト情報をログに出力
+        client_host = request.client.host if request.client else "unknown"
+        logger.info(f"新しい馬データのリクエストを受け付けました (クライアント: {client_host})")
+        logger.info(f"馬名: {horse.name}, オークションID: {horse.auction_id}")
+        
+        # リクエストボディをデバッグログに出力
+        logger.debug(f"リクエストヘッダー: {dict(request.headers)}")
         logger.debug(f"リクエストボディ: {json.dumps(horse.dict(), ensure_ascii=False, indent=2)}")
+        
+        # 必須フィールドのバリデーション
+        if not horse.name or not horse.auction_id:
+            error_msg = "必須フィールドが不足しています: name と auction_id は必須です"
+            logger.error(error_msg)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
+            )
         
         # 既存の馬データを確認
         existing_horse = db.query(Horse).filter(
