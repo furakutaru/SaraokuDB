@@ -76,172 +76,94 @@ class ScraperClient:
         self.api_username = os.getenv('PROD_API_USERNAME')
         self.api_password = os.getenv('PROD_API_PASSWORD')
         
-        # ローカル開発環境の認証情報
-        local_base_url = os.getenv('LOCAL_API_BASE_URL', 'http://localhost:8001')
-        local_username = os.getenv('LOCAL_API_USERNAME', 'admin')
-        local_password = os.getenv('LOCAL_API_PASSWORD', 'secret')
+        # デバッグ用ログ
+        logger.info(f"API Base URL: {self.api_base_url}")
+        logger.info(f"API Username: {'*' * len(self.api_username) if self.api_username else 'Not Set'}")
         
-        # 環境の判定
-        is_production = os.getenv('ENV') == 'production' or os.getenv('GITHUB_ACTIONS') == 'true'
-        
-        if not is_production and not all([self.api_base_url, self.api_username, self.api_password]):
-            logger.warning("ローカル開発環境のため、ローカル用の認証情報を使用します")
-            self.api_base_url = local_base_url
-            self.api_username = local_username
-            self.api_password = local_password
-        elif not all([self.api_base_url, self.api_username, self.api_password]):
-            raise ValueError("本番環境の認証情報が設定されていません。PROD_API_BASE_URL, PROD_API_USERNAME, PROD_API_PASSWORD を設定してください")
+        if not all([self.api_base_url, self.api_username, self.api_password]):
+            raise ValueError("API認証情報が正しく設定されていません")
             
         self.api_base_url = self.api_base_url.rstrip('/')
-        logger.info(f"API Base URL: {self.api_base_url} (ユーザー: {self.api_username})")
-        
-        self.token = None
         self.session = requests.Session()
-        
-        # セッションのヘッダーを設定
         self.session.headers.update({
             'User-Agent': 'SaraokuDB-Scraper/1.0',
             'Accept': 'application/json',
             'Content-Type': 'application/json'
         })
+        self.authenticate()
     
     def authenticate(self):
         """API認証を行いトークンを取得"""
         try:
-            if not all([self.api_base_url, self.api_username, self.api_password]):
-                logger.error("認証情報が不足しています。環境変数を確認してください。")
-                logger.error(f"API_BASE_URL: {'設定済み' if self.api_base_url else '未設定'}")
-                logger.error(f"API_USERNAME: {'設定済み' if self.api_username else '未設定'}")
-                logger.error(f"API_PASSWORD: {'設定済み' if self.api_password else '未設定'}")
-                return False
-
-            # ベースURLの正規化
-            base_url = self.api_base_url.rstrip('/')
+            auth_url = f"{self.api_base_url}/api/auth/token"
+            logger.info(f"認証URL: {auth_url}")
             
-            # APIエンドポイントの構築（/api/auth/token を使用）
-            auth_url = f"{base_url}/api/auth/token"  # 認証エンドポイントを修正
-            logger.info(f"認証を試みます: {auth_url} (ユーザー: {self.api_username})")
-            
-            # 認証リクエストの送信 (OAuth2互換形式)
-            auth_data = {
+            # リクエストデータを準備
+            data = {
                 'username': self.api_username,
                 'password': self.api_password
             }
             
-            # デバッグ用ログ
-            logger.debug(f"認証リクエストURL: {auth_url}")
-            logger.debug(f"認証リクエストデータ: {auth_data}")
+            # 認証リクエストを送信
+            response = self.session.post(
+                auth_url,
+                data=data
+            )
             
-            # セッションを使用せずに直接リクエストを送信
-            headers = {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'User-Agent': 'SaraokuDB-Scraper/1.0',
-                'Accept': 'application/json'
-            }
+            # レスポンスのステータスコードを確認
+            response.raise_for_status()
             
-            logger.debug(f"リクエストヘッダー: {headers}")
+            # トークンを取得
+            token_data = response.json()
+            self.token = token_data.get('access_token')
             
-            try:
-                # リクエストデータをURLエンコードされた形式に変換
-                import urllib.parse
-                encoded_data = urllib.parse.urlencode({
-                    'username': self.api_username,
-                    'password': self.api_password
-                })
-                
-                # リクエストを送信
-                response = requests.post(
-                    auth_url,
-                    data=encoded_data,
-                    headers=headers,
-                    allow_redirects=True,
-                    timeout=30  # 30秒のタイムアウトを設定
-                )
-                
-                logger.debug(f"認証レスポンス: {response.status_code} - {response.text}")
-                
-                # レスポンスの検証
-                response.raise_for_status()
-                
-                # トークンの抽出
-                try:
-                    token_data = response.json()
-                    if not token_data.get('access_token'):
-                        logger.error(f"トークンがレスポンスに含まれていません: {token_data}")
-                        return False
-                        
-                    self.token = token_data['access_token']
-                    
-                    # セッションのヘッダーを更新
-                    self.session.headers.update({
-                        "Authorization": f"Bearer {self.token}",
-                        "Content-Type": "application/json"
-                    })
-                    logger.info("認証に成功しました")
-                    return True
-                    
-                except ValueError as e:
-                    logger.error(f"レスポンスのJSON解析に失敗しました: {e}")
-                    logger.error(f"レスポンス本文: {response.text}")
-                    return False
+            if not self.token:
+                raise ValueError("認証トークンを取得できませんでした")
             
-            except requests.exceptions.Timeout:
-                logger.error("認証リクエストがタイムアウトしました")
-                return False
-                
-            except requests.exceptions.TooManyRedirects:
-                logger.error("リダイレクトが多すぎます。URLを確認してください")
-                return False
+            # 認証ヘッダーを更新
+            self.session.headers.update({
+                'Authorization': f'Bearer {self.token}'
+            })
             
-        except requests.exceptions.RequestException as e:
-            logger.error(f"認証リクエストに失敗しました: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                logger.error(f"ステータスコード: {e.response.status_code}")
-                try:
-                    logger.error(f"レスポンスヘッダー: {dict(e.response.headers)}")
-                    logger.error(f"レスポンス本文: {e.response.text}")
-                except Exception as ex:
-                    logger.error(f"レスポンスの解析中にエラーが発生しました: {ex}")
-            return False
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"レスポンスのJSON解析に失敗しました: {e}")
-            if 'response' in locals():
-                logger.error(f"生のレスポンス: {response.text}")
-            return False
+            logger.info("認証に成功しました")
+            return True
             
         except Exception as e:
-            logger.error(f"認証中に予期せぬエラーが発生しました: {str(e)}\n{traceback.format_exc()}")
-            return False
+            logger.error(f"認証に失敗しました: {str(e)}")
+            if hasattr(e, 'response') and e.response is not None:
+                logger.error(f"レスポンス: {e.response.text}")
+            raise
     
     def save_horse(self, horse_data):
-        """馬データをAPI経由で保存"""
-        if not self.token and not self.authenticate():
-            logger.error('認証に失敗したため、データを保存できません')
-            return False
-        
+        """馬データをAPIに保存"""
         try:
+            save_url = f"{self.api_base_url}/api/horses"
+            logger.info(f"保存URL: {save_url}")
+            
             # データのコピーを作成（元データを変更しないため）
             data_to_send = horse_data.copy()
             
             # 必須フィールドのバリデーションと型変換
             if 'image_url' not in data_to_send or data_to_send['image_url'] is None:
-                data_to_send['image_url'] = ""  # 空文字をデフォルト値として設定
+                data_to_send['image_url'] = ""
             
             # disease_tagsがリストの場合はカンマ区切りの文字列に変換
             if 'disease_tags' in data_to_send and isinstance(data_to_send['disease_tags'], list):
                 data_to_send['disease_tags'] = ", ".join(data_to_send['disease_tags'])
             elif 'disease_tags' not in data_to_send or data_to_send['disease_tags'] is None:
-                data_to_send['disease_tags'] = ""  # 空文字をデフォルト値として設定
+                data_to_send['disease_tags'] = ""
             
             # race_recordsをrace_recordにマッピング
             if 'race_records' in data_to_send:
                 data_to_send['race_record'] = data_to_send.pop('race_records')
             
+            # リクエストを送信
             response = self.session.post(
-                f"{self.api_base_url}/horses",
+                save_url,
                 json=data_to_send
             )
+            
+            # レスポンスのステータスコードを確認
             response.raise_for_status()
             logger.info(f"馬データを保存しました: {data_to_send.get('name')}")
             return response.json()
