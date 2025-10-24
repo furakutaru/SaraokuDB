@@ -2,12 +2,12 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/main.py",
+      "src": "backend/main.py",
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "15mb",
         "runtime": "python3.10",
-        "includeFiles": ["api/**/*.py", "api/requirements.txt", "api/.env*"]
+        "includeFiles": ["backend/**/*.py", "backend/requirements.txt", "backend/.env*"]
       }
     },
     {
@@ -18,8 +18,9 @@
       }
     }
   ],
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/main.py" },
-    { "source": "/(.*)", "destination": "/static-frontend/$1" }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/backend/main.py" },
+    { "src": "/horses", "dest": "/backend/main.py" },
+    { "src": "/(.*)", "dest": "/static-frontend/$1" }
   ]
 }

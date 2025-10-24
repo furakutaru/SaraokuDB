@@ -14,7 +14,7 @@ from services.horses_list_mapper import map_horses_list
 
 # ルーターの設定
 # Vercelでは /api が自動的には付与されないため、完全なパスを指定する
-router = APIRouter(prefix="", tags=["horses"])
+router = APIRouter(prefix="/api", tags=["horses"])
 
 from fastapi import Request
 import logging
@@ -374,7 +374,7 @@ class HorseCreate(BaseModel):
     image_url: Optional[str] = None
     race_records: List[RaceRecord] = []
 
-@router.post("/api/horses", response_model=HorseResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/horses", response_model=HorseResponse, status_code=status.HTTP_201_CREATED)
 async def create_horse(
     request: Request,
     horse: HorseCreate,
