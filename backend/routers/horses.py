@@ -338,6 +338,23 @@ async def get_horse(horse_id: str, db: Session = Depends(get_db)):
 
 
 # 新しい馬データを作成するためのモデル
+class RaceRecord(BaseModel):
+    race_name: Optional[str] = None
+    race_date: Optional[str] = None
+    course: Optional[str] = None
+    distance: Optional[str] = None
+    track_condition: Optional[str] = None
+    finish_position: Optional[str] = None
+    margin: Optional[str] = None
+    jockey: Optional[str] = None
+    weight: Optional[str] = None
+    finish_time: Optional[str] = None
+    odds: Optional[str] = None
+    favorite: Optional[str] = None
+    race_class: Optional[str] = None
+    race_condition: Optional[str] = None
+    prize_money: Optional[str] = None
+
 class HorseCreate(BaseModel):
     name: str
     auction_id: str
@@ -354,8 +371,9 @@ class HorseCreate(BaseModel):
     disease_tags: Optional[str] = None
     detail_url: Optional[str] = None
     image_url: Optional[str] = None
+    race_records: List[RaceRecord] = []
 
-@router.post("/horses", response_model=Dict[str, Any], status_code=201, tags=["horses"])
+@router.post("", response_model=HorseResponse, status_code=status.HTTP_201_CREATED, tags=["horses"])
 async def create_horse(
     horse: HorseCreate,
     db: Session = Depends(get_db)

@@ -161,9 +161,10 @@ class ScraperClient:
             elif 'disease_tags' not in data_to_send or data_to_send['disease_tags'] is None:
                 data_to_send['disease_tags'] = ""
             
-            # race_recordsをrace_recordにマッピング
-            if 'race_records' in data_to_send:
-                data_to_send['race_record'] = data_to_send.pop('race_records')
+            # race_recordsはそのまま送信
+            # race_recordsが存在しない場合は空のリストを設定
+            if 'race_records' not in data_to_send:
+                data_to_send['race_records'] = []
             
             # リクエストを送信
             response = self.session.post(
