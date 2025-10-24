@@ -161,10 +161,37 @@ class ScraperClient:
             elif 'disease_tags' not in data_to_send or data_to_send['disease_tags'] is None:
                 data_to_send['disease_tags'] = ""
             
-            # race_recordsはそのまま送信
             # race_recordsが存在しない場合は空のリストを設定
             if 'race_records' not in data_to_send:
                 data_to_send['race_records'] = []
+            
+            # race_recordsが辞書のリストの場合、必要なフィールドのみを抽出して新しいリストを作成
+            if isinstance(data_to_send['race_records'], list):
+                formatted_race_records = []
+                for record in data_to_send['race_records']:
+                    if isinstance(record, dict):
+                        formatted_record = {
+                            'race_name': record.get('race_name'),
+                            'race_date': record.get('race_date'),
+                            'course': record.get('course'),
+                            'distance': record.get('distance'),
+                            'track_condition': record.get('track_condition'),
+                            'finish_position': record.get('finish_position'),
+                            'margin': record.get('margin'),
+                            'jockey': record.get('jockey'),
+                            'weight': record.get('weight'),
+                            'finish_time': record.get('finish_time'),
+                            'odds': record.get('odds'),
+                            'favorite': record.get('favorite'),
+                            'race_class': record.get('race_class'),
+                            'race_condition': record.get('race_condition'),
+                            'prize_money': record.get('prize_money')
+                        }
+                        formatted_race_records.append(formatted_record)
+                data_to_send['race_records'] = formatted_race_records
+            
+            # デバッグ用にリクエストボディをログに出力
+            logger.debug(f"リクエストボディ: {json.dumps(data_to_send, ensure_ascii=False, indent=2)}")
             
             # リクエストを送信
             response = self.session.post(

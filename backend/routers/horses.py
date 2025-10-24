@@ -380,7 +380,10 @@ async def create_horse(
 ):
     """新しい馬データを作成するエンドポイント"""
     try:
-        logger.info(f"新しい馬データを作成します: {horse.name} (auction_id: {horse.auction_id})")
+        # リクエストボディをログに出力
+        import json
+        logger.info(f"新しい馬データのリクエストを受け付けました: {horse.name} (auction_id: {horse.auction_id})")
+        logger.debug(f"リクエストボディ: {json.dumps(horse.dict(), ensure_ascii=False, indent=2)}")
         
         # 既存の馬データを確認
         existing_horse = db.query(Horse).filter(
