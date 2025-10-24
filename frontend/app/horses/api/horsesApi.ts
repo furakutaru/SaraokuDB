@@ -124,38 +124,72 @@ const parseSoldPrice = (price: any): number | null => {
 const processHorseData = (horse: any): Horse | null => {
   if (!horse) return null;
   
-  // デバッグ用ログ
-  console.log('Horse data before mapping:', {
-    id: horse.id,
-    name: horse.name,
-    sold_price: horse.sold_price,
-    auction_histories: horse.auction_histories
-  });
+  try {
+    // デバッグ用ログ
+    console.log('Horse data before mapping:', JSON.stringify({
+      id: horse.id,
+      name: horse.name,
+      sold_price: horse.sold_price,
+      auction_histories: horse.auction_histories ? 'exists' : 'not exists',
+      has_latest_auction: !!(horse.auction_histories?.[0])
+    }, null, 2));
 
-  return {
-    ...horse,
-    sold_price: parseSoldPrice(horse.sold_price) || parseSoldPrice(horse.auction_histories?.[0]?.sold_price) || null,
-    auction_date: horse.auction_histories?.[0]?.auction_date || horse.auction_date,
-    seller: horse.auction_histories?.[0]?.seller || horse.seller,
-    is_unsold: horse.auction_histories?.[0]?.is_unsold || horse.is_unsold || false,
-    latest_auction: horse.auction_histories?.[0] || null,
-    auction_histories: Array.isArray(horse.auction_histories) ? horse.auction_histories : [],
-    // 必須プロパティのデフォルト値を設定
-    image_url: horse.image_url || '',
-    jbis_url: horse.jbis_url || '',
-    detail_url: horse.detail_url || '',
-    auction_url: horse.auction_url || '',
-    weight: horse.weight || 0,
-    // その他の必須プロパティ
-    sire: horse.sire || '',
-    dam: horse.dam || '',
-    damsire: horse.damsire || '',
-    race_records: horse.race_records || { total_prize_money: 0 }
-  } as unknown as Horse;
+    // オークション履歴を処理
+    const auctionHistories = Array.isArray(horse.auction_histories) 
+      ? horse.auction_histories 
+      : [];
+    
+    // 最新のオークション情報を取得
+    const latestAuction = auctionHistories[0] || {};
+    
+    // 販売価格をパース
+    const soldPrice = parseSoldPrice(horse.sold_price) || 
+                     parseSoldPrice(latestAuction.sold_price) || 
+                     null;
+    
+    // 馬データを構築
+    const processedHorse: any = {
+      ...horse,
+      sold_price: soldPrice,
+      auction_date: latestAuction.auction_date || horse.auction_date || null,
+      seller: latestAuction.seller || horse.seller || null,
+      is_unsold: latestAuction.is_unsold || horse.is_unsold || false,
+      latest_auction: latestAuction || null,
+      auction_histories: auctionHistories,
+      // 必須プロパティのデフォルト値を設定
+      image_url: horse.image_url || '',
+      jbis_url: horse.jbis_url || '',
+      detail_url: horse.detail_url || '',
+      auction_url: horse.auction_url || '',
+      weight: horse.weight || 0,
+      // その他の必須プロパティ
+      sire: horse.sire || '',
+      dam: horse.dam || '',
+      damsire: horse.damsire || '',
+      race_records: horse.race_records || { total_prize_money: 0 }
+    };
+    
+    console.log('Processed horse data:', JSON.stringify({
+      id: processedHorse.id,
+      name: processedHorse.name,
+      sold_price: processedHorse.sold_price,
+      auction_histories_count: processedHorse.auction_histories?.length || 0
+    }, null, 2));
+    
+    return processedHorse as Horse;
+  } catch (error) {
+    console.error('Error processing horse data:', error, 'Horse data:', horse);
+    return null;
+  }
 };
 
 // 認証トークンを取得するヘルパー関数
 const getAuthToken = (): string | null => {
+  // GitHub Actions環境では環境変数からトークンを取得
+  if (process.env.GITHUB_ACTIONS === 'true' && process.env.AUTH_TOKEN) {
+    return process.env.AUTH_TOKEN;
+  }
+  // ブラウザ環境の場合
   if (typeof window !== 'undefined') {
     return localStorage.getItem('authToken') || null;
   }
@@ -165,7 +199,7 @@ const getAuthToken = (): string | null => {
 export const fetchHorsesList = async (): Promise<HorseData> => {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-    const url = new URL(`${apiUrl}/api/horses/`);  // 末尾のスラッシュを追加
+    const url = new URL(`${apiUrl}/api/horses/`);
     
     // 認証トークンを取得
     const token = getAuthToken();
@@ -176,9 +210,13 @@ export const fetchHorsesList = async (): Promise<HorseData> => {
     // トークンがあればヘッダーに追加
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+      console.log('認証トークンを設定しました（トークンの長さ）:', token.length);
+    } else {
+      console.warn('認証トークンが設定されていません');
     }
 
     console.log('API URL:', url.toString());
+    console.log('リクエストヘッダー:', JSON.stringify(headers));
     
     const response = await fetch(url.toString(), {
       method: 'GET',

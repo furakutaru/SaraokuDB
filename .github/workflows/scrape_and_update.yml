@@ -219,12 +219,17 @@ jobs:
       - name: Verify environment
         run: |
           echo "PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL != '' && '***' || 'Not Set' }}"
-          echo "AUTH_TOKEN: ${{ env.TOKEN != '' && '***' || 'Not Set' }}"
+          if [ -n "$TOKEN" ]; then
+            echo "AUTH_TOKEN: ***"
+          else
+            echo "AUTH_TOKEN: Not Set"
+          fi
           
       - name: Run scraper with debug
         env:
-          AUTH_TOKEN: ${{ env.TOKEN }}
-          AUTH_HEADER: ${{ env.AUTH_HEADER }}
+          TOKEN: ${{ steps.auth.outputs.token }}
+          AUTH_HEADER: ${{ steps.auth.outputs.auth_header }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.PROD_API_BASE_URL }}
           PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
           PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
           PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
