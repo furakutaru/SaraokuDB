@@ -373,7 +373,7 @@ class HorseCreate(BaseModel):
     image_url: Optional[str] = None
     race_records: List[RaceRecord] = []
 
-@router.post("", response_model=HorseResponse, status_code=status.HTTP_201_CREATED, tags=["horses"])
+@router.post("/horses", response_model=HorseResponse, status_code=status.HTTP_201_CREATED, tags=["horses"])
 async def create_horse(
     horse: HorseCreate,
     db: Session = Depends(get_db)
