@@ -23,7 +23,7 @@ const SortControls: React.FC<SortControlsProps> = ({
   const sortOptions = [
     { value: 'name', label: '馬名' },
     { value: 'sold_price', label: '落札価格' },
-    { value: 'total_prize_latest', label: '総賞金' },
+    { value: 'total_prize_latest', label: '総賞金（開始時）' },
   ] as const;
 
   return (

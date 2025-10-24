@@ -11,6 +11,19 @@ import { useRouter } from 'next/navigation';
 import { Horse as BaseHorse, AuctionHistory, HorseData } from '@/types/horse';
 
 // コンポーネントで使用する馬の型を定義
+// 日付をパースするヘルパー関数
+const parseDate = (date: string | string[] | undefined): Date => {
+  try {
+    if (!date) return new Date(0);
+    const dateStr = Array.isArray(date) ? date[0] : date;
+    if (!dateStr) return new Date(0);
+    return new Date(dateStr);
+  } catch (error) {
+    console.error('日付のパースに失敗しました:', { date, error });
+    return new Date(0);
+  }
+};
+
 export interface Horse {
   id: string | number;
   name?: string;
@@ -19,7 +32,7 @@ export interface Horse {
   sire: string;
   dam: string;
   damsire: string;
-  image_url: any; // ImageUrl | string の代わりに any を使用
+  image_url: any;
   jbis_url?: string;
   detail_url?: string;
   created_at?: string;
@@ -31,7 +44,7 @@ export interface Horse {
   owner?: string;
   trainer?: string;
   location?: string;
-  auction_date?: string;
+  auction_date?: string | string[];
   sold_price?: number | null;
   is_unsold?: boolean;
   seller?: string;
@@ -100,7 +113,7 @@ export default function HorsesPage() {
           // 最新のオークション情報を取得
           const latestAuction = horse.auction_history && Array.isArray(horse.auction_history) && horse.auction_history.length > 0
             ? [...horse.auction_history].sort((a, b) => 
-                new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime()
+                parseDate(b.auction_date).getTime() - parseDate(a.auction_date).getTime()
               )[0]
             : null;
           

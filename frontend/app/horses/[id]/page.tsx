@@ -5,19 +5,69 @@ import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
 import { DiseaseTags, extractDiseaseTags } from './diseaseTags';
 import SexBadge from '../components/SexBadge';
+import { getAuctionHistories } from '../api/horsesApi';
 import DateInfoCard from './components/DateInfoCard';
-import { format } from 'date-fns';
+import { format, parseISO, formatDistanceToNow, isDate } from 'date-fns';
+
+// 日付をフォーマットする関数
+function formatDate(date: string | string[] | Date | null | undefined, formatStr: string = 'yyyy/MM/dd'): string {
+  if (!date) return '';
+  
+  try {
+    // 配列の場合は最初の要素を使用
+    const dateStr = Array.isArray(date) ? date[0] : date;
+    
+    // すでに Date オブジェクトの場合はそのまま使用
+    const dateObj = isDate(dateStr) ? dateStr : new Date(dateStr);
+    
+    // 無効な日付の場合は空文字を返す
+    if (isNaN(dateObj.getTime())) return '';
+    
+    return format(dateObj, formatStr);
+  } catch (e) {
+    console.error('日付のフォーマットに失敗しました:', e);
+    return '';
+  }
+}
+
 import { ja } from 'date-fns/locale';
 import { 
   formatWeight, 
   formatPrizeFromYen, 
   calculateGrowthRate, 
   toArray, 
-  formatDate,
+  formatDate as formatDateUtil,
   formatPrizeMan,
   formatCurrency
 } from '../../../src/utils/format';
-import { AuctionHistory } from '../../../src/types/horse';
+import { BaseAuctionHistory } from '../../../src/types/horse';
+
+// AuctionHistory 型を拡張して必要なプロパティを追加
+type AuctionHistory = Omit<BaseAuctionHistory, 'auction_date'> & {
+  id?: string | number;
+  horse_id?: string | number;
+  auction_date: string | string[];  // undefined を許容しない
+  sold_price?: number | null;
+  total_prize_start?: number;
+  total_prize_latest?: number;
+  weight?: number | null;
+  seller?: string | null;
+  is_unsold?: boolean;
+  unsold?: boolean;
+  comment?: string;
+  created_at?: string;
+  updated_at?: string;
+  detail_url?: string | null;
+  auction_url?: string;
+  price?: number;
+  name?: string;
+  sex?: string;
+  age?: string | number;
+  race_record?: any;
+  primary_image?: string;
+  disease_tags?: string;
+  [key: string]: any; // その他のプロパティに対応
+};
 import { HorseWithCalculations } from '../../../src/types/horse';
 import { ExtendedAuctionHistory, RaceRecord } from './types';
 import { HeaderCard } from './components';
@@ -47,7 +97,7 @@ import { getHorseData as getHorseDataFromApi } from '../../../src/utils/horseApi
 // 型定義は ./types.ts に移動しました
 
 // HorseWithCalculations を拡張して、ページ固有のプロパティを追加
-type HorseWithPageProps = Omit<HorseWithCalculations, 'history' | 'disease_tags' | 'auction_history'> & {
+interface HorseWithPageProps extends Omit<HorseWithCalculations, 'history' | 'auction_histories' | 'effectiveAuction' | 'auction_history'> {
   // 基本情報
   id: string | number;
   name: string;
@@ -60,45 +110,47 @@ type HorseWithPageProps = Omit<HorseWithCalculations, 'history' | 'disease_tags'
   
   // オークション情報
   auction_id?: string;
-  history: ExtendedAuctionHistory[];
-  auction_history?: ExtendedAuctionHistory[];
-  sold_price?: number | null;
-  total_prize_start: number;
-  total_prize_latest: number | null;
-  is_unsold?: boolean;
-  unsold?: boolean;
-  unsold_count: number;
-  seller?: string;
+  history: AuctionHistory[];  // オークション履歴
+  auction_history?: AuctionHistory[];  // オークション履歴（互換性のため）
+  sold_price?: number | null;  // 落札価格
+  total_prize_start: number;   // 初出走前の獲得賞金
+  total_prize_latest: number | null;  // 最新の獲得賞金
+  is_unsold?: boolean;  // 未落札フラグ
+  unsold?: boolean;     // 未落札フラグ（互換性のため）
+  unsold_count: number; // 未落札回数
+  seller?: string | null;      // 出品者
   
   // 画像関連
-  image_url: string | { image_url: string };
-  primary_image: string;
+  image_url: string | { image_url: string };  // 互換性のため
+  primary_image: string;  // メイン画像URL
   
-  // URL関連
-  jbis_url?: string;
-  detail_url: string;
-  rakuten_url?: string;
-  auction_url?: string;
+  // リンク
+  jbis_url?: string;  // JRA-VAN URL
+  detail_url: string; // 詳細ページURL
+  rakuten_url?: string; // 楽天競馬URL
+  auction_url?: string; // オークションURL（互換性のため）
   
   // その他
-  disease_tags: string[];
-  created_at?: string;
-  updated_at?: string;
-  dam_sire?: string;
-  comment?: string;  // コメントをオプショナルプロパティとして追加
+  disease_tags: string[];  // 疾病タグ
+  created_at?: string;     // 作成日時
+  updated_at?: string;     // 更新日時
+  dam_sire?: string;       // 母の父（互換性のため）
+  comment?: string;        // コメント
   
-  // 表示用（HorseWithCalculations から継承されるが、明示的に再宣言）
-  display_price: string;
-  display_weight: string;
-  display_prize: string;
-  display_roi: string;
-  sort_price: number;
-  sort_prize: number;
-  sort_roi: number;
+  // 表示用フォーマット済みデータ
+  display_price: string;   // 表示用価格
+  display_weight: string;  // 表示用体重
+  display_prize: string;   // 表示用賞金
+  display_roi: string;     // 表示用ROI
   
-  // HorseWithCalculations から必要な追加プロパティ
-  roi: number;
-  price_per_kg: number;
+  // ソート用データ
+  sort_price: number;      // 価格ソート用
+  sort_prize: number;      // 賞金ソート用
+  sort_roi: number;        // ROIソート用
+  
+  // 計算済みデータ
+  roi: number;             // 投資収益率
+  price_per_kg: number;    // キロ単価
 };
 interface HorseData {
   metadata: any;
@@ -835,6 +887,7 @@ export default function HorseDetailPage({ params }: PageProps) {
       console.log('Fetching horse data for ID:', horseId);
       setIsLoading(true);
       try {
+        // 馬の基本データを取得
         const { horse: horseData, error } = await getHorseData(horseId);
         
         if (error) {
@@ -845,13 +898,42 @@ export default function HorseDetailPage({ params }: PageProps) {
           throw new Error('馬のデータが見つかりませんでした');
         }
         
-        console.log('Fetched horse data:', {
-          id: horseData.id,
-          name: horseData.name,
-          comment: horseData.comment,
-          disease_tags: horseData.disease_tags,
-          history: horseData.history?.length
+        // オークション履歴を取得
+        const auctionHistoriesData = await getAuctionHistories(horseId);
+        
+        // AuctionHistory を ExtendedAuctionHistory に変換
+        const extendedAuctionHistories: ExtendedAuctionHistory[] = auctionHistoriesData.map(history => ({
+          ...history,
+          // sold_price を数値に変換（文字列の場合はパース、nullの場合はそのまま）
+          sold_price: history.sold_price ? Number(history.sold_price) : null,
+          // その他の必要なプロパティがあればここで追加
+        }));
+        
+        // ExtendedAuctionHistory を AuctionHistory に変換
+        const formattedAuctionHistories: AuctionHistory[] = extendedAuctionHistories.map(history => ({
+          ...history,
+          auction_date: history.auction_date,
+          seller: history.seller || null
+        }));
+        
+        // 馬データにオークション履歴をマージ
+        const horseWithHistories: HorseWithPageProps = {
+          ...horseData,
+          auction_histories: formattedAuctionHistories,
+          history: extendedAuctionHistories // 互換性のため
+        };
+        
+        console.log('Fetched horse data with histories:', {
+          id: horseWithHistories.id,
+          name: horseWithHistories.name,
+          auctionHistoriesCount: auctionHistoriesData.length,
+          comment: horseWithHistories.comment,
+          disease_tags: horseWithHistories.disease_tags,
+          history: horseWithHistories.history?.length
         });
+        
+        // 状態を更新
+        setHorse(horseWithHistories);
         
         // コメントがあるかチェック
         let hasAnyComment = false;
@@ -862,9 +944,11 @@ export default function HorseDetailPage({ params }: PageProps) {
           console.log('Has comments in history:', hasAnyComment);
           
           // 最新の履歴をセット（ソートして最新の1件を取得）
-          const sortedHistory = [...horseData.history].sort((a, b) => 
-            new Date(b.auction_date || 0).getTime() - new Date(a.auction_date || 0).getTime()
-          );
+          const sortedHistory = [...horseData.history].sort((a, b) => {
+            const dateA = Array.isArray(a.auction_date) ? a.auction_date[0] : a.auction_date || '';
+            const dateB = Array.isArray(b.auction_date) ? b.auction_date[0] : b.auction_date || '';
+            return new Date(dateB).getTime() - new Date(dateA).getTime();
+          });
           
           latestHistoryItem = sortedHistory[0] || null;
           
@@ -1406,7 +1490,9 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                       {horse.history.map((h, i) => (
                         <tr key={i} className="border-b">
                           <td className="px-2 py-1 border text-center">{i + 1}</td>
-                          <td className="px-2 py-1 border">{h.auction_date}</td>
+                          <td className="px-2 py-1 border">
+                            {Array.isArray(h.auction_date) ? h.auction_date[0] : h.auction_date}
+                          </td>
                           <td className="px-2 py-1 border">{h.name}</td>
                           <td className="px-2 py-1 border text-black">
                             {(() => {
@@ -1558,7 +1644,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
             
             {/* 日付情報カード */}
             <DateInfoCard 
-              auctionDate={latestHistory?.auction_date}
+              auctionDate={latestHistory?.auction_date ? (Array.isArray(latestHistory.auction_date) ? latestHistory.auction_date[0] : latestHistory.auction_date) : ''}
               createdAt={horse.created_at || new Date().toISOString()}
               updatedAt={horse.updated_at}
             />
@@ -1582,9 +1668,23 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
 
   // オークション履歴をレンダリング
   const renderAuctionHistory = () => {
+    if (!horse?.history?.length) {
+      return <p className="text-gray-500">オークション履歴がありません</p>;
+    }
+
+    // 型アサーションを使用して型エラーを解消
+    const formattedHistory = horse.history.map(h => ({
+      ...h,
+      auction_date: h.auction_date || '',  // undefined の場合は空文字列を設定
+      name: h.name || '',
+      sex: h.sex || '',
+      age: h.age || '',
+      race_record: h.race_record || {},
+    } as const));
+
     return (
       <AuctionHistoryCard 
-        history={horse?.history || []} 
+        history={formattedHistory as any}  // 型アサーションを使用
         formatDate={formatDate}
         formatPrizeMan={formatPrizeMan}
       />

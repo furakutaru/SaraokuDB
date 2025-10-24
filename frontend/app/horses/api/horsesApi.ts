@@ -1,15 +1,38 @@
 import type { Horse, AuctionHistory, HorseData } from '../types';
 
 /**
- * オークション履歴を取得する
- * @param horse 馬データ
+ * 馬IDからオークション履歴を取得する
+ * @param horseId 馬のID
  * @returns オークション履歴の配列
  */
-export const getAuctionHistories = (horse: { auction_histories?: AuctionHistory[] } | null): AuctionHistory[] => {
-  if (!horse || !horse.auction_histories) return [];
-  return Array.isArray(horse.auction_histories) 
-    ? horse.auction_histories 
-    : [];
+export const getAuctionHistories = async (horseId: string | number): Promise<AuctionHistory[]> => {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+    const response = await fetch(`${apiUrl}/api/horses/${horseId}/auction-histories`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('オークション履歴の取得に失敗しました:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+        horseId
+      });
+      return [];
+    }
+
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error(`馬ID ${horseId} のオークション履歴取得中にエラーが発生しました:`, error);
+    return [];
+  }
 };
 
 /**

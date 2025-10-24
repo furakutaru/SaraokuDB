@@ -6,12 +6,12 @@
 export interface BaseAuctionHistory {
   id: string | number;
   horse_id: string | number;
-  auction_date: string;
+  auction_date: string | string[];
   sold_price: number | null;
   total_prize_start: number;
   total_prize_latest: number;
   weight: number | null;
-  seller: string;
+  seller: string | null;
   is_unsold: boolean;
   comment: string;
   created_at: string;
@@ -68,7 +68,7 @@ export interface Horse extends BaseHorse {
   location?: string;
   
   // オークション関連
-  auction_date?: string;
+  auction_date?: string | string[];
   sold_price?: number | null;
   is_unsold?: boolean;
   seller?: string;

@@ -12,7 +12,8 @@ export type RaceRecord = string | {
 };
 
 // オークション履歴の拡張型
-export interface ExtendedAuctionHistory extends Omit<BaseAuctionHistory, 'race_record'> {
+export interface ExtendedAuctionHistory extends Omit<BaseAuctionHistory, 'race_record' | 'auction_date'> {
+  auction_date: string | string[];
   name?: string;
   sex?: string;
   age?: string | number;

@@ -1,4 +1,21 @@
 /**
+ * 日付をパースするユーティリティ関数
+ * @param date パース対象の日付文字列または文字列配列
+ * @returns パースされたDateオブジェクト、またはパースできない場合は現在の日付
+ */
+export const parseDate = (date: string | string[] | undefined): Date => {
+  try {
+    if (!date) return new Date(0);
+    const dateStr = Array.isArray(date) ? date[0] : date;
+    if (!dateStr) return new Date(0);
+    return new Date(dateStr);
+  } catch (error) {
+    console.error('日付のパースに失敗しました:', { date, error });
+    return new Date(0);
+  }
+};
+
+/**
  * オークション日付をパースするユーティリティ関数
  * @param dateString パース対象の日付文字列または文字列配列
  * @returns パースされたDateオブジェクト、またはパースできない場合はnull

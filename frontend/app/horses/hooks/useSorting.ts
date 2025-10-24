@@ -51,13 +51,29 @@ export const useSorting = (horses: Horse[]): UseSortingReturn => {
     } else if (sortField === 'age') {
       aValue = a.age || 0;
       bValue = b.age || 0;
-    } else if (sortField === 'total_prize_latest') {
-      aValue = a.total_prize_latest || 0;
-      bValue = b.total_prize_latest || 0;
+    } else if (sortField === 'total_prize_latest' || sortField === 'total_prize_start') {
+      // total_prize_latest の代わりに total_prize_start を使用
+      const aPrize = a.total_prize_start || 0;
+      const bPrize = b.total_prize_start || 0;
+      
+      // トップページと同様のロジックでソート
+      aValue = typeof aPrize === 'number' ? aPrize : 0;
+      bValue = typeof bPrize === 'number' ? bPrize : 0;
     } else {
       // デフォルトは名前でソート
-      aValue = a[sortField as keyof Horse] || '';
-      bValue = b[sortField as keyof Horse] || '';
+      // auction_date の場合は配列の最初の要素を使用
+      if (sortField === 'auction_date') {
+        const getDateValue = (date: any): string => {
+          if (!date) return '';
+          return Array.isArray(date) ? date[0] || '' : date;
+        };
+        
+        aValue = getDateValue(a[sortField as keyof Horse]);
+        bValue = getDateValue(b[sortField as keyof Horse]);
+      } else {
+        aValue = a[sortField as keyof Horse] || '';
+        bValue = b[sortField as keyof Horse] || '';
+      }
     }
 
     // 数値の比較

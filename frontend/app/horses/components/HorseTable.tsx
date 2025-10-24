@@ -16,6 +16,7 @@ import {
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { parseDate } from '../utils/dateUtils';
 
 // 型定義のインポート
 import { Horse, Auction } from '../types';
@@ -189,9 +190,9 @@ export const HorseTable: React.FC<HorseTableProps> = ({
                 <TableCell>{formatSeller(latestAuction?.seller || horse.seller)}</TableCell>
                 <TableCell>
                   {latestAuction?.auction_date 
-                    ? format(new Date(String(latestAuction.auction_date)), 'yyyy/MM/dd', { locale: ja })
+                    ? format(parseDate(latestAuction.auction_date), 'yyyy/MM/dd', { locale: ja })
                     : horse.auction_date 
-                      ? format(new Date(String(horse.auction_date)), 'yyyy/MM/dd', { locale: ja })
+                      ? format(parseDate(horse.auction_date), 'yyyy/MM/dd', { locale: ja })
                       : '-'}
                 </TableCell>
               </TableRow>

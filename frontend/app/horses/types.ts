@@ -74,7 +74,7 @@ export interface ApiMetadata {
 // 馬データのレスポンス型
 export interface HorseData {
   horses: Horse[];
-  auction_histories?: AuctionHistory[];
+  auction_histories?: (AuctionHistory | null)[];
   metadata?: ApiMetadata;
 }
 

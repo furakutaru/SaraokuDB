@@ -10,13 +10,14 @@ type FilterOptions = {
   showUnsoldOnly: boolean;
 };
 
-export const useFilters = (horses: Horse[]) => {
+export const useFilters = (horses: Horse[], initialFilters?: Partial<FilterOptions>) => {
   const [filters, setFilters] = useState<FilterOptions>({
     searchQuery: '',
     sexFilter: 'all',
-    priceRange: [0, 0], // 実際の価格範囲に基づいて初期化する必要があります
-    ageRange: [0, 30], // 年齢の範囲は0〜30歳と仮定
+    priceRange: [0, 0],
+    ageRange: [0, 30],
     showUnsoldOnly: false,
+    ...initialFilters,
   });
 
   // フィルターを適用した馬のリストを返す

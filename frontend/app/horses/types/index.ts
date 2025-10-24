@@ -63,7 +63,7 @@ export interface AuctionHistory {
   /** 馬ID */
   horse_id: string;
   /** オークション日 */
-  auction_date: string;
+  auction_date: string | string[];
   /** 落札価格 */
   sold_price: number | string | null;
   /** オークション時点の総賞金 */

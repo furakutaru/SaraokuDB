@@ -18,11 +18,23 @@ import {
   Tooltip
 } from '@mui/material';
 import { format } from 'date-fns';
+import { AuctionHistory } from '../../src/types/horse';
 import { ja } from 'date-fns/locale';
 import HeaderCard from './[id]/components/HeaderCard';
 
 // 型定義をインポート
-import type { Horse, SortableField, HorseData } from './types';
+import type { Horse, SortableField } from './types';
+
+// HorseData インターフェースを拡張して auction_histories に null を許容
+interface HorseData {
+  horses: Horse[];
+  auction_histories?: (any | null)[];
+  metadata?: {
+    last_updated: string;
+    total_horses: number;
+    total_auction_records: number;
+  };
+}
 import { useEffect } from 'react';
 
 // コンポーネントの型定義をインポート
@@ -43,6 +55,7 @@ import {
   getGrowthRate
 } from './utils/formatters';
 import { formatAge } from './utils/formatAge';
+import { parseDate } from './utils/dateUtils';
 import SexBadge from './components/SexBadge';
 import FilterControls from './components/FilterControls';
 
@@ -168,16 +181,76 @@ export default function HorsesPage() {
   const [data, setData] = useState<HorseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortableField>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showFilters, setShowFilters] = useState(false);
-  const [sexFilter, setSexFilter] = useState({
-    male: true,
-    female: true,
-    gelding: true,
+  
+  // フィルター状態を管理
+  const { 
+    filteredHorses, 
+    filters, 
+    updateFilters 
+  } = useFilters(data?.horses || [], {
+    searchQuery: '',
+    sexFilter: 'all',
+    priceRange: [0, 10000],
+    ageRange: [0, 10],
+    showUnsoldOnly: false,
   });
-  const [ageRange, setAgeRange] = useState<[number, number]>([0, 10]);
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // 性別フィルターの状態を変換
+  const sexFilter = {
+    male: filters.sexFilter === 'all' || filters.sexFilter === '牡',
+    female: filters.sexFilter === 'all' || filters.sexFilter === '牝',
+    gelding: filters.sexFilter === 'all' || filters.sexFilter === 'セ',
+  };
+  
+  // 性別フィルターを更新
+  const handleSexFilterChange = (filter: { male: boolean; female: boolean; gelding: boolean }) => {
+    // すべての性別が選択されているかどうかを確認
+    if (filter.male && filter.female && filter.gelding) {
+      updateFilters({ sexFilter: 'all' });
+    } else if (filter.male && !filter.female && !filter.gelding) {
+      updateFilters({ sexFilter: '牡' });
+    } else if (!filter.male && filter.female && !filter.gelding) {
+      updateFilters({ sexFilter: '牝' });
+    } else if (!filter.male && !filter.female && filter.gelding) {
+      updateFilters({ sexFilter: 'セ' });
+    } else {
+      // 複数の性別が選択されている場合は、'all' に設定
+      updateFilters({ sexFilter: 'all' });
+    }
+  };
+  
+  // 性別フィルターの状態を更新（FilterControls 用）
+  const handleSexFilterChangeWrapper = (newSexFilter: { male: boolean; female: boolean; gelding: boolean }) => {
+    // すべての性別が選択されているかどうかを確認
+    if (newSexFilter.male && newSexFilter.female && newSexFilter.gelding) {
+      updateFilters({ sexFilter: 'all' });
+    } else if (newSexFilter.male && !newSexFilter.female && !newSexFilter.gelding) {
+      updateFilters({ sexFilter: '牡' });
+    } else if (!newSexFilter.male && newSexFilter.female && !newSexFilter.gelding) {
+      updateFilters({ sexFilter: '牝' });
+    } else if (!newSexFilter.male && !newSexFilter.female && newSexFilter.gelding) {
+      updateFilters({ sexFilter: 'セ' });
+    } else {
+      // 複数の性別が選択されている場合は、'all' に設定
+      updateFilters({ sexFilter: 'all' });
+    }
+  };
+  
+  // 個別の性別フィルターを更新
+  const updateSexFilter = (sex: 'male' | 'female' | 'gelding', checked: boolean) => {
+    const newSexFilter = { ...sexFilter, [sex]: checked };
+    handleSexFilterChangeWrapper(newSexFilter);
+  };
+  
+  // 年齢範囲を更新
+  const handleAgeRangeChange = (newAgeRange: [number, number]) => {
+    updateFilters({ ageRange: newAgeRange });
+  };
   const [selectedHorse, setSelectedHorse] = useState<Horse | null>(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -207,9 +280,26 @@ export default function HorsesPage() {
         });
         
         if (isMounted) {
+          // 各馬の最新のオークション情報を取得
+          const latestAuction = result.horses.map(horse => {
+            try {
+              // auction_histories が存在しない、または空の場合は null を返す
+              if (!horse.auction_histories?.length) return null;
+              
+              // 日付でソートして最新のオークションを取得
+              const sorted = [...horse.auction_histories].sort((a, b) => {
+                return parseDate(b.auction_date).getTime() - parseDate(a.auction_date).getTime();
+              });
+              
+              return sorted[0] || null;
+            } catch (error) {
+              console.error('オークション情報の処理中にエラーが発生しました:', { horseId: horse.id, error });
+              return null;
+            }
+          });
           setData({
             horses: result.horses,
-            auction_histories: [],
+            auction_histories: latestAuction as (AuctionHistory | null)[],
             metadata: {
               last_updated: new Date().toISOString(),
               total_horses: result.horses.length,
@@ -367,123 +457,15 @@ export default function HorsesPage() {
   };
   
   // 年齢フィルターに一致するかチェック
-  const matchesAgeFilter = (horse: any) => {
-    if (!horse.age) return true; // 年齢が不明な場合は表示
-    
-    const age = typeof horse.age === 'string' 
-      ? parseInt(horse.age.replace(/[^0-9]/g, ''), 10) 
-      : horse.age;
-      
-    return age >= ageRange[0] && age <= ageRange[1];
-  };
+  // 年齢フィルターは useFilters 内で処理されるため、この関数は不要になりました
 
-  // フィルタリングとソート
-  const filteredHorses = (data?.horses || [])
-    .filter(horse => {
-      if (!horse) return false;
-      
-      // 性別フィルター
-      if (!matchesSexFilter(horse)) return false;
-      
-      // 年齢フィルター
-      if (!matchesAgeFilter(horse)) return false;
-      
-      // 検索キーワードによるフィルター
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        
-        // 各フィールドのnull/undefinedチェックと文字列化を安全に行う
-        const name = String(horse.name || '');
-        const sire = String(horse.sire || '');
-        const dam = String(horse.dam || '');
-        const damsire = String(horse.damsire || '');
-        const seller = String(horse.seller || '');
-        
-        // 病歴タグの処理
-        const diseaseTags = Array.isArray(horse.disease_tags) 
-          ? horse.disease_tags 
-          : horse.disease_tags ? [horse.disease_tags] : [];
-        
-        const hasMatchingDiseaseTag = diseaseTags.some((tag: any) => 
-          String(tag || '').toLowerCase().includes(term)
-        );
-        
-        try {
-          return (
-            safeStringCompare(name, term) ||
-            safeStringCompare(sire, term) ||
-            safeStringCompare(dam, term) ||
-            safeStringCompare(damsire, term) ||
-            safeStringCompare(seller, term) ||
-            hasMatchingDiseaseTag
-          );
-        } catch (e) {
-          console.error('フィルタリングエラー:', e, horse);
-          return false;
-        }
-      }
-      
-      return true;
-    })
-    .sort((a, b) => {
-      if (!a || !b) return 0;
-      
-      let comparison = 0;
-      
-      // 価格の数値変換関数
-      const parsePrice = (price: any): number => {
-        if (price === null || price === undefined) return 0;
-        if (typeof price === 'number') return price;
-        if (typeof price !== 'string') return 0;
-        
-        // 文字列から数値に変換（カンマや通貨記号を除去）
-        const numStr = price.toString().replace(/[^0-9.-]+/g, '');
-        return parseFloat(numStr) || 0;
-      };
+  // 検索クエリが変更されたときにフィルターを更新
+  useEffect(() => {
+    updateFilters({ searchQuery: searchTerm });
+  }, [searchTerm, updateFilters]);
 
-      // ソート対象の値を取得
-      let aValue: any;
-      let bValue: any;
-
-      if (sortField === 'sold_price') {
-        // sold_priceの場合は数値として比較
-        aValue = parsePrice(a.sold_price);
-        bValue = parsePrice(b.sold_price);
-        comparison = aValue - bValue;
-      } else {
-        // その他のフィールドは元のロジックで比較
-        aValue = a[sortField as keyof typeof a];
-        bValue = b[sortField as keyof typeof b];
-
-        if (aValue === bValue) return 0;
-        if (aValue === null || aValue === undefined) return sortOrder === 'asc' ? 1 : -1;
-        if (bValue === null || bValue === undefined) return sortOrder === 'asc' ? -1 : 1;
-
-        try {
-          if (typeof aValue === 'string' && typeof bValue === 'string') {
-            comparison = aValue.localeCompare(bValue);
-          } else if (typeof aValue === 'number' && typeof bValue === 'number') {
-            comparison = aValue - bValue;
-          } else if (aValue instanceof Date && bValue instanceof Date) {
-            comparison = aValue.getTime() - bValue.getTime();
-          } else {
-            // 日付文字列の場合は日付として比較を試みる
-            const aDate = new Date(String(aValue));
-            const bDate = new Date(String(bValue));
-            if (!isNaN(aDate.getTime()) && !isNaN(bDate.getTime())) {
-              comparison = aDate.getTime() - bDate.getTime();
-            } else {
-              comparison = String(aValue).localeCompare(String(bValue));
-            }
-          }
-        } catch (e) {
-          console.error('ソートエラー:', e, { a, b, sortField });
-          comparison = 0;
-        }
-      }
-
-      return sortOrder === 'asc' ? comparison : -comparison;
-    })
+  // フィルタリングとソートを適用した馬のリスト
+  const { sortedHorses } = useSorting(filteredHorses);
 
   // 賞金表示用関数
   // 賞金は万円単位で表示
@@ -524,15 +506,15 @@ export default function HorsesPage() {
           
           {/* フィルターコントロール */}
           {showFilters && (
-            <div className="bg-white p-4 rounded-lg shadow-sm border">
-              <FilterControls
-                sexFilter={sexFilter}
-                ageRange={ageRange}
-                onSexFilterChange={setSexFilter}
-                onAgeRangeChange={setAgeRange}
-              />
-            </div>
-          )}
+          <div className="bg-gray-50 p-4 rounded-lg mb-6">
+            <FilterControls
+              sexFilter={sexFilter}
+              onSexFilterChange={handleSexFilterChangeWrapper}
+              ageRange={filters.ageRange}
+              onAgeRangeChange={handleAgeRangeChange}
+            />
+          </div>
+        )}  
         </div>
 
         {/* ソートコントロール */}
@@ -540,14 +522,14 @@ export default function HorsesPage() {
           <SortControls
             sortField={sortField}
             sortOrder={sortOrder}
-            onSortFieldChange={setSortField}
+            onSortFieldChange={(field) => setSortField(field as SortableField)}
             onSortOrderChange={setSortOrder}
           />
         </div>
 
         {/* 馬一覧 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4 sm:px-0">
-          {filteredHorses.map((horse) => (
+          {sortedHorses.map((horse) => (
             <HorseCard 
               key={horse.id}
               horse={{

@@ -105,6 +105,11 @@ def map_horses_list(horses: List[Any]) -> Tuple[List[Dict[str, Any]], List[Dict[
         # デバッグ用にログを出力
         print(f"Horse ID: {horse.id}, Name: {horse_dict.get('name')}, Sold Price: {sold_price}, Is Unsold: {is_unsold}")
         
+        # total_prize_latest が存在しないか0の場合は、total_prize_start の値を使用
+        total_prize_latest = horse_dict.get('total_prize_latest')
+        if not total_prize_latest and total_prize_latest != 0:
+            total_prize_latest = horse_dict.get('total_prize_start')
+        
         # オークション履歴エントリを作成
         auction_history = {
             'id': horse_dict.get('id'),
@@ -112,7 +117,7 @@ def map_horses_list(horses: List[Any]) -> Tuple[List[Dict[str, Any]], List[Dict[
             'auction_date': horse_dict.get('auction_date'),
             'sold_price': sold_price,
             'total_prize_start': horse_dict.get('total_prize_start'),
-            'total_prize_latest': horse_dict.get('total_prize_latest'),
+            'total_prize_latest': total_prize_latest,
             'weight': horse_dict.get('weight'),
             'seller': horse_dict.get('seller'),
             'is_unsold': is_unsold,
