@@ -57,11 +57,12 @@ app = FastAPI(
 )
 
 # Include routers
+# Vercelでは /api が自動的には付与されないため、各ルーターで完全なパスを指定
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(debug_router)
 app.include_router(horses.router)
-app.include_router(auction_histories_router)  # 各ルーターで完全なパスを指定するため、ここではprefixを設定しない
+app.include_router(auction_histories_router)
 
 # CORS settings
 # すべてのオリジンからのリクエストを許可（開発環境用）

@@ -12,6 +12,10 @@
       "dest": "/api/$1"
     },
     {
+      "src": "/horses",
+      "dest": "/api/horses"
+    },
+    {
       "src": "/",
       "dest": "/api/health"
     }

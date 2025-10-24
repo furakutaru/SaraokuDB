@@ -13,8 +13,8 @@ from services.horse_serializer import serialize_horse
 from services.horses_list_mapper import map_horses_list
 
 # ルーターの設定
-# prefix を空にし、完全なパスを各エンドポイントで指定する
-router = APIRouter(tags=["horses"])
+# Vercelでは /api が自動的には付与されないため、完全なパスを指定する
+router = APIRouter(prefix="", tags=["horses"])
 
 from fastapi import Request
 import logging

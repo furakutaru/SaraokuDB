@@ -147,7 +147,8 @@ class ScraperClient:
         try:
             # URLを正規化（末尾のスラッシュを削除）
             base_url = self.api_base_url.rstrip('/')
-            save_url = f"{base_url}/api/horses"  # 末尾にスラッシュを付けない
+            # VercelのAPIエンドポイントを直接指定
+            save_url = f"{base_url}/api/horses"  # Vercelでは /api が自動的には付与されないため、明示的に指定
             
             logger.info(f"API ベースURL: {self.api_base_url}")
             logger.info(f"保存URL: {save_url}")
