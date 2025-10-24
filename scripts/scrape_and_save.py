@@ -145,9 +145,9 @@ class ScraperClient:
     def save_horse(self, horse_data):
         """馬データをAPIに保存"""
         try:
-            # URLの最後にスラッシュを追加
+            # URLを正規化（末尾のスラッシュを削除）
             base_url = self.api_base_url.rstrip('/')
-            save_url = f"{base_url}/api/horses/"  # 末尾にスラッシュを追加
+            save_url = f"{base_url}/api/horses"  # 末尾にスラッシュを付けない
             
             logger.info(f"API ベースURL: {self.api_base_url}")
             logger.info(f"保存URL: {save_url}")
