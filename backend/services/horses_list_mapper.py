@@ -1,153 +1,120 @@
 from typing import Any, Dict, List, Tuple
-
-
 import logging
-from typing import List, Any, Dict, Tuple, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from database.models import get_db, AuctionHistory
 
 def map_horses_list(horses: List[Any]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
-    Convert a list of Horse ORM objects into two arrays:
-    - horses_data: list of dictionaries with column values
-    - auction_histories: list of auction history dictionaries expected by the FE
-
-    Behavior matches the previous implementation in routers/horses.get_horses.
+    馬のリストをフロントエンド用に変換する
+    N+1問題を解消するため、オークション履歴を一括取得するように最適化
     """
-    # ロガーの設定
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     
-    # コンソールにログを出力するハンドラーを追加
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    # 重複したハンドラの追加を防ぐ
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
     horses_data: List[Dict[str, Any]] = []
     auction_histories: List[Dict[str, Any]] = []
-
-    # データベースセッションを取得
     db = next(get_db())
-    logger.info(f"Starting to process {len(horses)} horses")
 
-    for horse in horses:
-        # Build dictionary of column values from ORM object
-        horse_dict: Dict[str, Any] = {}
-        for column in horse.__table__.columns:  # type: ignore[attr-defined]
-            column_name = column.name
-            horse_dict[column_name] = getattr(horse, column_name, None)
+    try:
+        # 馬IDのリストを取得
+        horse_ids = [horse.id for horse in horses]
+        logger.info(f"Processing {len(horse_ids)} horses")
         
-        # オークション履歴から最新の落札価格を取得
-        logger.info(f"\nProcessing horse ID: {horse.id}, Name: {getattr(horse, 'name', 'N/A')}")
-        
-        # デバッグ用: 馬の現在のsold_priceを確認
-        current_sold_price = getattr(horse, 'sold_price', None)
-        logger.info(f"Current sold_price in Horse table: {current_sold_price}")
-        
-        # オークション履歴をクエリ
-        query = db.query(AuctionHistory).filter(AuctionHistory.horse_id == horse.id)
-        logger.info(f"Auction history query: {query.statement}")
-        
-        latest_auction = query.order_by(AuctionHistory.auction_date.desc()).first()
-        logger.info(f"Latest auction record: {latest_auction}")
-        
-        # 最新のオークション履歴があれば、その価格を使用
-        sold_price = None
-        is_unsold = False
-        
-        if latest_auction:
-            logger.info(f"Found auction history - Price: {latest_auction.price}, Date: {latest_auction.auction_date}")
-            sold_price = latest_auction.price
-            is_unsold = (horse_dict.get('unsold_count') or 0) > 0
-            logger.info(f"Using auction history price: {sold_price}, is_unsold: {is_unsold}")
-        else:
-            # オークション履歴がない場合は、Horseテーブルのsold_priceを使用
-            sold_price = horse_dict.get('sold_price')
-            logger.info(f"Raw sold_price from DB: {sold_price} (type: {type(sold_price)})")
-        
-        # 性別の処理（記号をそのまま保持）
-        if 'sex' in horse_dict and horse_dict['sex']:
-            sex = str(horse_dict['sex']).strip()
-            # 前後の空白と制御文字を削除
-            sex = ''.join(c for c in sex if c not in ' \t\n\r\f\v')
-            horse_dict['sex'] = sex
-        
-        # raw_sold_price に元の値を保持
-        if sold_price is not None:
-            horse_dict['raw_sold_price'] = sold_price
+        # 全馬の最新オークション履歴を1回のクエリで取得
+        latest_auctions = {}
+        if horse_ids:
+            # サブクエリで各馬の最新オークションIDを取得
+            subq = db.query(
+                AuctionHistory.horse_id,
+                func.max(AuctionHistory.auction_date).label('max_date')
+            ).filter(
+                AuctionHistory.horse_id.in_(horse_ids)
+            ).group_by(
+                AuctionHistory.horse_id
+            ).subquery()
+
+            # 最新のオークション履歴を取得
+            latest_auction_records = db.query(AuctionHistory).join(
+                subq,
+                (AuctionHistory.horse_id == subq.c.horse_id) &
+                (AuctionHistory.auction_date == subq.c.max_date)
+            ).all()
+
+            # 辞書に格納（horse_idをキーとして）
+            latest_auctions = {auction.horse_id: auction for auction in latest_auction_records}
+            logger.info(f"Fetched latest auction history for {len(latest_auctions)} horses")
+
+        # 馬データを処理
+        for horse in horses:
+            # カラム情報を辞書に変換
+            horse_dict = {column.name: getattr(horse, column.name, None) 
+                         for column in horse.__table__.columns}
             
-        # 未落札フラグを設定
-        is_unsold = (horse_dict.get('unsold_count') or 0) > 0
-        if not latest_auction:
-            logger.warning(f"No auction history found for horse ID: {horse.id}. Using sold_price from Horse table: {sold_price} (type: {type(sold_price)}), is_unsold: {is_unsold}")
+            # 最新のオークション履歴を取得
+            latest_auction = latest_auctions.get(horse.id)
             
-        # デバッグ用: オークションテーブルの存在確認
-            from sqlalchemy import inspect, text
-            inspector = inspect(db.get_bind())
-            tables = inspector.get_table_names()
-            logger.info(f"Available tables: {tables}")
-            
-            if 'auction_histories' in tables:
-                logger.info("auction_histories table exists")
-                # テーブルの構造を確認
-                columns = [column['name'] for column in inspector.get_columns('auction_histories')]
-                logger.info(f"auction_histories columns: {columns}")
+            if latest_auction:
+                # オークション履歴から価格を設定
+                horse_dict['sold_price'] = latest_auction.price
+                horse_dict['is_unsold'] = (horse_dict.get('unsold_count') or 0) > 0
                 
-                # サンプルデータを確認
-                try:
-                    sample = db.execute(text("SELECT * FROM auction_histories LIMIT 1")).fetchone()
-                    logger.info(f"Sample auction_histories row: {sample}")
-                except Exception as e:
-                    logger.error(f"Error querying auction_histories: {str(e)}")
-        
-        # デバッグ用にログを出力
-        print(f"Horse ID: {horse.id}, Name: {horse_dict.get('name')}, Sold Price: {sold_price}, Is Unsold: {is_unsold}")
-        
-        # total_prize_latest が存在しないか0の場合は、total_prize_start の値を使用
-        total_prize_latest = horse_dict.get('total_prize_latest')
-        if not total_prize_latest and total_prize_latest != 0:
-            total_prize_latest = horse_dict.get('total_prize_start')
-        
-        # オークション履歴エントリを作成
-        auction_history = {
-            'id': horse_dict.get('id'),
-            'horse_id': horse_dict.get('id'),
-            'auction_date': horse_dict.get('auction_date'),
-            'sold_price': sold_price,
-            'total_prize_start': horse_dict.get('total_prize_start'),
-            'total_prize_latest': total_prize_latest,
-            'weight': horse_dict.get('weight'),
-            'seller': horse_dict.get('seller'),
-            'is_unsold': is_unsold,
-            'comment': horse_dict.get('comment', ''),
-            'created_at': horse_dict.get('created_at'),
-        }
-        auction_histories.append(auction_history)
-        
-        # 馬データにsold_priceとis_unsoldを設定
-        horse_dict['sold_price'] = sold_price
-        horse_dict['is_unsold'] = is_unsold
-        
-        # detail_url が存在するか確認してログに出力
-        if 'detail_url' in horse_dict:
-            logger.info(f"Horse ID {horse_dict.get('id')} has detail_url: {horse_dict.get('detail_url')}")
-        else:
-            logger.warning(f"Horse ID {horse_dict.get('id')} is missing detail_url")
-        
-        # Field alias for FE expectations: dam_sire -> damsire
-        if 'dam_sire' in horse_dict:
-            horse_dict['damsire'] = horse_dict.pop('dam_sire')
+                # オークション履歴を追加
+                auction_history = {
+                    'id': latest_auction.id,
+                    'horse_id': latest_auction.horse_id,
+                    'auction_date': latest_auction.auction_date,
+                    'price': latest_auction.price,
+                    'seller': latest_auction.seller,
+                    'buyer': latest_auction.buyer,
+                    'auction_house': latest_auction.auction_house,
+                    'auction_name': latest_auction.auction_name,
+                    'lot_number': latest_auction.lot_number,
+                    'auction_url': latest_auction.auction_url,
+                    'horse_name': latest_auction.horse_name,
+                    'sire_name': latest_auction.sire_name,
+                    'dam_name': latest_auction.dam_name,
+                    'damsire_name': latest_auction.damsire_name,
+                    'is_unsold': horse_dict['is_unsold'],
+                    'created_at': latest_auction.created_at,
+                    'updated_at': latest_auction.updated_at,
+                    'user_id': latest_auction.user_id
+                }
+                auction_histories.append(auction_history)
+            else:
+                # オークション履歴がない場合は既存の値を使用
+                horse_dict['sold_price'] = horse_dict.get('sold_price')
+                horse_dict['is_unsold'] = (horse_dict.get('unsold_count') or 0) > 0
+                logger.info(f"No auction history found for horse ID: {horse.id}")
+
+            # 性別の処理
+            if 'sex' in horse_dict and horse_dict['sex']:
+                sex = str(horse_dict['sex']).strip()
+                horse_dict['sex'] = ''.join(c for c in sex if c not in ' \t\n\r\f\v')
             
-        # フロントエンドに必要なフィールドを確実に含める
-        horse_data = {
-            **horse_dict,
-            # 既存のフィールドに加えて、detail_url を明示的に含める
-            'detail_url': horse_dict.get('detail_url'),
-            'auction_url': horse_dict.get('detail_url'),  # 互換性のため
-        }
-        
-        horses_data.append(horse_data)
+            # フロントエンド用にフィールド名を調整
+            if 'dam_sire' in horse_dict:
+                horse_dict['damsire'] = horse_dict.pop('dam_sire')
+            
+            # 詳細URLを設定
+            if 'detail_url' not in horse_dict and hasattr(horse, 'detail_url'):
+                horse_dict['detail_url'] = horse.detail_url
+                horse_dict['auction_url'] = horse.detail_url
+
+            horses_data.append(horse_dict)
+
+        logger.info(f"Successfully processed {len(horses_data)} horses and {len(auction_histories)} auction histories")
+            
+    except Exception as e:
+        logger.error(f"Error in map_horses_list: {str(e)}", exc_info=True)
+        raise
 
     return horses_data, auction_histories

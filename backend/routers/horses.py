@@ -45,6 +45,63 @@ async def get_latest_horses(
     logger.info("Calling /horses/latest endpoint")
     return await get_horses(request, skip, limit, None, 'true', db)
 
+@router.get("/horses/with_auction_histories", response_model=Dict[str, Any], tags=["horses"])
+async def get_horses_with_auction_histories(
+    request: Request,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    馬の一覧をオークション履歴と一緒に取得するエンドポイント
+    N+1問題を解消するために、オークション履歴を一括で取得する
+    
+    Args:
+        skip: スキップするレコード数
+        limit: 取得する最大レコード数
+        
+    Returns:
+        {
+            "horses": List[Dict],  # 馬のリスト
+            "auction_histories": List[Dict],  # オークション履歴のリスト
+            "metadata": {
+                "total": int,     # 総レコード数
+                "skip": int,      # スキップ数
+                "limit": int      # リミット数
+            }
+        }
+    """
+    try:
+        logger.info("\n=== Starting get_horses_with_auction_histories endpoint ===")
+        
+        # 総レコード数を取得
+        total = db.query(Horse).count()
+        
+        # 馬データを取得（ページネーション適用）
+        horses = db.query(Horse).order_by(Horse.id).offset(skip).limit(limit).all()
+        
+        # マッパー関数でデータを変換
+        horses_data, auction_histories = map_horses_list(horses)
+        
+        logger.info(f"Processed {len(horses_data)} horses and {len(auction_histories)} auction histories")
+        
+        return {
+            "horses": horses_data,
+            "auction_histories": auction_histories,
+            "metadata": {
+                "total": total,
+                "skip": skip,
+                "limit": limit
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in get_horses_with_auction_histories: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
 @router.get("/horses", response_model=Dict[str, Any], tags=["horses"])
 async def get_horses(
     request: Request,

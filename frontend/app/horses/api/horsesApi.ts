@@ -1,6 +1,73 @@
 import type { Horse, AuctionHistory } from '../types';
 import type { HorseData, HorseResponse, FetchHorsesParams, ApiMetadata } from '../types/api.types';
 
+// 馬一覧とオークション履歴を一度に取得する関数
+export const fetchHorsesWithAuctionHistories = async (params: FetchHorsesParams = {}): Promise<HorseData> => {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+    const url = new URL(`${apiUrl}/api/horses/latest`);
+    
+    // クエリパラメータを追加
+    if (params.limit) {
+      url.searchParams.append('limit', params.limit.toString());
+    }
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        ...getAuthHeaders(),
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('馬一覧の取得に失敗しました:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+      });
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // レスポンスの形式を確認し、必要に応じて加工
+    const horses = Array.isArray(data) ? data : (data?.horses || []);
+    
+    // メタデータを取得（存在する場合）
+    const metadata = data?.metadata || {};
+    
+    // 馬データを処理
+    const processedHorses = horses.map((horse: any) => {
+      // オークション履歴を処理
+      const auctionHistory = horse.auction_histories?.[0] || {};
+      
+      return {
+        ...horse,
+        sold_price: parseSoldPrice(auctionHistory.price || horse.sold_price),
+        auction_histories: horse.auction_histories || [],
+        is_unsold: auctionHistory.is_unsold || false,
+        // その他の必要なフィールドを追加
+      };
+    });
+
+    return {
+      horses: processedHorses,
+      auction_histories: horses.flatMap((h: any) => h.auction_histories || []),
+      metadata: {
+        ...metadata,
+        total: metadata.total || processedHorses.length,
+      }
+    };
+
+  } catch (error) {
+    console.error('馬一覧の取得中にエラーが発生しました:', error);
+    throw error;
+  }
+};
+
 // APIレスポンスの型定義
 interface ApiHorse {
   id: string | number;
