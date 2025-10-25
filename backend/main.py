@@ -12,7 +12,18 @@ for path in [str(project_root), str(backend_dir)]:
         sys.path.insert(0, path)
 
 import uvicorn
+import logging
 from fastapi import FastAPI, Depends, HTTPException, status, Request
+
+# ロギングの設定
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse

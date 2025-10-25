@@ -3,11 +3,30 @@ from typing import Optional, Dict, Any, Union
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status, Request, APIRouter
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi import status
 from passlib.context import CryptContext
 import os
 import logging
 import sys
 from pathlib import Path
+from pydantic import BaseModel
+
+# パスワードのハッシュ化と検証のためのコンテキスト
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# ルーターの定義
+auth_router = APIRouter(prefix="/auth", tags=["auth"])
+debug_router = APIRouter(prefix="/debug", tags=["debug"])
+router = APIRouter()
+router.include_router(auth_router)
+router.include_router(debug_router)
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
 
 # ルーターの定義
 router = APIRouter()
@@ -157,29 +176,74 @@ logger.info(f"ユーザーデータベースに登録されました: {list(fake
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """パスワードを検証する"""
+    logger.debug(f"[DEBUG] パスワード検証開始: username=furakutaru")
+    logger.debug(f"[DEBUG] 入力パスワード: {plain_password}")
+    logger.debug(f"[DEBUG] ハッシュパスワード: {hashed_password[:10]}...")
+    
     if not plain_password or not hashed_password:
+        logger.error("パスワードまたはハッシュが空です")
         return False
-    # パスワードを72バイトに制限して検証
-    return pwd_context.verify(plain_password[:72], hashed_password)
+        
+    try:
+        # パスワードを72バイトに制限して検証
+        is_valid = pwd_context.verify(plain_password[:72], hashed_password)
+        logger.debug(f"[DEBUG] パスワード検証結果: {is_valid}")
+        
+        if not is_valid:
+            logger.error("パスワードが一致しません")
+            # ハッシュの形式を確認
+            logger.debug(f"[DEBUG] ハッシュの接頭辞: {hashed_password[:6]}")
+            logger.debug(f"[DEBUG] 想定される接頭辞: $2b$12$")
+            
+        return is_valid
+    except Exception as e:
+        logger.error(f"パスワード検証エラー: {str(e)}")
+        logger.exception("スタックトレース:")
+        return False
 
 def get_password_hash(password: str) -> str:
     """パスワードをハッシュ化する（72バイトに制限）"""
     return pwd_context.hash(password[:72] if password else "")
 
 def get_user(db, username: str) -> Optional[User]:
-    """ユーザーを取得する"""
-    if username in db:
-        user_dict = db[username]
-        return User(**user_dict)
-    return None
+    """データベースからユーザーを取得する"""
+    logger.debug(f"[DEBUG] ユーザー取得開始: username={username}")
+    from sqlalchemy.orm import Session
+    from database.models import User as DBUser, SessionLocal
+    
+    try:
+        db_session = SessionLocal()
+        logger.debug("[DEBUG] データベースセッションを取得しました")
+        
+        # データベースからユーザーを取得
+        db_user = db_session.query(DBUser).filter(DBUser.username == username).first()
+        
+        if db_user:
+            logger.debug(f"[DEBUG] データベースからユーザーを取得: {db_user.username}, 有効: {db_user.is_active}")
+            logger.debug(f"[DEBUG] ハッシュパスワードの長さ: {len(db_user.hashed_password) if db_user.hashed_password else 0}")
+            return User(username=db_user.username, hashed_password=db_user.hashed_password)
+        else:
+            logger.debug(f"[DEBUG] ユーザーが見つかりません: {username}")
+            return None
+    except Exception as e:
+        logger.error(f"[ERROR] ユーザー取得中にエラーが発生: {str(e)}")
+        logger.exception("スタックトレース:")
+        return None
+    finally:
+        if 'db_session' in locals():
+            db_session.close()
+            logger.debug("[DEBUG] データベースセッションをクローズしました")
 
-def authenticate_user(fake_db, username: str, password: str) -> Union[User, bool]:
+def authenticate_user(fake_db, username: str, password: str):
     """ユーザーを認証する"""
     user = get_user(fake_db, username)
     if not user:
+        logger.error(f"ユーザーが見つかりません: {username}")
         return False
     if not verify_password(password, user.hashed_password):
+        logger.error(f"パスワードが一致しません: {username}")
         return False
+    logger.info(f"認証成功: {username}")
     return user
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -220,20 +284,43 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     """現在のアクティブなユーザーを取得する"""
     return current_user
 
-@router.post("/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    """認証トークンを発行する"""
-    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+@auth_router.post("/token", response_model=Token)
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+):
+    """認証トークンを発行するエンドポイント
+    
+    Args:
+        form_data: ユーザー名とパスワードを含むフォームデータ
+        
+    Returns:
+        Token: アクセストークンとトークンタイプ
+        
+    Raises:
+        HTTPException: 認証に失敗した場合
+    """
+    logger.info(f"Login attempt for user: {form_data.username}")
+    
+    # ユーザー認証
+    user = authenticate_user({}, form_data.username, form_data.password)
+    
     if not user:
+        logger.warning(f"認証失敗: ユーザー名またはパスワードが正しくありません - {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="ユーザー名またはパスワードが正しくありません",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # アクセストークンの有効期限を設定
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    # アクセストークンを作成
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
+    
+    logger.info(f"認証成功: {user.username}")
     return {"access_token": access_token, "token_type": "bearer"}
 
 # デバッグ用のエンドポイント

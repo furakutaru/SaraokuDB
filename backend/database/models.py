@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, ForeignKey, create_engine, text
+from sqlalchemy import Column, Integer, String, Float, Text, DateTime, ForeignKey, create_engine, text, Boolean
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.declarative import declared_attr
@@ -15,6 +15,20 @@ Base = declarative_base()
 class TimestampMixin:
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+# ユーザーモデル
+class User(Base, TimestampMixin):
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, index=True, nullable=False)
+    email = Column(String(100), unique=True, index=True, nullable=True)
+    hashed_password = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True)
+    
+    # リレーションシップ
+    auction_histories = relationship("AuctionHistory", back_populates="user")
+    horses = relationship("Horse", back_populates="owner")
 
 # sex, seller, sold_price, commentを履歴（配列/JSON文字列）で保存
 class Horse(Base):
@@ -47,6 +61,8 @@ class Horse(Base):
     
     # リレーションシップ
     auction_histories = relationship("AuctionHistory", back_populates="horse")
+    owner_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    owner = relationship("User", back_populates="horses")
 
 
 class AuctionHistory(Base):
@@ -71,6 +87,8 @@ class AuctionHistory(Base):
     
     # リレーションシップ
     horse = relationship("Horse", back_populates="auction_histories")
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    user = relationship("User", back_populates="auction_histories")
 
 # データベース設定
 # Neon PostgreSQL接続URLを環境変数から取得

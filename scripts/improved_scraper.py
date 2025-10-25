@@ -57,7 +57,8 @@ class ApiAuthenticator:
     def authenticate(self) -> bool:
         """API認証を行いトークンを取得"""
         try:
-            auth_url = f"{self.api_base_url}/api/auth/token"
+            # 認証エンドポイントの修正
+            auth_url = f"{self.api_base_url}/auth/token"
             logger = logging.getLogger(__name__)
             logger.info(f"認証URL: {auth_url}")
             
@@ -2715,10 +2716,14 @@ def update_horses_database(horses: List[Dict[str, Any]]) -> bool:
     Returns:
         bool: データベース更新が成功した場合はTrue、失敗した場合はFalse
     """
-    # 環境変数からAPI認証情報を取得
-    api_base_url = os.getenv('PROD_API_BASE_URL')
-    api_username = os.getenv('PROD_API_USERNAME')
-    api_password = os.getenv('PROD_API_PASSWORD')
+    # 環境変数からAPI認証情報を取得（デフォルト値付き）
+    api_base_url = os.getenv('PROD_API_BASE_URL', 'http://localhost:8001')
+    api_username = os.getenv('PROD_API_USERNAME', 'furakutaru')
+    api_password = os.getenv('PROD_API_PASSWORD', 'uma_5272002')
+    
+    # デバッグ用に使用されている認証情報をログに出力
+    logger.debug(f"API Base URL: {api_base_url}")
+    logger.debug(f"API Username: {api_username}")
     
     if not all([api_base_url, api_username, api_password]):
         logger.error("API認証情報が設定されていません。環境変数を確認してください。")

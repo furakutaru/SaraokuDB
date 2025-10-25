@@ -90,8 +90,8 @@ jobs:
           echo "::debug::一時ファイルを作成しました: $TEMP_FILE"
           echo "TEMP_FILE: $TEMP_FILE" >&2
           
-          # 認証URLを設定
-          AUTH_URL="$PROD_API_BASE_URL/api/auth/token"
+          # 認証URLを設定（/api を削除）
+          AUTH_URL="$PROD_API_BASE_URL/auth/token"
           echo "::notice:: 認証を試みます: $AUTH_URL"
           
           # リクエストボディを変数に格納（デバッグ用）
@@ -233,11 +233,12 @@ jobs:
           # 認証関連
           TOKEN: ${{ steps.auth.outputs.token }}
           AUTH_HEADER: ${{ steps.auth.outputs.auth_header }}
-          NEXT_PUBLIC_API_URL: ${{ secrets.PROD_API_BASE_URL }}
-          # 本番環境認証情報
+          # 環境変数を設定
           PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
           PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
           PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.PROD_API_BASE_URL }}
           # アプリケーション設定
           LOG_LEVEL: DEBUG
           GITHUB_ACTIONS: "true"
