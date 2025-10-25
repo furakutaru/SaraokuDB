@@ -1431,47 +1431,40 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
 
                     {/* 疾病タグ */}
                     <div className="mt-4">
+                      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                        疾病情報
+                      </Typography>
                       {(() => {
                         // デバッグ用に horse オブジェクト全体を表示
                         console.log('horse オブジェクト:', JSON.stringify(horse, null, 2));
                         
-                        // latestHistory?.disease_tags が配列でない場合に配列に変換
-                        const historyDiseaseTags = latestHistory?.disease_tags 
+                        // 既存のタグを取得（horse.disease_tags または latestHistory.disease_tags から）
+                        const existingTags = latestHistory?.disease_tags 
                           ? Array.isArray(latestHistory.disease_tags) 
                             ? latestHistory.disease_tags 
                             : [latestHistory.disease_tags]
-                          : [];
+                          : horse.disease_tags
+                            ? Array.isArray(horse.disease_tags)
+                              ? horse.disease_tags
+                              : [horse.disease_tags]
+                            : [];
                         
                         // コメントを取得（horse.comment または latestHistory.comment から）
                         const comment = horse.comment || latestHistory?.comment || '';
                         
-                        // 疾病タグを抽出（コメントからと既存のタグをマージ）
-                        const extractedTags = extractDiseaseTags(
-                          comment,
-                          historyDiseaseTags.length > 0 ? historyDiseaseTags : (horse.disease_tags || [])
-                        );
-                        
-                        console.log('コメント:', comment);
-                        console.log('履歴の疾病タグ:', latestHistory?.disease_tags);
-                        console.log('馬のデフォルト疾病タグ:', horse.disease_tags);
-                        console.log('抽出されたタグ:', extractedTags);
-                        
-                        // テスト用のタグ（デバッグ用）
-                        const testTags = ['テストタグ1', 'テストタグ2'];
-                        
-                        // 疾病タグがある場合のみ表示
-                        if (extractedTags.length > 0) {
-                          return (
-                            <div className="mt-4">
+                        // 疾病タグを表示
+                        return (
+                          <div className="mt-2">
+                            {existingTags.length > 0 ? (
                               <DiseaseTags 
-                                tags={extractedTags}
+                                tags={existingTags}
                                 className="mt-2"
                               />
-                            </div>
-                          );
-                        }
-                        
-                        return null;
+                            ) : (
+                              <span className="text-gray-500 text-sm">疾病情報はありません</span>
+                            )}
+                          </div>
+                        );
                       })()}
                     </div>
                   </div>

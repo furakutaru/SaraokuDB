@@ -3,7 +3,7 @@
 """
 import re
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 # 健康関連のキーワード（フロントエンドと同期を取る）
 HEALTH_KEYWORDS = [
@@ -50,26 +50,44 @@ class DiseaseInfoExtractor:
         self.health_keywords = HEALTH_KEYWORDS
         self.logger = logger or logging.getLogger(__name__)
     
-    def _normalize_text(self, text: str) -> str:
+    def _normalize_text(self, text: Any) -> str:
         """
         テキストを正規化する（全角・半角の統一など）
         
         Args:
-            text: 正規化するテキスト
+            text: 正規化するテキスト（文字列または文字列のリスト）
             
         Returns:
             str: 正規化されたテキスト
         """
+        # テキストがNoneの場合は空文字列を返す
+        if text is None:
+            return ""
+            
+        # リストが渡された場合は最初の要素を使用
+        if isinstance(text, list):
+            if not text:  # 空のリストの場合は空文字列を返す
+                return ""
+            text = text[0]  # 最初の要素を使用
+            
+        # 文字列に変換
+        text = str(text)
+            
         # 全角英数字を半角に
-        text = text.translate(str.maketrans(
-            '０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ',
-            '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-        ))
-        # 全角スペースを半角に
-        text = text.replace('　', ' ')
-        # 連続するスペースを1つに
-        text = ' '.join(text.split())
-        return text
+        try:
+            text = text.translate(str.maketrans(
+                '０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ',
+                '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+            ))
+            # 全角スペースを半角に
+            text = text.replace('　', ' ')
+            # 連続するスペースを1つに
+            text = ' '.join(text.split())
+            return text
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"テキストの正規化中にエラーが発生しました: {e}")
+            return text  # エラーが発生した場合は元のテキストをそのまま返す
     
     def _find_keyword_variations(self, keyword: str, text: str) -> bool:
         """
@@ -125,6 +143,11 @@ class DiseaseInfoExtractor:
             'has_health_issues': False
         }
         
+        # デバッグログ
+        if self.logger:
+            self.logger.debug(f"[抽出前] コメント: {comment}")
+            self.logger.debug(f"[正規化後] コメント: {normalized_comment}")
+        
         try:
             # 各キーワードをチェック
             for keyword in self.health_keywords:
@@ -132,6 +155,8 @@ class DiseaseInfoExtractor:
                 if self._find_keyword_variations(keyword, normalized_comment):
                     # 重複を避けて追加
                     found_keywords.add(keyword)
+                    if self.logger:
+                        self.logger.debug(f"[マッチ] キーワード: {keyword}")
             
             # 見つかったキーワードをリストに変換してソート
             result['diseases'] = sorted(list(found_keywords))

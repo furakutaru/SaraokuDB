@@ -33,7 +33,7 @@ export function renderDiseaseTags(tags: string | string[] | undefined, className
  * @returns 抽出された疾病タグの配列
  */
 export async function extractDiseaseTags(comment: string | null | undefined, existingTags: string[] = []): Promise<string[]> {
-  if (!comment) return [];
+  if (!comment) return existingTags;  // コメントがなければ既存のタグを返す
   
   try {
     // バックエンドAPIを呼び出して疾病タグを取得
@@ -46,18 +46,19 @@ export async function extractDiseaseTags(comment: string | null | undefined, exi
     });
 
     if (!response.ok) {
-      throw new Error('疾病タグの取得に失敗しました');
+      console.error('疾病タグの取得に失敗しました', await response.text());
+      return existingTags;  // エラー時は既存のタグを返す
     }
 
     const data = await response.json();
     const extractedTags = data.tags || [];
     
-    // 既存のタグと抽出されたタグをマージして重複を削除
-    return Array.from(new Set([...existingTags, ...extractedTags]));
+    // 既存のタグと抽出されたタグをマージ（重複を削除）
+    const mergedTags = [...new Set([...existingTags, ...extractedTags])];
+    return mergedTags;
   } catch (error) {
-    console.error('Error fetching disease tags:', error);
-    // エラーが発生した場合は既存のタグをそのまま返す
-    return [...existingTags];
+    console.error('疾病タグの抽出中にエラーが発生しました:', error);
+    return existingTags;  // エラー時は既存のタグを返す
   }
 }
 

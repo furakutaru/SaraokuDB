@@ -483,9 +483,15 @@ async def get_horse(horse_id: str, db: Session = Depends(get_db)):
     import json
     logger.info(f"Horse data before serialization: {json.dumps({c.name: getattr(horse, c.name) for c in horse.__table__.columns}, default=str)}")
     
+    # disease_tags のデバッグログ
+    logger.info(f"Horse disease_tags raw: {getattr(horse, 'disease_tags', None)}")
+    
     # 正規化と辞書構築は専用サービスに委譲
     serialized = serialize_horse(horse)
-    logger.info(f"Serialized horse data: {json.dumps(serialized, default=str)}")
+    
+    # シリアライズ後の disease_tags をログに出力
+    logger.info(f"Serialized horse data with disease_tags: {json.dumps(serialized.get('disease_tags'), default=str)}")
+    logger.info(f"Full serialized horse data: {json.dumps(serialized, default=str, ensure_ascii=False, indent=2)}")
     
     return serialized
 

@@ -3,6 +3,7 @@
 import React from 'react';
 import { Card, CardContent, Typography, Button } from '@mui/material';
 import { ExtendedAuctionHistory } from '../types';
+import { DiseaseTags } from '../diseaseTags';
 
 interface CommentCardProps {
   history: ExtendedAuctionHistory[];
@@ -76,7 +77,12 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                         .replace(/\\n/g, '\n')
                     : ''}
                 </p>
-                <div className="mt-2 text-sm text-gray-500">
+                <div className="mt-4">
+                  {displayComment.disease_tags && (
+                    <div className="mt-2">
+                      <DiseaseTags tags={displayComment.disease_tags} />
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
