@@ -619,8 +619,29 @@ def _extract_disease_tags(comment: str) -> str:
     if not comment:
         return "なし"
     
-    found_tags = [kw for kw in HEALTH_KEYWORDS if kw in comment]
-    return ",".join(dict.fromkeys(found_tags)) if found_tags else "なし"
+    try:
+        # DiseaseInfoExtractor を使用して疾病タグを抽出
+        from scripts.components.disease_info_extractor import DiseaseInfoExtractor
+        import logging
+        
+        # ロガーの設定
+        logger = logging.getLogger(__name__)
+        extractor = DiseaseInfoExtractor(logger=logger)
+        
+        # 疾病情報を抽出
+        result = extractor.extract(comment)
+        diseases = result.get('diseases', [])
+        
+        # 結果を返す
+        return ", ".join(diseases) if diseases else "なし"
+        
+    except ImportError as e:
+        logger.error(f"DiseaseInfoExtractor のインポートに失敗しました: {e}")
+        return "なし"
+    except Exception as e:
+        logger.error(f"疾病タグの抽出中にエラーが発生しました: {e}")
+        return "なし"
+
 
 def _extract_comment(html_content: str) -> str:
     """

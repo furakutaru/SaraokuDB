@@ -1,30 +1,115 @@
-from datetime import datetime
 import json
+import logging
+import os
 import re
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from pydantic import BaseModel
+import sys
 from datetime import datetime
+from typing import List, Optional, Dict, Any
+
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List, Optional, Dict, Any
-from database.models import Horse, get_db
-from database.schemas import HorseResponse
-from services.horse_serializer import serialize_horse
-from services.horses_list_mapper import map_horses_list
 
-# ルーターの設定
-# Vercelでは /api が自動的には付与されないため、完全なパスを指定する
-router = APIRouter(prefix="/api", tags=["horses"])
-
-from fastapi import Request
-import logging
-
-# ロガーの設定
+# ロガーの初期化（最初に設定）
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(handler)
+
+# データベース関連のインポート
+from database.models import Horse, get_db
+from database.schemas import HorseResponse
+from services.horse_serializer import serialize_horse
+from services.horses_list_mapper import map_horses_list
+
+# スクリプトのディレクトリをパスに追加
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
+scripts_dir = os.path.join(project_root, 'scripts')
+components_dir = os.path.join(scripts_dir, 'components')
+
+# 必要なディレクトリをsys.pathに追加
+for path in [project_root, scripts_dir, components_dir]:
+    if path not in sys.path:
+        sys.path.insert(0, path)
+        logger.info(f"Added to sys.path: {path}")
+
+# 現在のPythonパスをログに出力
+logger.info(f"Python path: {sys.path}")
+
+# 疾病情報抽出モジュールをインポート
+try:
+    # 相対インポートを試みる
+    try:
+        from scripts.components.disease_info_extractor import DiseaseInfoExtractor
+        logger.info("Successfully imported DiseaseInfoExtractor from scripts.components")
+    except ImportError:
+        # 相対インポートが失敗した場合は直接インポートを試みる
+        from disease_info_extractor import DiseaseInfoExtractor
+        logger.info("Successfully imported DiseaseInfoExtractor directly")
+    
+    # モジュールが正しくインポートされたか確認
+    if DiseaseInfoExtractor is None:
+        raise ImportError("DiseaseInfoExtractor is None")
+        
+except ImportError as e:
+    logger.error(f"Failed to import DiseaseInfoExtractor: {e}", exc_info=True)
+    logger.error(f"Current working directory: {os.getcwd()}")
+    logger.error(f"Module search paths: {sys.path}")
+    
+    # モジュールが見つからない場合のフォールバック実装
+    class DiseaseInfoExtractor:
+        def __init__(self, logger=None):
+            self.logger = logger
+            
+        def extract(self, text):
+            if self.logger:
+                self.logger.warning("Using fallback DiseaseInfoExtractor")
+            return {"diseases": []}
+
+# ルーターの設定
+# Vercelでは /api が自動的には付与されないため、完全なパスを指定する
+router = APIRouter(prefix="/api", tags=["horses"])
+
+class DiseaseExtractionRequest(BaseModel):
+    comment: str
+
+@router.post("/extract-disease-tags", tags=["horses"])
+async def extract_disease_tags(
+    request: Request,
+    disease_request: DiseaseExtractionRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    コメントから疾病タグを抽出するエンドポイント
+    
+    Args:
+        disease_request: 抽出対象のコメントを含むリクエストボディ
+        
+    Returns:
+        {
+            "tags": List[str]  # 抽出された疾病タグのリスト
+        }
+    """
+    if not DiseaseInfoExtractor:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="DiseaseInfoExtractor could not be imported"
+        )
+    
+    try:
+        extractor = DiseaseInfoExtractor(logger=logger)
+        result = extractor.extract(disease_request.comment)
+        return {"tags": result.get("diseases", [])}
+    except Exception as e:
+        logger.error(f"Error extracting disease tags: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error extracting disease tags: {str(e)}"
+        )
+# ロガー設定はファイルの先頭で既に行っているため、削除
 
 # デバッグ用に現在のモジュールのパスをログに出力
 logger.info(f"Loading {__name__} module")

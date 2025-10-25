@@ -27,34 +27,38 @@ export function renderDiseaseTags(tags: string | string[] | undefined, className
 }
 
 /**
- * コメントから疾病タグを抽出する関数
+ * バックエンドから疾病タグを取得する関数
  * @param comment 抽出元のコメント
  * @param existingTags 既存のタグ（オプション）
  * @returns 抽出された疾病タグの配列
  */
-export function extractDiseaseTags(comment: string | null | undefined, existingTags: string[] = []): string[] {
+export async function extractDiseaseTags(comment: string | null | undefined, existingTags: string[] = []): Promise<string[]> {
   if (!comment) return [];
   
-  // 疾病に関連するキーワード（必要に応じて追加可能）
-  const DISEASE_KEYWORDS = [
-    '屈腱炎', '骨折', '腫れ', '熱感', '骨瘤', 'ソエ', 
-    '管骨瘤', '飛節炎', '球節炎', '靭帯炎', '骨膜炎',
-    '跛行', '跛る', '腫脹', '炎症', '裂離', '亀裂',
-    '変形', '捻挫', '脱臼', '断裂', '損傷',
-    '関節炎', '腱鞘炎', '筋肉痛', '肉離れ', '神経痛'
-  ];
+  try {
+    // バックエンドAPIを呼び出して疾病タグを取得
+    const response = await fetch('/api/extract-disease-tags', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ comment }),
+    });
 
-  // 既存のタグをセットに追加
-  const foundTags = new Set([...existingTags]);
-
-  // コメントからキーワードを検索
-  DISEASE_KEYWORDS.forEach(keyword => {
-    if (comment.includes(keyword)) {
-      foundTags.add(keyword);
+    if (!response.ok) {
+      throw new Error('疾病タグの取得に失敗しました');
     }
-  });
 
-  return Array.from(foundTags);
+    const data = await response.json();
+    const extractedTags = data.tags || [];
+    
+    // 既存のタグと抽出されたタグをマージして重複を削除
+    return Array.from(new Set([...existingTags, ...extractedTags]));
+  } catch (error) {
+    console.error('Error fetching disease tags:', error);
+    // エラーが発生した場合は既存のタグをそのまま返す
+    return [...existingTags];
+  }
 }
 
 /**
