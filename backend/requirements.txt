@@ -11,3 +11,4 @@ httpx==0.24.1
 aiofiles==23.2.1
 requests==2.31.0
 beautifulsoup4==4.12.2
+psycopg2-binary

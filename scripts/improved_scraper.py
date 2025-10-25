@@ -2755,13 +2755,6 @@ def update_horses_database(horses: List[Dict[str, Any]]) -> bool:
             with open(temp_json, 'w', encoding='utf-8') as f:
                 json.dump(horses, f, ensure_ascii=False, indent=2)
             
-            # データベースディレクトリのパスを設定
-            db_dir = str(Path(__file__).parent.parent / 'backend' / 'data')
-            db_path = str(Path(db_dir) / 'horses.db')
-            
-            # データベースディレクトリが存在しない場合は作成
-            Path(db_dir).mkdir(exist_ok=True, parents=True, mode=0o755)
-            
             # データベース更新スクリプトを実行
             result = subprocess.run(
                 [
@@ -2773,12 +2766,10 @@ def update_horses_database(horses: List[Dict[str, Any]]) -> bool:
                 text=True,
                 cwd=Path(__file__).parent,  # スクリプトのディレクトリをカレントディレクトリに設定
                 env={
-                    **os.environ,
+                    **os.environ,  # 親プロセスの環境変数を引き継ぐ（DATABASE_URLを含む）
                     'AUTH_HEADER': f'Bearer {auth.token}',
-                    'DATABASE_URL': os.getenv('DATABASE_URL', f'sqlite:///{db_path}'),
                     'LOG_LEVEL': 'DEBUG',
-                    'GITHUB_ACTIONS': 'true',
-                    'SQLITE_DB_DIR': db_dir
+                    'GITHUB_ACTIONS': 'true'
                 }
             )
             

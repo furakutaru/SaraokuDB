@@ -79,22 +79,24 @@ def init_db():
     
     Returns:
         Session: SQLAlchemyセッション
+        
+    Raises:
+        ValueError: DATABASE_URLが設定されていない場合
     """
     try:
-        # データベースファイルのパスを環境変数から取得
-        db_dir = os.environ.get('SQLITE_DB_DIR', str(Path(__file__).parent.parent / 'backend' / 'data'))
-        os.makedirs(db_dir, exist_ok=True, mode=0o755)
+        # 環境変数からデータベースURLを取得（必須）
+        db_uri = os.environ.get('DATABASE_URL')
         
-        db_path = Path(db_dir) / 'horses.db'
-        logger.info(f"データベースパス: {db_path}")
-        
-        # SQLiteデータベースに接続（ロックタイムアウトとジャーナルモードを設定）
-        db_uri = f'sqlite:///{db_path}?timeout=30&check_same_thread=False'
-        engine = create_engine(db_uri, connect_args={
-            'timeout': 30,
-            'check_same_thread': False,
-            'isolation_level': 'IMMEDIATE'  # 明示的なロックを取得
-        })
+        if not db_uri:
+            raise ValueError("環境変数DATABASE_URLが設定されていません。PostgreSQLデータベースの接続URLを設定してください。")
+            
+        # PostgreSQL (Neon) を使用
+        logger.info("環境変数DATABASE_URLを使用してデータベースに接続します")
+        if db_uri.startswith('postgres://'):
+            # SQLAlchemy 1.4+ では postgres:// ではなく postgresql:// を使用する必要がある
+            db_uri = db_uri.replace('postgres://', 'postgresql://', 1)
+            
+        engine = create_engine(db_uri, pool_pre_ping=True)
         
         # テーブルが存在しない場合は作成
         Base.metadata.create_all(engine)
