@@ -54,6 +54,10 @@ class AuctionHistory(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     horse_id = Column(Integer, ForeignKey('horses.id'), nullable=False)
+    horse_name = Column(String(255))  # 馬名
+    sire_name = Column(String(255))   # 父名
+    dam_name = Column(String(255))    # 母名
+    damsire_name = Column(String(255)) # 母父名
     auction_date = Column(String(10), nullable=False)  # YYYY-MM-DD形式
     price = Column(Integer, nullable=False)  # 落札価格
     seller = Column(String(100))  # 販売者

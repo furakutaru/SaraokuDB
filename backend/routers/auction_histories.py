@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from datetime import datetime
+from typing import List, Optional, Dict, Any
+from datetime import datetime, date
 import logging
 from database import get_db
 from database.models import AuctionHistory
-from database.schemas import AuctionHistory as AuctionHistorySchema
+from database.schemas import AuctionHistory as AuctionHistorySchema, AuctionHistoryCreate
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -63,6 +63,56 @@ async def read_auction_histories_by_horse_id(
     except Exception as e:
         logger.error(f"Error fetching auction histories for horse {horse_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/check_duplicate", response_model=Dict[str, bool])
+async def check_duplicate_auction_history(
+    request: Dict[str, Any],
+    db: Session = Depends(get_db)
+):
+    """同じ馬（名前・血統）で同じ日付のオークション履歴が存在するかチェックする"""
+    try:
+        # リクエストからパラメータを取得
+        horse_name = request.get('horse_name')
+        sire_name = request.get('sire_name')
+        dam_name = request.get('dam_name')
+        damsire_name = request.get('damsire_name')
+        auction_date = request.get('auction_date')
+        
+        # バリデーション
+        if not all([horse_name, sire_name, dam_name, damsire_name, auction_date]):
+            raise HTTPException(
+                status_code=400,
+                detail="必須パラメータが不足しています"
+            )
+        
+        # 日付のバリデーション
+        try:
+            auction_date_obj = datetime.strptime(auction_date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="日付の形式が正しくありません。YYYY-MM-DD形式で指定してください。"
+            )
+        
+        # 同じ馬（名前・血統）で同じ日付のオークション履歴を検索
+        existing = db.query(AuctionHistory).filter(
+            AuctionHistory.horse_name == horse_name,
+            AuctionHistory.sire_name == sire_name,
+            AuctionHistory.dam_name == dam_name,
+            AuctionHistory.damsire_name == damsire_name,
+            AuctionHistory.auction_date == auction_date_obj
+        ).first()
+        
+        return {"exists": existing is not None}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"オークション履歴の重複チェック中にエラーが発生しました: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="オークション履歴の重複チェック中にエラーが発生しました"
+        )
 
 # ルーターをエクスポート
 __all__ = ["router"]

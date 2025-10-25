@@ -51,6 +51,10 @@ class HorseResponse(HorseBase):
 
 class AuctionHistoryBase(BaseModel):
     horse_id: int
+    horse_name: Optional[str] = None
+    sire_name: Optional[str] = None
+    dam_name: Optional[str] = None
+    damsire_name: Optional[str] = None
     auction_date: str
     price: int
     seller: Optional[str] = None

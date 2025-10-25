@@ -1,0 +1,4 @@
+LOAD DATABASE
+    FROM sqlite:///Users/yum.ishii/SaraokuDB/backend/data/horses.db
+    INTO postgresql://neondb_owner:npg_PpdcmHfn73bl@ep-sweet-term-adm0rzzh-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require
+    WITH include drop, create tables, create indexes, reset sequences, data only;

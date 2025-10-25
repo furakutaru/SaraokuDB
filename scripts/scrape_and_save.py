@@ -143,7 +143,7 @@ class ScraperClient:
             raise
     
     def save_horse(self, horse_data):
-        """馬データをAPIに保存"""
+        """馬データをAPIに保存し、必要に応じてオークション履歴も保存する"""
         try:
             # URLを正規化（末尾のスラッシュを削除）
             base_url = self.api_base_url.rstrip('/')
@@ -209,6 +209,7 @@ class ScraperClient:
             logger.info(f"APIリクエストを送信します: {save_url}")
             logger.debug(f"リクエストボディ: {json.dumps(data_to_send, ensure_ascii=False, indent=2)}")
             
+            # 馬データを保存
             response = self.session.post(
                 save_url,
                 json=data_to_send,
@@ -224,7 +225,13 @@ class ScraperClient:
             response.raise_for_status()
             
             result = response.json()
-            logger.info(f"馬データを保存しました: {data_to_send.get('name')} (ID: {result.get('id')})")
+            horse_id = result.get('id')
+            logger.info(f"馬データを保存しました: {data_to_send.get('name')} (ID: {horse_id})")
+            
+            # オークション履歴を保存するかどうかをチェック
+            if horse_id and 'sold_price' in data_to_send and data_to_send['sold_price'] is not None:
+                self._save_auction_history(horse_id, data_to_send)
+            
             return result
             
         except requests.exceptions.RequestException as e:
@@ -239,6 +246,100 @@ class ScraperClient:
         except Exception as e:
             logger.error(f"馬データの保存中にエラーが発生しました: {str(e)}")
             return False
+            
+    def _save_auction_history(self, horse_id: int, horse_data: dict):
+        """オークション履歴を保存する
+        
+        Args:
+            horse_id: 馬のID
+            horse_data: 馬のデータ（名前、血統情報、オークション情報を含む）
+        """
+        try:
+            # オークション情報が不足している場合はスキップ
+            if not all(key in horse_data for key in ['sold_price', 'auction_date']):
+                logger.warning(f"オークション情報が不足しているため、履歴を保存しません: {horse_data.get('name')}")
+                return None
+
+            # 血統情報を取得
+            horse_name = horse_data.get('name')
+            sire_name = horse_data.get('sire')
+            dam_name = horse_data.get('dam')
+            damsire_name = horse_data.get('damsire')
+            
+            if not all([horse_name, sire_name, dam_name, damsire_name]):
+                logger.warning(f"血統情報が不足しているため、履歴を保存しません: {horse_name}")
+                return None
+
+            # オークション履歴のデータを準備
+            auction_data = {
+                'horse_id': horse_id,
+                'horse_name': horse_name,
+                'sire_name': sire_name,
+                'dam_name': dam_name,
+                'damsire_name': damsire_name,
+                'auction_date': horse_data['auction_date'],
+                'price': horse_data['sold_price'],
+                'seller': horse_data.get('seller'),
+                'buyer': None,  # 落札者情報は別途取得する必要がある場合がある
+                'auction_house': horse_data.get('auction_house', '不明'),
+                'auction_name': horse_data.get('auction_name', '不明'),
+                'lot_number': horse_data.get('lot_number'),
+                'auction_url': horse_data.get('detail_url')
+            }
+            
+            # APIエンドポイント
+            base_url = self.api_base_url.rstrip('/')
+            
+            # 重複チェック（同じ馬で同じ日付のオークション履歴が既に存在するか）
+            check_url = f"{base_url}/api/auction_histories/check_duplicate"
+            try:
+                check_response = self.session.post(
+                    check_url,
+                    json={
+                        'horse_name': horse_name,
+                        'sire_name': sire_name,
+                        'dam_name': dam_name,
+                        'damsire_name': damsire_name,
+                        'auction_date': auction_data['auction_date']
+                    },
+                    timeout=10
+                )
+                
+                if check_response.status_code == 200:
+                    exists = check_response.json().get('exists', False)
+                    if exists:
+                        logger.info(f"既存のオークション履歴が存在します: {horse_name} ({sire_name} - {dam_name}), 日付 {auction_data['auction_date']}")
+                        return None
+            except Exception as e:
+                logger.warning(f"オークション履歴の重複チェック中にエラーが発生しました: {str(e)}")
+                # チェックに失敗しても処理は続行
+            
+            # オークション履歴を保存
+            save_url = f"{base_url}/api/auction_histories"
+            logger.info(f"オークション履歴を保存します: {save_url}")
+            logger.debug(f"オークション履歴データ: {json.dumps(auction_data, ensure_ascii=False, indent=2)}")
+            
+            response = self.session.post(
+                save_url,
+                json=auction_data,
+                timeout=30
+            )
+            
+            # レスポンスの確認
+            response.raise_for_status()
+            result = response.json()
+            logger.info(f"オークション履歴を保存しました: {horse_name}, 日付 {auction_data['auction_date']}, 価格 {auction_data['price']}万円")
+            return result
+            
+        except requests.exceptions.RequestException as e:
+            error_msg = str(e)
+            if hasattr(e, 'response') and e.response is not None:
+                error_msg = f"{e.response.status_code} - {e.response.text}"
+            logger.error(f"オークション履歴の保存中にエラーが発生しました: {error_msg}")
+            return None
+        except Exception as e:
+            logger.error(f"オークション履歴の保存中に予期しないエラーが発生しました: {str(e)}")
+            return None
 
 def main():
     import argparse
