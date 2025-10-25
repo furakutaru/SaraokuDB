@@ -39,8 +39,8 @@ export const useDataIntegrityCheck = () => {
         setIsLoading(true);
         setError(null);
         
-        // データを取得
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8001';
+        // 直接APIのベースURLを指定
+        const apiBaseUrl = 'http://localhost:8001';
         
         // 馬データとオークションデータを並行して取得
         const [horsesRes, auctionHistoriesRes] = await Promise.all([

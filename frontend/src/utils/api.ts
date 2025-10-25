@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 // 型定義を直接インポート
+// 型定義を直接インポート
 import { 
   Horse, 
   ApiMetadata,
@@ -8,7 +9,7 @@ import {
   FilterOptions,
   SortOption,
   TableColumn
-} from '../horses/types';
+} from '../../app/horses/types';
 
 // レスポンス型を定義
 interface BaseResponse<T> {
@@ -54,8 +55,8 @@ interface ErrorResponse {
   code?: number;
 }
 
-// 環境変数からAPIのベースURLを取得、デフォルトは開発環境用
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+// 直接APIのベースURLを指定
+const API_BASE_URL = 'http://localhost:8001';
 
 // Axiosインスタンスの作成
 const apiClient: AxiosInstance = axios.create({

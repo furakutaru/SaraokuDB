@@ -75,7 +75,7 @@ if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is not set")
 
 # SSLモードを設定（Neonでは必須）
-if DATABASE_URL.startswith('postgres'):
+if DATABASE_URL.startswith('postgres') and 'sslmode=' not in DATABASE_URL:
     DATABASE_URL += "?sslmode=require"
 
 # エンジン設定

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # ルーターの作成
 router = APIRouter(
-    prefix="/auction_histories",  # /api/auction_histories でアクセスできるようにする
+    prefix="/api/auction_histories",  # /api/auction_histories でアクセスできるようにする
     tags=["auction_histories"],
     responses={404: {"description": "Not found"}},
 )

@@ -16,6 +16,8 @@
     "@emotion/server": "^11.11.0",
     "@emotion/styled": "^11.14.1",
     "@mui/material": "^7.3.4",
+    "@neondatabase/serverless": "^1.0.2",
+    "@prisma/client": "^6.18.0",
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-tabs": "^1.1.12",
     "axios": "^1.12.2",

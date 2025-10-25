@@ -43,3 +43,5 @@ next-env.d.ts
 # backup directories
 _backup_*
 app_backup_*
+
+/generated/prisma
