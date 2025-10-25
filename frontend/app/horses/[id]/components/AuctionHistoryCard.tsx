@@ -6,7 +6,8 @@ export interface AuctionHistory {
   id?: string | number;
   horse_id?: string | number;
   auction_date: string | string[];  // string または string[] を許容
-  sold_price?: number | null;
+  price?: number | null;  // データベースの price カラムにマッピング（優先的に使用）
+  sold_price?: number | null; // 後方互換性のため残す（非推奨）
   total_prize_start?: number;
   total_prize_latest?: number;
   weight?: number | null;
@@ -18,7 +19,6 @@ export interface AuctionHistory {
   updated_at?: string;
   detail_url?: string | null;
   auction_url?: string;
-  price?: number;
   name?: string;
   sex?: string;
   age?: string | number;
@@ -67,7 +67,7 @@ const AuctionHistoryCard: React.FC<AuctionHistoryCardProps> = ({
                     {formatDate(normalizeAuctionDate(item.auction_date))}
                   </Typography>
                   <p className="text-sm text-gray-500">
-                    落札価格: {formatPrizeMan(item.sold_price, item.unsold)}
+                    落札価格: {formatPrizeMan(item.price ?? item.sold_price, item.unsold || item.is_unsold)}
                   </p>
                 </div>
                 {item.detail_url && (

@@ -16,7 +16,8 @@ interface ExtendedBaseAuctionHistory {
   id: string | number;
   horse_id: string | number;
   auction_date: string | string[];
-  sold_price: number | null;
+  price: number | null;  // データベースの price カラムにマッピング
+  sold_price?: number | null; // 後方互換性のため残す（非推奨）
   total_prize_start: number;
   total_prize_latest: number | null;
   weight: number | null;
@@ -28,7 +29,6 @@ interface ExtendedBaseAuctionHistory {
   updated_at: string;
   detail_url: string | null;
   auction_url: string | null;
-  price: number | null;
   name: string | null;
   sex: string | null;
   age: string | number | null;

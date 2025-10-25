@@ -62,17 +62,26 @@ def map_horses_list(horses: List[Any]) -> Tuple[List[Dict[str, Any]], List[Dict[
             # 最新のオークション履歴を取得
             latest_auction = latest_auctions.get(horse.id)
             
+            # sold_price を取得（horses テーブルから直接取得）
+            horse_dict['sold_price'] = getattr(horse, 'sold_price', None)
+            
+            # is_unsold を設定（unsold_count が 1 以上の場合に True を設定）
+            horse_dict['is_unsold'] = bool(getattr(horse, 'unsold_count', 0) > 0)
+            
+            # デバッグ用ログ（sold_price の値を確認）
+            logger.debug(f"Processing horse - ID: {horse.id}, Name: {getattr(horse, 'name', 'N/A')}, "
+                       f"sold_price: {horse_dict['sold_price']}, "
+                       f"unsold_count: {getattr(horse, 'unsold_count', 0)}, "
+                       f"is_unsold: {horse_dict['is_unsold']}")
+            
             if latest_auction:
-                # オークション履歴から価格を設定
-                horse_dict['sold_price'] = latest_auction.price
-                horse_dict['is_unsold'] = (horse_dict.get('unsold_count') or 0) > 0
-                
                 # オークション履歴を追加
                 auction_history = {
                     'id': latest_auction.id,
                     'horse_id': latest_auction.horse_id,
                     'auction_date': latest_auction.auction_date,
                     'price': latest_auction.price,
+                    'sold_price': horse_dict['sold_price'],  # horses テーブルの sold_price を使用
                     'seller': latest_auction.seller,
                     'buyer': latest_auction.buyer,
                     'auction_house': latest_auction.auction_house,
@@ -84,15 +93,13 @@ def map_horses_list(horses: List[Any]) -> Tuple[List[Dict[str, Any]], List[Dict[
                     'dam_name': latest_auction.dam_name,
                     'damsire_name': latest_auction.damsire_name,
                     'is_unsold': horse_dict['is_unsold'],
+                    'unsold': horse_dict['is_unsold'],  # フロントエンドの互換性のため追加
                     'created_at': latest_auction.created_at,
                     'updated_at': latest_auction.updated_at,
                     'user_id': latest_auction.user_id
                 }
                 auction_histories.append(auction_history)
             else:
-                # オークション履歴がない場合は既存の値を使用
-                horse_dict['sold_price'] = horse_dict.get('sold_price')
-                horse_dict['is_unsold'] = (horse_dict.get('unsold_count') or 0) > 0
                 logger.info(f"No auction history found for horse ID: {horse.id}")
 
             # 性別の処理

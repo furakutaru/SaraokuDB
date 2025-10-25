@@ -19,61 +19,56 @@ const formatCurrency = (value: number | string | null | undefined): string => {
 };
 
 // 落札価格を表示するヘルパー関数
-const formatSoldPrice = (price: number | string | null | undefined | any[], isUnsold: boolean = false, rawPrice?: any): string => {
-  // デバッグ用ログは削除またはコメントアウト
-  
-  // 未落札フラグがtrueの場合は「主取り」を表示
-  if (isUnsold) {
+const formatSoldPrice = (
+  price: number | string | null | undefined, 
+  isUnsold: boolean = false, 
+  unsoldFlag?: boolean,
+  soldPrice?: number | string | null | undefined,
+  unsoldCount: number = 0
+): string => {
+  // 主取りフラグが立っている場合またはunsold_countが1以上の場合は「主取り」を返す
+  if (isUnsold === true || unsoldFlag === true || unsoldCount > 0) {
     return '主取り';
   }
   
-  // rawPriceが存在する場合はそちらを優先
-  if (rawPrice !== undefined && rawPrice !== null) {
-    price = rawPrice;
-  }
-
-  // 配列の文字列表現（例: "[380000]"）を処理
-  if (typeof price === 'string' && price.startsWith('[') && price.endsWith(']')) {
-    try {
-      const parsedArray = JSON.parse(price);
-      if (Array.isArray(parsedArray) && parsedArray.length > 0) {
-        price = parsedArray[0];
-      }
-    } catch (e) {
-      console.error('Error parsing price as array:', e);
-    }
-  }
+  // soldPrice を優先し、なければ price を使用
+  let effectivePrice = soldPrice !== undefined ? soldPrice : price;
   
-  // 配列の場合は最初の要素を使用
-  if (Array.isArray(price)) {
-    price = price.length > 0 ? price[0] : null;
-  }
-
-  // 価格がnullまたはundefinedまたは空文字または0の場合は「主取り」を表示
-  if (price === null || price === undefined || price === '' || price === 0) {
-    return '主取り';
-  }
-
-  try {
-    // 文字列の場合はカンマを削除して数値に変換
-    let numPrice: number;
-    if (typeof price === 'string') {
-      const cleanPrice = price.replace(/[^0-9.-]+/g, '');
-      numPrice = parseFloat(cleanPrice);
-    } else {
-      numPrice = Number(price);
-    }
-    
-    if (isNaN(numPrice) || numPrice <= 0) {
-      return '-';
-    }
-    
-    // 落札価格は「¥1,000」形式で表示
-    return `¥${numPrice.toLocaleString('ja-JP')}`;
-  } catch (error) {
-    console.error('Error formatting price:', error);
+  // 価格が null または undefined または空文字の場合は「-」を返す
+  if (effectivePrice === null || effectivePrice === undefined || effectivePrice === '') {
     return '-';
   }
+  
+  // 文字列で [ で始まる場合は JSON 配列とみなしてパースを試みる
+  if (typeof effectivePrice === 'string' && effectivePrice.startsWith('[')) {
+    try {
+      const parsedArray = JSON.parse(effectivePrice);
+      if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+        effectivePrice = parsedArray[0]; // 最初の要素を使用
+      }
+    } catch (e) {
+      console.error('価格のパースに失敗しました:', e);
+    }
+  }
+  
+  // 数値に変換（文字列の場合は数字とドット、マイナス以外を除去）
+  let num: number;
+  if (typeof effectivePrice === 'string') {
+    const parsed = parseFloat(effectivePrice.replace(/[^0-9.-]+/g, ''));
+    num = isNaN(parsed) ? 0 : parsed;
+  } else if (typeof effectivePrice === 'number') {
+    num = effectivePrice;
+  } else {
+    return '-';
+  }
+  
+  // 数値が無効または0以下の場合は「-」を返す
+  if (num <= 0) {
+    return '-';
+  }
+  
+  // 数値をフォーマットして返す
+  return `¥${num.toLocaleString('ja-JP')}`;
 };
 
 // 賞金をフォーマットするヘルパー関数（「17.5万円」形式で表示）
@@ -254,8 +249,10 @@ export default function AnalysisContent() {
             ...horse,
             latestAuction: latestAuction || null,
             latest_auction: latestAuction || null,
-            sold_price: latestAuction?.sold_price || null,
-            is_unsold: latestAuction?.is_unsold || false,
+            // sold_price は horse オブジェクトから直接取得
+            sold_price: horse.sold_price !== undefined ? horse.sold_price : (latestAuction?.sold_price || null),
+            // is_unsold も horse オブジェクトから直接取得
+            is_unsold: horse.is_unsold !== undefined ? horse.is_unsold : (latestAuction?.is_unsold || false),
             auction_date: latestAuction?.auction_date || horse.auction_date,
             seller: latestAuction?.seller || horse.seller,
             weight: latestAuction?.weight ?? horse.weight ?? null,
@@ -656,7 +653,26 @@ export default function AnalysisContent() {
                     })()}
                   </td>
                   <td className="px-3 py-2">
-                    {formatSoldPrice(horse.sold_price, horse.is_unsold || false, (horse as any).sold_price_raw || (horse as any).raw_sold_price)}
+                    {(() => {
+                      const debugInfo = {
+                        id: horse.id,
+                        name: horse.name,
+                        sold_price: horse.sold_price,
+                        is_unsold: horse.is_unsold,
+                        unsold: horse.unsold,
+                        price: horse.price
+                      };
+                      console.log('馬の情報:', debugInfo);
+                      // 主取りフラグを適切に設定（どちらかが true なら主取りとみなす）
+                      const isUnsold = horse.is_unsold === true || horse.unsold === true;
+                      return formatSoldPrice(
+                        horse.price, 
+                        isUnsold, 
+                        isUnsold,
+                        horse.sold_price,
+                        horse.unsold_count || 0
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2">
                     {(() => {

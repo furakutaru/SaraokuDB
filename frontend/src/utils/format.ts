@@ -57,8 +57,13 @@ export function formatPrizeMan(
   isUnsold?: boolean
 ): string {
   // 未落札の場合は「主取り」と表示
-  if (isUnsold) {
+  if (isUnsold === true) {
     return '主取り';
+  }
+
+  // val が null または undefined の場合は '-' を返す
+  if (val === null || val === undefined || val === '') {
+    return '-';
   }
 
   // 数値に変換
