@@ -26,8 +26,9 @@ const formatSoldPrice = (
   soldPrice?: number | string | null | undefined,
   unsoldCount: number = 0
 ): string => {
-  // 主取りフラグが立っている場合またはunsold_countが1以上の場合は「主取り」を返す
-  if (isUnsold === true || unsoldFlag === true || unsoldCount > 0) {
+  // 主取りフラグが立っている場合、またはunsold_countが1以上の場合、またはsold_priceがnullでis_unsoldがfalseの場合は「主取り」を返す
+  if (isUnsold === true || unsoldFlag === true || unsoldCount > 0 || 
+      (soldPrice === null && isUnsold === false)) {
     return '主取り';
   }
   
