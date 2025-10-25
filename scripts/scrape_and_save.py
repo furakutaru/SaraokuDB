@@ -361,9 +361,11 @@ def main():
     # スクレイパーの初期化
     config = ScraperConfig(
         use_cache=True,
-        max_workers=5
+        max_workers=5,
+        max_retries=0,  # リトライを無効化
     )
-    scraper = ImprovedRakutenScraper(config)
+    # HTML保存を無効化してスクレイパーを初期化
+    scraper = ImprovedRakutenScraper(config, save_html=False)
     
     # 出力ディレクトリのパス
     if args.output_dir:

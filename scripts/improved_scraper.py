@@ -826,21 +826,26 @@ class ImprovedRakutenScraper:
     """楽天競馬オークションのスクレイパークラス"""
     
     def __init__(
-        self, 
+        self,
         config: Optional[ScraperConfig] = None,
+        save_html: bool = False,  # HTML保存をデフォルトで無効化
+        debug_mode: bool = False,
         **kwargs
     ):
         """
         初期化メソッド
         
         Args:
-            config: スクレイパー設定（省略時はデフォルト設定を使用）
-            **kwargs: 設定オーバーライド用のキーワード引数
+            config: スクレイパー設定（Noneの場合はデフォルト設定を使用）
+            save_html: HTMLを保存するかどうか
+            debug_mode: デバッグモード（追加のログ出力など）
+            **kwargs: 設定オプション（ScraperConfigのパラメータ）
         """
         # 設定の初期化
-        self.config = config if config is not None else ScraperConfig(**kwargs)
-        
-        # ロガーの設定
+        kwargs.setdefault('max_retries', 0)  # リトライを無効化
+        self.config = config or ScraperConfig(**kwargs)
+        self.save_html = save_html
+        self.debug_mode = debug_mode
         self.logger = self.config.logger
         
         # リクエストセッションの初期化
