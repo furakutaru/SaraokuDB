@@ -76,6 +76,13 @@ class Horse(Base):
     )
     owner_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     owner = relationship("User", back_populates="horses")
+    
+    @property
+    def is_unsold(self):
+        """最新のオークション情報から主取りフラグを取得"""
+        if self.latest_auction:
+            return self.latest_auction.is_unsold
+        return False
 
 
 class AuctionHistory(Base):
@@ -95,6 +102,7 @@ class AuctionHistory(Base):
     auction_name = Column(String(200))   # セール名
     lot_number = Column(String(20))      # ロット番号
     auction_url = Column(String(500))    # オークションURL
+    is_unsold = Column(Boolean, default=False)  # 主取りフラグ
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

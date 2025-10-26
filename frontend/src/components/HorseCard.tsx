@@ -2,7 +2,7 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Horse, AuctionHistory, HorseWithCalculations } from '@/types/horse';
 import { formatSex, getSexColor } from '@/utils/normalize';
-import { formatPrizeMan } from '@/utils/format';
+import { formatPrize, formatPrice } from '@/utils/format';
 
 // HorseWithCalculations 型を使用
 
@@ -69,44 +69,31 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
     return isNaN(priceNum) ? null : priceNum;
   };
 
-  // 価格を表示用にフォーマット（落札価格は「¥1,000」形式で表示）
+  // 落札価格を表示用にフォーマット
   const displayPrice = (price: number | null | undefined, isUnsold: boolean = false) => {
-    console.log(`Displaying price for ${horse.name}:`, { 
-      price, 
-      isUnsold,
-      latestAuction: getLatestAuction()
-    });
-    
-    // 主取りの場合は即座に返す
-    if (isUnsold === true) {
-      console.log('  Marked as unsold, showing 主取り');
-      return '主取り';
-    }
-    
-    // 価格を表示
-    if (price !== null && price !== undefined) {
-      const priceNum = typeof price === 'number' ? price : Number(price);
-      if (!isNaN(priceNum) && priceNum > 0) {
-        console.log(`  Using provided price: ${priceNum}`);
-        return '¥' + priceNum.toLocaleString('ja-JP');
-      }
-    }
-    
-    // 最新の価格を取得
-    const latestPrice = getLatestSoldPrice();
-    if (latestPrice !== null) {
-      console.log(`  Using latest price: ${latestPrice}`);
-      return '¥' + latestPrice.toLocaleString('ja-JP');
-    }
-    
-    // 価格が見つからない場合はハイフンを表示
-    return '-';
+    return formatPrice(price, isUnsold);
   };
 
   // 最新のオークション情報を取得（propsから受け取る）
   const latestAuctionInfo = getLatestAuction();
-  const price = latestAuctionInfo?.sold_price ?? horse.sold_price ?? null;
+  
+  // 落札価格を取得（sold_price のみを使用）
+  const price = latestAuctionInfo?.sold_price ?? 
+               horse.sold_price ?? 
+               null;
+  
+  // 未落札フラグを取得
   const isUnsold = latestAuctionInfo?.is_unsold ?? horse.is_unsold ?? false;
+  
+  // デバッグ用ログ
+  console.log('HorseCard debug:', {
+    horseName: horse.name,
+    latestAuctionInfo: latestAuctionInfo,
+    horseSoldPrice: horse.sold_price,
+    horsePrice: horse.price,
+    finalPrice: price,
+    isUnsold: isUnsold
+  });
   
   // 血統情報を抽出（直接のプロパティを使用）
   const sire = horse.sire || '';
@@ -165,7 +152,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
           {/* 右カラム: 総賞金と馬体重 */}
           <div className="text-sm text-gray-500 space-y-1">
             {latestAuctionInfo?.total_prize_latest !== undefined && (
-              <p>総賞金: {formatPrizeMan(latestAuctionInfo.total_prize_latest)}</p>
+              <p>総賞金: {formatPrize(latestAuctionInfo.total_prize_latest)}</p>
             )}
             {latestAuctionInfo?.weight && latestAuctionInfo.weight > 0 && (
               <p>{latestAuctionInfo.weight}kg</p>

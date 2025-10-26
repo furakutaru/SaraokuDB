@@ -19,10 +19,11 @@ class AuctionPrizeExtractor(BasePrizeExtractor):
             horse_name: 馬名（デバッグ用）
             
         Returns:
-            抽出した賞金情報を含む辞書
+            抽出した賞金情報を含む辞書（total_prize_start と total_prize_latest を含む）
         """
         result = {
-            'auction_prize': None  # 万円単位
+            'total_prize_start': None,  # 落札時の賞金（万円単位）
+            'total_prize_latest': None  # 最新の賞金（万円単位）
         }
         
         try:
@@ -41,7 +42,10 @@ class AuctionPrizeExtractor(BasePrizeExtractor):
                         prize_text = value.get_text(strip=True)
                         prize_value = self._extract_prize_value(prize_text, horse_name)
                         if prize_value is not None:
-                            result['auction_prize'] = prize_value  # 万円単位
+                            # 落札時の賞金として設定（total_prize_start）
+                            result['total_prize_start'] = prize_value  # 万円単位
+                            # 最新の賞金も同じ値で初期化（後で更新可能な場合に上書き）
+                            result['total_prize_latest'] = prize_value  # 万円単位
                             return result
             except Exception as e:
                 logger.debug(f"label/value 方式での抽出中にエラー: {e}")
@@ -54,7 +58,10 @@ class AuctionPrizeExtractor(BasePrizeExtractor):
                     prize_text = auction_prize_elem.get_text(strip=True)
                     prize_value = self._extract_prize_value(prize_text, horse_name)
                     if prize_value is not None:
-                        result['auction_prize'] = prize_value  # 万円単位
+                        # 落札時の賞金として設定（total_prize_start）
+                        result['total_prize_start'] = prize_value  # 万円単位
+                        # 最新の賞金も同じ値で初期化（後で更新可能な場合に上書き）
+                        result['total_prize_latest'] = prize_value  # 万円単位
                         return result
 
             # 3) テキスト走査のフォールバック: 「総賞金」近傍の値を正規表現で抽出
@@ -65,7 +72,10 @@ class AuctionPrizeExtractor(BasePrizeExtractor):
             if m:
                 try:
                     prize_value = float(m.group(1).replace(',', ''))
-                    result['auction_prize'] = prize_value  # 万円単位
+                    # 落札時の賞金として設定（total_prize_start）
+                    result['total_prize_start'] = prize_value  # 万円単位
+                    # 最新の賞金も同じ値で初期化（後で更新可能な場合に上書き）
+                    result['total_prize_latest'] = prize_value  # 万円単位
                     return result
                 except ValueError:
                     pass

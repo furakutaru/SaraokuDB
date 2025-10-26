@@ -15,7 +15,7 @@ export interface Horse {
   /** 母馬名 */
   dam: string;
   /** 母父名 */
-  damsire: string;
+  damsire?: string;
   /** 画像URL */
   image_url: string;
   /** JBISのURL */

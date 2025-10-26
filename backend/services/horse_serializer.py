@@ -147,7 +147,7 @@ def serialize_horse(horse: Any, include_auction: bool = False) -> Dict[str, Any]
         'jbis_url': data.get('jbis_url', ''),
         'rakuten_url': data.get('rakuten_url', ''),
         'auction_url': data.get('auction_url', ''),
-        'race_records': data.get('race_records', []),
+        'race_records': json.loads(data.get('race_record', '[]')) if data.get('race_record') else [],
         'pedigree': data.get('pedigree'),
         'latest_auction': latest_auction
     }

@@ -38,7 +38,8 @@ import {
   toArray, 
   formatDate as formatDateUtil,
   formatPrizeMan,
-  formatCurrency
+  formatCurrency,
+  formatPrice
 } from '../../../src/utils/format';
 import { BaseAuctionHistory } from '../../../src/types/horse';
 
@@ -1535,9 +1536,9 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                               raceRecords={h.race_record} 
                             />
                           </td>
-                          <td className="px-2 py-1 border text-right">{
-                            h.unsold || h.is_unsold || !h.sold_price ? '主取り' : formatCurrency(h.sold_price)
-                          }</td>
+                          <td className="px-2 py-1 border text-right">
+                            {formatPrice(h.sold_price, h.unsold || h.is_unsold)}
+                          </td>
                           <td className="px-2 py-1 border text-right">{formatPrizeMan(h.total_prize_start)}</td>
                         </tr>
                       ))}

@@ -18,121 +18,11 @@ const formatCurrency = (value: number | string | null | undefined): string => {
   }).format(numValue);
 };
 
-// 落札価格を表示するヘルパー関数
-const formatSoldPrice = (
-  price: number | string | null | undefined, 
-  isUnsold: boolean = false, 
-  unsoldFlag?: boolean,
-  soldPrice?: number | string | null | undefined,
-  unsoldCount: number = 0
-): string => {
-  // 主取りフラグが立っている場合、またはunsold_countが1以上の場合、またはsold_priceがnullでis_unsoldがfalseの場合は「主取り」を返す
-  if (isUnsold === true || unsoldFlag === true || unsoldCount > 0 || 
-      (soldPrice === null && isUnsold === false)) {
-    return '主取り';
-  }
-  
-  // soldPrice を優先し、なければ price を使用
-  let effectivePrice = soldPrice !== undefined ? soldPrice : price;
-  
-  // 価格が null または undefined または空文字の場合は「-」を返す
-  if (effectivePrice === null || effectivePrice === undefined || effectivePrice === '') {
-    return '-';
-  }
-  
-  // 文字列で [ で始まる場合は JSON 配列とみなしてパースを試みる
-  if (typeof effectivePrice === 'string' && effectivePrice.startsWith('[')) {
-    try {
-      const parsedArray = JSON.parse(effectivePrice);
-      if (Array.isArray(parsedArray) && parsedArray.length > 0) {
-        effectivePrice = parsedArray[0]; // 最初の要素を使用
-      }
-    } catch (e) {
-      console.error('価格のパースに失敗しました:', e);
-    }
-  }
-  
-  // 数値に変換（文字列の場合は数字とドット、マイナス以外を除去）
-  let num: number;
-  if (typeof effectivePrice === 'string') {
-    const parsed = parseFloat(effectivePrice.replace(/[^0-9.-]+/g, ''));
-    num = isNaN(parsed) ? 0 : parsed;
-  } else if (typeof effectivePrice === 'number') {
-    num = effectivePrice;
-  } else {
-    return '-';
-  }
-  
-  // 数値が無効または0以下の場合は「-」を返す
-  if (num <= 0) {
-    return '-';
-  }
-  
-  // 数値をフォーマットして返す
-  return `¥${num.toLocaleString('ja-JP')}`;
-};
-
-// 賞金をフォーマットするヘルパー関数（「17.5万円」形式で表示）
-const formatPrize = (value: number | string | null | undefined, raceRecord?: any): string => {
-  // デバッグ用のログを追加
-  console.log('formatPrize - value:', value, 'raceRecord:', raceRecord);
-  
-  // value が存在する場合（null, undefined, 空文字列でない場合）は未出走と判定しない
-  // 0 の場合もスクレイピング待ちの可能性があるので未出走と表示しない
-  if (value !== null && value !== undefined && value !== '') {
-    // 数値に変換
-    const numValue = Number(value);
-    // 数値が有効（NaN でない）場合はそのまま処理を続行
-    // 0 の場合もそのまま処理を続行（未出走と表示しない）
-    if (isNaN(numValue)) {
-      // 無効な値（数値に変換できない）場合はデフォルト値を返す
-      return '-';
-    }
-  } else {
-    // レース成績が「データなし」または空のオブジェクト、またはレース成績がない場合は「未出走」を返す
-    const isEmptyRaceRecord = 
-      raceRecord === undefined || 
-      raceRecord === null || 
-      raceRecord === 'データなし' || 
-      (raceRecord && typeof raceRecord === 'object' && Object.keys(raceRecord).length === 0) ||
-      (raceRecord && typeof raceRecord === 'object' && raceRecord.formatted_record === 'データなし') ||
-      (raceRecord && typeof raceRecord === 'object' && raceRecord.total_races === 0) ||
-      (raceRecord && typeof raceRecord === 'object' && 
-      !('total_races' in raceRecord) && 
-      !('formatted_record' in raceRecord) && 
-      !('wins' in raceRecord)) ||
-      (raceRecord && typeof raceRecord === 'object' && raceRecord.record_format === 'simple' && raceRecord.total_races === 0);
-
-    if (isEmptyRaceRecord) {
-      console.log('formatPrize - 未出走と判定');
-      return '未出走';
-    }
-  }
-  
-  if (value === null || value === undefined || value === '') return '-';
-  
-  // 数値に変換
-  const numValue = Number(value);
-  
-  if (isNaN(numValue) || numValue <= 0) return '-';
-  
-  // 1万円未満の場合はそのまま表示
-  if (numValue < 10000) {
-    return `${numValue.toLocaleString('ja-JP')}円`;
-  }
-  
-  // 1万円以上の場合は「X.XX万円」形式で表示
-  const manValue = numValue / 10000;
-  // 小数点以下1桁まで表示（例: 17.5万円）
-  const formattedValue = manValue % 1 === 0 ? manValue.toFixed(0) : manValue.toFixed(1);
-  return `${formattedValue}万円`;
-};
+// フォーマット関数をインポート
+import { formatPrice, formatPrize } from '@/utils/format';
 
 // normalize.ts から formatSex と getSexColor をインポート
 import { formatSex, getSexColor } from '@/utils/normalize';
-
-// 通貨フォーマットのエイリアス
-const formatPrice = formatCurrency;
 
 // 日付をフォーマットするヘルパー関数
 const formatDate = (dateString: string | undefined): string => {
@@ -255,6 +145,14 @@ export default function AnalysisContent() {
         
         // 馬データにオークション情報をマージ
         const horsesWithHistory = horsesWithAuction.map((horse: HorseWithCalculations) => {
+          // デバッグ用: ホワイトアッシュのデータをログに出力
+          if (horse.name === 'ホワイトアッシュ') {
+            console.log('ホワイトアッシュのデータ:', {
+              horseData: horse,
+              auctionHistory: auctionHistoryByHorseId[horse.id],
+              latestAuction: horse.latestAuction || (auctionHistoryByHorseId[horse.id] || [])[0]
+            });
+          }
           // 既存のオークション情報を保持
           const latestAuction = horse.latestAuction || (auctionHistoryByHorseId[horse.id] || [])[0];
           
@@ -478,10 +376,12 @@ export default function AnalysisContent() {
   };
 
   // 落札価格を表示するヘルパー関数
-  const displayPrice = formatSoldPrice;
+  const displayPrice = formatPrice;
 
   // 賞金を表示するヘルパー関数
-  const displayPrize = formatPrize;
+  const displayPrize = (value: number | string | null | undefined): string => {
+    return formatPrize(value);
+  };
 
   // ROIを計算するヘルパー関数
   const calcROI = (prizeLatest: number | null | undefined, prizeStart: number | null | undefined, price: number | string | null | undefined): string => {
@@ -668,21 +568,14 @@ export default function AnalysisContent() {
                   </td>
                   <td className="px-3 py-2">
                     {(() => {
-                      const debugInfo = {
-                        id: horse.id,
-                        name: horse.name,
-                        sold_price: horse.sold_price,
-                        is_unsold: horse.is_unsold,
-                        unsold: horse.unsold,
-                        price: horse.price
-                      };
-                      console.log('馬の情報:', debugInfo);
-                      // 主取りフラグを適切に設定（どちらかが true なら主取りとみなす）
-                      const isUnsold = horse.is_unsold === true || horse.unsold === true;
-                      return formatSoldPrice(
-                        horse.price, 
-                        isUnsold, 
-                        isUnsold,
+                      // デバッグ用: ホワイトアッシュのデータをログに出力
+                      if (horse.name === 'ホワイトアッシュ') {
+                        console.log('ホワイトアッシュのsold_price:', horse.sold_price);
+                      }
+                      return formatPrice(
+                        horse.sold_price, 
+                        horse.is_unsold,
+                        horse.unsold,
                         horse.sold_price,
                         horse.unsold_count || 0
                       );
@@ -690,15 +583,20 @@ export default function AnalysisContent() {
                   </td>
                   <td className="px-3 py-2">
                     {(() => {
-                      const raceRecord = (horse as HorseWithCalculations).race_record || (horse as HorseWithCalculations).race_records;
-                      console.log('Debug - raceRecord:', raceRecord, 'total_prize_start:', horse.total_prize_start);
-                      return formatPrize(horse.total_prize_start, raceRecord);
+                      // デバッグ用: ホワイトアッシュのデータをログに出力
+                      if (horse.name === 'ホワイトアッシュ') {
+                        console.log('ホワイトアッシュのtotal_prize_start:', horse.total_prize_start);
+                      }
+                      return formatPrize(horse.total_prize_start);
                     })()}
                   </td>
                   <td className="px-3 py-2">
                     {(() => {
-                      const raceRecord = (horse as HorseWithCalculations).race_record || (horse as HorseWithCalculations).race_records;
-                      return formatPrize(horse.total_prize_latest, raceRecord);
+                      // デバッグ用: ホワイトアッシュのデータをログに出力
+                      if (horse.name === 'ホワイトアッシュ') {
+                        console.log('ホワイトアッシュのtotal_prize_latest:', horse.total_prize_latest);
+                      }
+                      return formatPrize(horse.total_prize_latest);
                     })()}
                   </td>
                   <td className="px-3 py-2">
