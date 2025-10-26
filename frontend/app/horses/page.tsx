@@ -264,7 +264,7 @@ const NoDataDisplay = ({ onReload }: { onReload: () => void }) => (
 export default function HorsesPage() {
   // 1. すべてのフックを最初に呼び出す
   const router = useRouter();
-  const { horses, loading, error, refreshData } = useHorsesData();
+  const { horses, loading, error, refreshData } = useHorsesData({ latestAuction: true });
   
   // 2. 状態管理
   const [showFilters, setShowFilters] = useState(false);

@@ -26,7 +26,11 @@ const parseSoldPrice = (price: any): number | null => {
   return null;
 };
 
-export const useHorsesData = (): HorsesData => {
+interface UseHorsesDataParams {
+  latestAuction?: boolean;
+}
+
+export const useHorsesData = ({ latestAuction = true }: UseHorsesDataParams = {}): HorsesData => {
   const [horses, setHorses] = useState<Horse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,8 +63,8 @@ export const useHorsesData = (): HorsesData => {
       setLoading(true);
       setError(null);
       
-      // 馬の一覧を取得
-      const response = await fetchHorsesList();
+      // 馬の一覧を取得（最新のオークションの馬のみを取得）
+      const response = await fetchHorsesList({ latest_auction: latestAuction });
       
       let horsesData: Horse[] = [];
       
