@@ -572,13 +572,46 @@ export default function AnalysisContent() {
                       if (horse.name === 'ホワイトアッシュ') {
                         console.log('ホワイトアッシュのsold_price:', horse.sold_price);
                       }
-                      return formatPrice(
-                        horse.sold_price, 
-                        horse.is_unsold,
-                        horse.unsold,
+                      // すべての馬の情報をログに出力（デバッグ用）
+                      console.log(`馬名: ${horse.name}`, {
+                        is_unsold: horse.is_unsold,
+                        unsold: horse.unsold,
+                        unsold_count: horse.unsold_count,
+                        sold_price: horse.sold_price,
+                        // その他の関連フィールドも必要に応じて追加
+                        ...(horse.name === 'ウィッシングタイム' ? { 
+                          _debug: '=== ウィッシングタイムの詳細 ===',
+                          raw_data: JSON.parse(JSON.stringify(horse)) // 循環参照を避けるため
+                        } : {})
+                      });
+                      
+                      // 主取り判定を明示的に行う
+                      const isUnsold = 
+                        horse.is_unsold === true || 
+                        horse.unsold === true || 
+                        (horse.unsold_count || 0) > 0;
+                      
+                      // 主取りの場合は赤文字で表示
+                      if (isUnsold) {
+                        console.log(`主取りと判定されました: ${horse.name}`, {
+                          is_unsold: horse.is_unsold,
+                          unsold: horse.unsold,
+                          unsold_count: horse.unsold_count,
+                          sold_price: horse.sold_price
+                        });
+                        return <span className="text-red-600 font-semibold">主取り</span>;
+                      }
+                      
+                      // 通常の価格表示
+                      const formattedPrice = formatPrice(
                         horse.sold_price,
-                        horse.unsold_count || 0
+                        false, // is_unsold
+                        false, // unsold
+                        horse.sold_price,
+                        0      // unsold_count
                       );
+                      
+                      return formattedPrice;
                     })()}
                   </td>
                   <td className="px-3 py-2">

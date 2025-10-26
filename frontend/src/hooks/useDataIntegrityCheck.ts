@@ -91,8 +91,8 @@ export const useDataIntegrityCheck = () => {
         // 整合性チェックを実行
         const issues: DataIssue[] = [];
         
-        // 必須フィールドのチェック
-        const requiredFields = ['id', 'name', 'sex', 'age', 'sire', 'dam', 'damsire'];
+        // 必須フィールドのチェック（damsireはトップページで使用しないため除外）
+        const requiredFields = ['id', 'name', 'sex', 'age', 'sire', 'dam'];
         
         horses.forEach((horse: any) => {
           const horseIssues: DataIssue['issues'] = [];

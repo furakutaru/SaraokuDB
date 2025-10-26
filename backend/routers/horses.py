@@ -178,11 +178,12 @@ async def get_horses(
         
     Returns:
         {
-            "horses": List[Dict],  # 馬のリスト
+            "horses": List[Dict],  # 馬のリスト（重複なし、各馬の最新オークション情報）
             "metadata": {
                 "total": int,     # 総レコード数
                 "skip": int,      # スキップ数
-                "limit": int      # リミット数
+                "limit": int,     # リミット数
+                "last_updated": str  # 最終更新日時
             }
         }
     """
@@ -190,96 +191,128 @@ async def get_horses(
         logger.info("\n=== Starting get_horses endpoint ===")
         logger.info(f"Request URL: {request.url}")
         logger.info(f"Query params: {request.query_params}")
-        logger.info(f"latest_auction: {latest_auction}, type: {type(latest_auction)}")
         
-        # Horse モデルの属性を確認
-        logger.info(f"Horse model attributes: {dir(Horse)}")
-        logger.info(f"Horse model __table__: {Horse.__table__.columns.keys() if hasattr(Horse, '__table__') else 'No __table__ attribute'}")
-        if hasattr(Horse, 'latest_auction'):
-            logger.info("Horse model has 'latest_auction' attribute")
-        else:
-            logger.error("Horse model does NOT have 'latest_auction' attribute")
-        
-        latest_auction_bool = latest_auction.lower() == 'true' or request.query_params.get('latest_auction', '').lower() == 'true'
-        
-        # 最新のオークション日を取得
-        latest_date = None
-        if latest_auction_bool:
-            latest_date = db.query(
-                func.max(AuctionHistory.auction_date)
-            ).scalar()
-            logger.info(f"Latest auction date: {latest_date}")
+        # 各馬の最新のオークションIDを取得するサブクエリ
+        latest_auction_subq = db.query(
+            AuctionHistory.horse_id,
+            func.max(AuctionHistory.id).label('latest_auction_id')
+        ).group_by(
+            AuctionHistory.horse_id
+        ).subquery()
 
-        # クエリオブジェクトの初期化
-        try:
-            # まずリレーションが存在するか確認
-            if hasattr(Horse, 'latest_auction'):
-                query = db.query(Horse).options(
-                    joinedload(Horse.latest_auction)
-                )
-                logger.info("Query created with latest_auction relation")
-            else:
-                query = db.query(Horse)
-                logger.info("Query created without latest_auction relation")
-                
-            # リレーションが正しくロードされているか確認
-            logger.info(f"Horse model attributes: {dir(Horse)}")
-            logger.info(f"Horse model relationships: {Horse.__mapper__.relationships.keys()}")
-            
-            # 最新のオークション情報を取得して、total_prize_latestを更新
-            if latest_auction_bool and latest_date:
-                logger.info(f"Updating total_prize_latest for horses with latest auction date: {latest_date}")
-                # 最新のオークション情報を取得
-                latest_auctions = db.query(
-                    AuctionHistory.horse_id,
-                    AuctionHistory.price
-                ).filter(
-                    AuctionHistory.auction_date == latest_date
-                ).all()
-                
-                # 各馬のtotal_prize_latestを更新
-                for auction in latest_auctions:
-                    db.query(Horse).filter(
-                        Horse.id == auction.horse_id
-                    ).update({
-                        Horse.total_prize_latest: auction.price
-                    })
-                
-                # 変更をコミット
-                db.commit()
-                
-        except Exception as e:
-            logger.error(f"Error creating query: {str(e)}")
-            # エラーが発生した場合はリレーションをロードせずにクエリを作成
-            query = db.query(Horse)
-            logger.info("Created fallback query without relations")
+        # 最新のオークション情報を取得
+        latest_auctions = db.query(AuctionHistory).join(
+            latest_auction_subq,
+            and_(
+                AuctionHistory.id == latest_auction_subq.c.latest_auction_id,
+                AuctionHistory.horse_id == latest_auction_subq.c.horse_id
+            )
+        )
+
+        # 最新のオークション日を取得
+        latest_date = db.query(
+            func.max(AuctionHistory.auction_date)
+        ).scalar()
         
-        # 1. 最新のオークション日を取得（必要な場合）
-        latest_date = None
-        if latest_auction_bool:
-            logger.info("Getting latest auction date from auction_histories table...")
-            
-            # 最新のオークション日を直接取得
-            latest_date_result = db.query(
-                func.max(AuctionHistory.auction_date)
-            ).scalar()
-            
-            if latest_date_result:
-                latest_date = latest_date_result
-                logger.info(f"Latest auction date from auction_histories: {latest_date}")
-                
-                # 最新のオークション日を含む馬を取得
-                query = query.join(
-                    AuctionHistory, 
-                    Horse.id == AuctionHistory.horse_id
-                ).filter(
+        # 馬の基本クエリを構築
+        query = db.query(Horse).join(
+            latest_auction_subq,
+            Horse.id == latest_auction_subq.c.horse_id
+        )
+        
+        # オークション日でフィルタリング
+        if auction_date:
+            query = query.join(
+                AuctionHistory,
+                and_(
+                    Horse.id == AuctionHistory.horse_id,
+                    AuctionHistory.id == latest_auction_subq.c.latest_auction_id,
+                    AuctionHistory.auction_date.like(f'%{auction_date}%')
+                )
+            )
+        
+        # 最新のオークション日でフィルタリング
+        latest_auction_bool = latest_auction.lower() == 'true' or request.query_params.get('latest_auction', '').lower() == 'true'
+        if latest_auction_bool and latest_date:
+            query = query.join(
+                AuctionHistory,
+                and_(
+                    Horse.id == AuctionHistory.horse_id,
+                    AuctionHistory.id == latest_auction_subq.c.latest_auction_id,
                     AuctionHistory.auction_date == latest_date
-                ).distinct()
+                )
+            )
+        
+        # 総レコード数を取得
+        total_count = query.count()
+        
+        # ページネーションを適用
+        horses = query.offset(skip).limit(limit).all()
+        
+        # 最新のオークション情報をマージ
+        horse_dict = {horse.id: horse for horse in horses}
+        
+        # 最新のオークション情報を取得
+        latest_auction_data = {
+            auction.horse_id: auction 
+            for auction in latest_auctions.filter(
+                AuctionHistory.horse_id.in_(horse_dict.keys())
+            ).all()
+        }
+        
+        # 馬データに最新のオークション情報をマージ
+        result_horses = []
+        for horse in horses:
+            try:
+                horse_data = horse.__dict__
+                # 不要なSQLAlchemy内部属性を削除
+                horse_data = {k: v for k, v in horse_data.items() if not k.startswith('_sa_')}
                 
-                logger.info(f"Query after filtering by latest auction date: {query}")
-            else:
-                logger.warning("No auction dates found in auction_histories table")
-                return {"horses": [], "metadata": {"total": 0, "skip": skip, "limit": limit}}
+                if horse.id in latest_auction_data:
+                    auction = latest_auction_data[horse.id]
+                    # オークション情報を安全にマージ
+                    auction_dict = {}
+                    for attr in ['auction_date', 'price', 'sold_price', 'seller', 'comment', 'disease_tags', 'is_unsold']:
+                        if hasattr(auction, attr):
+                            auction_dict[attr] = getattr(auction, attr)
+                    
+                    # マージ（存在する属性のみ）
+                    horse_data.update(auction_dict)
+                    
+                    # sold_priceが存在しない場合はpriceを使用
+                    if 'sold_price' not in horse_data or horse_data['sold_price'] is None:
+                        horse_data['sold_price'] = horse_data.get('price')
+                    
+                    # unsold フラグを追加（is_unsold のエイリアス）
+                    if 'is_unsold' in horse_data:
+                        horse_data['unsold'] = horse_data['is_unsold']
+                
+                result_horses.append(horse_data)
+                
+            except Exception as e:
+                logger.error(f"Error processing horse {getattr(horse, 'id', 'unknown')}: {str(e)}", exc_info=True)
+                continue  # エラーが発生した馬はスキップ
+        
+        try:
+            return {
+                "horses": result_horses,
+                "metadata": {
+                    "total": total_count,
+                    "skip": skip,
+                    "limit": limit,
+                    "last_updated": datetime.utcnow().isoformat()
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error in get_horses response formatting: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "message": "An error occurred while formatting response",
+                    "error": str(e),
+                    "type": type(e).__name__
+                }
+            )
         
         # 3. フィルタリング
         print("\n3. Applying filters...")

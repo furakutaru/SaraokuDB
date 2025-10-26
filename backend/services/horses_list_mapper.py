@@ -65,14 +65,20 @@ def map_horses_list(horses: List[Any]) -> Tuple[List[Dict[str, Any]], List[Dict[
             # sold_price を取得（horses テーブルから直接取得）
             horse_dict['sold_price'] = getattr(horse, 'sold_price', None)
             
-            # is_unsold を設定（unsold_count が 1 以上の場合に True を設定）
-            horse_dict['is_unsold'] = bool(getattr(horse, 'unsold_count', 0) > 0)
+            # is_unsold を設定
+            # 1. 馬レコードに明示的に is_unsold が設定されている場合はそれを使用
+            # 2. 次に unsold_count が 1 以上の場合
+            # 3. 最後に sold_price が None または 0 の場合
+            horse_dict['is_unsold'] = getattr(horse, 'is_unsold', False) or \
+                                   bool(getattr(horse, 'unsold_count', 0) > 0) or \
+                                   (getattr(horse, 'sold_price', None) in (None, 0))
             
-            # デバッグ用ログ（sold_price の値を確認）
+            # デバッグ用ログ
             logger.debug(f"Processing horse - ID: {horse.id}, Name: {getattr(horse, 'name', 'N/A')}, "
-                       f"sold_price: {horse_dict['sold_price']}, "
+                       f"sold_price: {getattr(horse, 'sold_price', 'N/A')}, "
+                       f"is_unsold: {getattr(horse, 'is_unsold', 'N/A')}, "
                        f"unsold_count: {getattr(horse, 'unsold_count', 0)}, "
-                       f"is_unsold: {horse_dict['is_unsold']}")
+                       f"final_is_unsold: {horse_dict['is_unsold']}")
             
             if latest_auction:
                 # オークション履歴を追加

@@ -11,11 +11,14 @@ interface PriceDisplayProps {
 
 export default function PriceDisplay({ soldPrice, isUnsold, unsold }: PriceDisplayProps) {
   const price = typeof soldPrice === 'number' ? soldPrice : null;
-  if (price !== null && price > 0) {
+  
+  // 主取りの判定
+  const isActuallyUnsold = isUnsold || unsold || (price !== null && price <= 0);
+  
+  if (price !== null && price > 0 && !isActuallyUnsold) {
     return <>{formatPrice(price)}</>;
   }
-  if (isUnsold === true || unsold === true) {
-    return <>主取り</>;
-  }
-  return <>-</>;
+  
+  // 主取りの場合の表示
+  return <span className="text-red-600 font-semibold">主取り</span>;
 }

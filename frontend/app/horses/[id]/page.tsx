@@ -762,10 +762,24 @@ const RaceRecordDisplay = ({ record, raceRecords }: { record: any, raceRecords?:
     if (raceRecords) {
       // race_records が文字列の場合はパースを試みる
       if (typeof raceRecords === 'string') {
-        try {
-          raceRecords = JSON.parse(raceRecords);
-        } catch (e) {
-          console.error('race_records のパースに失敗しました:', e);
+        // 空文字列や空白のみの場合はスキップ
+        if (raceRecords.trim() === '') {
+          raceRecords = null;
+        } else {
+          try {
+            // 不正なJSON文字列を事前にチェック
+            const trimmedRecord = raceRecords.trim();
+            if ((trimmedRecord.startsWith('{') && trimmedRecord.endsWith('}')) || 
+                (trimmedRecord.startsWith('[') && trimmedRecord.endsWith(']'))) {
+              raceRecords = JSON.parse(trimmedRecord);
+            } else {
+              console.warn('無効なJSON形式のrace_records:', raceRecords);
+              raceRecords = null;
+            }
+          } catch (e) {
+            console.error('race_records のパースに失敗しました:', e, '値:', raceRecords);
+            raceRecords = null;
+          }
         }
       }
       

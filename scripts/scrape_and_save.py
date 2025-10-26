@@ -95,22 +95,17 @@ class ScraperClient:
     def authenticate(self):
         """API認証を行いトークンを取得"""
         try:
-            auth_url = f"{self.api_base_url}/api/auth/token"
+            # 認証URLを修正（/api を削除）
+            auth_url = f"{self.api_base_url}/auth/token"
             logger.info(f"認証URL: {auth_url}")
             
-            # リクエストデータを準備
-            auth_data = {
-                'username': self.api_username,
-                'password': self.api_password
-            }
-            
-            # 認証リクエストを送信（JSON形式で送信）
+            # 認証リクエストを送信（x-www-form-urlencoded形式で送信）
             response = self.session.post(
                 auth_url,
-                json=auth_data,
                 data={
-                    'username': 'furakutaru',
-                    'password': 'uma_5272002'
+                    'username': self.api_username,
+                    'password': self.api_password,
+                    'grant_type': 'password'  # OAuth2の場合は必要
                 },
                 headers={
                     'Content-Type': 'application/x-www-form-urlencoded',
