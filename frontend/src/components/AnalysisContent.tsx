@@ -77,23 +77,36 @@ const formatPrize = (value: number | string | null | undefined, raceRecord?: any
   // デバッグ用のログを追加
   console.log('formatPrize - value:', value, 'raceRecord:', raceRecord);
   
-  // レース成績が「データなし」または空のオブジェクト、またはレース成績がない場合は「未出走」を返す
-  const isEmptyRaceRecord = 
-    raceRecord === undefined || 
-    raceRecord === null || 
-    raceRecord === 'データなし' || 
-    (raceRecord && typeof raceRecord === 'object' && Object.keys(raceRecord).length === 0) ||
-    (raceRecord && typeof raceRecord === 'object' && raceRecord.formatted_record === 'データなし') ||
-    (raceRecord && typeof raceRecord === 'object' && raceRecord.total_races === 0) ||
-    (raceRecord && typeof raceRecord === 'object' && 
-     !('total_races' in raceRecord) && 
-     !('formatted_record' in raceRecord) && 
-     !('wins' in raceRecord)) ||
-    (raceRecord && typeof raceRecord === 'object' && raceRecord.record_format === 'simple' && raceRecord.total_races === 0);
+  // value が存在する場合（null, undefined, 空文字列でない場合）は未出走と判定しない
+  // 0 の場合もスクレイピング待ちの可能性があるので未出走と表示しない
+  if (value !== null && value !== undefined && value !== '') {
+    // 数値に変換
+    const numValue = Number(value);
+    // 数値が有効（NaN でない）場合はそのまま処理を続行
+    // 0 の場合もそのまま処理を続行（未出走と表示しない）
+    if (isNaN(numValue)) {
+      // 無効な値（数値に変換できない）場合はデフォルト値を返す
+      return '-';
+    }
+  } else {
+    // レース成績が「データなし」または空のオブジェクト、またはレース成績がない場合は「未出走」を返す
+    const isEmptyRaceRecord = 
+      raceRecord === undefined || 
+      raceRecord === null || 
+      raceRecord === 'データなし' || 
+      (raceRecord && typeof raceRecord === 'object' && Object.keys(raceRecord).length === 0) ||
+      (raceRecord && typeof raceRecord === 'object' && raceRecord.formatted_record === 'データなし') ||
+      (raceRecord && typeof raceRecord === 'object' && raceRecord.total_races === 0) ||
+      (raceRecord && typeof raceRecord === 'object' && 
+      !('total_races' in raceRecord) && 
+      !('formatted_record' in raceRecord) && 
+      !('wins' in raceRecord)) ||
+      (raceRecord && typeof raceRecord === 'object' && raceRecord.record_format === 'simple' && raceRecord.total_races === 0);
 
-  if (isEmptyRaceRecord) {
-    console.log('formatPrize - 未出走と判定');
-    return '未出走';
+    if (isEmptyRaceRecord) {
+      console.log('formatPrize - 未出走と判定');
+      return '未出走';
+    }
   }
   
   if (value === null || value === undefined || value === '') return '-';

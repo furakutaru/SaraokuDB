@@ -9,13 +9,15 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy.orm import joinedload
 from sqlalchemy import func, and_
 
-# ロガーの初期化（最初に設定）
+# ロガーの設定
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 handler = logging.StreamHandler()
+handler.setLevel(logging.INFO)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
 handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logger.addHandler(handler)
 
@@ -200,6 +202,14 @@ async def get_horses(
         
         latest_auction_bool = latest_auction.lower() == 'true' or request.query_params.get('latest_auction', '').lower() == 'true'
         
+        # 最新のオークション日を取得
+        latest_date = None
+        if latest_auction_bool:
+            latest_date = db.query(
+                func.max(AuctionHistory.auction_date)
+            ).scalar()
+            logger.info(f"Latest auction date: {latest_date}")
+
         # クエリオブジェクトの初期化
         try:
             # まずリレーションが存在するか確認
@@ -215,6 +225,28 @@ async def get_horses(
             # リレーションが正しくロードされているか確認
             logger.info(f"Horse model attributes: {dir(Horse)}")
             logger.info(f"Horse model relationships: {Horse.__mapper__.relationships.keys()}")
+            
+            # 最新のオークション情報を取得して、total_prize_latestを更新
+            if latest_auction_bool and latest_date:
+                logger.info(f"Updating total_prize_latest for horses with latest auction date: {latest_date}")
+                # 最新のオークション情報を取得
+                latest_auctions = db.query(
+                    AuctionHistory.horse_id,
+                    AuctionHistory.price
+                ).filter(
+                    AuctionHistory.auction_date == latest_date
+                ).all()
+                
+                # 各馬のtotal_prize_latestを更新
+                for auction in latest_auctions:
+                    db.query(Horse).filter(
+                        Horse.id == auction.horse_id
+                    ).update({
+                        Horse.total_prize_latest: auction.price
+                    })
+                
+                # 変更をコミット
+                db.commit()
                 
         except Exception as e:
             logger.error(f"Error creating query: {str(e)}")
@@ -319,7 +351,17 @@ async def get_horses(
                 if hasattr(horse, 'latest_auction') and horse.latest_auction is not None:
                     # リレーションが既にロードされていることを確認
                     _ = horse.latest_auction.id
-                horses_data.append(serialize_horse(horse, include_auction=include_auction))
+                
+                # 馬データをシリアライズ
+                horse_data = serialize_horse(horse, include_auction=include_auction)
+                
+                # total_prize_start と total_prize_latest を追加
+                if hasattr(horse, 'total_prize_start'):
+                    horse_data['total_prize_start'] = _parse_first_int(horse.total_prize_start)
+                if hasattr(horse, 'total_prize_latest'):
+                    horse_data['total_prize_latest'] = _parse_first_int(horse.total_prize_latest)
+                
+                horses_data.append(horse_data)
             auction_histories = []  # 互換性のため空のリストを設定
                 
             print(f"\n=== フロントエンド用データ変換後 ===")
@@ -453,6 +495,12 @@ async def get_horse(horse_id: str, db: Session = Depends(get_db)):
     
     # 正規化と辞書構築は専用サービスに委譲
     serialized = serialize_horse(horse)
+    
+    # total_prize_start と total_prize_latest を追加
+    if hasattr(horse, 'total_prize_start'):
+        serialized['total_prize_start'] = _parse_first_int(horse.total_prize_start)
+    if hasattr(horse, 'total_prize_latest'):
+        serialized['total_prize_latest'] = _parse_first_int(horse.total_prize_latest)
     
     # シリアライズ後の disease_tags をログに出力
     logger.info(f"Serialized horse data with disease_tags: {json.dumps(serialized.get('disease_tags'), default=str)}")
