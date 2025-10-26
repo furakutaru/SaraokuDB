@@ -79,3 +79,7 @@ node_modules/
 
 # Webpack cache
 frontend/.next/cache/webpack/
+
+# Cache files
+scripts/cache/
+scripts/debug_comment_page.html
