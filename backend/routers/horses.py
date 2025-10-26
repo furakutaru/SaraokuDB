@@ -8,8 +8,9 @@ from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import joinedload
+from sqlalchemy import func, and_
 
 # ロガーの初期化（最初に設定）
 logger = logging.getLogger(__name__)
@@ -19,15 +20,17 @@ handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s -
 logger.addHandler(handler)
 
 # データベース関連のインポート
-from database.models import Horse, get_db, AuctionHistory  # AuctionHistory を追加
-from database.schemas import HorseResponse
-from services.horse_serializer import serialize_horse
-from services.horses_list_mapper import map_horses_list
+from backend.database import get_db
+from backend.database.models import Horse, AuctionHistory
+from backend.database.schemas import HorseResponse
+from backend.services.horse_serializer import serialize_horse, _parse_first_int
+from backend.services.horses_list_mapper import map_horses_list
 
 # スクリプトのディレクトリをパスに追加
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
 scripts_dir = os.path.join(project_root, 'scripts')
+components_dir = os.path.join(project_root, 'scripts', 'components')
 components_dir = os.path.join(scripts_dir, 'components')
 
 # 必要なディレクトリをsys.pathに追加
@@ -39,35 +42,9 @@ for path in [project_root, scripts_dir, components_dir]:
 # 現在のPythonパスをログに出力
 logger.info(f"Python path: {sys.path}")
 
-# 疾病情報抽出モジュールをインポート
-try:
-    # 相対インポートを試みる
-    try:
-        from scripts.components.disease_info_extractor import DiseaseInfoExtractor
-        logger.info("Successfully imported DiseaseInfoExtractor from scripts.components")
-    except ImportError:
-        # 相対インポートが失敗した場合は直接インポートを試みる
-        from disease_info_extractor import DiseaseInfoExtractor
-        logger.info("Successfully imported DiseaseInfoExtractor directly")
-    
-    # モジュールが正しくインポートされたか確認
-    if DiseaseInfoExtractor is None:
-        raise ImportError("DiseaseInfoExtractor is None")
-        
-except ImportError as e:
-    logger.error(f"Failed to import DiseaseInfoExtractor: {e}", exc_info=True)
-    logger.error(f"Current working directory: {os.getcwd()}")
-    logger.error(f"Module search paths: {sys.path}")
-    
-    # モジュールが見つからない場合のフォールバック実装
-    class DiseaseInfoExtractor:
-        def __init__(self, logger=None):
-            self.logger = logger
-            
-        def extract(self, text):
-            if self.logger:
-                self.logger.warning("Using fallback DiseaseInfoExtractor")
-            return {"diseases": []}
+# 疾病情報抽出モジュールを一時的に無効化
+logger.info("DiseaseInfoExtractor is temporarily disabled")
+DiseaseInfoExtractor = None
 
 # ルーターの設定
 # Vercelでは /api が自動的には付与されないため、完全なパスを指定する
@@ -109,15 +86,6 @@ async def extract_disease_tags(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error extracting disease tags: {str(e)}"
         )
-# ロガー設定はファイルの先頭で既に行っているため、削除
-
-# デバッグ用に現在のモジュールのパスをログに出力
-logger.info(f"Loading {__name__} module")
-
-# デバッグ用に現在のファイルのパスを表示
-import os
-logger.info(f"Current file path: {os.path.abspath(__file__)}")
-logger.info(f"Current working directory: {os.getcwd()}")
 
 @router.get("/latest", response_model=Dict[str, Any], tags=["horses"])
 async def get_latest_horses(
@@ -193,7 +161,8 @@ async def get_horses(
     skip: int = 0,
     limit: int = 100,
     auction_date: Optional[str] = None,
-    latest_auction: str = 'false',
+    latest_auction: str = 'false',  # デフォルトですべての馬を表示
+    include_latest_auction: str = 'true',  # 最新のオークション情報を含める
     db: Session = Depends(get_db)
 ):
     """馬の一覧を取得するエンドポイント
@@ -203,6 +172,7 @@ async def get_horses(
         limit: 取得する最大レコード数
         auction_date: オークション日でフィルタリング（部分一致）
         latest_auction: 'true'の場合、最新のオークション日でフィルタリング
+        include_latest_auction: 'true'の場合、最新のオークション情報を含める
         
     Returns:
         {
@@ -220,11 +190,37 @@ async def get_horses(
         logger.info(f"Query params: {request.query_params}")
         logger.info(f"latest_auction: {latest_auction}, type: {type(latest_auction)}")
         
+        # Horse モデルの属性を確認
+        logger.info(f"Horse model attributes: {dir(Horse)}")
+        logger.info(f"Horse model __table__: {Horse.__table__.columns.keys() if hasattr(Horse, '__table__') else 'No __table__ attribute'}")
+        if hasattr(Horse, 'latest_auction'):
+            logger.info("Horse model has 'latest_auction' attribute")
+        else:
+            logger.error("Horse model does NOT have 'latest_auction' attribute")
+        
         latest_auction_bool = latest_auction.lower() == 'true' or request.query_params.get('latest_auction', '').lower() == 'true'
         
         # クエリオブジェクトの初期化
-        query = db.query(Horse)
-        print(f"Query object created: {query}")
+        try:
+            # まずリレーションが存在するか確認
+            if hasattr(Horse, 'latest_auction'):
+                query = db.query(Horse).options(
+                    joinedload(Horse.latest_auction)
+                )
+                logger.info("Query created with latest_auction relation")
+            else:
+                query = db.query(Horse)
+                logger.info("Query created without latest_auction relation")
+                
+            # リレーションが正しくロードされているか確認
+            logger.info(f"Horse model attributes: {dir(Horse)}")
+            logger.info(f"Horse model relationships: {Horse.__mapper__.relationships.keys()}")
+                
+        except Exception as e:
+            logger.error(f"Error creating query: {str(e)}")
+            # エラーが発生した場合はリレーションをロードせずにクエリを作成
+            query = db.query(Horse)
+            logger.info("Created fallback query without relations")
         
         # 1. 最新のオークション日を取得（必要な場合）
         latest_date = None
@@ -274,6 +270,12 @@ async def get_horses(
         # 4. データの取得と辞書への変換
         print("\n4. Fetching and processing data...")
         try:
+            # 最新のオークション情報を含める場合
+            if include_latest_auction.lower() == 'true':
+                query = query.options(
+                    joinedload(Horse.latest_auction)
+                )
+            
             # データベースから取得
             print("\n=== 実行するSQLクエリ ===")
             print(str(query.statement.compile(compile_kwargs={"literal_binds": True})))
@@ -289,6 +291,11 @@ async def get_horses(
                 name_list[name] = name_list.get(name, 0) + 1
                 print("{0:3d}. ID: {1}, 馬名: {2}, 重複回数: {3}".format(
                     i, horse.id, name, name_list[name]))
+                
+                # 最新のオークション情報を表示（デバッグ用）
+                if hasattr(horse, 'latest_auction') and horse.latest_auction:
+                    auction = horse.latest_auction
+                    print(f"    最新オークション: 日付={auction.auction_date}, 価格={auction.price}, 未売れ={auction.is_unsold}")
             
             # 重複している馬名を表示
             final_duplicates = {name: count for name, count in name_list.items() if count > 1}
@@ -298,14 +305,23 @@ async def get_horses(
                     print(f"- {name}: {count}回")
             else:
                 print("\n最終結果に重複する馬名は見つかりませんでした。")
-            # サービスでフロントエンド用の配列へ変換
+                
+            # フロントエンド用データ変換
             print("\n=== フロントエンド用データ変換前の馬一覧 ===")
             for i, horse in enumerate(horses, 1):
-                print(f"{i:3d}. ID: {horse.id}, 馬名: {horse.name}, オークション日: {horse.auction_date}")
+                print(f"{i:3d}. ID: {horse.id}, 馬名: {horse.name}")
             
-            # map_horses_listは (horses_data, auction_histories) のタプルを返す
-            horses_data, auction_histories = map_horses_list(horses)
-            
+            # 最新のオークション情報を含めてシリアライズ
+            include_auction = include_latest_auction.lower() == 'true'
+            horses_data = []
+            for horse in horses:
+                # 明示的にリレーションをロード
+                if hasattr(horse, 'latest_auction') and horse.latest_auction is not None:
+                    # リレーションが既にロードされていることを確認
+                    _ = horse.latest_auction.id
+                horses_data.append(serialize_horse(horse, include_auction=include_auction))
+            auction_histories = []  # 互換性のため空のリストを設定
+                
             print(f"\n=== フロントエンド用データ変換後 ===")
             print(f"変換された馬の数: {len(horses_data)}頭")
             print(f"オークション履歴の数: {len(auction_histories)}件")
@@ -355,10 +371,10 @@ async def get_horses(
         
         # フロントエンドが期待する形式に合わせてレスポンスを整形
         response = {
-            "horses": horses_data,
-            "auction_histories": auction_histories,
+            "horses": horses_data if 'horses_data' in locals() else [],
+            "auction_histories": auction_histories if 'auction_histories' in locals() else [],
             "metadata": {
-                "total": total_count,
+                "total": total_count if 'total_count' in locals() else 0,
                 "skip": skip,
                 "limit": limit,
                 "last_updated": datetime.utcnow().isoformat()

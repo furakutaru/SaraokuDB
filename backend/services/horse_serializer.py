@@ -77,45 +77,79 @@ def _parse_last_str(value: Any) -> Optional[str]:
     return str(value)
 
 
-def serialize_horse(horse: Any) -> Dict[str, Any]:
+def serialize_horse(horse: Any, include_auction: bool = False) -> Dict[str, Any]:
     """
     Convert a Horse ORM object into a response dict matching HorseResponse
     with normalized primitives for age/sold_price/etc.
-    """
-    age_norm = _parse_first_int(getattr(horse, 'age', None))
-    sold_price = getattr(horse, 'sold_price', None)
-    sold_price_norm = _parse_first_int(sold_price) if sold_price is not None else None
-    auction_date_norm = _parse_last_str(getattr(horse, 'auction_date', None))
-    seller_norm = _parse_first_str(getattr(horse, 'seller', None))
-    sex_norm = _parse_first_str(getattr(horse, 'sex', None))
-    comment_norm = _parse_first_str(getattr(horse, 'comment', None))
     
-    # デバッグ用にsold_priceの値をログに出力
-    print(f"DEBUG - sold_price: {sold_price}, sold_price_norm: {sold_price_norm}")
-
-    return {
-        "id": getattr(horse, 'id', None),
-        "name": getattr(horse, 'name', None),
-        "auction_id": getattr(horse, 'auction_id', None),
-        "sex": sex_norm,
-        "age": age_norm,
-        "sire": getattr(horse, 'sire', None),
-        "dam": getattr(horse, 'dam', None),
-        "dam_sire": getattr(horse, 'dam_sire', None),
-        "race_record": getattr(horse, 'race_record', None),
-        "weight": getattr(horse, 'weight', None),
-        "total_prize_start": getattr(horse, 'total_prize_start', None),
-        "total_prize_latest": getattr(horse, 'total_prize_latest', None),
-        "sold_price": sold_price_norm,
-        "auction_date": auction_date_norm,
-        "seller": seller_norm,
-        "disease_tags": getattr(horse, 'disease_tags', None),
-        "comment": comment_norm,
-        "image_url": getattr(horse, 'image_url', None),
-        "jbis_url": getattr(horse, 'jbis_url', ''),
-        "detail_url": getattr(horse, 'detail_url', ''),
-        "rakuten_url": getattr(horse, 'rakuten_url', ''),
-        "auction_url": getattr(horse, 'auction_url', ''),
-        "created_at": getattr(horse, 'created_at', None) or datetime.utcnow().isoformat(),
-        "updated_at": getattr(horse, 'updated_at', None) or datetime.utcnow().isoformat(),
+    Args:
+        horse: Horse ORM object or dict
+        include_auction: Whether to include latest auction information
+    """
+    if not horse:
+        return None
+        
+    # Handle SQLAlchemy model or dict-like object
+    if hasattr(horse, '__dict__'):
+        data = horse.__dict__.copy()
+        # Remove SQLAlchemy internal attributes
+        data.pop('_sa_instance_state', None)
+    else:
+        data = dict(horse)
+    
+    # Normalize fields that might be stored as JSON-like strings
+    data['age'] = _parse_first_int(data.get('age'))
+    data['sold_price'] = _parse_first_int(data.get('sold_price'))
+    data['is_unsold'] = data.get('is_unsold', False)
+    
+    # 最新のオークション情報を取得
+    latest_auction = None
+    if include_auction and hasattr(horse, 'latest_auction') and horse.latest_auction:
+        auction = horse.latest_auction
+        latest_auction = {
+            'id': auction.id,
+            'auction_date': auction.auction_date.isoformat() if hasattr(auction, 'auction_date') and auction.auction_date else None,
+            'price': float(auction.price) if hasattr(auction, 'price') and auction.price is not None else None,
+            'is_unsold': auction.is_unsold if hasattr(auction, 'is_unsold') else False,
+            'comment': auction.comment if hasattr(auction, 'comment') else None,
+            'created_at': auction.created_at.isoformat() if hasattr(auction, 'created_at') and auction.created_at else None,
+            'updated_at': auction.updated_at.isoformat() if hasattr(auction, 'updated_at') and auction.updated_at else None
+        }
+    
+    # 日付フィールドの処理用ヘルパー
+    def safe_isoformat(dt):
+        if hasattr(dt, 'isoformat'):
+            return dt.isoformat()
+        return dt.isoformat() if hasattr(dt, 'isoformat') else None
+    
+    # 結果の辞書を作成
+    result = {
+        'id': data.get('id'),
+        'name': data.get('name'),
+        'breed': data.get('breed'),
+        'age': data.get('age'),
+        'sold_price': data.get('sold_price'),
+        'is_unsold': data.get('is_unsold', False),
+        'created_at': safe_isoformat(data.get('created_at')) if data.get('created_at') else None,
+        'updated_at': safe_isoformat(data.get('updated_at')) if data.get('updated_at') else None,
+        'auction_date': safe_isoformat(data.get('auction_date')) if data.get('auction_date') else None,
+        'auction_id': data.get('auction_id'),
+        'sex': data.get('sex'),
+        'sire': data.get('sire'),
+        'dam': data.get('dam'),
+        'damsire': data.get('damsire'),
+        'weight': data.get('weight'),
+        'seller': data.get('seller'),
+        'comment': data.get('comment'),
+        'disease_tags': data.get('disease_tags'),
+        'detail_url': data.get('detail_url'),
+        'image_url': data.get('image_url'),
+        'jbis_url': data.get('jbis_url', ''),
+        'rakuten_url': data.get('rakuten_url', ''),
+        'auction_url': data.get('auction_url', ''),
+        'race_records': data.get('race_records', []),
+        'pedigree': data.get('pedigree'),
+        'latest_auction': latest_auction
     }
+    
+    return result

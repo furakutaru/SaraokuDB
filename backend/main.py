@@ -67,6 +67,16 @@ app = FastAPI(
     redoc_url=None
 )
 
+# CORSミドルウェアの設定
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # すべてのオリジンを許可（本番環境では適切に制限してください）
+    allow_credentials=True,
+    allow_methods=["*"],  # すべてのHTTPメソッドを許可
+    allow_headers=["*"],  # すべてのヘッダーを許可
+    expose_headers=["*"]  # すべてのレスポンスヘッダーを公開
+)
+
 # Include routers
 # 各ルーターのprefixは各ファイルで設定されているため、ここでは指定しない
 app.include_router(health_router)
@@ -74,24 +84,6 @@ app.include_router(auth_router)
 app.include_router(debug_router)
 app.include_router(horses.router)
 app.include_router(auction_histories_router)
-
-# CORS settings
-# 許可するオリジンを明示的に指定
-origins = [
-    "http://localhost:3000",  # ローカル開発環境
-    "http://localhost:8000",  # 代替ポート
-    "https://saraoku-db.vercel.app",  # 本番環境
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["Content-Disposition"],
-)
-
 
 # Root endpoint
 @app.get("/")

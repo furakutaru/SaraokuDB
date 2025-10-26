@@ -60,7 +60,20 @@ class Horse(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # リレーションシップ
-    auction_histories = relationship("AuctionHistory", back_populates="horse")
+    auction_histories = relationship(
+        "AuctionHistory", 
+        back_populates="horse",
+        foreign_keys="[AuctionHistory.horse_id]"  # 明示的に外部キーを指定
+    )
+    latest_auction_id = Column(Integer, ForeignKey('auction_histories.id'), nullable=True)
+    latest_auction = relationship(
+        "AuctionHistory",
+        primaryjoin="Horse.latest_auction_id == AuctionHistory.id",
+        foreign_keys=[latest_auction_id],
+        uselist=False,
+        post_update=True,
+        lazy='joined'  # 常に結合してロード
+    )
     owner_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     owner = relationship("User", back_populates="horses")
 
@@ -86,7 +99,18 @@ class AuctionHistory(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # リレーションシップ
-    horse = relationship("Horse", back_populates="auction_histories")
+    horse = relationship(
+        "Horse", 
+        back_populates="auction_histories",
+        foreign_keys=[horse_id]  # 明示的に外部キーを指定
+    )
+    latest_horse = relationship(
+        "Horse",
+        primaryjoin="AuctionHistory.id == Horse.latest_auction_id",
+        foreign_keys="[Horse.latest_auction_id]",
+        uselist=False,
+        post_update=True
+    )
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     user = relationship("User", back_populates="auction_histories")
 

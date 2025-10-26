@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Tuple
 import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from database.models import get_db, AuctionHistory
+from backend.database.models import get_db, AuctionHistory
 
 def map_horses_list(horses: List[Any]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """

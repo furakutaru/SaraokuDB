@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from .base import Base
 
 class Horse(Base):
@@ -9,3 +10,6 @@ class Horse(Base):
     breed = Column(String)
     age = Column(Integer)
     created_at = Column(DateTime, server_default='now()')
+    latest_auction_id = Column(Integer, ForeignKey('auction_histories.id'), nullable=True)
+    
+    # リレーションシップは __init__.py で定義
