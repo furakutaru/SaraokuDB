@@ -249,7 +249,7 @@ def update_database(session, horses_data: List[Dict[str, Any]]) -> Tuple[int, in
                 auction_id = horse_data['auction_id']
                 logger.debug(f"[{i}/{len(horses_data)}] 処理中: ID={auction_id}, 馬名={horse_data.get('name', '不明')}")
                 
-                # 既存のデータを検索
+                # 既存のデータを検索（auction_id で検索）
                 horse = session.query(Horse).filter_by(auction_id=auction_id).first()
                 
                 if horse:

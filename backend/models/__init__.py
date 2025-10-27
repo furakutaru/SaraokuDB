@@ -5,7 +5,7 @@ from .horse import Horse
 from .auction_history import AuctionHistory
 
 # 循環インポートを避けるために、リレーションシップはここで設定
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 
 def setup_relationships():
     """モデル間のリレーションシップを設定する"""
@@ -33,18 +33,9 @@ def setup_relationships():
     if not hasattr(AuctionHistory, 'horse'):
         AuctionHistory.horse = relationship(
             "Horse",
-            back_populates="auction_histories",
-            foreign_keys="[AuctionHistory.horse_id]"
-        )
-    
-    if not hasattr(AuctionHistory, 'latest_horse'):
-        AuctionHistory.latest_horse = relationship(
-            "Horse",
-            back_populates="latest_auction",
-            foreign_keys="[AuctionHistory.id]",
-            post_update=True,
-            uselist=False,
-            viewonly=False
+            foreign_keys="[AuctionHistory.horse_id]",
+            backref=backref("auction_histories", order_by="AuctionHistory.auction_date.desc()"),
+            viewonly=True  # 読み取り専用に設定
         )
 
 # リレーションシップを設定
@@ -54,12 +45,4 @@ setup_relationships()
 if not hasattr(Horse, 'latest_auction'):
     raise RuntimeError("Failed to set up latest_auction relationship on Horse model")
 
-if not hasattr(AuctionHistory, 'latest_horse'):
-    raise RuntimeError("Failed to set up latest_horse relationship on AuctionHistory model")
-
-# リレーションシップが正しく設定されたか確認
-if not hasattr(Horse, 'latest_auction'):
-    raise RuntimeError("Failed to set up latest_auction relationship on Horse model")
-
-if not hasattr(AuctionHistory, 'latest_horse'):
-    raise RuntimeError("Failed to set up latest_horse relationship on AuctionHistory model")
+# latest_horse リレーションシップは削除されたため、チェックを削除

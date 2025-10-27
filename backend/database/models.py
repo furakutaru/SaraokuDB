@@ -72,7 +72,8 @@ class Horse(Base):
         foreign_keys=[latest_auction_id],
         uselist=False,
         post_update=True,
-        lazy='joined'  # 常に結合してロード
+        lazy='joined',  # 常に結合してロード
+        overlaps="latest_horse"  # 双方向リレーションシップの競合を解決
     )
     owner_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     owner = relationship("User", back_populates="horses")
@@ -117,7 +118,8 @@ class AuctionHistory(Base):
         primaryjoin="AuctionHistory.id == Horse.latest_auction_id",
         foreign_keys="[Horse.latest_auction_id]",
         uselist=False,
-        post_update=True
+        post_update=True,
+        overlaps="latest_auction"  # 双方向リレーションシップの競合を解決
     )
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     user = relationship("User", back_populates="auction_histories")
