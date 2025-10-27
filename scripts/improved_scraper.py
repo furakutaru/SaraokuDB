@@ -191,7 +191,7 @@ logger = logging.getLogger(__name__)
 # 馬データを保存する関数
 def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    馬データをJSONファイルに保存する
+    馬データをデータベースに保存する
     
     Args:
         horse_data: 保存する馬データの辞書
@@ -199,89 +199,159 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dict: 保存結果を含む辞書
     """
+    db = None
     try:
-        # 保存先ファイルパス
-        json_file = Path('static-frontend/public/data/horses.json')
+        # データベースセッションを取得
+        db = get_db_session()
         
         # 必須フィールドの確認
-        required_fields = ['id', 'name', 'sex', 'age', 'sire', 'dam', 'damsire', 'jbis_url']
+        required_fields = ['id', 'name']
         for field in required_fields:
             if field not in horse_data or not horse_data[field]:
-                horse_data[field] = ''  # 必須フィールドがなければ空文字を設定
+                error_msg = f"馬データに必須のフィールド '{field}' が不足しています"
+                logger.error(error_msg)
+                return {'error': error_msg}
         
-        # 既存のデータを読み込む（存在する場合）
-        existing_data = []
-        metadata = {}
+        # オプショナルフィールドにデフォルト値を設定
+        optional_fields = {
+            'sex': '',
+            'age': None,
+            'sire': '',
+            'dam': '',
+            'damsire': '',
+            'jbis_url': '',
+            'image_url': '',
+            'birthday': None,
+            'trainer': '',
+            'owner': '',
+            'breeder': '',
+            'color': '',
+            'location': ''
+        }
         
-        if json_file.exists():
-            try:
-                with open(json_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    if isinstance(data, dict) and 'horses' in data:
-                        existing_data = data['horses']
-                        metadata = data.get('metadata', {})
-                    elif isinstance(data, list):
-                        existing_data = data
-                        metadata = {}
-                    else:
-                        logger.warning("不正なデータ形式です。新しいデータで上書きします。")
-            except Exception as e:
-                logger.error(f"既存データの読み込みに失敗しました: {str(e)}")
+        # オプショナルフィールドを設定
+        for field, default in optional_fields.items():
+            if field not in horse_data or horse_data[field] is None:
+                horse_data[field] = default
         
-        # メタデータを更新
-        metadata.update({
-            'version': '1.0',
-            'last_updated': datetime.now().isoformat(),
-            'total_horses': len(existing_data) + (0 if any(str(h.get('id')) == str(horse_data.get('id', '')) for h in existing_data) else 1)
-        })
+        # 既存の馬を検索
+        horse = db.query(Horse).filter(Horse.id == horse_data['id']).first()
         
-        # 馬IDが指定されていない場合はエラー
-        horse_id = horse_data.get('id')
-        if not horse_id:
-            error_msg = "馬IDが指定されていません。オークションページのIDを指定してください"
+        if horse:
+            # 既存の馬データを更新
+            for key, value in horse_data.items():
+                if hasattr(horse, key) and key != 'id':  # IDは更新しない
+                    setattr(horse, key, value)
+            action = 'updated'
+        else:
+            # 新しい馬データを作成
+            horse = Horse(**horse_data)
+            db.add(horse)
+            action = 'created'
+        
+        # 変更をコミット
+        db.commit()
+        
+        logger.info(f"馬データをデータベースに保存しました: {horse.name} (ID: {horse.id}, アクション: {action})")
+        return {'success': True, 'id': horse.id, 'action': action}
+        
+    except Exception as e:
+        error_msg = f"馬データのデータベース保存中にエラーが発生しました: {str(e)}"
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())
+        if db:
+            db.rollback()
+        return {'error': error_msg, 'traceback': traceback.format_exc()}
+    finally:
+        if db:
+            db.close()
+
+def get_db_session():
+    """データベースセッションを取得する"""
+    try:
+        # 接続オプションを設定
+        connect_args = {}
+        if DATABASE_URL.startswith('sqlite'):
+            connect_args = {"check_same_thread": False}
+            
+        # エンジンを作成
+        engine = create_engine(
+            DATABASE_URL,
+            connect_args=connect_args,
+            pool_pre_ping=True
+        )
+        
+        # テーブルが存在しない場合は作成
+        if not BACKEND_AVAILABLE:
+            Base.metadata.create_all(bind=engine)
+            
+        Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        return Session()
+    except Exception as e:
+        logger.error(f"データベース接続エラー: {str(e)}")
+        raise
+
+def save_auction_history(auction_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    オークション履歴をデータベースに保存する
+    
+    Args:
+        auction_data: 保存するオークションデータの辞書
+        
+    Returns:
+        Dict: 保存結果を含む辞書
+    """
+    db = None
+    try:
+        # データベースセッションを取得
+        db = get_db_session()
+        
+        # 必須フィールドの確認
+        if 'horse_id' not in auction_data or 'auction_date' not in auction_data:
+            error_msg = "オークション履歴に必須のフィールドが不足しています"
             logger.error(error_msg)
             return {'error': error_msg}
         
-        # 既存の馬データを更新または新規追加
-        updated = False
-        for i, horse in enumerate(existing_data):
-            if str(horse.get('id')) == horse_id:
-                # 既存の馬データを更新（IDはそのまま）
-                existing_data[i].update(horse_data)
-                updated = True
-                logger.info(f"既存の馬データを更新しました: {horse_data.get('name')} (ID: {horse_id})")
-                break
-                
-        if not updated:
-            # 新しい馬データを追加
-            existing_data.append(horse_data)
-            logger.info(f"新しい馬データを追加しました: {horse_data.get('name')} (ID: {horse_id})")
+        # 既存のオークション履歴を検索
+        history = db.query(AuctionHistory).filter(
+            AuctionHistory.horse_id == auction_data['horse_id'],
+            AuctionHistory.auction_date == auction_data['auction_date']
+        ).first()
         
-        # データを新しい形式で保存
-        data_to_save = {
-            'metadata': metadata,
-            'horses': existing_data
-        }
+        if history:
+            # 既存のオークション履歴を更新
+            for key, value in auction_data.items():
+                if hasattr(history, key):
+                    setattr(history, key, value)
+            action = 'updated'
+        else:
+            # 新しいオークション履歴を作成
+            history = AuctionHistory(**auction_data)
+            db.add(history)
+            action = 'created'
         
-        # 一時ファイルに保存してからリネーム（アトミックな書き込みのため）
-        temp_file = json_file.with_suffix('.tmp')
-        with open(temp_file, 'w', encoding='utf-8') as f:
-            json.dump(data_to_save, f, ensure_ascii=False, indent=2)
+        # 変更をコミット
+        db.commit()
         
-        # アトミックなリネーム
-        temp_file.replace(json_file)
+        # 馬の latest_auction_id を更新
+        horse = db.query(Horse).filter(Horse.id == auction_data['horse_id']).first()
+        if horse:
+            horse.latest_auction_id = history.id
+            db.commit()
         
-        return {'success': True, 'id': horse_id, 'action': 'updated' if updated else 'created'}
+        logger.info(f"オークション履歴をデータベースに保存しました: 馬ID {auction_data['horse_id']} (アクション: {action})")
+        return {'success': True, 'id': history.id, 'action': action}
         
     except Exception as e:
-        error_msg = f"馬データの保存中にエラーが発生しました: {str(e)}"
+        error_msg = f"オークション履歴のデータベース保存中にエラーが発生しました: {str(e)}"
         logger.error(error_msg)
         logger.error(traceback.format_exc())
+        if db:
+            db.rollback()
         return {'error': error_msg, 'traceback': traceback.format_exc()}
-
-def save_auction_history(*args, **kwargs):
-    print("バックエンドモジュールが利用できないため、オークション履歴は保存されません")
-    return None
+    finally:
+        if db:
+            db.close()
 
 def load_json_file(*args, **kwargs):
     print("バックエンドモジュールが利用できないため、デフォルトのデータを返します")
@@ -290,7 +360,67 @@ def load_json_file(*args, **kwargs):
 import requests
 from bs4 import BeautifulSoup, Tag
 from requests.adapters import HTTPAdapter
-from typing import Optional
+from typing import Optional, Dict, Any
+import traceback
+import logging
+from pathlib import Path
+import json
+from datetime import datetime
+import sys
+import os
+from pathlib import Path
+
+# プロジェクトのルートディレクトリをPythonパスに追加
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))  # 先頭に追加して優先的に検索されるようにする
+
+# 環境変数の読み込み
+from dotenv import load_dotenv
+load_dotenv()
+
+# SQLAlchemy関連のインポート
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+try:
+    # バックエンドモジュールが利用可能な場合
+    from backend.database.models import Base, Horse, AuctionHistory
+    from backend.database.database import DATABASE_URL
+    BACKEND_AVAILABLE = True
+except ImportError:
+    # バックエンドモジュールが利用できない場合のフォールバック
+    BACKEND_AVAILABLE = False
+    
+    # 簡易的なモデル定義
+    from sqlalchemy.ext.declarative import declarative_base
+    from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey
+    
+    Base = declarative_base()
+    
+    class Horse(Base):
+        __tablename__ = 'horses'
+        id = Column(Integer, primary_key=True)
+        name = Column(String)
+        sex = Column(String)
+        age = Column(Integer)
+        sire = Column(String)
+        dam = Column(String)
+        damsire = Column(String)
+        jbis_url = Column(String)
+        image_url = Column(String)
+        latest_auction_id = Column(Integer, ForeignKey('auction_histories.id'))
+    
+    class AuctionHistory(Base):
+        __tablename__ = 'auction_histories'
+        id = Column(Integer, primary_key=True)
+        horse_id = Column(Integer, ForeignKey('horses.id'))
+        auction_date = Column(DateTime)
+        price = Column(Integer)
+        result = Column(String)
+    
+    # 環境変数からデータベースURLを取得、デフォルトはSQLite
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///saraokudb.sqlite3")
 
 try:
     from urllib3.util.retry import Retry
