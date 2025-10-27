@@ -2846,6 +2846,12 @@ def save_horses_to_file(horses: List[Dict[str, Any]], output_path: Path) -> bool
                 if field not in horse or not horse[field]:
                     horse[field] = ''
             
+            # 賞金情報が数値でない場合は0を設定
+            if 'total_prize_start' not in horse or not isinstance(horse.get('total_prize_start'), (int, float)):
+                horse['total_prize_start'] = 0
+            if 'total_prize_latest' not in horse or not isinstance(horse.get('total_prize_latest'), (int, float)):
+                horse['total_prize_latest'] = 0
+            
             # 日付フィールドを文字列に変換
             for date_field in ['auction_date', 'created_at', 'updated_at']:
                 if date_field in horse and isinstance(horse[date_field], (datetime, date)):
