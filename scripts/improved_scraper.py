@@ -27,6 +27,13 @@ from typing import Any, Dict, List, Optional, Tuple, Union, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse, parse_qs, urlunparse
+try:
+    from dateutil import parser
+    DATEUTIL_AVAILABLE = True
+except ImportError:
+    DATEUTIL_AVAILABLE = False
+    import logging
+    logging.warning("dateutil モジュールが利用できません。日付のパース機能が制限されます。")
 
 
 class ApiAuthenticator:
@@ -196,7 +203,7 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
         # 保存先ファイルパス
         json_file = Path('static-frontend/public/data/horses.json')
         
-        # 必須フィールドが存在することを確認
+        # 必須フィールドの確認
         required_fields = ['id', 'name', 'sex', 'age', 'sire', 'dam', 'damsire', 'jbis_url']
         for field in required_fields:
             if field not in horse_data or not horse_data[field]:
@@ -207,19 +214,25 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
         metadata = {}
         
         if json_file.exists():
-            data = load_from_json(json_file)
-            if isinstance(data, dict) and 'horses' in data:
-                existing_data = data['horses']
-                metadata = data.get('metadata', {})
-            elif isinstance(data, list):
-                existing_data = data
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, dict) and 'horses' in data:
+                        existing_data = data['horses']
+                        metadata = data.get('metadata', {})
+                    elif isinstance(data, list):
+                        existing_data = data
+                        metadata = {}
+                    else:
+                        logger.warning("不正なデータ形式です。新しいデータで上書きします。")
+            except Exception as e:
+                logger.error(f"既存データの読み込みに失敗しました: {str(e)}")
         
         # メタデータを更新
         metadata.update({
             'version': '1.0',
             'last_updated': datetime.now().isoformat(),
-            'total_horses': len(existing_data) + (0 if horse_data.get('id') in 
-                                [h.get('id') for h in existing_data if isinstance(h, dict)] else 1)
+            'total_horses': len(existing_data) + (0 if any(str(h.get('id')) == str(horse_data.get('id', '')) for h in existing_data) else 1)
         })
         
         # 馬IDが指定されていない場合はエラー
@@ -228,28 +241,21 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
             error_msg = "馬IDが指定されていません。オークションページのIDを指定してください"
             logger.error(error_msg)
             return {'error': error_msg}
-            
-        # 数値IDに変換（文字列の場合は数値に、既に数値の場合はそのまま）
-        try:
-            horse_id = str(int(horse_id))  # 数値に変換してから文字列に
-            horse_data['id'] = horse_id
-        except (ValueError, TypeError) as e:
-            error_msg = f"無効な馬ID形式です: {horse_id}"
-            logger.error(error_msg, exc_info=True)
-            return {'error': error_msg}
         
         # 既存の馬データを更新または新規追加
         updated = False
         for i, horse in enumerate(existing_data):
-            if str(horse.get('id')) == str(horse_id):
+            if str(horse.get('id')) == horse_id:
                 # 既存の馬データを更新（IDはそのまま）
                 existing_data[i].update(horse_data)
                 updated = True
+                logger.info(f"既存の馬データを更新しました: {horse_data.get('name')} (ID: {horse_id})")
                 break
                 
         if not updated:
             # 新しい馬データを追加
             existing_data.append(horse_data)
+            logger.info(f"新しい馬データを追加しました: {horse_data.get('name')} (ID: {horse_id})")
         
         # データを新しい形式で保存
         data_to_save = {
@@ -265,13 +271,12 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
         # アトミックなリネーム
         temp_file.replace(json_file)
         
-        print(f"[INFO] 馬データを保存しました: {horse_data.get('name')} (ID: {horse_id})")
         return {'success': True, 'id': horse_id, 'action': 'updated' if updated else 'created'}
         
     except Exception as e:
         error_msg = f"馬データの保存中にエラーが発生しました: {str(e)}"
-        print(f"[ERROR] {error_msg}")
-        print(traceback.format_exc())
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())
         return {'error': error_msg, 'traceback': traceback.format_exc()}
 
 def save_auction_history(*args, **kwargs):
@@ -440,171 +445,96 @@ OUTPUT_DIR = config.output.output_dir
 
 def extract_prize_from_auction(html_content: str, horse_name: str) -> Dict[str, any]:
     """
-    オークションリストページから賞金情報を抽出する
+    オークションのトップページから総賞金情報を抽出する
     
     Args:
-        html_content (str): オークションリストページのHTML
+        html_content (str): オークションのトップページのHTML
         horse_name (str): 馬名（デバッグ用）
         
     Returns:
         Dict[str, any]: 抽出した賞金情報を含む辞書
     """
+    logger = logging.getLogger(f"{__name__}.prize_extractor.{horse_name}")
+    
     result = {
         'total_prize_start': 0,     # オークション時点の総賞金（円単位に統一）
-        'is_breeding_mare': False   # 繁殖牝馬フラグ
+        'is_breeding_mare': False,  # 繁殖牝馬フラグ
+        'original_text': ''         # 元のテキストを保持
     }
     
     try:
-        from bs4 import BeautifulSoup
-        import re
+        logger.info(f"[総賞金抽出開始] 馬名: {horse_name}")
         
+        from bs4 import BeautifulSoup
         soup = BeautifulSoup(html_content, 'html.parser')
         
-        # 1. 繁殖牝馬のチェック
-        title_tag = soup.find('title')
-        if title_tag and '繁殖牝馬' in title_tag.get_text():
-            result['is_breeding_mare'] = True
-            logger.info(f"馬名 '{horse_name}' は繁殖牝馬のため賞金は0円です")
+        # 馬名を含む行を探す（複数のクラス名に対応）
+        horse_name_element = None
+        for name_elem in soup.find_all('a', class_=lambda c: c and ('auctionTableRow__name' in c or 'auctionTableCard__name' in c)):
+            if horse_name in name_elem.get_text(strip=True):
+                horse_name_element = name_elem
+                break
+        
+        if not horse_name_element:
+            logger.warning(f"馬名 '{horse_name}' を含む要素が見つかりませんでした")
+            # デバッグ用にHTMLをログに出力
+            logger.debug(f"HTML: {soup.prettify()[:1000]}...")
             return result
-
-        # 2. 楽天のトップページから直接「総賞金」の値を取得
-        # 例: <div class="auctionTableRow__price">
-        #       <div class="label">総賞金</div>
-        #       <div class="value">3980.2万円</div>
-        #       <a href="..." target="_blank" class="netkeiba-link">🔍</a>
-        #     </div>
-        try:
-            # トップページの「総賞金」を直接検索
-            prize_divs = soup.find_all('div', class_='auctionTableRow__price')
-            for div in prize_divs:
-                label = div.find('div', class_='label')
-                if label and '総賞金' in label.get_text(strip=True):
-                    value_div = div.find('div', class_='value')
-                    if value_div:
-                        prize_text = value_div.get_text(strip=True)
-                        # 数値部分を抽出（「3980.2万円」から「3980.2」を抽出）
-                        match = re.search(r'([\d,]+(?:\.\d+)?)', prize_text)
-                        if match:
-                            try:
-                                prize_man = float(match.group(1).replace(',', ''))
-                                result['total_prize_start'] = int(prize_man * 10000)  # 万円→円に変換
-                                logger.info(f"馬名 '{horse_name}' 総賞金(トップページ): {prize_man}万円 -> {result['total_prize_start']}円")
-                                return result
-                            except (ValueError, TypeError) as e:
-                                logger.debug(f"賞金の数値変換に失敗: {prize_text}, エラー: {e}")
-                                continue
-        except Exception as e:
-            logger.debug(f"トップページからの賞金抽出で例外: {e}")
-
-        # 3. トップページで取得できなかった場合、詳細ページから取得を試みる
-        # 3-0) まずは対象の馬カードを特定して、その内部のみを探索（他馬の値を拾わない）
-        card_soup = None
-        try:
-            # よく使うカード候補のクラスを網羅的に探す
-            card_candidates = soup.select('.auctionTableCard, .auctionList__item, .auctionCard, .auctionTableRow')
-            for card in card_candidates:
-                text = card.get_text(" ", strip=True)
-                if horse_name and horse_name in text:
-                    card_soup = card
-                    break
-        except Exception as e:
-            logger.debug(f"カード特定中に例外: {e}")
-
-        search_root = card_soup if card_soup is not None else soup
-
-        # 3-1) 詳細ページの「中央獲得賞金」「地方獲得賞金」を合算
-        try:
-            full_text = (search_root or soup).get_text(' ', strip=True)
-            # 例: 中央獲得賞金：3966.7万円　　　地方獲得賞金：13.5万円
-            m_c = re.search(r'中央獲得賞金[：:\s]*([\d,]+(?:\.[\d]+)?)\s*万円', full_text)
-            m_l = re.search(r'地方獲得賞金[：:\s]*([\d,]+(?:\.[\d]+)?)\s*万円', full_text)
-            total_man = 0.0
-            found_any = False
-            if m_c:
-                try:
-                    total_man += float(m_c.group(1).replace(',', ''))
-                    found_any = True
-                except ValueError:
-                    pass
-            if m_l:
-                try:
-                    total_man += float(m_l.group(1).replace(',', ''))
-                    found_any = True
-                except ValueError:
-                    pass
-            if found_any and total_man > 0:
-                result['total_prize_start'] = int(total_man * 10000)  # 万円→円
-                logger.info(f"馬名 '{horse_name}' 総賞金(中央+地方): {total_man}万円 -> {result['total_prize_start']}円")
-                return result
-        except Exception as e:
-            logger.debug(f"中央/地方 賞金合算抽出で例外: {e}")
-
-        # 3-2) 詳細ページのその他の賞金情報を検索
-        try:
-            # 詳細ページの「総賞金」を検索
-            prize_sections = search_root.find_all('div', class_=lambda c: c and 'prize' in (c or '').lower())
-            for section in prize_sections:
-                prize_text = section.get_text(' ', strip=True)
-                # 「総賞金: 3980.2万円」のような形式を検索
-                m = re.search(r'総賞金[：:\s]*([\d,]+(?:\.[\d]+)?)\s*万円', prize_text)
-                if m:
-                    try:
-                        prize_man = float(m.group(1).replace(',', ''))
-                        result['total_prize_start'] = int(prize_man * 10000)
-                        logger.info(f"馬名 '{horse_name}' 総賞金(詳細ページ): {prize_man}万円 -> {result['total_prize_start']}円")
-                        return result
-                    except ValueError:
-                        continue
-                
-                # 数値のみの場合はそれを使用
-                m = re.search(r'([\d,]+(?:\.[\d]+)?)\s*万円', prize_text)
-                if m:
-                    try:
-                        prize_man = float(m.group(1).replace(',', ''))
-                        result['total_prize_start'] = int(prize_man * 10000)
-                        logger.info(f"馬名 '{horse_name}' 総賞金(数値のみ): {prize_man}万円 -> {result['total_prize_start']}円")
-                        return result
-                    except ValueError:
-                        continue
-        except Exception as e:
-            logger.debug(f"詳細ページからの賞金抽出で例外: {e}")
-        
-        logger.info(f"馬名 '{horse_name}' の賞金情報を抽出できませんでした: {result}")
-        return result
-        
-    except Exception as e:
-        logger.error(f"賞金情報の抽出中にエラーが発生しました（馬名: {horse_name}）: {str(e)}")
-        logger.error(traceback.format_exc())
-        return result
-
-def _extract_prize_value(text: str, horse_name: str = '') -> Optional[float]:
-    """
-    テキストから賞金額を抽出する
-    
-    Args:
-        text: 賞金情報を含むテキスト
-        horse_name: 馬名（ログ出力用）
-        
-    Returns:
-        抽出した賞金額（万円単位）、抽出できない場合はNone
-    """
-    if not text:
-        return None
-        
-    try:
-        # 数字とカンマ、小数点を抽出（例: 1,234.56万円 → 1234.56）
-        import re
-        match = re.search(r'([\d,]+(?:\.[\d,]+)?)', text.replace(',', ''))
-        if match:
-            return float(match.group(1).replace(',', ''))
             
-        logger.debug(f"馬名 '{horse_name}': 賞金の数値が見つかりませんでした: {text}")
-        return None
+        # 馬名を含む行の親要素を取得（複数のクラス名に対応）
+        horse_row = None
+        for parent in horse_name_element.parents:
+            if parent.has_attr('class') and any(cls in ['auctionTableRow', 'auctionTableCard'] for cls in parent.get('class', [])):
+                horse_row = parent
+                break
         
-    except (ValueError, TypeError) as e:
-        logger.error(f"馬名 '{horse_name}': 賞金の抽出中にエラーが発生しました: {e}")
-        return None
-
+        if not horse_row:
+            logger.warning("馬の行が見つかりませんでした")
+            logger.debug(f"馬名要素の親: {horse_name_element.parent}")
+            return result
+            
+        # 賞金情報を含む要素を探す（複数のクラス名に対応）
+        prize_section = None
+        for cls in ['auctionTableRow__price', 'auctionTableCard__price']:
+            prize_section = horse_row.select_one(f'.{cls}')
+            if prize_section:
+                break
+                
+        if not prize_section:
+            logger.warning("賞金情報のセクションが見つかりませんでした")
+            return result
+            
+        # 賞金の値（"1499.5万円" のような形式）を取得
+        value_element = prize_section.find('div', class_='value')
+        if not value_element:
+            logger.warning("賞金の値が見つかりませんでした")
+            return result
+            
+        prize_text = value_element.get_text(strip=True)
+        result['original_text'] = prize_text
+        
+        try:
+            # 万円表記を円に変換
+            if '万円' in prize_text:
+                prize_value = float(prize_text.replace('万円', '').strip()) * 10000
+                result['total_prize_start'] = int(prize_value)
+                logger.info(f"賞金を抽出しました: {prize_text} → {result['total_prize_start']}円 (馬名: {horse_name})")
+            else:
+                logger.warning(f"賞金の形式が不正です: {prize_text} (馬名: {horse_name})")
+                
+            # 繁殖牝馬フラグをチェック
+            if '繁殖' in str(horse_row):
+                result['is_breeding_mare'] = True
+                
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"賞金のパースに失敗しました: {e} (馬名: {horse_name}, テキスト: {prize_text}")
+    
+    except Exception as e:
+        logger.error(f"賞金情報の抽出中にエラーが発生しました: {e} (馬名: {horse_name})")
+        if 'soup' in locals():
+            logger.debug(f"HTMLの先頭500文字: {str(soup)[:500]}...")
+    
+    return result
 
 def _extract_disease_tags(comment: str) -> str:
     """
@@ -1814,6 +1744,48 @@ class ImprovedRakutenScraper:
             self.logger.error(f"詳細ページURLの抽出中にエラーが発生しました: {e}", exc_info=True)
             return None
 
+    def _convert_to_int(self, value, default=0):
+        """値を整数に変換する"""
+        if value is None:
+            return default
+        try:
+            if isinstance(value, str):
+                value = value.replace(',', '').replace('円', '').strip()
+            return int(float(value)) if value else default
+        except (ValueError, TypeError):
+            return default
+
+    def _convert_to_bool(self, value, default=False):
+        """値をブール値に変換する"""
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.lower() in ('true', 'yes', '1', 't', 'y')
+        return bool(value)
+
+    def _format_date(self, date_str):
+        """日付をYYYY-MM-DD形式に変換する"""
+        if not date_str:
+            return None
+            
+        # 既にYYYY-MM-DD形式の場合はそのまま返す
+        if re.match(r'^\d{4}-\d{2}-\d{2}$', str(date_str)):
+            return str(date_str)
+            
+        # dateutil.parserを使用して日付をパース
+        try:
+            from dateutil import parser
+            dt = parser.parse(str(date_str))
+            return dt.strftime('%Y-%m-%d')
+        except ImportError:
+            self.logger.warning("dateutil モジュールが利用できません。日付のパース機能が制限されます。")
+            return None
+        except Exception as e:
+            self.logger.warning(f"日付のパースに失敗しました: {e}")
+            return None
+
     def _process_horse_info(self, card, index: int, total: int) -> Optional[Dict[str, Any]]:
         """
         馬の情報を抽出する（リストページからの情報抽出用）
@@ -1898,16 +1870,71 @@ class ImprovedRakutenScraper:
                         value = cols[1].get_text(strip=True)
                         horse_info[key] = value
             
-            # 賞金情報を抽出
+            # 賞金情報を抽出（トップページから取得）
             try:
-                prize_info = extract_prize_from_auction(detail_html, name)
-                if prize_info:
-                    horse_info.update(prize_info)
-                    self.logger.debug(f'賞金情報を抽出しました: {prize_info}')
+                # トップページのHTMLを取得
+                top_page_url = self.base_url
+                top_page_html = self._fetch_html(top_page_url, use_cache=True)
+                if not top_page_html:
+                    self.logger.warning(f"トップページの取得に失敗しました: {top_page_url}")
+                    prize_money_info = {}
+                else:
+                    # トップページから賞金情報を抽出
+                    prize_money_info = extract_prize_from_auction(top_page_html, horse_info.get('name', '不明な馬'))
+                
+                # 賞金情報を馬情報にマージ
+                if prize_money_info and 'total_prize_start' in prize_money_info:
+                    # 賞金情報を設定
+                    horse_info['total_prize_start'] = prize_money_info['total_prize_start']
+                    
+                    # 元のテキストをログに記録
+                    if 'original_text' in prize_money_info:
+                        self.logger.info(f"賞金情報を抽出しました: {prize_money_info['original_text']} → {prize_money_info['total_prize_start']}円 (馬名: {horse_info.get('name', '不明な馬')})")
+                    else:
+                        self.logger.info(f"賞金情報を抽出しました: {prize_money_info['total_prize_start']}円 (馬名: {horse_info.get('name', '不明な馬')})")
+                    
+                    # 互換性のためのフィールドを設定
+                    horse_info['total_prize'] = prize_money_info['total_prize_start']
+                    horse_info['original_text'] = prize_money_info.get('original_text', '取得不可')
+                    horse_info['note'] = 'オークションページから抽出した賞金情報'
+                else:
+                    # 賞金情報が取得できなかった場合
+                    horse_info['total_prize_start'] = 0
+                    horse_info['total_prize'] = 0
+                    horse_info['original_text'] = '取得不可'
+                    horse_info['note'] = '賞金情報の取得に失敗'
+                    self.logger.warning(f"賞金情報の取得に失敗しました (馬名: {horse_info.get('name', '不明な馬')})")
             except Exception as e:
-                self.logger.warning(f'賞金情報の抽出中にエラーが発生しました: {e}')
+                self.logger.error(f"賞金情報の抽出中にエラーが発生しました (馬名: {horse_info.get('name', '不明な馬')}): {e}", exc_info=True)
+                horse_info['total_prize_start'] = 0
+                horse_info['total_prize'] = 0
+                horse_info['original_text'] = 'エラー発生'
+                horse_info['note'] = f'賞金情報の抽出中にエラー: {str(e)}'
             
-            # 性別と年齢を抽出
+            # 落札価格を抽出（PriceExtractorを使用）
+            price_extractor = PriceExtractor()
+            price_info = price_extractor.extract_price(detail_html, name)
+            
+            # sold_price の設定
+            horse_info['sold_price'] = None  # デフォルト値
+            
+            if price_info is not None:
+                if price_info.get('is_unsold', False):
+                    horse_info['is_unsold'] = True
+                    horse_info['sold_price'] = None
+                    self.logger.info(f'主取り馬としてマークしました: {name}')
+                else:
+                    sold_price = price_info.get('sold_price')
+                    if sold_price is not None:
+                        horse_info['sold_price'] = sold_price
+                        self.logger.info(f'落札価格を抽出しました: {sold_price}円')
+                    else:
+                        self.logger.warning(f'落札価格の抽出に失敗しました: {name}')
+            
+            # 古いフィールドを削除
+            for field in ['total_prize', 'original_text', 'pattern_used']:
+                if field in horse_info:
+                    del horse_info[field]
             try:
                 sex_age = self.horse_info_extractor._extract_sex_and_age(detail_soup)
                 if sex_age:
@@ -1973,6 +2000,79 @@ class ImprovedRakutenScraper:
             # デバッグ用に抽出した情報をログに出力
             self.logger.debug(f"抽出した馬情報: {horse_info}")
             
+            # データ型の統一と検証
+            try:
+                required_fields = {
+                    'name': str, 'id': str, 'sex': str, 'age': int,
+                    'sire': str, 'dam': str, 'damsire': str
+                    # image_url と comment を削除
+                }
+                
+                for field, field_type in required_fields.items():
+                    if field not in horse_info or horse_info[field] is None:
+                        self.logger.warning(f"必須フィールド '{field}' が不足しています")
+                        return None
+                    
+                    try:
+                        if field_type == int:
+                            horse_info[field] = self._convert_to_int(horse_info[field])
+                        elif field_type == bool:
+                            horse_info[field] = self._convert_to_bool(horse_info[field])
+                        elif field_type == str and not isinstance(horse_info[field], str):
+                            horse_info[field] = str(horse_info[field])
+                    except Exception as e:
+                        self.logger.warning(f"フィールド '{field}' の型変換に失敗: {e}")
+                        return None
+                
+                # データ構造の整理
+                if 'prize_money' not in horse_info or not isinstance(horse_info['prize_money'], dict):
+                    horse_info['prize_money'] = {}
+                
+                # 古い形式の total_prize があれば統合
+                if 'total_prize' in horse_info and 'total_prize' not in horse_info['prize_money']:
+                    horse_info['prize_money']['total_prize'] = horse_info['total_prize']
+                    # 古いフィールドを削除
+                    del horse_info['total_prize']
+                
+                # 古い形式の original_text があれば統合
+                if 'original_text' in horse_info and 'original_text' not in horse_info['prize_money']:
+                    horse_info['prize_money']['original_text'] = horse_info['original_text']
+                    # 古いフィールドを削除
+                    del horse_info['original_text']
+                
+                # デフォルト値の設定
+                horse_info['prize_money'].setdefault('total_prize', 0)
+                horse_info['prize_money'].setdefault('total_prize_start', horse_info['prize_money'].get('total_prize', 0))
+                horse_info['prize_money'].setdefault('original_text', '')
+                horse_info['prize_money'].setdefault('pattern_used', 'default')
+                horse_info['prize_money'].setdefault('note', '')
+                
+                # sold_price を整数に変換
+                if 'sold_price' in horse_info:
+                    horse_info['sold_price'] = self._convert_to_int(horse_info['sold_price'])
+                    
+                    # 念のため、sold_price が total_prize にコピーされていないか確認
+                    if horse_info.get('prize_money', {}).get('total_prize') == horse_info['sold_price']:
+                        horse_info['prize_money']['total_prize'] = 0
+                        self.logger.warning(f"sold_price が total_prize にコピーされていたため、total_prize を0にリセットしました")
+                
+                horse_info['is_unsold'] = self._convert_to_bool(horse_info.get('is_unsold', False))
+                horse_info.setdefault('disease_tags', [])
+                
+                # 日付と数値フィールドのフォーマット
+                for field in ['scraped_at', 'auction_date']:
+                    if field in horse_info:
+                        horse_info[field] = self._format_date(horse_info[field])
+                
+                if 'weight' in horse_info:
+                    horse_info['weight'] = self._convert_to_int(horse_info['weight'])
+                
+                self.logger.debug(f"データ型を統一しました: {horse_info}")
+                
+            except Exception as e:
+                self.logger.error(f"データ型の統一中にエラー: {e}", exc_info=True)
+                return None
+            
             # オークション日を取得
             self.logger.info("オークション日を取得します...")
             # 個別馬詳細ページにはオークション日が含まれていないため、リストページのURLを使用
@@ -1996,7 +2096,8 @@ class ImprovedRakutenScraper:
             
             # オプションフィールドの抽出を実行
             extractors = [
-                ('prize_money', 'prize_info_extractor', '賞金情報', True),
+                # 一時的に賞金情報の抽出を無効化
+                # ('prize_money', 'prize_info_extractor', '賞金情報', True),
                 ('price', 'price_info_extractor', '価格情報', True),
                 ('seller', 'seller_info_extractor', '販売者情報', True),
                 ('race_records', 'race_record_extractor', 'レース記録', True),
@@ -2153,43 +2254,96 @@ class ImprovedRakutenScraper:
             if not basic_info.get('name'):
                 self.logger.error('馬名の抽出に失敗しました')
                 return None
+                
+            # 3. トップページから賞金情報を抽出
+            try:
+                # 賞金情報を含む要素を探す
+                prize_elements = horse_element.select('.prizeMoney, .prize-money, .prize, .total-prize, [class*="prize"], [class*="Prize"]')
+                
+                for element in prize_elements:
+                    prize_text = element.get_text(strip=True)
+                    if '総賞金' in prize_text or '賞金' in prize_text or '万円' in prize_text:
+                        try:
+                            # 数字とカンマ、小数点、漢字を抽出
+                            match = re.search(r'([\d,]+(?:\.[\d]+)?)\s*[万]?円?', prize_text)
+                            if match:
+                                prize_value = float(match.group(1).replace(',', ''))
+                                # 万円表記の場合は10000を掛ける
+                                if '万' in prize_text:
+                                    prize_value *= 10000
+                                total_prize_start = int(prize_value)
+                                
+                                # 賞金情報を辞書に追加
+                                if 'prize_money' not in basic_info:
+                                    basic_info['prize_money'] = {}
+                                basic_info['prize_money'].update({
+                                    'total_prize': 0,  # 無効化
+                                    'total_prize_start': total_prize_start,
+                                    'original_text': prize_text,
+                                    'pattern_used': 'top_page_extraction',
+                                    'note': 'トップページから抽出した賞金情報'
+                                })
+                                self.logger.info(f'total_prize_startをトップページから抽出しました: {total_prize_start} (元のテキスト: {prize_text})')
+                                break
+                        except (ValueError, AttributeError) as e:
+                            self.logger.warning(f'賞金情報のパースに失敗しました: {e} (テキスト: {prize_text})')
+            except Exception as e:
+                self.logger.warning(f'賞金情報の抽出中にエラーが発生しました: {e}')
+                
+            # 3. トップページから賞金情報を抽出
+            try:
+                # 賞金情報を含む要素を探す
+                prize_elements = horse_element.select('.prizeMoney, .prize-money, .prize, .total-prize, [class*="prize"], [class*="Prize"]')
+                
+                for element in prize_elements:
+                    prize_text = element.get_text(strip=True)
+                    if '総賞金' in prize_text or '賞金' in prize_text or '万円' in prize_text:
+                        try:
+                            # 数字とカンマ、小数点、漢字を抽出
+                            match = re.search(r'([\d,]+(?:\.[\d]+)?)\s*[万]?円?', prize_text)
+                            if match:
+                                prize_value = float(match.group(1).replace(',', ''))
+                                # 万円表記の場合は10000を掛ける
+                                if '万' in prize_text:
+                                    prize_value *= 10000
+                                total_prize_start = int(prize_value)
+                                
+                                # 賞金情報を辞書に追加
+                                if 'prize_money' not in basic_info:
+                                    basic_info['prize_money'] = {}
+                                basic_info['prize_money'].update({
+                                    'total_prize': 0,  # 無効化
+                                    'total_prize_start': total_prize_start,
+                                    'original_text': prize_text,
+                                    'pattern_used': 'top_page_extraction',
+                                    'note': 'トップページから抽出した賞金情報'
+                                })
+                                self.logger.info(f'total_prize_startをトップページから抽出しました: {total_prize_start} (元のテキスト: {prize_text})')
+                                break
+                        except (ValueError, AttributeError) as e:
+                            self.logger.warning(f'賞金情報のパースに失敗しました: {e} (テキスト: {prize_text})')
+            except Exception as e:
+                self.logger.warning(f'賞金情報の抽出中にエラーが発生しました: {e}')
             
-            # 3. 進捗表示
-            progress_prefix = f'[{index+1}/{total}] ' if total > 0 else ''
-            self.logger.info(f'{progress_prefix}馬情報を処理中: {basic_info["name"]}')
-            
-            # 4. 血統情報を抽出（HorseInfoExtractorのextractメソッドでは血統情報が抽出されないため、個別に抽出）
-            if not all(field in basic_info for field in ['sire', 'dam', 'damsire']):
-                try:
-                    # 血統情報を抽出
-                    pedigree_result = self.horse_info_extractor._extract_pedigree(horse_element)
-                    if pedigree_result:
-                        basic_info.update(pedigree_result)
-                except Exception as e:
-                    self.logger.warning(f'血統情報の抽出中にエラーが発生しました: {str(e)}')
-            
-            # 5. 馬体重を抽出
-            if 'weight' not in basic_info:
-                self.logger.debug(f'馬体重を抽出開始 (馬名: {basic_info.get("name", "不明")})')
-                try:
-                    # HorseInfoExtractorの_extract_weightメソッドを使用して馬体重を抽出
-                    self.logger.debug('_extract_weightメソッドを呼び出します')
-                    weight_kg = self.horse_info_extractor._extract_weight(horse_element)
-                    self.logger.debug(f'_extract_weightメソッドの結果: {weight_kg}')
-                    
-                    if weight_kg is not None:
-                        basic_info['weight'] = weight_kg
-                        self.logger.info(f'馬体重を抽出: {basic_info["weight"]}kg (馬名: {basic_info["name"]})')
-                    else:
-                        self.logger.debug(f'馬体重の抽出に失敗しました (馬名: {basic_info["name"]})')
-                        # デバッグ用にHTMLをログに出力
-                        debug_html = str(horse_element)[:1000] + '...'  # 先頭1000文字のみ
-                        self.logger.debug(f'デバッグ用HTML: {debug_html}')
-                except Exception as e:
-                    self.logger.error(f'馬体重の抽出中にエラーが発生しました: {str(e)} (馬名: {basic_info.get("name", "不明")})', exc_info=True)
-                    # エラーが発生した場合もHTMLをログに出力
+            # 馬体重の抽出
+            try:
+                self.logger.debug('_extract_weightメソッドを呼び出します')
+                weight_kg = self.horse_info_extractor._extract_weight(horse_element)
+                self.logger.debug(f'_extract_weightメソッドの結果: {weight_kg}')
+                
+                if weight_kg is not None:
+                    basic_info['weight'] = weight_kg
+                    self.logger.info(f'馬体重を抽出: {basic_info["weight"]}kg (馬名: {basic_info["name"]})')
+                else:
+                    self.logger.debug(f'馬体重の抽出に失敗しました (馬名: {basic_info["name"]})')
+                    # デバッグ用にHTMLをログに出力
                     debug_html = str(horse_element)[:1000] + '...'  # 先頭1000文字のみ
-                    self.logger.error(f'エラー発生時のHTML: {debug_html}')
+                    self.logger.debug(f'デバッグ用HTML: {debug_html}')
+            except Exception as e:
+                self.logger.error(f'馬体重の抽出中にエラーが発生しました: {str(e)} (馬名: {basic_info.get("name", "不明")})', exc_info=True)
+                # エラーが発生した場合もHTMLをログに出力
+                debug_html = str(horse_element)[:1000] + '...'  # 先頭1000文字のみ
+                self.logger.error(f'エラー発生時のHTML: {debug_html}')
             
             # 6. オークション日を抽出
             if 'auction_date' not in basic_info:
@@ -2529,33 +2683,9 @@ class ImprovedRakutenScraper:
             try:
                 name_for_log = horse_info.get('name') or ''
                 top_html = self._fetch_html(self.base_url, use_cache=use_cache)
-                top_prize = None
-                if top_html:
-                    top_prize = extract_prize_from_auction(top_html, name_for_log)
-                    # total_prize_start が取れていれば反映
-                    if isinstance(top_prize, dict) and int(top_prize.get('total_prize_start', 0)) > 0:
-                        horse_info.update(top_prize)
-                        # total_prize が未設定なら同値を設定（円）
-                        if horse_info.get('total_prize') in [None, 0]:
-                            horse_info['total_prize'] = int(top_prize['total_prize_start'])
-                        self.logger.info(f"トップページから総賞金を抽出しました: {top_prize}")
-                # フォールバック: 詳細ページから抽出
-                if not isinstance(top_prize, dict) or int(top_prize.get('total_prize_start', 0)) == 0:
-                    prize_info, prize_success = self.prize_info_extractor.extract(html_content)
-                    if prize_success and prize_info and isinstance(prize_info, dict) and prize_info.get('total_prize') is not None:
-                        horse_info.update(prize_info)
-                        self.logger.info(f'詳細ページから賞金情報を抽出しました: {prize_info}')
-                    else:
-                        # いずれも取得できない場合の明示設定
-                        horse_info['total_prize'] = None
-                        if 'total_prize_start' not in horse_info:
-                            horse_info['total_prize_start'] = 0
-                        self.logger.warning('賞金情報の抽出に失敗したか、有効な賞金情報がありませんでした')
+                self.logger.info('賞金情報の取得は一時的に無効化されています')
             except Exception as e:
                 self.logger.warning(f'賞金情報の抽出処理でエラー: {e}', exc_info=True)
-                # エラー時もキーを揃える
-                horse_info.setdefault('total_prize', None)
-                horse_info.setdefault('total_prize_start', 0)
             
             # 画像URLを抽出
             image_result, image_success = self.image_extractor.extract(html_content)
