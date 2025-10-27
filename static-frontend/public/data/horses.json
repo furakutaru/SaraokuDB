@@ -225,7 +225,7 @@
     "detail_url": "https://auction.keiba.rakuten.co.jp/item/15204",
     "scraped_at": "2025-10-28",
     "jbis_url": "https://www.jbis.or.jp/horse/0001327627/",
-    "total_prize_start": 10030000,
+    "total_prize_start": 11630000,
     "note": "オークションページから抽出した賞金情報",
     "sold_price": 1850000,
     "sex": "牡",
@@ -237,7 +237,7 @@
     "weight": 504,
     "prize_money": {
       "total_prize": 0,
-      "total_prize_start": 10030000,
+      "total_prize_start": 11630000,
       "original_text": "",
       "pattern_used": "default",
       "note": "オークションページから抽出した賞金情報"
@@ -306,7 +306,7 @@
     "detail_url": "https://auction.keiba.rakuten.co.jp/item/15206",
     "scraped_at": "2025-10-28",
     "jbis_url": "https://www.jbis.or.jp/horse/0001339584/",
-    "total_prize_start": 0,
+    "total_prize_start": 1374000,
     "note": "オークションページから抽出した賞金情報",
     "sold_price": 660000,
     "sex": "牡",
@@ -318,7 +318,7 @@
     "weight": 466,
     "prize_money": {
       "total_prize": 0,
-      "total_prize_start": 0,
+      "total_prize_start": 1374000,
       "original_text": "",
       "pattern_used": "default",
       "note": "オークションページから抽出した賞金情報"
@@ -345,7 +345,7 @@
     "detail_url": "https://auction.keiba.rakuten.co.jp/item/15207",
     "scraped_at": "2025-10-28",
     "jbis_url": "https://www.jbis.or.jp/horse/0001331804/",
-    "total_prize_start": 0,
+    "total_prize_start": 14995000,
     "note": "オークションページから抽出した賞金情報",
     "sold_price": 670000,
     "sex": "牝",
@@ -357,7 +357,7 @@
     "weight": 434,
     "prize_money": {
       "total_prize": 0,
-      "total_prize_start": 0,
+      "total_prize_start": 14995000,
       "original_text": "",
       "pattern_used": "default",
       "note": "オークションページから抽出した賞金情報"
