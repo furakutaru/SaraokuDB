@@ -496,6 +496,7 @@ from scripts.components.seller_info_extractor import SellerInfoExtractor
 from scripts.components.prize_info_extractor import PrizeInfoExtractor
 from scripts.components.price_info_extractor import PriceInfoExtractor
 from scripts.components.image_extractor import ImageExtractor
+from scripts.components.prize_extractor import PrizeExtractor  # 追加されたインポート文
 
 # BaseExtractor は components.image_extractor からインポートされます
 
@@ -646,7 +647,9 @@ def extract_prize_from_auction(html_content: str, horse_name: str) -> Dict[str, 
         try:
             # 万円表記を円に変換
             if '万円' in prize_text:
-                prize_value = float(prize_text.replace('万円', '').strip()) * 10000
+                # カンマを含む数値に対応
+                prize_value_str = re.sub(r'[^\d.]', '', prize_text.replace('万円', '').strip())
+                prize_value = float(prize_value_str) * 10000
                 result['total_prize_start'] = int(prize_value)
                 logger.info(f"賞金を抽出しました: {prize_text} → {result['total_prize_start']}円 (馬名: {horse_name})")
             else:
@@ -2000,46 +2003,31 @@ class ImprovedRakutenScraper:
                         value = cols[1].get_text(strip=True)
                         horse_info[key] = value
             
-            # 賞金情報を抽出（トップページから取得）
+            # 賞金情報を抽出（PrizeExtractorを使用）
             try:
-                # トップページのHTMLを取得
-                top_page_url = self.base_url
-                top_page_html = self._fetch_html(top_page_url, use_cache=True)
-                if not top_page_html:
-                    self.logger.warning(f"トップページの取得に失敗しました: {top_page_url}")
-                    prize_money_info = {}
-                else:
-                    # トップページから賞金情報を抽出
-                    prize_money_info = extract_prize_from_auction(top_page_html, horse_info.get('name', '不明な馬'))
+                prize_extractor = PrizeExtractor()
+                prize_info = prize_extractor.extract(detail_soup)
                 
                 # 賞金情報を馬情報にマージ
-                if prize_money_info and 'total_prize_start' in prize_money_info:
-                    # 賞金情報を設定
-                    horse_info['total_prize_start'] = prize_money_info['total_prize_start']
+                if prize_info and 'total_prize' in prize_info:
+                    horse_info['total_prize_start'] = prize_info['total_prize']
+                    horse_info['total_prize'] = prize_info['total_prize']  # 互換性のため
                     
-                    # 元のテキストをログに記録
-                    if 'original_text' in prize_money_info:
-                        self.logger.info(f"賞金情報を抽出しました: {prize_money_info['original_text']} → {prize_money_info['total_prize_start']}円 (馬名: {horse_info.get('name', '不明な馬')})")
-                    else:
-                        self.logger.info(f"賞金情報を抽出しました: {prize_money_info['total_prize_start']}円 (馬名: {horse_info.get('name', '不明な馬')})")
-                    
-                    # 互換性のためのフィールドを設定
-                    horse_info['total_prize'] = prize_money_info['total_prize_start']
-                    horse_info['original_text'] = prize_money_info.get('original_text', '取得不可')
-                    horse_info['note'] = 'オークションページから抽出した賞金情報'
+                    # ログに記録
+                    self.logger.info(
+                        f"賞金情報を抽出しました: {prize_info.get('original_text', 'N/A')} "
+                        f"→ {prize_info['total_prize']}円 (パターン: {prize_info.get('pattern_used', '不明')})"
+                    )
                 else:
                     # 賞金情報が取得できなかった場合
                     horse_info['total_prize_start'] = 0
                     horse_info['total_prize'] = 0
-                    horse_info['original_text'] = '取得不可'
-                    horse_info['note'] = '賞金情報の取得に失敗'
                     self.logger.warning(f"賞金情報の取得に失敗しました (馬名: {horse_info.get('name', '不明な馬')})")
+                    
             except Exception as e:
-                self.logger.error(f"賞金情報の抽出中にエラーが発生しました (馬名: {horse_info.get('name', '不明な馬')}): {e}", exc_info=True)
+                self.logger.error(f"賞金情報の抽出中にエラーが発生しました: {e}", exc_info=True)
                 horse_info['total_prize_start'] = 0
                 horse_info['total_prize'] = 0
-                horse_info['original_text'] = 'エラー発生'
-                horse_info['note'] = f'賞金情報の抽出中にエラー: {str(e)}'
             
             # 落札価格を抽出（PriceExtractorを使用）
             price_extractor = PriceExtractor()
