@@ -2852,6 +2852,21 @@ def save_horses_to_file(horses: List[Dict[str, Any]], output_path: Path) -> bool
             if 'total_prize_latest' not in horse or not isinstance(horse.get('total_prize_latest'), (int, float)):
                 horse['total_prize_latest'] = 0
             
+            # prize_moneyオブジェクトを初期化
+            if 'prize_money' not in horse or not isinstance(horse.get('prize_money'), dict):
+                horse['prize_money'] = {
+                    "total_prize": 0,  # JBISから取得する予定の値（現在は0のまま）
+                    "total_prize_start": 0,
+                    "original_text": "",
+                    "pattern_used": "default",
+                    "note": ""
+                }
+            
+            # total_prize_startの値をprize_moneyオブジェクトに設定
+            if 'total_prize_start' in horse:
+                horse['prize_money']['total_prize_start'] = horse['total_prize_start']
+                horse['prize_money']['note'] = "オークションページから抽出した賞金情報"
+            
             # 日付フィールドを文字列に変換
             for date_field in ['auction_date', 'created_at', 'updated_at']:
                 if date_field in horse and isinstance(horse[date_field], (datetime, date)):
