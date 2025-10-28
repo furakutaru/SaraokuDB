@@ -78,12 +78,18 @@ app.add_middleware(
 )
 
 # Include routers
-# 各ルーターのprefixは各ファイルで設定されているため、ここでは指定しない
+# ルーターをインポート
+from routers.horses import router as horses_router
+from routers.auction_histories import router as auction_histories_router
+
+# 各ルーターをマウント
+app.include_router(horses_router, prefix="/api/horses")
+app.include_router(auction_histories_router, prefix="/api/auction_histories")
+
+# その他のルーター
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(debug_router)
-app.include_router(horses.router)
-app.include_router(auction_histories_router)
 
 # Root endpoint
 @app.get("/")

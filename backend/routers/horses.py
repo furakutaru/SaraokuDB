@@ -5,6 +5,7 @@ import re
 import sys
 from datetime import datetime
 from typing import List, Optional, Dict, Any
+from typing_extensions import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Body, Path
 from pydantic import BaseModel
@@ -22,11 +23,19 @@ handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s -
 logger.addHandler(handler)
 
 # データベース関連のインポート
-from backend.database import get_db
-from backend.database.models import Horse, AuctionHistory
-from backend.database.schemas import HorseResponse
-from backend.services.horse_serializer import serialize_horse, _parse_first_int
-from backend.services.horses_list_mapper import map_horses_list
+import sys
+from pathlib import Path
+
+# プロジェクトのルートディレクトリをパスに追加
+project_root = str(Path(__file__).resolve().parent.parent)
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+from database import get_db
+from database.models import Horse, AuctionHistory
+from database.schemas import HorseResponse
+from services.horse_serializer import serialize_horse, _parse_first_int
+from services.horses_list_mapper import map_horses_list
 
 # スクリプトのディレクトリをパスに追加
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -49,8 +58,7 @@ logger.info("DiseaseInfoExtractor is temporarily disabled")
 DiseaseInfoExtractor = None
 
 # ルーターの設定
-# Vercelでは /api が自動的には付与されないため、完全なパスを指定する
-router = APIRouter(prefix="/api", tags=["horses"])
+router = APIRouter(tags=["horses"])
 
 class DiseaseExtractionRequest(BaseModel):
     comment: str
@@ -100,7 +108,7 @@ async def get_latest_horses(
     logger.info("Calling /horses/latest endpoint")
     return await get_horses(request, skip, limit, None, 'true', db)
 
-@router.get("/horses/with_auction_histories", response_model=Dict[str, Any], tags=["horses"])
+@router.get("/with_auction_histories", response_model=Dict[str, Any], tags=["horses"])
 async def get_horses_with_auction_histories(
     request: Request,
     skip: int = 0,
@@ -157,7 +165,7 @@ async def get_horses_with_auction_histories(
             detail=str(e)
         )
 
-@router.get("/horses", response_model=Dict[str, Any], tags=["horses"])
+@router.get("", response_model=Dict[str, Any], tags=["horses"])
 async def get_horses(
     request: Request,
     skip: int = 0,
@@ -337,9 +345,9 @@ async def get_horses(
             detail=f"An error occurred while processing your request: {str(e)}"
         )
 
-@router.get("/horses/{horse_id}", response_model=Dict[str, Any], tags=["horses"])
+@router.get("/{horse_id}", response_model=Dict[str, Any], tags=["horses"])
 async def get_horse_by_id(
-    horse_id: int = Path(..., title="The ID of the horse to get", ge=1),
+    horse_id: Annotated[int, Path(title="The ID of the horse to get", ge=1)],
     db: Session = Depends(get_db)
 ):
     """馬IDを指定して馬の詳細情報を取得するエンドポイント"""

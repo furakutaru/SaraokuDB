@@ -19,6 +19,7 @@ class TimestampMixin:
 # ユーザーモデル
 class User(Base, TimestampMixin):
     __tablename__ = 'users'
+    __table_args__ = {'schema': 'public', 'quote': True}
     
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
@@ -26,13 +27,26 @@ class User(Base, TimestampMixin):
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     
-    # リレーションシップ
-    auction_histories = relationship("AuctionHistory", back_populates="user")
-    horses = relationship("Horse", back_populates="owner")
+    # リレーションシップを明示的に指定
+    auction_histories = relationship(
+        "AuctionHistory", 
+        back_populates="user",
+        foreign_keys="[AuctionHistory.user_id]",
+        primaryjoin="User.id == foreign(AuctionHistory.user_id)",
+        remote_side="[AuctionHistory.user_id]"
+    )
+    horses = relationship(
+        "Horse", 
+        back_populates="owner",
+        foreign_keys="[Horse.owner_id]",
+        primaryjoin="User.id == foreign(Horse.owner_id)",
+        remote_side="[Horse.owner_id]"
+    )
 
 # sex, seller, sold_price, commentを履歴（配列/JSON文字列）で保存
 class Horse(Base):
     __tablename__ = 'horses'
+    __table_args__ = {'schema': 'public', 'quote': True}
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     auction_id = Column(String(20), unique=True, index=True, nullable=True)  # オークションサイトの数値ID
@@ -63,9 +77,11 @@ class Horse(Base):
     auction_histories = relationship(
         "AuctionHistory", 
         back_populates="horse",
-        foreign_keys="[AuctionHistory.horse_id]"  # 明示的に外部キーを指定
+        foreign_keys="[AuctionHistory.horse_id]",
+        primaryjoin="Horse.id == foreign(AuctionHistory.horse_id)",
+        remote_side="[AuctionHistory.horse_id]"
     )
-    latest_auction_id = Column(Integer, ForeignKey('auction_histories.id'), nullable=True)
+    latest_auction_id = Column(Integer, ForeignKey('public.auction_histories.id', name='fk_horses_latest_auction_id_auction_histories'), nullable=True)
     latest_auction = relationship(
         "AuctionHistory",
         primaryjoin="Horse.latest_auction_id == AuctionHistory.id",
@@ -75,8 +91,14 @@ class Horse(Base):
         lazy='joined',  # 常に結合してロード
         overlaps="latest_horse"  # 双方向リレーションシップの競合を解決
     )
-    owner_id = Column(Integer, ForeignKey('users.id'), nullable=True)
-    owner = relationship("User", back_populates="horses")
+    owner_id = Column(Integer, ForeignKey('public."users".id', name='fk_horses_owner_id_users'), nullable=True)
+    owner = relationship(
+        "User", 
+        back_populates="horses",
+        foreign_keys=[owner_id],
+        primaryjoin="Horse.owner_id == User.id",
+        remote_side="[User.id]"
+    )
     
     @property
     def is_unsold(self):
@@ -88,9 +110,10 @@ class Horse(Base):
 
 class AuctionHistory(Base):
     __tablename__ = 'auction_histories'
+    __table_args__ = {'schema': 'public', 'quote': True}
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    horse_id = Column(Integer, ForeignKey('horses.id'), nullable=False)
+    horse_id = Column(Integer, ForeignKey('public.horses.id', name='fk_auction_histories_horse_id_horses'), nullable=False)
     horse_name = Column(String(255))  # 馬名
     sire_name = Column(String(255))   # 父名
     dam_name = Column(String(255))    # 母名
@@ -111,7 +134,9 @@ class AuctionHistory(Base):
     horse = relationship(
         "Horse", 
         back_populates="auction_histories",
-        foreign_keys=[horse_id]  # 明示的に外部キーを指定
+        foreign_keys=[horse_id],
+        primaryjoin="AuctionHistory.horse_id == Horse.id",
+        remote_side="[Horse.id]"
     )
     latest_horse = relationship(
         "Horse",
@@ -121,8 +146,18 @@ class AuctionHistory(Base):
         post_update=True,
         overlaps="latest_auction"  # 双方向リレーションシップの競合を解決
     )
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
-    user = relationship("User", back_populates="auction_histories")
+    user_id = Column(
+        Integer,
+        ForeignKey('public.users.id', name='fk_auction_histories_user_id_users'),
+        nullable=True
+    )
+    user = relationship(
+        "User", 
+        back_populates="auction_histories",
+        foreign_keys=[user_id],
+        primaryjoin="AuctionHistory.user_id == User.id",
+        remote_side="[User.id]"
+    )
 
 # データベース設定
 # Neon PostgreSQL接続URLを環境変数から取得
