@@ -102,7 +102,7 @@ interface ApiResponse {
 export const getAuctionHistories = async (horseId: string | number): Promise<AuctionHistory[]> => {
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-    const response = await fetch(`${apiUrl}/api/auction_histories/horses/${horseId}`, {
+    const response = await fetch(`${apiUrl}/api/auction_histories/by_horse/${horseId}`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',

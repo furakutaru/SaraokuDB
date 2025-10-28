@@ -6,7 +6,7 @@ import sys
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Body, Path
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_
@@ -335,4 +335,52 @@ async def get_horses(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while processing your request: {str(e)}"
+        )
+
+@router.get("/horses/{horse_id}", response_model=Dict[str, Any], tags=["horses"])
+async def get_horse_by_id(
+    horse_id: int = Path(..., title="The ID of the horse to get", ge=1),
+    db: Session = Depends(get_db)
+):
+    """馬IDを指定して馬の詳細情報を取得するエンドポイント"""
+    try:
+        # 馬の基本情報を取得
+        horse = db.query(Horse).filter(Horse.id == horse_id).first()
+        if not horse:
+            raise HTTPException(status_code=404, detail="Horse not found")
+        
+        # 最新のオークション情報を取得
+        latest_auction = db.query(AuctionHistory).filter(
+            AuctionHistory.horse_id == horse_id
+        ).order_by(AuctionHistory.id.desc()).first()
+        
+        return {
+            "id": horse.id,
+            "name": horse.name,
+            "sex": horse.sex,
+            "age": horse.age,
+            "sire": horse.sire,
+            "dam": horse.dam,
+            "dam_sire": horse.dam_sire,
+            "weight": horse.weight,
+            "total_prize_start": horse.total_prize_start,
+            "total_prize_latest": horse.total_prize_latest,
+            "sold_price": horse.sold_price,
+            "auction_date": horse.auction_date,
+            "seller": horse.seller,
+            "disease_tags": horse.disease_tags,
+            "comment": horse.comment,
+            "image_url": horse.image_url,
+            "detail_url": horse.detail_url,
+            "jbis_url": horse.jbis_url,
+            "is_unsold": latest_auction.is_unsold if latest_auction else False,
+            "unsold": latest_auction.is_unsold if latest_auction else False
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting horse {horse_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting horse: {str(e)}"
         )

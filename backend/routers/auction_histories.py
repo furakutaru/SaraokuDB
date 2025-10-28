@@ -38,7 +38,7 @@ async def read_auction_histories(
         logger.error(f"Error fetching auction histories: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/horses/{horse_id}", response_model=List[AuctionHistorySchema])
+@router.get("/by_horse/{horse_id}", response_model=List[AuctionHistorySchema])
 async def read_auction_histories_by_horse_id(
     horse_id: int,
     skip: int = 0,
