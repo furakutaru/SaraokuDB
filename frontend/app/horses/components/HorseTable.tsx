@@ -181,7 +181,7 @@ export const HorseTable: React.FC<HorseTableProps> = ({
                 <TableCell>{horse.dam || '-'}</TableCell>
                 <TableCell>{horse.damsire || '-'}</TableCell>
                 <TableCell>
-                  {latestAuction?.is_unsold ? (
+                  {horse.is_unsold || latestAuction?.is_unsold ? (
                     <span style={{ color: 'red' }}>主取り</span>
                   ) : (
                     formatPrice(latestAuction?.sold_price || horse.sold_price)

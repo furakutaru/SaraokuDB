@@ -37,7 +37,9 @@ class PriceExtractor:
             if bid_count_match:
                 bid_count = int(bid_count_match.group(1))
                 if bid_count == 0:
+                    result['sold_price'] = None  # 主取りの場合は価格をNoneに設定
                     result['is_unsold'] = True
+                    logger.info(f"馬名 '{horse_name}': 入札数が0のため主取りと判定")
                     return result
             
             # 2. JavaScriptのデータから価格を抽出（最も信頼性が高い）

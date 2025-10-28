@@ -48,8 +48,8 @@ export interface Horse {
   sold_price?: string | number | null;
   seller?: string | null;
   auction_date?: string | string[] | null;
-  unsold?: boolean;
   is_unsold?: boolean;
+  unsold?: boolean;
   total_prize_start?: number;
   total_prize_latest?: number;
   history?: AuctionHistory | AuctionHistory[];

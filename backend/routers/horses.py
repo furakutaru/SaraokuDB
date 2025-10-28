@@ -218,7 +218,10 @@ async def get_horses(
         # 5. 総レコード数を取得
         total_count = query.count()
         
-        # 6. ページネーションを適用
+        # 6. ソート順を指定（デフォルトはIDの昇順）
+        query = query.order_by(Horse.id.asc())
+        
+        # 7. ページネーションを適用
         horses = query.offset(skip).limit(limit).all()
         
         # 7. 馬IDのリストを取得
@@ -287,11 +290,11 @@ async def get_horses(
                     auction_data = {
                         'auction_date': auction.auction_date,
                         'price': auction.price,
-                        'sold_price': auction.sold_price if auction.sold_price is not None else auction.price,
-                        'seller': auction.seller,
-                        'comment': auction.comment,
-                        'disease_tags': auction.disease_tags,
-                        'is_unsold': auction.is_unsold if hasattr(auction, 'is_unsold') else False
+                        'sold_price': auction.price,  # sold_price の代わりに price を使用
+                        'seller': getattr(auction, 'seller', ''),  # seller の存在を確認
+                        'comment': getattr(auction, 'comment', ''),  # comment の存在を確認
+                        'disease_tags': getattr(auction, 'disease_tags', []),  # disease_tags の存在を確認
+                        'is_unsold': getattr(auction, 'is_unsold', False)  # is_unsold の存在を確認
                     }
                     horse_data.update(auction_data)
                 

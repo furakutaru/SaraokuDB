@@ -40,9 +40,44 @@ export function DataIntegrityAlert() {
     );
   }
 
-  // 問題がないか、アラートが閉じられている場合は何も表示しない
-  if (!hasIssues || !isOpen) {
-    return null;
+  // 問題がない場合でもデータを表示する（デバッグ用）
+  if (!hasIssues) {
+    return (
+      <Alert className="mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <div className="flex justify-between items-start">
+          <div>
+            <AlertTitle>データの読み込みに成功しました</AlertTitle>
+            <AlertDescription className="mt-2">
+              <p>馬のデータ: {totalHorses}件</p>
+              <p>オークション履歴: 0件</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => setShowDetails(!showDetails)}
+              >
+                {showDetails ? '詳細を隠す' : '詳細を表示'}
+              </Button>
+              {showDetails && (
+                <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-auto max-h-60">
+                  {JSON.stringify(issues, null, 2)}
+                </pre>
+              )}
+            </AlertDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 p-0 text-foreground hover:bg-foreground/10"
+            onClick={() => setIsOpen(false)}
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">閉じる</span>
+          </Button>
+        </div>
+      </Alert>
+    );
   }
 
   return (

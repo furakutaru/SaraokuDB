@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { AuctionHistory } from '@/types/horse';
 import { HorseData } from '../types/horse';
 
 export interface DataIssue {
@@ -39,36 +40,24 @@ export const useDataIntegrityCheck = () => {
         setIsLoading(true);
         setError(null);
         
-        // 直接APIのベースURLを指定
-        const apiBaseUrl = 'http://localhost:8001';
-        
-        // 馬データとオークションデータを並行して取得
-        const [horsesRes, auctionHistoriesRes] = await Promise.all([
-          fetch(`${apiBaseUrl}/api/horses`),
-          fetch(`${apiBaseUrl}/api/auction_histories`)
-        ]);
-        
-        // レスポンスのチェック
-        if (!horsesRes.ok) {
-          const errorData = await horsesRes.json().catch(() => ({}));
-          throw new Error(`馬データの取得に失敗しました: ${horsesRes.status} ${horsesRes.statusText} - ${JSON.stringify(errorData)}`);
-        }
-        
-        if (!auctionHistoriesRes.ok) {
-          const errorData = await auctionHistoriesRes.json().catch(() => ({}));
-          throw new Error(`オークション履歴の取得に失敗しました: ${auctionHistoriesRes.status} ${auctionHistoriesRes.statusText} - ${JSON.stringify(errorData)}`);
-        }
-        
-        // レスポンスをJSONに変換
-        const horsesResponse = await horsesRes.json();
-        const auctionHistoriesResponse = await auctionHistoriesRes.json();
+        // 静的ファイルから馬データを取得
+        const horsesResponse = await fetch(`/api/read-local-file?path=data/horses.json`).then(async res => {
+          if (!res.ok) {
+            const error = await res.json().catch(() => ({}));
+            console.error('馬データの取得エラー:', error);
+            throw new Error(`馬データの取得に失敗しました: ${res.status} ${res.statusText} - ${JSON.stringify(error)}`);
+          }
+          const data = await res.json();
+          // レスポンスが配列の場合はそのまま、オブジェクトの場合はhorsesプロパティを使用
+          return Array.isArray(data) ? data : (data?.horses || data || []);
+        });
         
         // レスポンスの構造を確認
         const horses = Array.isArray(horsesResponse) ? horsesResponse : 
                      (horsesResponse?.horses || []);
         
-        const auctionHistories = Array.isArray(auctionHistoriesResponse) ? auctionHistoriesResponse : 
-                               (auctionHistoriesResponse?.auction_histories || []);
+        // auction_historiesは使用しないため空の配列を設定
+        const auctionHistories: AuctionHistory[] = [];
         
         // データを正規化
         const normalizedData = {

@@ -47,7 +47,10 @@ class HorseResponse(HorseBase):
     updated_at: datetime
 
     # Pydantic v2: enable ORM mode equivalent
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    
+    # プロパティをモデルフィールドとして認識させる
+    is_unsold: bool = False
 
 class AuctionHistoryBase(BaseModel):
     horse_id: int

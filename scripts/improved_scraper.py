@@ -226,13 +226,17 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
             'owner': '',
             'breeder': '',
             'color': '',
-            'location': ''
+            'location': '',
+            'is_unsold': False  # デフォルトは落札済み
         }
         
         # オプショナルフィールドを設定
         for field, default in optional_fields.items():
             if field not in horse_data or horse_data[field] is None:
                 horse_data[field] = default
+            # 文字列の 'true'/'false' をブール値に変換
+            elif field == 'is_unsold' and isinstance(horse_data[field], str):
+                horse_data[field] = horse_data[field].lower() == 'true'
         
         # 既存の馬を検索
         horse = db.query(Horse).filter(Horse.id == horse_data['id']).first()
@@ -252,7 +256,7 @@ def save_horse(horse_data: Dict[str, Any]) -> Dict[str, Any]:
         # 変更をコミット
         db.commit()
         
-        logger.info(f"馬データをデータベースに保存しました: {horse.name} (ID: {horse.id}, アクション: {action})")
+        logger.info(f"馬データをデータベースに保存しました: {horse.name} (ID: {horse.id}, アクション: {action}, is_unsold: {horse.is_unsold})")
         return {'success': True, 'id': horse.id, 'action': action}
         
     except Exception as e:
@@ -312,6 +316,10 @@ def save_auction_history(auction_data: Dict[str, Any]) -> Dict[str, Any]:
             logger.error(error_msg)
             return {'error': error_msg}
         
+        # is_unsold フィールドの処理
+        if 'is_unsold' in auction_data and isinstance(auction_data['is_unsold'], str):
+            auction_data['is_unsold'] = auction_data['is_unsold'].lower() == 'true'
+        
         # 既存のオークション履歴を検索
         history = db.query(AuctionHistory).filter(
             AuctionHistory.horse_id == auction_data['horse_id'],
@@ -321,12 +329,17 @@ def save_auction_history(auction_data: Dict[str, Any]) -> Dict[str, Any]:
         if history:
             # 既存のオークション履歴を更新
             for key, value in auction_data.items():
-                if hasattr(history, key):
+                # bid_count と is_unsold を除くフィールドを更新
+                if hasattr(history, key) and key not in ['bid_count', 'is_unsold']:
+                    setattr(history, key, value)
+                # is_unsold フィールドの更新
+                elif key == 'is_unsold' and hasattr(history, key):
                     setattr(history, key, value)
             action = 'updated'
         else:
-            # 新しいオークション履歴を作成
-            history = AuctionHistory(**auction_data)
+            # 新しいオークション履歴を作成（bid_count を除外）
+            auction_data_filtered = {k: v for k, v in auction_data.items() if k != 'bid_count'}
+            history = AuctionHistory(**auction_data_filtered)
             db.add(history)
             action = 'created'
         
@@ -2031,18 +2044,42 @@ class ImprovedRakutenScraper:
             
             # 落札価格を抽出（PriceExtractorを使用）
             price_extractor = PriceExtractor()
-            price_info = price_extractor.extract_price(detail_html, name)  # メソッド名を修正
+            price_info = price_extractor.extract_price(detail_html, name)  # 引数に馬名を追加
             
-            if price_info and 'sold_price' in price_info and price_info['sold_price'] is not None:
+            # デバッグ用ログ
+            self.logger.info(f"馬名: {name}, 価格抽出結果: {price_info}")
+            
+            # 入札数が0の場合は主取りと判定
+            if price_info.get('bid_count', 0) == 0:
+                price_info['is_unsold'] = True
+                price_info['sold_price'] = None
+                self.logger.info(f"入札数が0のため主取りと判定: {name}")
+            
+            # 価格情報を設定
+            if price_info and 'sold_price' in price_info:
                 horse_info['sold_price'] = price_info['sold_price']
                 horse_info['is_unsold'] = price_info.get('is_unsold', False)
                 horse_info['bid_count'] = price_info.get('bid_count', 0)
-                self.logger.info(f'落札価格を抽出しました: {price_info["sold_price"]}円')
+                
+                # 入札数が0の場合は主取りと判定
+                if horse_info['bid_count'] == 0:
+                    horse_info['is_unsold'] = True
+                    horse_info['sold_price'] = None
+                    self.logger.info(f"入札数が0のため主取りと判定: {name}")
+                
+                # デバッグログを追加
+                self.logger.info(f"価格情報を設定: sold_price={horse_info['sold_price']}, is_unsold={horse_info['is_unsold']}, bid_count={horse_info['bid_count']}")
+                
+                if horse_info['is_unsold']:
+                    self.logger.info(f"主取りと判定: {name}, 入札数: {horse_info['bid_count']}")
+                else:
+                    self.logger.info(f'落札価格を抽出しました: {price_info["sold_price"]}円, 入札数: {horse_info["bid_count"]}')
             else:
+                # 価格情報が取得できない場合は主取りとみなす
                 horse_info['sold_price'] = None
                 horse_info['is_unsold'] = True
                 horse_info['bid_count'] = 0
-                self.logger.warning(f'落札価格の抽出に失敗しました: {name}')
+                self.logger.warning(f'落札価格の抽出に失敗したため主取りとみなします: {name}')
             
             # 古いフィールドを削除
             for field in ['total_prize', 'original_text', 'pattern_used']:
