@@ -254,6 +254,10 @@ async def get_horses(
         for horse in horses:
             try:
                 # 馬の基本情報を取得
+                # デバッグ用
+                latest_auction_unsold = getattr(horse.latest_auction, 'is_unsold', False) if hasattr(horse, 'latest_auction') and horse.latest_auction else False
+                logger.info(f"Horse {horse.id} - Name: {horse.name}, Latest Auction ID: {getattr(horse.latest_auction, 'id', 'N/A')}, is_unsold: {latest_auction_unsold}")
+                
                 horse_data = {
                     'id': horse.id,
                     'name': horse.name,
@@ -272,8 +276,8 @@ async def get_horses(
                     'comment': horse.comment,
                     'image_url': horse.image_url,
                     'detail_url': horse.detail_url,
-                    'is_unsold': False,  # デフォルト値
-                    'unsold': False  # is_unsold のエイリアスとして追加
+                    'is_unsold': latest_auction_unsold,  # latest_auctionから取得
+                    'unsold': latest_auction_unsold  # エイリアス
                 }
                 
                 # 最新のオークション情報があればマージ
@@ -295,11 +299,17 @@ async def get_horses(
                 if horse_data['sold_price'] is None and 'price' in horse_data:
                     horse_data['sold_price'] = horse_data['price']
                 
-                # unsold フラグを追加（is_unsold のエイリアス）
-                horse_data['unsold'] = horse_data.get('is_unsold', False)
+                # オークション情報から主取りフラグを更新
+                if horse.id in latest_auctions:
+                    auction = latest_auctions[horse.id]
+                    horse_data['is_unsold'] = getattr(auction, 'is_unsold', False)
+                    horse_data['unsold'] = horse_data['is_unsold']
+                    
+                    # デバッグログ
+                    logger.info(f"Updated horse {horse.id} - is_unsold: {horse_data['is_unsold']} from auction {auction.id}")
                 
-                # unsold フラグを追加（is_unsold のエイリアス）
-                horse_data['unsold'] = horse_data.get('is_unsold', False)
+                # 最終的なデバッグログ
+                logger.info(f"Final horse data for {horse.id} - is_unsold: {horse_data['is_unsold']}, sold_price: {horse_data.get('sold_price')}")
                 result_horses.append(horse_data)
                 
             except Exception as e:

@@ -147,9 +147,14 @@ class HorseService:
                 unsold_count = 0
                 if 'unsold' in horse_data and horse_data['unsold']:
                     unsold_count = 1
+                    # unsoldがTrueの場合はis_unsoldも明示的に設定
+                    horse_data['is_unsold'] = True
+                    print(f"[デバッグ] 馬 {horse_data.get('name', '不明')} の主取りフラグを検出: unsold_count={unsold_count}")
+                
                 existing_horse = db.query(Horse).filter(
                     Horse.name == horse_data['name']
                 ).first()
+                
                 if existing_horse:
                     # 既存馬のunsold_countを累積
                     prev_unsold_count = getattr(existing_horse, 'unsold_count', 0) or 0
@@ -157,6 +162,12 @@ class HorseService:
                         unsold_count = prev_unsold_count + 1
                     else:
                         unsold_count = prev_unsold_count
+                    
+                    # 既存のis_unsoldを保持（明示的に設定されていない場合）
+                    if 'is_unsold' not in horse_data and hasattr(existing_horse, 'is_unsold'):
+                        horse_data['is_unsold'] = existing_horse.is_unsold
+                        print(f"[デバッグ] 既存のis_unsoldを保持: {horse_data['is_unsold']}")
+                
                 horse_data['unsold_count'] = unsold_count
                 # 各履歴カラムの新値
                 new_date = horse_data.get('auction_date', '') or ''
@@ -226,7 +237,10 @@ class HorseService:
                     # その他の情報も更新
                     for key, value in horse_data.items():
                         if key not in ['auction_date', 'age', 'sex', 'seller', 'sold_price', 'comment']:
-                            setattr(existing_horse, key, value)
+                            # is_unsoldが存在する場合は必ず更新する
+                            if key == 'is_unsold' or not hasattr(existing_horse, key) or getattr(existing_horse, key) != value:
+                                setattr(existing_horse, key, value)
+                                print(f"[デバッグ] フィールドを更新: {key} = {value}")
                     existing_horse.updated_at = datetime.utcnow()
                     saved_horses.append(existing_horse)
                 else:

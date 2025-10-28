@@ -233,12 +233,20 @@ class RakutenAuctionScraper:
                     # 落札価格が0の場合は未落札として扱う
                     if price == 0:
                         auction_data['unsold'] = True
-                        print(f"[デバッグ] 落札価格が0のため、unsoldフラグをTrueに設定しました")
+                        auction_data['is_unsold'] = True  # is_unsoldも明示的に設定
+                        print(f"[デバッグ] 落札価格が0のため、unsoldフラグとis_unsoldフラグをTrueに設定しました")
+                    # 価格テキストに「主取り」または「unsold」が含まれている場合も未落札として扱う
+                    elif '主取り' in price_text or 'unsold' in price_text.lower():
+                        auction_data['unsold'] = True
+                        auction_data['is_unsold'] = True
+                        auction_data['sold_price'] = 0  # 価格を0に設定
+                        print(f"[デバッグ] 価格テキストに主取りを示すキーワードがあるため、unsoldフラグとis_unsoldフラグをTrueに設定しました")
                 except (ValueError, TypeError) as e:
                     print(f"[警告] 落札価格の数値変換に失敗: {price_text} - {str(e)}")
                     # 価格が取得できない場合も未落札の可能性がある
                     auction_data['unsold'] = True
-                    print("[デバッグ] 落札価格が取得できないため、unsoldフラグをTrueに設定しました")
+                    auction_data['is_unsold'] = True  # is_unsoldも明示的に設定
+                    print(f"[デバッグ] 落札価格が取得できないため、unsoldフラグとis_unsoldフラグをTrueに設定しました")
 
             # 6. 入札数の取得
             bid_elem = soup.find(class_=re.compile(r'bid-num|bid-count'))
@@ -249,6 +257,8 @@ class RakutenAuctionScraper:
             unsold_elem = soup.find(class_=re.compile(r'unsold|no-bid|passed'))
             if unsold_elem:
                 auction_data['unsold'] = True
+                auction_data['is_unsold'] = True  # is_unsoldも明示的に設定
+                print("[デバッグ] 主取り要素を検出したため、unsoldフラグとis_unsoldフラグをTrueに設定しました")
 
             # 8. コメントの取得
             comment_elem = soup.find(class_=re.compile(r'comment|note|remarks'))

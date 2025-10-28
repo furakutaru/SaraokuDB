@@ -2031,23 +2031,18 @@ class ImprovedRakutenScraper:
             
             # 落札価格を抽出（PriceExtractorを使用）
             price_extractor = PriceExtractor()
-            price_info = price_extractor.extract_price(detail_html, name)
+            price_info = price_extractor.extract(detail_html)
             
-            # sold_price の設定
-            horse_info['sold_price'] = None  # デフォルト値
-            
-            if price_info is not None:
-                if price_info.get('is_unsold', False):
-                    horse_info['is_unsold'] = True
-                    horse_info['sold_price'] = None
-                    self.logger.info(f'主取り馬としてマークしました: {name}')
-                else:
-                    sold_price = price_info.get('sold_price')
-                    if sold_price is not None:
-                        horse_info['sold_price'] = sold_price
-                        self.logger.info(f'落札価格を抽出しました: {sold_price}円')
-                    else:
-                        self.logger.warning(f'落札価格の抽出に失敗しました: {name}')
+            if price_info and 'sold_price' in price_info and price_info['sold_price'] is not None:
+                horse_info['sold_price'] = price_info['sold_price']
+                horse_info['is_unsold'] = price_info.get('is_unsold', False)
+                horse_info['bid_count'] = price_info.get('bid_count', 0)
+                self.logger.info(f'落札価格を抽出しました: {price_info["sold_price"]}円')
+            else:
+                horse_info['sold_price'] = None
+                horse_info['is_unsold'] = True
+                horse_info['bid_count'] = 0
+                self.logger.warning(f'落札価格の抽出に失敗しました: {name}')
             
             # 古いフィールドを削除
             for field in ['total_prize', 'original_text', 'pattern_used']:
