@@ -139,6 +139,9 @@ export interface HorseWithCalculations extends Horse {
   seller?: string;
   auction_date?: string;
   comment?: string;
+  detail_url?: string;
+  auction_url?: string;
+  jbis_url?: string;
   
   // その他のプロパティ
   [key: string]: any; // 動的なプロパティに対応

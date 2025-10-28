@@ -116,14 +116,31 @@ export default function AnalysisContent() {
         const data = await response.json();
         
         // Horse型からHorseWithCalculations型に変換
-        const horsesWithAuction = data.horses.map((horse: any) => ({
-          ...horse,
-          dam_sire: horse.dam_sire || '',
-          detail_url: horse.detail_url || '',
-          comment: horse.comment,
-          race_record: horse.race_record,
-          race_records: horse.race_records
-        }));
+        // デバッグ用: 最初の馬データの全フィールドをログに出力
+        if (data.horses.length > 0) {
+          console.log('最初の馬データの全フィールド:', Object.keys(data.horses[0]));
+          console.log('最初の馬データのjbis_url:', data.horses[0].jbis_url);
+          console.log('最初の馬データのjbisUrl:', data.horses[0].jbisUrl);
+        }
+
+        const horsesWithAuction = data.horses.map((horse: any) => {
+          const mappedHorse = {
+            ...horse,
+            dam_sire: horse.dam_sire || '',
+            detail_url: horse.detail_url || '',
+            jbis_url: horse.jbis_url || horse.jbisUrl || '', // jbis_url または jbisUrl のいずれかが存在する場合に設定
+            comment: horse.comment,
+            race_record: horse.race_record,
+            race_records: horse.race_records
+          };
+          
+          // デバッグ用: 最初の数件の馬データをログに出力
+          if (horse.id <= 5) {
+            console.log(`馬ID: ${horse.id}, 名前: ${horse.name}, jbis_url: ${mappedHorse.jbis_url}`);
+          }
+          
+          return mappedHorse;
+        });
         
         setHorses(horsesWithAuction);
         setAuctionHistory(data.auction_histories || []);
@@ -472,7 +489,7 @@ export default function AnalysisContent() {
   // 詳細ページのURLを安全に取得するヘルパー関数
   const getDetailUrl = (horse: Horse): string | undefined => {
     // detail_url または auction_url のいずれかが存在する場合に返す
-    return (horse as any).detail_url || (horse as any).auction_url || undefined;
+    return horse.detail_url || (horse as any).auction_url || undefined;
   };
 
   return (
@@ -638,9 +655,13 @@ export default function AnalysisContent() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex flex-col gap-1 items-center">
-                      {horse.jbis_url && (
-                        <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline whitespace-nowrap">JBIS</a>
-                      )}
+                      {(() => {
+                        // デバッグ用: jbis_urlの値をログに出力
+                        console.log(`馬名: ${horse.name}, jbis_url: ${horse.jbis_url}`);
+                        return horse.jbis_url && horse.jbis_url.trim() !== '' ? (
+                          <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline whitespace-nowrap">JBIS</a>
+                        ) : null;
+                      })()}
                       {getDetailUrl(horse) && (
                         <a href={getDetailUrl(horse)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline whitespace-nowrap">サラオク</a>
                       )}

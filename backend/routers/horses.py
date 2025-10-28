@@ -279,6 +279,7 @@ async def get_horses(
                     'comment': horse.comment,
                     'image_url': horse.image_url,
                     'detail_url': horse.detail_url,
+                    'jbis_url': horse.jbis_url,  # jbis_urlを追加
                     'is_unsold': latest_auction_unsold,  # latest_auctionから取得
                     'unsold': latest_auction_unsold  # エイリアス
                 }
