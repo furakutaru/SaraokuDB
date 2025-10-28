@@ -128,11 +128,15 @@ export function formatPrice(
 }
 
 /**
- * 賞金をフォーマットする（未出走チェックなし）
+ * 賞金をフォーマットする（未出走チェックあり）
  * @param amount 賞金額（数値または文字列）
- * @returns フォーマットされた賞金文字列（例: "1,000万円" または "500円"）
+ * @param raceRecords レース記録情報（未出走判定用）
+ * @returns フォーマットされた賞金文字列（例: "1,000万円" または "未出走"）
  */
-export function formatPrize(amount: number | string | null | undefined): string {
+export function formatPrize(
+  amount: number | string | null | undefined, 
+  raceRecords?: any[] | null
+): string {
   // 値がnullまたはundefinedまたは空文字の場合は'-'を返す
   if (amount === null || amount === undefined || amount === '') {
     return '-';
@@ -140,6 +144,11 @@ export function formatPrize(amount: number | string | null | undefined): string 
   
   // 数値に変換
   const numAmount = Number(amount);
+  
+  // race_recordsが空で、かつ賞金が0の場合は「未出走」を返す
+  if ((!raceRecords || raceRecords.length === 0) && numAmount === 0) {
+    return '未出走';
+  }
   
   // 数値に変換できない、または0の場合は'0円'を返す
   if (isNaN(numAmount) || numAmount === 0) {

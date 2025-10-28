@@ -619,8 +619,9 @@ export default function AnalysisContent() {
                       // デバッグ用: ホワイトアッシュのデータをログに出力
                       if (horse.name === 'ホワイトアッシュ') {
                         console.log('ホワイトアッシュのtotal_prize_start:', horse.total_prize_start);
+                        console.log('ホワイトアッシュのrace_records:', horse.race_records);
                       }
-                      return formatPrize(horse.total_prize_start);
+                      return formatPrize(horse.total_prize_start, horse.race_records);
                     })()}
                   </td>
                   <td className="px-3 py-2">
