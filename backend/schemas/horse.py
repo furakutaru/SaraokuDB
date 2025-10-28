@@ -10,6 +10,7 @@ class HorseBase(BaseModel):
     name: str
     breed: Optional[str] = None
     age: Optional[int] = None
+    disease_tags: Optional[List[str]] = None
 
 class HorseCreate(HorseBase):
     pass

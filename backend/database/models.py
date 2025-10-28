@@ -48,8 +48,8 @@ class Horse(Base):
     total_prize_latest = Column(Float)  # 最新の地方賞金
     sold_price = Column(Text)  # 落札価格履歴（JSON配列文字列: [10000000, ...]）
     auction_date = Column(Text)  # 開催日履歴（JSON配列文字列: ["YYYY-MM-DD", ...]）
+    disease_tags = Column(Text)  # 疾病タグ（JSON配列文字列: ["跛行", ...]）
     seller = Column(Text)  # 販売申込者（JSON配列文字列: ["社台", ...]）
-    disease_tags = Column(Text)  # 疾病カテゴリ
     comment = Column(Text)  # コメント履歴（JSON配列文字列: ["1回目コメント", ...]）
     image_url = Column(String(500))  # 馬画像URL
     primary_image = Column(String(500))  # 馬体写真1枚目のURL
