@@ -2031,7 +2031,7 @@ class ImprovedRakutenScraper:
             
             # 落札価格を抽出（PriceExtractorを使用）
             price_extractor = PriceExtractor()
-            price_info = price_extractor.extract(detail_html)
+            price_info = price_extractor.extract_price(detail_html, name)  # メソッド名を修正
             
             if price_info and 'sold_price' in price_info and price_info['sold_price'] is not None:
                 horse_info['sold_price'] = price_info['sold_price']
