@@ -170,6 +170,7 @@ async def get_horses(
     request: Request,
     skip: int = 0,
     limit: int = 100,
+    sort: str = 'price_desc',  # デフォルトは価格の降順
     auction_date: Optional[str] = None,
     latest_auction: str = 'false',  # デフォルトですべての馬を表示
     include_latest_auction: str = 'true',  # 最新のオークション情報を含める
@@ -180,6 +181,11 @@ async def get_horses(
     Args:
         skip: スキップするレコード数
         limit: 取得する最大レコード数
+        sort: 並べ替え方法
+            - 'price_desc': 価格の高い順
+            - 'price_asc': 価格の安い順
+            - 'name_asc': 名前順 (A-Z)
+            - 'name_desc': 名前順 (Z-A)
         auction_date: オークション日でフィルタリング（部分一致）
         latest_auction: 'true'の場合、最新のオークション日でフィルタリング
         include_latest_auction: 'true'の場合、最新のオークション情報を含める
@@ -223,14 +229,207 @@ async def get_horses(
                 Horse.auction_date.like(f'%{latest_date}%')
             )
         
-        # 5. 総レコード数を取得
+        # 5. ソートに必要なフィールドを決定
+        if sort in ['price_desc', 'price_asc']:
+            # 価格でのソートの場合は、オークション情報をサブクエリで取得
+            latest_auction_subq = (
+                db.query(
+                    AuctionHistory.horse_id,
+                    func.max(AuctionHistory.id).label('latest_auction_id')
+                )
+                .group_by(AuctionHistory.horse_id)
+                .subquery()
+            )
+            
+            # 価格情報を含むサブクエリ
+            auction_with_prices = (
+                db.query(
+                    AuctionHistory.horse_id,
+                    AuctionHistory.id.label('auction_id'),
+                    AuctionHistory.price,
+                    AuctionHistory.is_unsold
+                )
+                .join(
+                    latest_auction_subq,
+                    and_(
+                        AuctionHistory.horse_id == latest_auction_subq.c.horse_id,
+                        AuctionHistory.id == latest_auction_subq.c.latest_auction_id
+                    )
+                )
+                .subquery()
+            )
+            
+            # メインクエリと結合
+            query = query.outerjoin(
+                auction_with_prices,
+                Horse.id == auction_with_prices.c.horse_id
+            )
+            
+            # ソート順を適用
+            logger.info(f"Applying sort: {sort}")
+            
+            if sort == 'price_desc':
+                # 価格の降順（高い順）でソート（未落札は最後）
+                logger.info("Sorting by price_desc")
+                query = query.order_by(
+                    auction_with_prices.c.is_unsold.asc(),
+                    auction_with_prices.c.price.desc().nulls_last(),
+                    Horse.id.asc()
+                )
+                logger.info(f"SQL: {str(query)}")
+            
+            elif sort == 'price_asc':
+                # 価格の昇順（安い順）でソート（未落札は最後）
+                logger.info("Sorting by price_asc")
+                query = query.order_by(
+                    auction_with_prices.c.is_unsold.asc(),
+                    auction_with_prices.c.price.asc().nulls_last(),
+                    Horse.id.asc()
+                )
+                logger.info(f"SQL: {str(query)}")
+
+        # 価格以外のソート条件
+        elif sort == 'name_asc':
+            # 名前の昇順（A-Z）でソート
+            logger.info("Sorting by name_asc")
+            query = query.order_by(
+                Horse.name.asc(),
+                Horse.id.asc()
+            )
+            logger.info(f"SQL: {str(query)}")
+            
+        elif sort == 'name_desc':
+            # 名前の降順（Z-A）でソート
+            logger.info("Sorting by name_desc")
+            query = query.order_by(
+                Horse.name.desc(),
+                Horse.id.asc()
+            )
+            logger.info(f"SQL: {str(query)}")
+            
+        elif sort == 'date_desc':
+            # 日付の降順（最新を先頭に）
+            logger.info("Sorting by date_desc (default)")
+            query = query.order_by(Horse.id.desc())
+            logger.info(f"SQL: {str(query)}")
+            
+        else:
+            # デフォルトはIDの降順（最新の馬を先頭に）
+            logger.info(f"Unknown sort parameter: {sort}, using default sort (id desc)")
+            query = query.order_by(Horse.id.desc())
+            logger.info(f"SQL: {str(query)}")
+        
+        # 6. 総レコード数を取得
         total_count = query.count()
         
-        # 6. ソート順を指定（デフォルトはIDの昇順）
-        query = query.order_by(Horse.id.asc())
+        # 7. ページネーションを適用して馬のIDを取得（ソート順を保持）
+        # ソート順を保持するために、必要なフィールドも含めて取得
+        if sort in ['price_desc', 'price_asc']:
+            # 価格でのソートの場合は、必要なフィールドを取得
+            horses_with_order = query.with_entities(
+                Horse.id,
+                auction_with_prices.c.price,
+                auction_with_prices.c.is_unsold
+            )
+            
+            # ソート順を適用
+            if sort == 'price_desc':
+                # 未落札を最後に、価格の降順、IDの昇順でソート
+                horses_with_order = horses_with_order.order_by(
+                    auction_with_prices.c.is_unsold.asc(),  # 未落札を最後に
+                    auction_with_prices.c.price.desc().nulls_last(),  # 価格の降順（NULLは最後）
+                    Horse.id.asc()  # 同点の場合はIDでソート
+                )
+            else:  # price_asc
+                # 未落札を最後に、価格の昇順、IDの昇順でソート
+                horses_with_order = horses_with_order.order_by(
+                    auction_with_prices.c.is_unsold.asc(),  # 未落札を最後に
+                    auction_with_prices.c.price.asc().nulls_last(),  # 価格の昇順（NULLは最後）
+                    Horse.id.asc()  # 同点の場合はIDでソート
+                )
+            
+            # ページネーションを適用
+            horses_with_order = horses_with_order.offset(skip).limit(limit).all()
+            horse_ids = [horse.id for horse in horses_with_order]
+        else:
+            # その他のソートの場合はIDのみを取得
+            horses_with_order = query.with_entities(Horse.id).offset(skip).limit(limit).all()
+            horse_ids = [horse.id for horse in horses_with_order]
         
-        # 7. ページネーションを適用
-        horses = query.offset(skip).limit(limit).all()
+        # ソート順を保持するためのインデックスマップを作成
+        horse_id_to_index = {horse_id: idx for idx, horse_id in enumerate(horse_ids)}
+        
+        # 10. 最終的な馬のデータを取得
+        if horse_ids:
+            # 馬の基本情報を取得
+            horses = db.query(Horse).filter(Horse.id.in_(horse_ids)).all()
+            
+            # 各馬の最新オークション情報を取得
+            horse_auction_subq = (
+                db.query(
+                    AuctionHistory.horse_id,
+                    func.max(AuctionHistory.id).label('latest_auction_id')
+                )
+                .group_by(AuctionHistory.horse_id)
+                .subquery()
+            )
+            
+            latest_auctions = (
+                db.query(
+                    AuctionHistory
+                )
+                .join(
+                    horse_auction_subq,
+                    and_(
+                        AuctionHistory.horse_id == horse_auction_subq.c.horse_id,
+                        AuctionHistory.id == horse_auction_subq.c.latest_auction_id
+                    )
+                )
+                .filter(AuctionHistory.horse_id.in_(horse_ids))
+                .all()
+            )
+            
+            # 馬IDをキーにした辞書を作成
+            auction_dict = {auction.horse_id: auction for auction in latest_auctions}
+            
+            # 馬のデータにオークション情報を追加
+            for horse in horses:
+                if horse.id in auction_dict:
+                    auction = auction_dict[horse.id]
+                    # auction_dateが文字列の場合はそのまま、datetimeの場合はisoformat()を適用
+                    auction_date = auction.auction_date
+                    if hasattr(auction_date, 'isoformat'):
+                        auction_date = auction_date.isoformat()
+                    elif auction_date is not None and not isinstance(auction_date, str):
+                        auction_date = str(auction_date)
+                    
+                    # 辞書を直接代入する代わりに、新しいオブジェクトを作成してから代入
+                    latest_auction_data = {
+                        'price': auction.price,
+                        'auction_date': auction_date,
+                        'location': auction.auction_house or None,
+                        'name': auction.auction_name or auction.horse_name or None
+                    }
+                    
+                    # 既存のlatest_auctionが存在する場合は更新、存在しない場合は新規作成
+                    if hasattr(horse, 'latest_auction') and horse.latest_auction is not None:
+                        for key, value in latest_auction_data.items():
+                            setattr(horse.latest_auction, key, value)
+                    else:
+                        # 新しいオブジェクトを作成して代入
+                        class LatestAuction:
+                            def __init__(self, data):
+                                self.__dict__.update(data)
+                        
+                        horse.latest_auction = LatestAuction(latest_auction_data)
+            # ソート順を保持するために、元の順序で並べ替え
+            horse_dict = {horse.id: horse for horse in horses}
+            # horse_idsの順序でソート（存在するIDのみをフィルタリング）
+            horses = [horse_dict[horse_id] for horse_id in horse_ids if horse_id in horse_dict]
+            # ソート順を保持するために、horse_id_to_indexに基づいてソート
+            horses.sort(key=lambda x: horse_id_to_index.get(x.id, float('inf')))
+        else:
+            horses = []
         
         # 7. 馬IDのリストを取得
         horse_ids = [horse.id for horse in horses]
@@ -265,9 +464,10 @@ async def get_horses(
         for horse in horses:
             try:
                 # 馬の基本情報を取得
-                # デバッグ用
                 latest_auction_unsold = getattr(horse.latest_auction, 'is_unsold', False) if hasattr(horse, 'latest_auction') and horse.latest_auction else False
-                logger.info(f"Horse {horse.id} - Name: {horse.name}, Latest Auction ID: {getattr(horse.latest_auction, 'id', 'N/A')}, is_unsold: {latest_auction_unsold}")
+                
+                # デバッグログ（必要に応じてコメントアウト）
+                # logger.info(f"Horse {horse.id} - Name: {horse.name}, Latest Auction ID: {getattr(horse.latest_auction, 'id', 'N/A')}, is_unsold: {latest_auction_unsold}")
                 
                 horse_data = {
                     'id': horse.id,
@@ -320,8 +520,10 @@ async def get_horses(
                     # デバッグログ
                     logger.info(f"Updated horse {horse.id} - is_unsold: {horse_data['is_unsold']} from auction {auction.id}")
                 
-                # 最終的なデバッグログ
-                logger.info(f"Final horse data for {horse.id} - is_unsold: {horse_data['is_unsold']}, sold_price: {horse_data.get('sold_price')}")
+                # デバッグログ（必要に応じてコメントアウト）
+                # logger.info(f"Final horse data for {horse.id} - is_unsold: {horse_data['is_unsold']}, sold_price: {horse_data.get('sold_price')}")
+                
+                # 結果に追加
                 result_horses.append(horse_data)
                 
             except Exception as e:

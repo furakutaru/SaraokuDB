@@ -19,6 +19,10 @@ export const useSorting = (horses: Horse[] = []): UseSortingReturn => {
   // 入力がundefinedやnullの場合に空の配列を使用
   const safeHorses = Array.isArray(horses) ? horses : [];
   
+  console.log('=== useSorting ソート開始 ===');
+  console.log('ソートフィールド:', sortField, 'ソート順:', sortOrder);
+  console.log('ソート前の馬の数:', safeHorses.length);
+  
   const sortedHorses = [...safeHorses].sort((a, b) => {
     let aValue: any;
     let bValue: any;
@@ -27,31 +31,19 @@ export const useSorting = (horses: Horse[] = []): UseSortingReturn => {
     if (sortField === 'sold_price') {
       // デバッグ用: ソート前の値をログに出力
       console.log('Before sorting - a:', {
-        raw: a.auction_histories?.[0]?.sold_price,
-        type: typeof a.auction_histories?.[0]?.sold_price
+        raw: a.sold_price,
+        type: typeof a.sold_price,
+        auction_histories: a.auction_histories?.[0]?.sold_price
       });
       console.log('Before sorting - b:', {
-        raw: b.auction_histories?.[0]?.sold_price,
-        type: typeof b.auction_histories?.[0]?.sold_price
+        raw: b.sold_price,
+        type: typeof b.sold_price,
+        auction_histories: b.auction_histories?.[0]?.sold_price
       });
 
-      // 文字列から数値に変換（カンマや「万円」を除去）
-      const parsePrice = (price: any): number => {
-        console.log('Parsing price:', { price, type: typeof price });
-        
-        if (price === null || price === undefined) return 0;
-        if (typeof price === 'number') return price;
-        if (typeof price !== 'string') return 0;
-        
-        // 金額から数字以外と「万」を除去
-        const numStr = price.replace(/[^0-9.]/g, '');
-        const result = parseFloat(numStr) || 0;
-        console.log('Parsed result:', { price, numStr, result });
-        return result;
-      };
-
-      aValue = parsePrice(a.auction_histories?.[0]?.sold_price);
-      bValue = parsePrice(b.auction_histories?.[0]?.sold_price);
+      // 数値に変換
+      aValue = a.sold_price !== null && a.sold_price !== undefined ? a.sold_price : 0;
+      bValue = b.sold_price !== null && b.sold_price !== undefined ? b.sold_price : 0;
       
       // デバッグ用: ソートに使用する値をログに出力
       console.log('Sorting values:', { aValue, bValue, sortOrder });
@@ -83,9 +75,47 @@ export const useSorting = (horses: Horse[] = []): UseSortingReturn => {
       }
     }
 
-    // 数値の比較
+    // キャンセル（主取り）の処理
+    const isACanceled = a.auction_histories?.[0]?.canceled || false;
+    const isBCanceled = b.auction_histories?.[0]?.canceled || false;
+
+    // キャンセル状態が異なる場合、キャンセルを先頭に
+    if (isACanceled !== isBCanceled) {
+      return isACanceled ? -1 : 1;
+    }
+    
+    // 両方キャンセルの場合はIDでソート
+    if (isACanceled && isBCanceled) {
+      const aId = Number(a.id) || 0;
+      const bId = Number(b.id) || 0;
+      return aId - bId; // キャンセル同士はID順
+    }
+    
+    // 数値の比較（両方キャンセルでない場合）
     if (typeof aValue === 'number' && typeof bValue === 'number') {
-      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      // 主取り（キャンセル）の場合は0円相当として扱う
+      const aPrice = isACanceled ? 0 : aValue;
+      const bPrice = isBCanceled ? 0 : bValue;
+      
+      // 価格で比較（昇順）
+      if (sortOrder === 'asc') {
+        return aPrice - bPrice;
+      }
+      
+      // 両方0の場合はIDでソート
+      if (aValue === 0 && bValue === 0) {
+        const aId = Number(a.id) || 0;
+        const bId = Number(b.id) || 0;
+        return sortOrder === 'asc' ? aId - bId : bId - aId;
+      }
+      // 片方が0の場合は0を後ろに
+      if (aValue === 0) return 1;
+      if (bValue === 0) return -1;
+      
+      // 通常の数値比較
+      const result = sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      console.log('数値比較:', { aValue, bValue, sortOrder, result });
+      return result;
     }
     // 文字列の比較
     return sortOrder === 'asc'
@@ -94,10 +124,16 @@ export const useSorting = (horses: Horse[] = []): UseSortingReturn => {
   });
 
   const handleSort = useCallback((field: SortableField) => {
-    setSortState(prev => ({
-      field,
-      order: prev.field === field && prev.order === 'asc' ? 'desc' : 'asc'
-    }));
+    console.log('=== useSorting handleSort 呼び出し ===');
+    console.log('クリックされたフィールド:', field);
+    setSortState(prev => {
+      const newOrder = prev.field === field && prev.order === 'asc' ? 'desc' : 'asc';
+      console.log('新しいソート状態:', { field, order: newOrder });
+      return {
+        field,
+        order: newOrder
+      };
+    });
   }, []);
 
   // 常に同じ構造のオブジェクトを返す

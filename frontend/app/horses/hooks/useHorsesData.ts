@@ -53,7 +53,9 @@ export const useHorsesData = ({ latestAuction = true }: UseHorsesDataParams = {}
     
     const processedHorse = {
       ...horse,
-      sold_price: parseSoldPrice(horse.sold_price) || parseSoldPrice(horse.auction_histories?.[0]?.sold_price) || null,
+      sold_price: parseSoldPrice(horse.sold_price) !== null ? parseSoldPrice(horse.sold_price) : 
+                  (parseSoldPrice(horse.auction_histories?.[0]?.sold_price) !== null ? parseSoldPrice(horse.auction_histories?.[0]?.sold_price) : 
+                  (horse.auction_histories?.[0]?.sold_price === 0 ? 0 : null)),
       auction_date: horse.auction_histories?.[0]?.auction_date || horse.auction_date,
       seller: horse.auction_histories?.[0]?.seller || horse.seller,
       is_unsold: horse.auction_histories?.[0]?.is_unsold || horse.is_unsold || false,

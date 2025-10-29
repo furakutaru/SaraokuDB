@@ -26,6 +26,11 @@ const SortControls: React.FC<SortControlsProps> = ({
     { value: 'total_prize_latest', label: '総賞金（開始時）' },
   ] as const;
 
+  // デバッグ用: プロップスの変更をログに出力
+  React.useEffect(() => {
+    console.log('SortControls - プロップスが更新されました:', { sortField, sortOrder });
+  }, [sortField, sortOrder]);
+
   return (
     <div className={`flex items-center space-x-4 ${className}`}>
       <div>
@@ -36,7 +41,11 @@ const SortControls: React.FC<SortControlsProps> = ({
           id="sort-field"
           className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
           value={sortField}
-          onChange={(e) => onSortFieldChange(e.target.value as SortableField)}
+          onChange={(e) => {
+            const newField = e.target.value as SortableField;
+            console.log('ソートフィールドが変更されました:', newField);
+            onSortFieldChange(newField);
+          }}
         >
           {sortOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -49,7 +58,11 @@ const SortControls: React.FC<SortControlsProps> = ({
         <button
           type="button"
           className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          onClick={() => onSortOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}
+          onClick={() => {
+            const newOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+            console.log('ソート順が変更されました:', newOrder);
+            onSortOrderChange(newOrder);
+          }}
           aria-label={sortOrder === 'asc' ? '昇順' : '降順'}
         >
           {sortOrder === 'asc' ? '昇順' : '降順'}

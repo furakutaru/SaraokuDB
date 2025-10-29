@@ -18,13 +18,20 @@ console.log('API Configuration:', {
   NODE_ENV: process.env.NODE_ENV
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const requestUrl = `${API_URL}/horses`;
-    console.log('Fetching horses from backend...', { apiUrl: `${API_URL}/horses` })
+    // クエリパラメータを取得
+    const { searchParams } = new URL(request.url);
+    const sort = searchParams.get('sort') || 'price_desc';
+    
+    const requestUrl = `${API_URL}/horses?sort=${sort}`;
+    console.log('Fetching horses from backend...', { 
+      apiUrl: requestUrl,
+      sortParam: sort
+    });
     
     // バックエンドAPIからデータを取得
-    const response = await fetch(`${API_URL}/horses`, {
+    const response = await fetch(requestUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
