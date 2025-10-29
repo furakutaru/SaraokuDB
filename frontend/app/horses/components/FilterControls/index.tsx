@@ -49,62 +49,6 @@ const Checkbox: React.FC<{
   </div>
 );
 
-// シンプルなスライダーコンポーネント
-const Slider: React.FC<{
-  min: number;
-  max: number;
-  step: number;
-  value: [number, number];
-  onValueChange: (value: [number, number]) => void;
-  minStepsBetweenThumbs?: number;
-  className?: string;
-}> = ({ 
-  min, 
-  max, 
-  step, 
-  value, 
-  onValueChange, 
-  minStepsBetweenThumbs = 1,
-  className = '' 
-}) => (
-  <div className={`w-full ${className}`}>
-    <div className="relative">
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value[0]}
-        onChange={(e) => onValueChange([parseInt(e.target.value, 10), value[1]])}
-        className="w-full absolute z-10"
-        style={{
-          pointerEvents: value[1] === max ? 'auto' : 'none',
-          opacity: value[1] === max ? 1 : 0.5,
-        }}
-      />
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value[1]}
-        onChange={(e) => onValueChange([value[0], parseInt(e.target.value, 10)])}
-        className="w-full relative z-20"
-      />
-      <div 
-        className="absolute top-1/2 h-1 bg-blue-200 rounded-full -translate-y-1/2 z-0"
-        style={{
-          left: `${((value[0] - min) / (max - min)) * 100}%`,
-          right: `${100 - ((value[1] - min) / (max - min)) * 100}%`,
-        }}
-      />
-    </div>
-    <div className="flex justify-between text-xs text-gray-500 mt-1">
-      <span>{value[0]}歳</span>
-      <span>{value[1]}歳</span>
-    </div>
-  </div>
-);
 
 // シンプルなラベルコンポーネント
 const Label: React.FC<{ htmlFor: string; className?: string; children: React.ReactNode }> = ({
@@ -128,6 +72,7 @@ interface FilterControlsProps {
   ageRange: [number, number];
   onSexFilterChange: (filter: { male: boolean; female: boolean; gelding: boolean }) => void;
   onAgeRangeChange: (range: [number, number]) => void;
+  onReset?: () => void;
   className?: string;
 }
 const FilterControls: React.FC<FilterControlsProps> = ({
@@ -135,6 +80,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
   ageRange,
   onSexFilterChange,
   onAgeRangeChange,
+  onReset,
   className = '',
 }) => {
   // 内部状態として性別フィルターを管理
@@ -165,7 +111,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
     <div className={`space-y-4 ${className}`}>
       <div>
         <h3 className="text-sm font-medium text-gray-700 mb-2">性別</h3>
-        <div className="space-y-2">
+        <div className="flex space-x-4">
           {[
             { id: 'male' as const, label: '牡' },
             { id: 'female' as const, label: '牝' },
@@ -177,7 +123,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
                 checked={sexFilter[id]}
                 onCheckedChange={(checked) => handleSexFilterChange(id, checked)}
               />
-              <Label htmlFor={id} className="ml-2 text-sm text-gray-700">
+              <Label htmlFor={id} className="ml-1 text-sm text-gray-700">
                 {label}
               </Label>
             </div>
@@ -187,15 +133,51 @@ const FilterControls: React.FC<FilterControlsProps> = ({
 
       <div>
         <h3 className="text-sm font-medium text-gray-700 mb-2">年齢</h3>
-        <Slider
-          min={0}
-          max={10}
-          step={1}
-          value={ageRange}
-          onValueChange={handleAgeRangeChange}
-          minStepsBetweenThumbs={1}
-          className="w-full"
-        />
+        <div className="flex items-center space-x-2">
+          <div className="flex-1">
+            <label htmlFor="minAge" className="block text-xs text-gray-500 mb-1">最小</label>
+            <div className="relative rounded-md shadow-sm">
+              <input
+                type="number"
+                id="minAge"
+                min={0}
+                max={ageRange[1]}
+                value={ageRange[0]}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10) || 0;
+                  onAgeRangeChange([Math.min(value, ageRange[1]), ageRange[1]]);
+                }}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-8"
+              />
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <span className="text-gray-500 sm:text-sm">歳</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center pt-5">
+            <span className="text-gray-500">〜</span>
+          </div>
+          <div className="flex-1">
+            <label htmlFor="maxAge" className="block text-xs text-gray-500 mb-1">最大</label>
+            <div className="relative rounded-md shadow-sm">
+              <input
+                type="number"
+                id="maxAge"
+                min={ageRange[0]}
+                max={30}
+                value={ageRange[1]}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10) || 0;
+                  onAgeRangeChange([ageRange[0], Math.max(value, ageRange[0])]);
+                }}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm pr-8"
+              />
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <span className="text-gray-500 sm:text-sm">歳</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <Button
@@ -207,6 +189,10 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           setSexFilter(resetFilter);
           onSexFilterChange(resetFilter);
           onAgeRangeChange([0, 10]);
+          // 検索フィールドもリセット
+          if (onReset) {
+            onReset();
+          }
         }}
       >
         フィルターをリセット

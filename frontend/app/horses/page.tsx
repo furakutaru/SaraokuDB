@@ -363,11 +363,17 @@ export default function HorsesPage() {
   }, [updateFilters]);
 
   // 検索クエリが変更されたときにフィルターを更新（即時更新）
-  const handleSearchChange = useCallback((term: string) => {
-    setSearchTerm(term);
-    updateFilters({ searchQuery: term });
+  const handleSearchChange = useCallback((newSearchTerm: string) => {
+    setSearchTerm(newSearchTerm);
+    updateFilters({ searchQuery: newSearchTerm });
   }, [updateFilters]);
-  
+
+  // フィルターリセット時の処理
+  const handleResetFilters = useCallback(() => {
+    setSearchTerm('');
+    updateFilters({ searchQuery: '' });
+  }, [updateFilters]);
+
   // フィルターが変更されたときに検索バーの値を同期
   useEffect(() => {
     if (filters.searchQuery !== searchTerm) {
@@ -468,7 +474,7 @@ export default function HorsesPage() {
               <SearchBar
                 searchTerm={searchTerm}
                 onSearchChange={handleSearchChange}
-                placeholder="馬名、父、母、母父、売主、病歴 などで検索"
+                placeholder="馬名、父、母、母父 で検索"
               />
             </div>
             <Button 
@@ -488,6 +494,7 @@ export default function HorsesPage() {
               onSexFilterChange={handleSexFilterChangeWrapper}
               ageRange={filters.ageRange}
               onAgeRangeChange={handleAgeRangeChange}
+              onReset={handleResetFilters}
             />
           </div>
         )}  
