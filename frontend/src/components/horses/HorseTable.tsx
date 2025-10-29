@@ -24,7 +24,15 @@ export const HorseTable = ({ horses, onRowClick }: HorseTableProps) => {
   const sortFunctions: Record<SortKey, SortFunction> = {
     name: (a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'ja'),
     sex: (a, b) => (a?.sex ?? '').localeCompare(b?.sex ?? '', 'ja'),
-    weight: (a, b) => (a?.weight ?? 0) - (b?.weight ?? 0),
+    weight: (a, b) => {
+      const getNumericWeight = (weight: any): number => {
+        if (weight === null || weight === undefined) return 0;
+        if (typeof weight === 'number') return weight;
+        const parsed = parseFloat(weight);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+      return getNumericWeight(a?.weight) - getNumericWeight(b?.weight);
+    },
     age: (a, b) => {
       const ageA = typeof a?.age === 'number' ? a.age : (a?.age ? parseFloat(String(a.age)) : 0);
       const ageB = typeof b?.age === 'number' ? b.age : (b?.age ? parseFloat(String(b.age)) : 0);
@@ -55,17 +63,32 @@ export const HorseTable = ({ horses, onRowClick }: HorseTableProps) => {
     disease_tags: (a, b) => {
       const hasDisease = (horse: HorseWithCalculations) => {
         const tags = (horse as any).disease_tags;
-        if (!tags || tags.length === 0) return false;
+        // tagsが配列でない場合はfalseを返す
+        if (!Array.isArray(tags) || tags.length === 0) return false;
+        
+        // すべてのタグが「なし」系の文字列でない場合にtrueを返す
         return !tags.every((tag: any) => {
           const strTag = String(tag).trim();
-          return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
+          return (
+            strTag === '' || 
+            strTag === '-' || 
+            strTag === 'なし' || 
+            strTag === 'なし。' || 
+            strTag === '特になし' || 
+            strTag === '特になし。' ||
+            strTag === 'null' ||
+            strTag === 'undefined'
+          );
         });
       };
       
       const aHasDisease = hasDisease(a) ? 1 : 0;
       const bHasDisease = hasDisease(b) ? 1 : 0;
       
-      return aHasDisease - bHasDisease;
+      // 降順（病歴があるものを上に表示）
+      return sortOrder === 'desc' 
+        ? bHasDisease - aHasDisease 
+        : aHasDisease - bHasDisease;
     },
   };
 

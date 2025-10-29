@@ -465,7 +465,15 @@ export default function AnalysisContent() {
   const sortFunctions: Record<string, SortFunction> = {
     name: (a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'ja'),
     sex: (a, b) => (a?.sex ?? '').localeCompare(b?.sex ?? '', 'ja'),
-    weight: (a, b) => (a?.weight ?? 0) - (b?.weight ?? 0),
+    weight: (a, b) => {
+      const getNumericWeight = (weight: any): number => {
+        if (weight === null || weight === undefined) return 0;
+        if (typeof weight === 'number') return weight;
+        const parsed = parseFloat(weight);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+      return getNumericWeight(a?.weight) - getNumericWeight(b?.weight);
+    },
     age: (a, b) => {
       const ageA = typeof a?.age === 'number' ? a.age : 
                  (a?.age ? parseFloat(String(a.age)) : 0);

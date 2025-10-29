@@ -1,8 +1,18 @@
 /**
  * 共有の馬関連の型定義
+ * 更新日: 2025/10/30
  */
 
-// オークション履歴の基本インターフェース
+// ==================== 基本型 ====================
+
+export type Sex = '牡' | '牝' | 'セ' | 'その他' | string;
+export type Age = number | string;
+export type Price = number | string | null;
+export type Weight = number | string | null;
+
+// ==================== オークション関連 ====================
+
+/** オークション履歴の基本インターフェース */
 export interface BaseAuctionHistory {
   id: string | number;
   horse_id: string | number;
@@ -10,40 +20,41 @@ export interface BaseAuctionHistory {
   sold_price: number | null;
   total_prize_start: number;
   total_prize_latest: number;
-  weight: number | null;
+  weight: Weight;
   seller: string;
   is_unsold: boolean;
   comment: string;
   created_at: string;
   updated_at?: string;
   detail_url?: string;
-  auction_url?: string; // 互換性のためのエイリアス
-  price?: number; // 互換性のためのエイリアス (sold_price の別名)
-  unsold?: boolean; // 互換性のためのエイリアス (is_unsold の別名)
+  
+  // 互換性のためのエイリアス
+  auction_url?: string;  // 代わりに detail_url を使用
+  price?: number;        // 代わりに sold_price を使用
+  unsold?: boolean;      // 代わりに is_unsold を使用
 }
 
-/**
- * オークション履歴のインターフェース
- * BaseAuctionHistory を拡張
- */
+/** オークション履歴のインターフェース */
 export interface AuctionHistory extends BaseAuctionHistory {}
 
-// 賞金情報のインターフェース
+// ==================== 馬の基本情報 ====================
+
+/** 賞金情報 */
 export interface PrizeMoney {
   total_prize: string;
 }
 
-// 画像URLのインターフェース
+/** 画像URL */
 export interface ImageUrl {
   image_url: string;
 }
 
-// 馬の基本情報のインターフェース
+/** 馬の基本情報のインターフェース */
 export interface BaseHorse {
   id: string | number;
-  name?: string;
+  name: string;
   auction_id?: string;
-  sex: string;
+  sex: Sex;
   sire: string;
   dam: string;
   damsire: string;
@@ -54,13 +65,26 @@ export interface BaseHorse {
   updated_at?: string;
 }
 
-/**
- * 馬の情報を表すインターフェース
- */
+// ==================== レース関連 ====================
+
+/** レース記録 */
+export interface RaceRecord {
+  date: string;
+  race_name: string;
+  // 病歴タグ
+  disease_tags?: string[] | null;
+  
+  // その他のフィールド
+  [key: string]: any; // 動的プロパティ用
+}
+
+// ==================== 馬の詳細情報 ====================
+
+/** 馬の情報を表すインターフェース */
 export interface Horse extends BaseHorse {
   // 基本情報
   birth_year?: number;
-  age?: number;
+  age?: Age;
   color?: string;
   breeder?: string;
   owner?: string;
@@ -69,7 +93,7 @@ export interface Horse extends BaseHorse {
   
   // オークション関連
   auction_date?: string;
-  sold_price?: number | null;
+  sold_price?: Price;
   is_unsold?: boolean;
   seller?: string;
   
@@ -92,9 +116,9 @@ export interface Horse extends BaseHorse {
   // 計算済みの値
   roi?: number;
   price_per_kg?: number;
-  effectiveWeight?: number | null;
+  effectiveWeight?: Weight;
   
-  // 互換性のためのフィールド
+  // 互換性のためのフィールド (非推奨)
   /** @deprecated 代わりに detail_url を使用してください */
   auction_url?: string;
   /** @deprecated 代わりに is_unsold を使用してください */
@@ -103,36 +127,41 @@ export interface Horse extends BaseHorse {
   price?: number | null;
 }
 
-// メタデータのインターフェース
-export interface Metadata {
-  last_updated: string;
-  total_horses: number;
-  average_price: number;
-  average_growth_rate: number;
-  horses_with_growth_data: number;
-}
+// ==================== 計算済み情報 ====================
 
-/**
- * 計算済みの馬情報を表すインターフェース
- */
+/** 計算済みの馬情報を表すインターフェース */
 export interface HorseWithCalculations extends Horse {
+  // 計算済みの値
   total_prize_start: number;
   unsold_count: number;
   roi: number;
   price_per_kg: number;
+  
+  // 表示用のフォーマット済み文字列
   display_price: string;
   display_weight: string;
   display_prize: string;
   display_roi: string;
+  
+  // ソート用の数値
   sort_price: number;
   sort_prize: number;
   sort_roi: number;
+  
+  // 画像関連
   primary_image: string;
   
-  // オークション関連のプロパティ
+  // オークション履歴
   auction_history?: AuctionHistory[];
-  weight?: number | null;
+  
+  // レース関連
+  race_record?: RaceRecord;
+  race_records?: RaceRecord[];
+  
+  // 互換性のためのフィールド
+  weight?: Weight;
   effectiveAuction?: AuctionHistory;
+  latestAuction?: AuctionHistory;
   is_unsold?: boolean;
   unsold?: boolean;
   sold_price?: number | null;
@@ -143,16 +172,107 @@ export interface HorseWithCalculations extends Horse {
   auction_url?: string;
   jbis_url?: string;
   
-  // その他のプロパティ
-  [key: string]: any; // 動的なプロパティに対応
+  // 病歴タグ
+  disease_tags?: string[] | null;
 }
 
-/**
- * 馬のデータを表すインターフェース
- * APIレスポンスの型として使用
- */
+// ==================== APIレスポンス ====================
+
+/** 馬データのAPIレスポンス */
 export interface HorseData {
   metadata: Metadata;
   horses: HorseWithCalculations[];
   auction_history?: AuctionHistory[];
 }
+
+// ==================== メタデータ ====================
+
+/** APIメタデータ */
+export interface Metadata {
+  last_updated: string;
+  total_horses: number;
+  average_price: number;
+  average_growth_rate: number;
+  horses_with_growth_data: number;
+  // 互換性のためのフィールド
+  total?: number;
+  count?: number;
+  total_auctions?: number;
+}
+
+// ==================== ページネーション ====================
+
+/** ページネーション情報 */
+export interface PaginationInfo {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+/** ページネーション付きレスポンス */
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: PaginationInfo;
+}
+
+// ==================== フィルター関連 ====================
+
+/** ソート方向 */
+export type SortDirection = 'asc' | 'desc';
+
+/** ソートオプション */
+export interface SortOption {
+  field: keyof HorseWithCalculations;
+  direction: SortDirection;
+}
+
+/** 馬のフィルターオプション */
+export interface HorseFilterOptions {
+  // 基本フィルター
+  name?: string;
+  sex?: Sex | '';
+  
+  // 数値範囲フィルター
+  minAge?: number;
+  maxAge?: number;
+  minPrice?: number;
+  maxPrice?: number;
+  minWeight?: number;
+  maxWeight?: number;
+  
+  // オークションフィルター
+  seller?: string;
+  is_unsold?: boolean;
+  
+  // ソート
+  sortBy?: keyof HorseWithCalculations;
+  sortOrder?: SortDirection;
+  
+  // ページネーション
+  page?: number;
+  limit?: number;
+}
+
+// ==================== フォーム関連 ====================
+
+/** 馬情報フォームの値 */
+export interface HorseFormValues {
+  name: string;
+  sex: Sex | '';
+  age: string;
+  weight: string;
+  price: string;
+  seller: string;
+  comment: string;
+}
+
+// ==================== ユーティリティ型 ====================
+
+/** 必須フィールドを指定する型 */
+export type RequiredField<T, K extends keyof T> = T & {
+  [P in K]-?: T[P];
+};
+
+/** 部分的に更新可能な型 */
+export type PartialHorse = Partial<Horse>;

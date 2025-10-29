@@ -101,10 +101,12 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
         {displayWeight(horse.weight)}
       </td>
       <td className="px-3 py-2">
-        {(horse.is_unsold || horse.unsold || (horse.unsold_count || 0) > 0) && horse.sold_price === null ? (
-          <span className="text-red-600 font-semibold">主取り</span>
-        ) : (
-          formatPrice(horse.sold_price, false, false, horse.sold_price, 0)
+        {formatPrice(
+          horse.sold_price, 
+          horse.is_unsold || horse.unsold || (horse.unsold_count || 0) > 0, // isUnsoldパラメータ
+          false, 
+          horse.sold_price, 
+          0
         )}
       </td>
       <td className="px-3 py-2">
