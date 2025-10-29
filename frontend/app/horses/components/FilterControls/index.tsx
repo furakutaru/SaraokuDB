@@ -131,16 +131,34 @@ interface FilterControlsProps {
   className?: string;
 }
 const FilterControls: React.FC<FilterControlsProps> = ({
-  sexFilter,
+  sexFilter: initialSexFilter,
   ageRange,
   onSexFilterChange,
   onAgeRangeChange,
   className = '',
 }) => {
+  // 内部状態として性別フィルターを管理
+  const [sexFilter, setSexFilter] = React.useState(initialSexFilter);
+  
+  // 親コンポーネントから渡されたpropsが変更されたら、内部状態を更新
+  React.useEffect(() => {
+    setSexFilter(initialSexFilter);
+  }, [initialSexFilter]);
+
   const handleAgeRangeChange = (newRange: number[]) => {
     if (newRange.length === 2) {
       onAgeRangeChange([newRange[0], newRange[1]]);
     }
+  };
+
+  // 性別フィルターの変更を処理
+  const handleSexFilterChange = (id: 'male' | 'female' | 'gelding', checked: boolean) => {
+    const newSexFilter = {
+      ...sexFilter,
+      [id]: checked,
+    };
+    setSexFilter(newSexFilter);
+    onSexFilterChange(newSexFilter);
   };
 
   return (
@@ -149,20 +167,15 @@ const FilterControls: React.FC<FilterControlsProps> = ({
         <h3 className="text-sm font-medium text-gray-700 mb-2">性別</h3>
         <div className="space-y-2">
           {[
-            { id: 'male', label: '牡' },
-            { id: 'female', label: '牝' },
-            { id: 'gelding', label: 'セ' },
+            { id: 'male' as const, label: '牡' },
+            { id: 'female' as const, label: '牝' },
+            { id: 'gelding' as const, label: 'セ' },
           ].map(({ id, label }) => (
             <div key={id} className="flex items-center">
               <Checkbox
                 id={id}
-                checked={sexFilter[id as keyof typeof sexFilter]}
-                onCheckedChange={(checked) =>
-                  onSexFilterChange({
-                    ...sexFilter,
-                    [id]: checked,
-                  })
-                }
+                checked={sexFilter[id]}
+                onCheckedChange={(checked) => handleSexFilterChange(id, checked)}
               />
               <Label htmlFor={id} className="ml-2 text-sm text-gray-700">
                 {label}
@@ -190,7 +203,9 @@ const FilterControls: React.FC<FilterControlsProps> = ({
         size="sm"
         className="w-full mt-4"
         onClick={() => {
-          onSexFilterChange({ male: true, female: true, gelding: true });
+          const resetFilter = { male: true, female: true, gelding: true };
+          setSexFilter(resetFilter);
+          onSexFilterChange(resetFilter);
           onAgeRangeChange([0, 10]);
         }}
       >

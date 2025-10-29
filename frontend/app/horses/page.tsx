@@ -301,27 +301,48 @@ export default function HorsesPage() {
   } = sortingResult || {};
   
   // 5. 性別フィルターの状態を変換
-  const sexFilter = {
-    male: filters.sexFilter === 'all' || filters.sexFilter === '牡',
-    female: filters.sexFilter === 'all' || filters.sexFilter === '牝',
-    gelding: filters.sexFilter === 'all' || filters.sexFilter === 'セ',
-  };
+  const sexFilter = useMemo(() => {
+    if (filters.sexFilter === 'all') {
+      return { male: true, female: true, gelding: true };
+    }
+    const selectedSexes = filters.sexFilter.split(',');
+    return {
+      male: selectedSexes.includes('牡'),
+      female: selectedSexes.includes('牝'),
+      gelding: selectedSexes.includes('セ')
+    };
+  }, [filters.sexFilter]);
   
   // 6. イベントハンドラー
   // 性別フィルターを更新
   const handleSexFilterChange = useCallback((filter: { male: boolean; female: boolean; gelding: boolean }) => {
-    // すべての性別が選択されているかどうかを確認
-    if (filter.male && filter.female && filter.gelding) {
+    // 現在のフィルター状態を取得
+    const currentFilter = filters.sexFilter;
+    
+    // 選択されている性別の配列を作成
+    const selectedSexes = [];
+    if (filter.male) selectedSexes.push('牡');
+    if (filter.female) selectedSexes.push('牝');
+    if (filter.gelding) selectedSexes.push('セ');
+
+    // 選択された性別がない場合は'all'を設定
+    if (selectedSexes.length === 0) {
+      // 現在が'all'の場合は何もしない（無限ループ防止）
+      if (currentFilter !== 'all') {
+        updateFilters({ sexFilter: 'all' });
+      }
+    } 
+    // すべての性別が選択されている場合は'all'を設定
+    else if (selectedSexes.length === 3) {
       updateFilters({ sexFilter: 'all' });
-    } else if (filter.male && !filter.female && !filter.gelding) {
-      updateFilters({ sexFilter: '牡' });
-    } else if (!filter.male && filter.female && !filter.gelding) {
-      updateFilters({ sexFilter: '牝' });
-    } else if (!filter.male && !filter.female && filter.gelding) {
-      updateFilters({ sexFilter: 'セ' });
-    } else {
-      // 複数の性別が選択されている場合は、'all' に設定
-      updateFilters({ sexFilter: 'all' });
+    } 
+    // 1つだけ選択されている場合はその性別を設定
+    else if (selectedSexes.length === 1) {
+      updateFilters({ sexFilter: selectedSexes[0] });
+    } 
+    // 2つ選択されている場合はカンマ区切りで設定
+    else {
+      updateFilters({ sexFilter: selectedSexes.join(',') });
     }
   }, [updateFilters]);
   
@@ -396,17 +417,30 @@ export default function HorsesPage() {
 
   // 性別フィルターに一致するかチェック
   const matchesSexFilter = (horse: any) => {
-    if (!sexFilter.male && !sexFilter.female && !sexFilter.gelding) {
-      return false; // すべての性別が無効な場合は何も表示しない
+    if (filters.sexFilter === 'all') {
+      return true;
     }
     
-    const sex = normalizeHorseSex(horse.sex);
+    const selectedSexes = filters.sexFilter.split(',');
+    const horseSex = normalizeHorseSex(horse.sex);
     
-    if (sex.includes('牡')) return sexFilter.male;
-    if (sex.includes('牝')) return sexFilter.female;
-    if (sex.includes('セ')) return sexFilter.gelding;
+    // デバッグ用ログ
+    console.log('フィルター:', filters.sexFilter, 
+                '選択された性別:', selectedSexes, 
+                '元の性別:', horse.sex,
+                '正規化後:', horseSex);
     
-    return true; // 性別が不明な場合は表示
+    // 馬の性別が選択された性別のいずれかに一致するか確認
+    const matches = selectedSexes.some(sex => {
+      const normalizedSex = sex.trim();
+      // 馬の性別に選択された性別が含まれているか確認
+      const match = horseSex.includes(normalizedSex);
+      console.log('比較:', { normalizedSex, horseSex, match });
+      return match;
+    });
+    
+    console.log('マッチ結果:', matches);
+    return matches;
   };
   
   // 賞金表示用関数

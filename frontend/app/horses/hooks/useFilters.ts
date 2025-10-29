@@ -35,7 +35,7 @@ export const useFilters = (horses: Horse[] = [], initialFilters?: Partial<Filter
     // 性別によるフィルタリング
     const matchesSex = 
       filters.sexFilter === 'all' || 
-      horse.sex === filters.sexFilter;
+      filters.sexFilter.split(',').includes(horse.sex);
 
     // 価格によるフィルタリング
     const horsePrice = horse.auction_histories?.[0]?.sold_price || 0;
