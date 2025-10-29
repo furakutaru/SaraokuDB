@@ -497,6 +497,27 @@ export default function AnalysisContent() {
       
       return aROI - bROI;
     },
+    disease_tags: (a, b) => {
+      // 病歴の有無を判定する関数
+      const hasDisease = (horse: HorseWithCalculations) => {
+        const tags = (horse as any).disease_tags;
+        if (tags === undefined || tags === null || tags === '') return false;
+        if (Array.isArray(tags)) {
+          if (tags.length === 0) return false;
+          return !tags.every(tag => {
+            const strTag = String(tag).trim();
+            return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
+          });
+        }
+        const strTag = String(tags).trim();
+        return !(strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。');
+      };
+      
+      const aHasDisease = hasDisease(a) ? 1 : 0;
+      const bHasDisease = hasDisease(b) ? 1 : 0;
+      
+      return aHasDisease - bHasDisease;
+    },
   };
 
   if (sortKey && sortFunctions[sortKey]) {
@@ -573,7 +594,19 @@ export default function AnalysisContent() {
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_latest')}>現在賞金{renderSortIcon('total_prize_latest')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('roi')}>ROI{renderSortIcon('roi')}</th>
                 <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">リンク</th>
-                <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase w-24">病歴</th>
+                <th 
+                  className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase w-24 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('disease_tags')}
+                >
+                  病歴
+                  {sortKey === 'disease_tags' ? (
+                    sortOrder === 'asc' ? 
+                      <FaSortUp className="inline ml-1 text-blue-600" /> : 
+                      <FaSortDown className="inline ml-1 text-blue-600" />
+                  ) : (
+                    <FaSort className="inline ml-1 text-gray-400" />
+                  )}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
