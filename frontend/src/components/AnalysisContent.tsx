@@ -39,10 +39,10 @@ const formatDate = (dateString: string | undefined): string => {
   }
 };
 
-import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Horse, AuctionHistory, HorseWithCalculations } from '@/types/horse';
+import { HorseTable } from './horses/HorseTable';
 
 // HorseWithCalculations 型を使用
 
@@ -537,16 +537,9 @@ export default function AnalysisContent() {
     }
   };
 
-  // ソートアイコン
-  const renderSortIcon = (key: string) => {
-    if (sortKey !== key) return <FaSort className="inline ml-1 text-gray-400" />;
-    return sortOrder === 'asc' ? <FaSortUp className="inline ml-1 text-blue-600" /> : <FaSortDown className="inline ml-1 text-blue-600" />;
-  };
-
-  // 詳細ページのURLを安全に取得するヘルパー関数
-  const getDetailUrl = (horse: Horse): string | undefined => {
-    // detail_url または auction_url のいずれかが存在する場合に返す
-    return horse.detail_url || (horse as any).auction_url || undefined;
+  // 行クリックハンドラー
+  const handleRowClick = (id: string | number) => {
+    router.push(`/horses/${id}`);
   };
 
   return (
@@ -580,195 +573,10 @@ export default function AnalysisContent() {
           </CustomButton>
         </div>
         {/* DataTable風の表 */}
-        <div className="overflow-x-auto bg-white rounded-lg shadow w-full">
-          <table className="min-w-full divide-y divide-gray-200 w-full">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('weight')}>馬体重 (kg){renderSortIcon('weight')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_start')}>落札時賞金{renderSortIcon('total_prize_start')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('total_prize_latest')}>現在賞金{renderSortIcon('total_prize_latest')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => handleSort('roi')}>ROI{renderSortIcon('roi')}</th>
-                <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase">リンク</th>
-                <th 
-                  className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase w-24 cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('disease_tags')}
-                >
-                  病歴
-                  {sortKey === 'disease_tags' ? (
-                    sortOrder === 'asc' ? 
-                      <FaSortUp className="inline ml-1 text-blue-600" /> : 
-                      <FaSortDown className="inline ml-1 text-blue-600" />
-                  ) : (
-                    <FaSort className="inline ml-1 text-gray-400" />
-                  )}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {tableHorses.map((horse) => (
-                <tr key={horse.id} className="hover:bg-blue-50">
-                  <td className="px-3 py-2 font-medium text-gray-900 whitespace-nowrap">
-                    <Link href={`/horses/${horse.id}`} className="hover:underline text-blue-700 whitespace-nowrap">{horse.name}</Link>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getSexColor(horse.sex)}`}>
-                      {formatSex(horse.sex)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">{displayAge(horse.age)}</td>
-                  <td className="px-3 py-2">{horse.sire || '-'}</td>
-                  <td className="px-3 py-2 text-right">
-                    {(() => {
-                      // 体重データの処理
-                      const weight = horse.weight as string | number | null | undefined;
-                      
-                      // 値が存在しないか無効な場合
-                      if (weight === null || weight === undefined || weight === '') {
-                        return '-';
-                      }
-                      
-                      // 数値に変換を試みる
-                      const weightStr = String(weight);
-                      const numWeight = parseFloat(weightStr.replace(/[^0-9.]/g, ''));
-                      
-                      // 有効な数値の場合、整数に丸めて表示
-                      if (!isNaN(numWeight) && isFinite(numWeight)) {
-                        return `${Math.round(numWeight)} kg`;
-                      }
-                      
-                      // 文字列として有効な場合
-                      const trimmedWeight = weightStr.trim();
-                      if (trimmedWeight !== '') {
-                        // 「kg」が含まれていない場合は追加
-                        return trimmedWeight.toLowerCase().includes('kg') ? trimmedWeight : `${trimmedWeight} kg`;
-                      }
-                      
-                      // その他の場合はハイフンを表示
-                      return '-';
-                    })()}
-                  </td>
-                  <td className="px-3 py-2">
-                    {(() => {
-                      // デバッグ用: ホワイトアッシュのデータをログに出力
-                      if (horse.name === 'ホワイトアッシュ') {
-                        console.log('ホワイトアッシュのsold_price:', horse.sold_price);
-                      }
-                      // すべての馬の情報をログに出力（デバッグ用）
-                      console.log(`馬名: ${horse.name}`, {
-                        is_unsold: horse.is_unsold,
-                        unsold: horse.unsold,
-                        unsold_count: horse.unsold_count,
-                        sold_price: horse.sold_price,
-                        // その他の関連フィールドも必要に応じて追加
-                        ...(horse.name === 'ウィッシングタイム' ? { 
-                          _debug: '=== ウィッシングタイムの詳細 ===',
-                          raw_data: JSON.parse(JSON.stringify(horse)) // 循環参照を避けるため
-                        } : {})
-                      });
-                      
-                      // 主取り判定を明示的に行う
-                      const isUnsold = 
-                        horse.is_unsold === true || 
-                        horse.unsold === true || 
-                        (horse.unsold_count || 0) > 0;
-                      
-                      // 主取りの場合は赤文字で表示
-                      if (isUnsold) {
-                        console.log(`主取りと判定されました: ${horse.name}`, {
-                          is_unsold: horse.is_unsold,
-                          unsold: horse.unsold,
-                          unsold_count: horse.unsold_count,
-                          sold_price: horse.sold_price
-                        });
-                        return <span className="text-red-600 font-semibold">主取り</span>;
-                      }
-                      
-                      // 通常の価格表示
-                      const formattedPrice = formatPrice(
-                        horse.sold_price,
-                        false, // is_unsold
-                        false, // unsold
-                        horse.sold_price,
-                        0      // unsold_count
-                      );
-                      
-                      return formattedPrice;
-                    })()}
-                  </td>
-                  <td className="px-3 py-2">
-                    {(() => {
-                      // デバッグ用: ホワイトアッシュのデータをログに出力
-                      if (horse.name === 'ホワイトアッシュ') {
-                        console.log('ホワイトアッシュのtotal_prize_start:', horse.total_prize_start);
-                        console.log('ホワイトアッシュのrace_records:', horse.race_records);
-                      }
-                      return formatPrize(horse.total_prize_start, horse.race_records);
-                    })()}
-                  </td>
-                  <td className="px-3 py-2">
-                    {(() => {
-                      // デバッグ用: ホワイトアッシュのデータをログに出力
-                      if (horse.name === 'ホワイトアッシュ') {
-                        console.log('ホワイトアッシュのtotal_prize_latest:', horse.total_prize_latest);
-                      }
-                      return formatPrize(horse.total_prize_latest);
-                    })()}
-                  </td>
-                  <td className="px-3 py-2">
-                    {calcROI(horse.total_prize_latest, horse.total_prize_start, horse.sold_price)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-col gap-1 items-center">
-                      {(() => {
-                        // デバッグ用: jbis_urlの値をログに出力
-                        console.log(`馬名: ${horse.name}, jbis_url: ${horse.jbis_url}`);
-                        return horse.jbis_url && horse.jbis_url.trim() !== '' ? (
-                          <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline whitespace-nowrap">JBIS</a>
-                        ) : null;
-                      })()}
-                      {getDetailUrl(horse) && (
-                        <a href={getDetailUrl(horse)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline whitespace-nowrap">サラオク</a>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    {(() => {
-                      // 病歴が「なし」の馬を判定
-                      const isNoDisease = (tags: any) => {
-                        if (tags === undefined || tags === null || tags === '') return true;
-                        if (Array.isArray(tags)) {
-                          if (tags.length === 0) return true;
-                          return tags.every(tag => {
-                            const strTag = String(tag).trim();
-                            return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
-                          });
-                        }
-                        const strTag = String(tags).trim();
-                        return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
-                      };
-                      
-                      // 病歴が「なし」の場合は青で表示、それ以外はピンクで「あり」と表示
-                      return isNoDisease((horse as Horse & { disease_tags?: any[] }).disease_tags) ? (
-                        <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full whitespace-nowrap inline-block w-12">
-                          なし
-                        </span>
-                      ) : (
-                        <span className="text-xs font-medium bg-pink-100 text-pink-800 px-2 py-0.5 rounded-full whitespace-nowrap inline-block w-12">
-                          あり
-                        </span>
-                      );
-                    })()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <HorseTable 
+          horses={horses}
+          onRowClick={handleRowClick}
+        />
       </div>
     </div>
   );
