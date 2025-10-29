@@ -77,13 +77,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                         .replace(/\\n/g, '\n')
                     : ''}
                 </p>
-                <div className="mt-4">
-                  {displayComment.disease_tags && (
-                    <div className="mt-2">
-                      <DiseaseTags tags={displayComment.disease_tags} />
-                    </div>
-                  )}
-                </div>
+                {/* 疾病タグの表示を削除（基本情報セクションに表示） */}
               </div>
             ) : (
               <div className="flex items-center justify-center h-full">
