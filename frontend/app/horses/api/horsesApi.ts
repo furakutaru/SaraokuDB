@@ -192,6 +192,21 @@ const parseSoldPrice = (price: any): number | null => {
 const processHorseData = (horse: any): Horse | null => {
   if (!horse) return null;
   
+  // disease_tagsを適切に処理
+  let diseaseTags: string[] = [];
+  if (Array.isArray(horse.disease_tags)) {
+    diseaseTags = horse.disease_tags;
+  } else if (typeof horse.disease_tags === 'string') {
+    try {
+      // 文字列がJSON配列としてパース可能か試みる
+      const parsed = JSON.parse(horse.disease_tags);
+      diseaseTags = Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      // JSONパースに失敗した場合は空の配列を設定
+      diseaseTags = [];
+    }
+  }
+  
   return {
     id: horse.id,
     name: horse.name || '名前不明',
@@ -202,6 +217,7 @@ const processHorseData = (horse: any): Horse | null => {
     dam: horse.dam || '不明',
     damsire: horse.damsire || '不明',
     auction_history: horse.auction_histories || [],
+    disease_tags: diseaseTags, // 処理済みのdisease_tagsを設定
     ...horse,
   };
 };

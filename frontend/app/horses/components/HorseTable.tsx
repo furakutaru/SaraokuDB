@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -88,6 +88,12 @@ export const HorseTable: React.FC<HorseTableProps> = ({
   loading, 
   onRowClick 
 }) => {
+  // デバッグ用：馬のdisease_tagsをコンソールに出力
+  useEffect(() => {
+    horses.forEach(horse => {
+      console.log('Horse:', horse.name, 'disease_tags:', horse.disease_tags, 'type:', typeof horse.disease_tags, 'isArray:', Array.isArray(horse.disease_tags));
+    });
+  }, [horses]);
   // ローディング中のスケルトン表示
   if (loading) {
     return (
@@ -100,6 +106,7 @@ export const HorseTable: React.FC<HorseTableProps> = ({
               <TableCell>父</TableCell>
               <TableCell>母</TableCell>
               <TableCell>母父</TableCell>
+              <TableCell>疾病情報</TableCell>
               <TableCell>落札価格</TableCell>
               <TableCell>売主</TableCell>
               <TableCell>オークション日</TableCell>
@@ -148,6 +155,7 @@ export const HorseTable: React.FC<HorseTableProps> = ({
             <TableCell>父</TableCell>
             <TableCell>母</TableCell>
             <TableCell>母父</TableCell>
+            <TableCell>疾病情報</TableCell>
             <TableCell>落札価格</TableCell>
             <TableCell>売主</TableCell>
             <TableCell>オークション日</TableCell>
@@ -180,6 +188,20 @@ export const HorseTable: React.FC<HorseTableProps> = ({
                 <TableCell>{horse.sire || '-'}</TableCell>
                 <TableCell>{horse.dam || '-'}</TableCell>
                 <TableCell>{horse.damsire || '-'}</TableCell>
+                <TableCell>
+                  {(() => {
+                    const tags = horse.disease_tags;
+                    const hasDiseaseTags = Array.isArray(tags) 
+                      ? tags.length > 0
+                      : tags && tags !== 'null' && String(tags).trim() !== '';
+                    
+                    return hasDiseaseTags ? (
+                      <span style={{ color: 'red' }}>あり</span>
+                    ) : (
+                      <span>なし</span>
+                    );
+                  })()}
+                </TableCell>
                 <TableCell>
                   {horse.is_unsold || latestAuction?.is_unsold ? (
                     <span style={{ color: 'red' }}>主取り</span>

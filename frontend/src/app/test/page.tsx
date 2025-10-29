@@ -21,15 +21,9 @@ export default function TestPage() {
         return;
       }
       
-      // auction_history.json を取得
-      const auctionHistoryResponse = await fetch('/data/auction_history.json');
-      if (!auctionHistoryResponse.ok) {
-        setStatus(`エラー: auction_history.json の取得に失敗 - ${auctionHistoryResponse.status} ${auctionHistoryResponse.statusText}`);
-        return;
-      }
-      
       const horses = await horsesResponse.json();
-      const auctionHistory = await auctionHistoryResponse.json();
+      // オークションデータは空の配列を使用
+      const auctionHistory: any[] = [];
       
       // データをマージ
       const mergedData = {
@@ -38,7 +32,7 @@ export default function TestPage() {
         metadata: {
           last_updated: new Date().toISOString(),
           total_horses: horses.length,
-          total_auctions: auctionHistory.length
+          total_auctions: 0
         }
       };
       

@@ -74,7 +74,8 @@ const groupAuctionHistory = (auctionHistory: AuctionHistory[]): Record<string, A
 export default function AnalysisContent() {
   const [horses, setHorses] = useState<HorseWithCalculations[]>([]);
   const [filteredHorses, setFilteredHorses] = useState<HorseWithCalculations[]>([]);
-  const [auctionHistory, setAuctionHistory] = useState<AuctionHistory[]>([]);
+  // オークション履歴は使用しないため削除
+  // setAuctionHistory は使用しないため削除
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<{
@@ -104,26 +105,63 @@ export default function AnalysisContent() {
         
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8001';
         
-        // 1回のAPI呼び出しでデータを取得
+        // 馬データを取得
+        console.log('馬データの取得を開始します...');
         const response = await fetch(`${apiBaseUrl}/api/horses`, { 
-          cache: 'no-store' 
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+          }
         });
+        
+        console.log('APIリクエスト完了:', response.status, response.statusText);
 
         if (!response.ok) {
-          throw new Error('データの取得に失敗しました');
+          let errorData;
+          try {
+            errorData = await response.json();
+            console.error('APIエラーレスポンス:', {
+              status: response.status,
+              statusText: response.statusText,
+              errorData,
+              url: response.url
+            });
+          } catch (jsonError) {
+            console.error('エラーレスポンスの解析に失敗しました:', jsonError);
+          }
+          throw new Error(`データの取得に失敗しました: ${response.status} ${response.statusText}`);
         }
 
-        const data = await response.json();
+        const responseData = await response.json();
+        console.log('APIレスポンスを受信しました:', responseData);
         
-        // Horse型からHorseWithCalculations型に変換
-        // デバッグ用: 最初の馬データの全フィールドをログに出力
-        if (data.horses.length > 0) {
-          console.log('最初の馬データの全フィールド:', Object.keys(data.horses[0]));
-          console.log('最初の馬データのjbis_url:', data.horses[0].jbis_url);
-          console.log('最初の馬データのjbisUrl:', data.horses[0].jbisUrl);
+        // データのバリデーションと正規化
+        let data = [];
+        if (Array.isArray(responseData)) {
+          data = responseData;
+        } else if (responseData && typeof responseData === 'object') {
+          data = responseData.horses || responseData.data || 
+                 Object.values(responseData).filter((item: any) => 
+                   item && typeof item === 'object' && 'id' in item
+                 );
+        }
+        
+        if (!Array.isArray(data)) {
+          console.error('無効な馬データ形式です:', responseData);
+          throw new Error('無効なデータ形式です: 有効な馬データが見つかりません');
+        }
+        
+        console.log(`馬データを取得しました: ${data.length}件`);
+        
+        // デバッグ用: 最初の馬データの全フィールドをログに出力（データがある場合のみ）
+        if (data.length > 0) {
+          console.log('最初の馬データの全フィールド:', Object.keys(data[0]));
+          console.log('最初の馬データのjbis_url:', data[0].jbis_url || data[0].jbisUrl || '未設定');
+        } else {
+          console.warn('馬データが空です');
         }
 
-        const horsesWithAuction = data.horses.map((horse: any) => {
+        const horsesWithAuction = data.map((horse: any) => {
           const mappedHorse = {
             ...horse,
             dam_sire: horse.dam_sire || '',
@@ -143,22 +181,20 @@ export default function AnalysisContent() {
         });
         
         setHorses(horsesWithAuction);
-        setAuctionHistory(data.auction_histories || []);
-        
         // メタデータを更新
         const newMetadata = {
-          total: data.metadata?.total || 0,
-          count: data.metadata?.count || 0,
-          total_auctions: data.metadata?.total_auctions,
-          average_price: data.metadata?.average_price,
-          last_updated: data.metadata?.last_updated,
-          total_horses: data.metadata?.total_horses || data.metadata?.total || 0
+          total: data.length,
+          count: data.length,
+          total_auctions: 0,
+          average_price: 0,
+          last_updated: new Date().toISOString(),
+          total_horses: data.length
         };
         
         setMetadata(newMetadata);
 
-        // オークション履歴を馬IDでグループ化
-        const auctionHistoryByHorseId = groupAuctionHistory(data.auction_histories || []);
+        // オークション履歴は使用しないため空のオブジェクトを設定
+        const auctionHistoryByHorseId: Record<string, any[]> = {};
         
         // 馬データにオークション情報をマージ
         const horsesWithHistory = horsesWithAuction.map((horse: HorseWithCalculations) => {
@@ -195,12 +231,12 @@ export default function AnalysisContent() {
 
         // データを状態に保存
         setHorses(horsesWithHistory);
-        setAuctionHistory(data.auction_histories);
         setMetadata(newMetadata);
         setLoading(false);
-      } catch (e: any) {
-        console.error('データ取得エラー:', e);
-        setError('データの読み込みに失敗しました: ' + e.message);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : '不明なエラー';
+        console.error('データ取得エラー:', error);
+        setError(`データの取得中にエラーが発生しました: ${errorMessage}`);
       } finally {
         setLoading(false);
       }

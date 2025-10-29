@@ -36,6 +36,14 @@ export const useHorsesData = ({ latestAuction = true }: UseHorsesDataParams = {}
   const [error, setError] = useState<string | null>(null);
 
   const processHorseData = (horse: any): Horse => {
+    // デバッグ用にdisease_tagsの値をログに出力
+    console.log('Processing horse:', {
+      id: horse.id,
+      name: horse.name,
+      disease_tags: horse.disease_tags,
+      hasDiseaseTags: Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0
+    });
+
     return {
       ...horse,
       sold_price: parseSoldPrice(horse.sold_price) || parseSoldPrice(horse.auction_histories?.[0]?.sold_price) || null,
@@ -54,7 +62,9 @@ export const useHorsesData = ({ latestAuction = true }: UseHorsesDataParams = {}
       sire: horse.sire || '',
       dam: horse.dam || '',
       damsire: horse.damsire || '',
-      race_records: horse.race_records || { total_prize_money: 0 }
+      race_records: horse.race_records || { total_prize_money: 0 },
+      // disease_tagsを明示的に設定
+      disease_tags: Array.isArray(horse.disease_tags) ? horse.disease_tags : []
     } as Horse;
   };
 

@@ -72,10 +72,7 @@ const nextConfig = {
   // リライト設定
   async rewrites() {
     return [
-      {
-        source: '/api/read-local-file/:path*',
-        destination: '/api/read-local-file',
-      },
+      // APIリクエストをバックエンドにプロキシ
       {
         source: '/api/:path*',
         destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/:path*`,

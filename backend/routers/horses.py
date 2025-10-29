@@ -302,7 +302,7 @@ async def get_horses(
                         'sold_price': auction.price,  # sold_price の代わりに price を使用
                         'seller': getattr(auction, 'seller', ''),  # seller の存在を確認
                         'comment': getattr(auction, 'comment', ''),  # comment の存在を確認
-                        'disease_tags': getattr(auction, 'disease_tags', []),  # disease_tags の存在を確認
+                        'disease_tags': getattr(horse, 'disease_tags', []),  # horseオブジェクトからdisease_tagsを取得
                         'is_unsold': getattr(auction, 'is_unsold', False)  # is_unsold の存在を確認
                     }
                     horse_data.update(auction_data)
