@@ -362,6 +362,17 @@ async def get_horse_by_id(
             AuctionHistory.horse_id == horse_id
         ).order_by(AuctionHistory.id.desc()).first()
         
+        # auction_date をパース
+        auction_date = None
+        if horse.auction_date:
+            try:
+                import json
+                parsed_dates = json.loads(horse.auction_date)
+                if isinstance(parsed_dates, list) and len(parsed_dates) > 0:
+                    auction_date = parsed_dates[0]  # 最初の日付を取得
+            except (json.JSONDecodeError, TypeError):
+                auction_date = horse.auction_date
+        
         return {
             "id": horse.id,
             "name": horse.name,
@@ -374,7 +385,7 @@ async def get_horse_by_id(
             "total_prize_start": horse.total_prize_start,
             "total_prize_latest": horse.total_prize_latest,
             "sold_price": horse.sold_price,
-            "auction_date": horse.auction_date,
+            "auction_date": auction_date,  # パース済みの日付を返す
             "seller": horse.seller,
             "disease_tags": horse.disease_tags,
             "comment": horse.comment,

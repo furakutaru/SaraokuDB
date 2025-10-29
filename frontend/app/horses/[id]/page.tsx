@@ -14,18 +14,41 @@ function formatDate(date: string | string[] | Date | null | undefined, formatStr
   if (!date) return '';
   
   try {
-    // 配列の場合は最初の要素を使用
-    const dateStr = Array.isArray(date) ? date[0] : date;
+    let dateStr: string;
     
-    // すでに Date オブジェクトの場合はそのまま使用
-    const dateObj = isDate(dateStr) ? dateStr : new Date(dateStr);
+    // 配列の場合は最初の要素を取得
+    if (Array.isArray(date)) {
+      dateStr = date[0];
+    } 
+    // JSON文字列の配列の場合（例: '["2025-10-10"]'）
+    else if (typeof date === 'string' && date.startsWith('[') && date.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(date);
+        dateStr = Array.isArray(parsed) ? parsed[0] : date;
+      } catch {
+        dateStr = date;
+      }
+    } else {
+      dateStr = String(date);
+    }
+    
+    // 余分な文字を削除
+    const cleanedDate = dateStr
+      .replace(/^\s*\[?\s*"?|\s*\]?\s*"?\s*$/g, '') // 前後の [], " を削除
+      .trim();
+    
+    // 日付オブジェクトに変換
+    const dateObj = new Date(cleanedDate);
     
     // 無効な日付の場合は空文字を返す
-    if (isNaN(dateObj.getTime())) return '';
+    if (isNaN(dateObj.getTime())) {
+      console.warn('無効な日付です:', date);
+      return '';
+    }
     
     return format(dateObj, formatStr);
   } catch (e) {
-    console.error('日付のフォーマットに失敗しました:', e);
+    console.error('日付のフォーマットに失敗しました:', e, '入力値:', date);
     return '';
   }
 }

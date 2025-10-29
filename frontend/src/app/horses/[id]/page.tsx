@@ -67,12 +67,22 @@ const calculateGrowthRate = (start: number, latest: number): string => {
   return (((latest - start) / start) * 100).toFixed(1);
 };
 
-const formatDate = (dateString: string | undefined): string => {
-  if (!dateString) return '-';
+const formatDate = (dateInput: string | string[] | undefined): string => {
+  if (!dateInput) return '-';
+  
   try {
-    return format(parseISO(dateString), 'yyyy年MM月dd日', { locale: ja });
+    // 配列の場合は最初の要素を使用
+    const dateStr = Array.isArray(dateInput) ? dateInput[0] : dateInput;
+    
+    // 日付としてパース可能な形式であればフォーマット
+    if (dateStr && typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+      return format(parseISO(dateStr), 'yyyy年MM月dd日', { locale: ja });
+    }
+    
+    return dateStr || '-';
   } catch (e) {
-    return dateString;
+    console.warn('Failed to format date:', dateInput, e);
+    return String(dateInput || '-');
   }
 };
 

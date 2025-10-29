@@ -1,5 +1,6 @@
 import React from 'react';
 import { Typography, Button, Card, CardHeader, CardContent } from '@mui/material';
+import { format } from 'date-fns';
 import Link from 'next/link';
 
 export interface AuctionHistory {
@@ -43,11 +44,59 @@ const AuctionHistoryCard: React.FC<AuctionHistoryCardProps> = ({
     return <p className="text-gray-500">オークション履歴がありません</p>;
   }
 
-  // auction_date を文字列に正規化するヘルパー関数
-  const normalizeAuctionDate = (date: string | string[] | undefined): string => {
+  // auction_date をフォーマット済みの文字列に変換するヘルパー関数
+  const formatAuctionDate = (date: string | string[] | undefined): string => {
+    console.log('formatAuctionDate input:', date);
+    
     if (!date) return '';
-    if (Array.isArray(date)) return date[0] || '';
-    return date;
+    
+    let dateStr: string;
+    
+    try {
+      // 配列の場合は最初の要素を取得
+      if (Array.isArray(date)) {
+        dateStr = date[0];
+      } 
+      // JSON文字列の配列の場合（例: '["2025-10-26"]'）
+      else if (typeof date === 'string') {
+        // まずJSONとしてパースを試みる
+        try {
+          const parsed = JSON.parse(date);
+          dateStr = Array.isArray(parsed) ? parsed[0] : parsed;
+          console.log('Parsed JSON date:', dateStr);
+        } catch (e) {
+          // JSONとしてパースできない場合はそのまま使用
+          dateStr = date;
+        }
+      } else {
+        dateStr = String(date);
+      }
+      
+      // 余分な文字を削除（[ ] " ' など）
+      dateStr = dateStr
+        .replace(/^\[|\]$/g, '')  // 先頭と末尾の角括弧を削除
+        .replace(/^"|"$/g, '')    // 先頭と末尾のダブルクォーテーションを削除
+        .replace(/^'|'$/g, '')     // 先頭と末尾のシングルクォーテーションを削除
+        .trim();
+      
+      console.log('Cleaned date string:', dateStr);
+      
+      // 日付オブジェクトに変換してフォーマット
+      const dateObj = new Date(dateStr);
+      if (!isNaN(dateObj.getTime())) {
+        const formatted = format(dateObj, 'yyyy/MM/dd');
+        console.log('Formatted date:', formatted);
+        return formatted;
+      } else {
+        console.warn('Invalid date object for:', dateStr);
+      }
+    } catch (e) {
+      console.error('Error formatting date:', e, 'Input:', date);
+    }
+    
+    // 有効な日付でない場合は元の文字列を返す
+    console.log('Returning original date as fallback:', date);
+    return typeof date === 'string' ? date : JSON.stringify(date);
   };
 
   return (
@@ -64,7 +113,7 @@ const AuctionHistoryCard: React.FC<AuctionHistoryCardProps> = ({
               <div className="flex justify-between items-start">
                 <div>
                   <Typography variant="h6" component="h4" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>
-                    {formatDate(normalizeAuctionDate(item.auction_date))}
+                    {formatAuctionDate(item.auction_date)}
                   </Typography>
                   <p className="text-sm text-gray-500">
                     落札価格: {formatPrizeMan(item.price ?? item.sold_price, item.unsold || item.is_unsold)}
