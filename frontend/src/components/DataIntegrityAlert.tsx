@@ -6,8 +6,27 @@ import { useDataIntegrityCheck, type DataIssue } from '@/hooks/useDataIntegrityC
 
 export function DataIntegrityAlert() {
   const { hasIssues, isLoading, error, totalHorses, horsesWithIssues, totalIssues, issues } = useDataIntegrityCheck();
-  const [isOpen, setIsOpen] = React.useState(true);
+  const [isOpen, setIsOpen] = React.useState(false);
   const [showDetails, setShowDetails] = React.useState(false);
+
+  // エラーまたは問題がある場合にのみアラートを表示
+  React.useEffect(() => {
+    if (error || hasIssues) {
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
+    }
+  }, [error, hasIssues]);
+
+  // ローディング中はスピナーを表示
+  if (isLoading) {
+    return (
+      <div className="p-4 bg-blue-50 text-blue-800 text-sm flex items-center">
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-800 mr-2"></div>
+        <span>データ整合性を確認中...</span>
+      </div>
+    );
+  }
 
   // エラーが発生した場合はエラーメッセージを表示
   if (error) {
@@ -22,26 +41,21 @@ export function DataIntegrityAlert() {
     );
   }
 
-  // ローディング中はスピナーを表示
-  if (isLoading) {
-    return (
-      <div className="p-4 bg-blue-50 text-blue-800 text-sm flex items-center">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-800 mr-2"></div>
-        <span>データ整合性を確認中...</span>
-      </div>
-    );
+  // エラーも問題もない場合は何も表示しない
+  if (!isLoading && !error && !hasIssues) {
+    return null;
   }
 
-  // エラーが発生した場合はエラーメッセージを表示
-  if (error) {
+  // 問題がある場合のアラートを表示
+  if (hasIssues && isOpen) {
     return (
       <Alert variant="destructive" className="mb-4">
         <AlertCircle className="h-4 w-4" />
         <div className="flex justify-between items-start">
           <div>
-            <AlertTitle>データの読み込み中にエラーが発生しました</AlertTitle>
+            <AlertTitle>データの整合性に問題が見つかりました</AlertTitle>
             <AlertDescription className="mt-2">
-              <p>{error}</p>
+              <p>{totalIssues}件の問題が検出されました。</p>
             </AlertDescription>
           </div>
           <Button
