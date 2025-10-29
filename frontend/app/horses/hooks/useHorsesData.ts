@@ -48,6 +48,9 @@ export const useHorsesData = ({ latestAuction = true }: UseHorsesDataParams = {}
       hasDiseaseTags: Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0
     });
 
+    // オークションURLを取得（最新のオークション履歴から取得するか、直接指定されたURLを使用）
+    const auctionUrl = horse.auction_histories?.[0]?.auction_url || horse.auction_url || '';
+    
     const processedHorse = {
       ...horse,
       sold_price: parseSoldPrice(horse.sold_price) || parseSoldPrice(horse.auction_histories?.[0]?.sold_price) || null,
@@ -60,7 +63,7 @@ export const useHorsesData = ({ latestAuction = true }: UseHorsesDataParams = {}
       image_url: horse.image_url || '',
       jbis_url: horse.jbis_url || '',
       detail_url: horse.detail_url || '',
-      auction_url: horse.auction_url || '',
+      auction_url: auctionUrl, // オークションURLを設定
       weight: horse.weight || 0,
       // 親馬情報を明示的に設定（dam_sire を優先して使用）
       sire: horse.sire || '不明',

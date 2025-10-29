@@ -12,57 +12,49 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ルーターの作成
+# main.py で /api/auction_histories プレフィックスを指定しているため、ここでは空にします
 router = APIRouter(
-    prefix="/api/auction_histories",  # /api/auction_histories でアクセスできるようにする
+    prefix="",
     tags=["auction_histories"],
     responses={404: {"description": "Not found"}},
 )
 
-@router.get("", response_model=List[AuctionHistorySchema])  # スラッシュを削除
+@router.get("", response_model=List[AuctionHistorySchema])
 async def read_auction_histories(
     skip: int = 0, 
     limit: int = 100,
     horse_id: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
-    """オークション履歴を取得"""
+    """
+    オークション履歴を取得
+    
+    - horse_idが指定された場合は、その馬のオークション履歴のみを返す
+    - 指定がない場合は全てのオークション履歴を返す
+    """
     try:
+        logger.info(f"Fetching auction histories with params: horse_id={horse_id}, skip={skip}, limit={limit}")
+        
         query = db.query(AuctionHistory)
         
         if horse_id is not None:
+            logger.info(f"Filtering by horse_id: {horse_id}")
             query = query.filter(AuctionHistory.horse_id == horse_id)
-            
+        
+        # 日付の降順でソート
+        query = query.order_by(AuctionHistory.auction_date.desc())
+        
+        # ページネーションを適用
         auction_histories = query.offset(skip).limit(limit).all()
+        
+        logger.info(f"Found {len(auction_histories)} auction histories")
         return auction_histories
     except Exception as e:
         logger.error(f"Error fetching auction histories: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/by_horse/{horse_id}", response_model=List[AuctionHistorySchema])
-async def read_auction_histories_by_horse_id(
-    horse_id: int,
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
-    """馬IDでオークション履歴を取得"""
-    try:
-        auction_histories = db.query(AuctionHistory)\
-            .filter(AuctionHistory.horse_id == horse_id)\
-            .order_by(AuctionHistory.auction_date.desc())\
-            .offset(skip)\
-            .limit(limit)\
-            .all()
-            
-        if not auction_histories:
-            logger.info(f"No auction histories found for horse_id: {horse_id}")
-            return []
-            
-        logger.info(f"Found {len(auction_histories)} auction histories for horse_id: {horse_id}")
-        return auction_histories
-    except Exception as e:
-        logger.error(f"Error fetching auction histories for horse {horse_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+# このエンドポイントは read_auction_histories に統合されました
+# 代わりに /api/auction_histories?horse_id={horse_id} を使用してください
 
 @router.post("/check_duplicate", response_model=Dict[str, bool])
 async def check_duplicate_auction_history(
