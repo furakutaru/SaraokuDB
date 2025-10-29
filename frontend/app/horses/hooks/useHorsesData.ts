@@ -36,15 +36,19 @@ export const useHorsesData = ({ latestAuction = true }: UseHorsesDataParams = {}
   const [error, setError] = useState<string | null>(null);
 
   const processHorseData = (horse: any): Horse => {
-    // デバッグ用にdisease_tagsの値をログに出力
-    console.log('Processing horse:', {
+    // デバッグ用に馬の情報をログに出力
+    console.log('Processing horse with damsire:', {
       id: horse.id,
       name: horse.name,
+      dam_sire: horse.dam_sire, // バックエンドからは dam_sire として送られてくる
+      damsire: horse.damsire,   // 既存の damsire フィールド（存在する場合）
+      dam: horse.dam,
+      sire: horse.sire,
       disease_tags: horse.disease_tags,
       hasDiseaseTags: Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0
     });
 
-    return {
+    const processedHorse = {
       ...horse,
       sold_price: parseSoldPrice(horse.sold_price) || parseSoldPrice(horse.auction_histories?.[0]?.sold_price) || null,
       auction_date: horse.auction_histories?.[0]?.auction_date || horse.auction_date,
@@ -58,14 +62,26 @@ export const useHorsesData = ({ latestAuction = true }: UseHorsesDataParams = {}
       detail_url: horse.detail_url || '',
       auction_url: horse.auction_url || '',
       weight: horse.weight || 0,
-      // その他の必須プロパティ
-      sire: horse.sire || '',
-      dam: horse.dam || '',
-      damsire: horse.damsire || '',
+      // 親馬情報を明示的に設定（dam_sire を優先して使用）
+      sire: horse.sire || '不明',
+      dam: horse.dam || '不明',
+      // バックエンドの dam_sire を優先して使用し、なければ既存の damsire を使用
+      damsire: horse.dam_sire || horse.damsire || '不明',
       race_records: horse.race_records || { total_prize_money: 0 },
       // disease_tagsを明示的に設定
       disease_tags: Array.isArray(horse.disease_tags) ? horse.disease_tags : []
     } as Horse;
+
+    // 処理後のデータをログに出力
+    console.log('Processed horse data:', {
+      id: processedHorse.id,
+      name: processedHorse.name,
+      damsire: processedHorse.damsire,
+      dam: processedHorse.dam,
+      sire: processedHorse.sire
+    });
+
+    return processedHorse;
   };
 
   const fetchData = useCallback(async () => {
