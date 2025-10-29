@@ -33,6 +33,10 @@ export interface UseDataIntegrityCheckReturn extends DataIntegrityCheckResult {
 // 必須フィールドの定義
 const REQUIRED_FIELDS = ['id', 'name', 'sex', 'age', 'sire', 'dam'];
 
+// APIリクエストのリトライ設定
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1秒
+
 /**
  * データの整合性をチェックするカスタムフック
  */
@@ -49,6 +53,51 @@ export const useDataIntegrityCheck = (): UseDataIntegrityCheckReturn => {
     lastChecked: ''
   });
 
+  // リトライ付きでAPIリクエストを実行する関数
+  const fetchWithRetry = async (url: string, retries = MAX_RETRIES): Promise<any> => {
+    try {
+      const fullUrl = url.startsWith('http') ? url : `http://localhost:8001${url}`;
+      console.log(`リクエストを実行中: ${fullUrl} (残りリトライ回数: ${retries})`);
+      
+      const response = await fetch(fullUrl, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        cache: 'no-store'
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`リクエストが失敗しました (${MAX_RETRIES - retries + 1}/${MAX_RETRIES}):`, { 
+          status: response.status, 
+          statusText: response.statusText,
+          error: errorText 
+        });
+        
+        if (retries > 0) {
+          console.log(`${RETRY_DELAY}ms後にリトライします...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+          return fetchWithRetry(url, retries - 1);
+        }
+        
+        throw new Error(`APIリクエストが失敗しました: ${response.status} ${response.statusText} ${errorText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`リクエスト中にエラーが発生しました (${MAX_RETRIES - retries + 1}/${MAX_RETRIES}):`, error);
+      
+      if (retries > 0) {
+        console.log(`${RETRY_DELAY}ms後にリトライします...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+        return fetchWithRetry(url, retries - 1);
+      }
+      
+      throw error;
+    }
+  };
+
   // データの整合性をチェックする関数
   const checkDataIntegrity = useCallback(async (): Promise<void> => {
     try {
@@ -56,14 +105,14 @@ export const useDataIntegrityCheck = (): UseDataIntegrityCheckReturn => {
       setError(null);
       
       console.log('馬データの取得を開始します...');
-      const response = await fetch('/api/horses');
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`APIリクエストが失敗しました: ${response.status} ${response.statusText}\n${errorText}`);
-      }
+      // リクエストの詳細をログに出力
+      const requestUrl = '/api/horses';
+      console.log(`リクエストURL: ${requestUrl}`);
       
-      const data = await response.json();
+      // リトライ付きでデータを取得
+      const data = await fetchWithRetry(requestUrl);
+      console.log('データを正常に取得しました。検証を開始します...');
       
       // データの検証
       const issues: DataIssue[] = [];

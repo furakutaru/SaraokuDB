@@ -8,7 +8,10 @@ const nextConfig = {
   
   // 環境変数の設定
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+    // クライアントサイドで利用可能な環境変数
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001',
+    // サーバーサイドで利用可能な環境変数
+    API_BASE_URL: process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001',
   },
   
   // ビルド対象のページ拡張子を制限
@@ -71,13 +74,23 @@ const nextConfig = {
   
   // リライト設定
   async rewrites() {
+    const apiUrl = 'http://localhost:8001';  // ポートを8001に固定
+    console.log('Setting up rewrites with API URL:', apiUrl);
+    
     return [
       // APIリクエストをバックエンドにプロキシ
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/:path*`,
+        destination: `${apiUrl}/api/:path*`,  // /api パスを追加
       },
     ];
+  },
+  
+  // 開発環境でのみ詳細なログを出力
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
   },
 };
 

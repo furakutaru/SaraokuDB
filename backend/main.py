@@ -16,13 +16,18 @@ import logging
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 
 # ロギングの設定
+# ルートロガーの設定
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler()
+        logging.StreamHandler(),
+        logging.FileHandler('/tmp/uvicorn.log')
     ]
 )
+
+# SQLAlchemyのログレベルを設定
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
