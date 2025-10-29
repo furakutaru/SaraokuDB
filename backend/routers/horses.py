@@ -575,6 +575,20 @@ async def get_horse_by_id(
             except (json.JSONDecodeError, TypeError):
                 auction_date = horse.auction_date
         
+        # race_record を取得
+        race_record = None
+        if hasattr(horse, 'race_record') and horse.race_record:
+            try:
+                # race_record がJSON文字列の場合はパースする
+                if isinstance(horse.race_record, str) and horse.race_record.strip().startswith('{'):
+                    race_record = json.loads(horse.race_record)
+                else:
+                    race_record = horse.race_record
+            except json.JSONDecodeError:
+                race_record = horse.race_record
+        else:
+            race_record = "未出走"
+        
         return {
             "id": horse.id,
             "name": horse.name,
@@ -583,11 +597,12 @@ async def get_horse_by_id(
             "sire": horse.sire,
             "dam": horse.dam,
             "dam_sire": horse.dam_sire,
+            "race_record": race_record,  # race_record を追加
             "weight": horse.weight,
             "total_prize_start": horse.total_prize_start,
             "total_prize_latest": horse.total_prize_latest,
             "sold_price": horse.sold_price,
-            "auction_date": auction_date,  # パース済みの日付を返す
+            "auction_date": auction_date,
             "seller": horse.seller,
             "disease_tags": horse.disease_tags,
             "comment": horse.comment,
