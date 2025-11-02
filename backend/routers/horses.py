@@ -186,11 +186,13 @@ async def create_horse(
             logger.info(f"Updating existing horse: {existing_horse.id}")
             for key, value in horse_data.items():
                 setattr(existing_horse, key, value)
+            existing_horse.scraped_at = datetime.utcnow()  # スクレイピング日時を更新
             db.commit()
             db.refresh(existing_horse)
             return existing_horse
         else:
             # 新しい馬を作成
+            horse_data['scraped_at'] = datetime.utcnow()  # スクレイピング日時を設定
             db_horse = HorseModel(**horse_data)
             db.add(db_horse)
             db.commit()

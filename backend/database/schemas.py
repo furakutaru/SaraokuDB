@@ -46,6 +46,7 @@ class HorseResponse(HorseBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    scraped_at: Optional[datetime] = None  # スクレイピング日時
 
     # Pydantic v2: enable ORM mode equivalent
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
@@ -75,6 +76,7 @@ class AuctionHistory(AuctionHistoryBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    scraped_at: Optional[datetime] = None  # スクレイピング日時
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -19,7 +19,7 @@ class TimestampMixin:
 # ユーザーモデル
 class User(Base, TimestampMixin):
     __tablename__ = 'users'
-    __table_args__ = {'schema': 'public', 'quote': True}
+    __table_args__ = {'schema': 'public'}
     
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
@@ -46,7 +46,7 @@ class User(Base, TimestampMixin):
 # sex, seller, sold_price, commentを履歴（配列/JSON文字列）で保存
 class Horse(Base):
     __tablename__ = 'horses'
-    __table_args__ = {'schema': 'public', 'quote': True}
+    __table_args__ = {'schema': 'public'}
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     auction_id = Column(String(20), unique=True, index=True, nullable=True)  # オークションサイトの数値ID
@@ -72,6 +72,7 @@ class Horse(Base):
     unsold_count = Column(Integer, default=0)  # 主取り回数
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    scraped_at = Column(DateTime, nullable=True)  # スクレイピング日時
     
     # リレーションシップ
     auction_histories = relationship(
@@ -91,7 +92,7 @@ class Horse(Base):
         lazy='joined',  # 常に結合してロード
         overlaps="latest_horse"  # 双方向リレーションシップの競合を解決
     )
-    owner_id = Column(Integer, ForeignKey('public."users".id', name='fk_horses_owner_id_users'), nullable=True)
+    owner_id = Column(Integer, ForeignKey('public.users.id', name='fk_horses_owner_id_users'), nullable=True)
     owner = relationship(
         "User", 
         back_populates="horses",
@@ -110,7 +111,7 @@ class Horse(Base):
 
 class AuctionHistory(Base):
     __tablename__ = 'auction_histories'
-    __table_args__ = {'schema': 'public', 'quote': True}
+    __table_args__ = {'schema': 'public'}
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     horse_id = Column(Integer, ForeignKey('public.horses.id', name='fk_auction_histories_horse_id_horses'), nullable=False)
@@ -129,6 +130,7 @@ class AuctionHistory(Base):
     is_unsold = Column(Boolean, default=False)  # 主取りフラグ
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    scraped_at = Column(DateTime, nullable=True)  # スクレイピング日時
     
     # リレーションシップ
     horse = relationship(
