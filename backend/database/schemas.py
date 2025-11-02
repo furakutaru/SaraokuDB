@@ -35,6 +35,7 @@ class HorseBase(BaseModel):
     rakuten_url: Optional[str] = None
     auction_url: Optional[str] = None
     color: Optional[str] = None  # 毛色（オプション）
+    bid_count: Optional[int] = None  # 入札数
 
 class HorseCreate(HorseBase):
     pass
