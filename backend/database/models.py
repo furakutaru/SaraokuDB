@@ -61,6 +61,7 @@ class Horse(Base):
     weight = Column(Integer)  # 最終出走馬体重
     total_prize_start = Column(Float)  # 出品時の地方賞金
     total_prize_latest = Column(Float)  # 最新の地方賞金
+    prize_money = Column(Float, nullable=True)  # 賞金（スクレイピング用の一時的なフィールド）
     sold_price = Column(Text)  # 落札価格履歴（JSON配列文字列: [10000000, ...]）
     auction_date = Column(Text)  # 開催日履歴（JSON配列文字列: ["YYYY-MM-DD", ...]）
     disease_tags = Column(Text)  # 疾病タグ（JSON配列文字列: ["跛行", ...]）
