@@ -233,33 +233,23 @@ class ScraperClient:
                 # 既存の馬をチェック
                 existing_horse = None
                 if 'name' in data_to_send:
-                    try:
-                        # 名前で既存の馬を検索
-                        search_url = f"{self.api_base_url}/api/horses"
-                        search_params = {'name': data_to_send['name']}
-                        search_headers = {
-                            'Authorization': f'Bearer {self.token}'
-                        }
-                        search_response = self.session.get(
-                            search_url, 
-                            params=search_params, 
-                            headers=search_headers,
-                            timeout=30
-                        )
-                        
-                        if search_response.status_code == 200:
-                            search_result = search_response.json()
-                            # 検索結果がリストで、かつ要素が存在する場合
-                            if isinstance(search_result, list) and len(search_result) > 0:
-                                existing_horse = search_result[0]
-                            # 検索結果が辞書で、'items'キーが存在する場合
-                            elif isinstance(search_result, dict) and 'items' in search_result and len(search_result['items']) > 0:
-                                existing_horse = search_result['items'][0]
-                    except Exception as e:
-                        logger.warning(f"既存の馬の検索中にエラーが発生しました: {str(e)}")
-                        logger.debug(f"検索URL: {search_url}")
-                        logger.debug(f"検索パラメータ: {search_params}")
-                        logger.debug(f"レスポンス: {search_response.text if hasattr(search_response, 'text') else 'No response text'}")
+                    # 名前で既存の馬を検索
+                    search_url = f"{self.api_base_url}/api/horses"
+                    search_params = {'name': data_to_send['name']}
+                    search_headers = {
+                        'Authorization': f'Bearer {self.token}'
+                    }
+                    search_response = self.session.get(
+                        search_url, 
+                        params=search_params, 
+                        headers=search_headers,
+                        timeout=30
+                    )
+                    
+                    if search_response.status_code == 200:
+                        horses = search_response.json()
+                        if horses and len(horses) > 0:
+                            existing_horse = horses[0]
                 
                 # オークションIDを保存（元のIDをauction_idとして使用）
                 if 'id' in data_to_send:
@@ -350,16 +340,6 @@ class ScraperClient:
                         logger.error("レスポンスがありません。ネットワーク接続を確認してください。")
                     return None
                     
-            except Exception as e:
-                logger.error(f"馬データの処理中に予期しないエラーが発生しました: {str(e)}")
-                logger.error(traceback.format_exc())
-                return None
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"馬データの処理中にエラーが発生しました: {str(e)}")
-            logger.error(traceback.format_exc())
-            return None
-            
         except Exception as e:
             logger.error(f"馬データの処理中に予期しないエラーが発生しました: {str(e)}")
             logger.error(traceback.format_exc())

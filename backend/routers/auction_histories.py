@@ -106,5 +106,68 @@ async def check_duplicate_auction_history(
             detail="オークション履歴の重複チェック中にエラーが発生しました"
         )
 
+@router.post("", response_model=AuctionHistorySchema, status_code=201)
+async def create_auction_history(
+    history: Dict[str, Any],
+    db: Session = Depends(get_db)
+):
+    """新しいオークション履歴を作成する"""
+    try:
+        # 必須フィールドのバリデーション
+        required_fields = [
+            'horse_id', 'horse_name', 'sire_name', 'dam_name', 'damsire_name',
+            'auction_date', 'price'
+        ]
+        for field in required_fields:
+            if field not in history:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"必須フィールドが不足しています: {field}"
+                )
+        
+        # 日付のバリデーション
+        if isinstance(history['auction_date'], str):
+            try:
+                history['auction_date'] = datetime.strptime(history['auction_date'], "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(
+                    status_code=400,
+                    detail="日付の形式が正しくありません。YYYY-MM-DD形式で指定してください。"
+                )
+        
+        # 既存のレコードをチェック
+        existing = db.query(AuctionHistory).filter(
+            AuctionHistory.horse_name == history['horse_name'],
+            AuctionHistory.sire_name == history['sire_name'],
+            AuctionHistory.dam_name == history['dam_name'],
+            AuctionHistory.damsire_name == history['damsire_name'],
+            AuctionHistory.auction_date == history['auction_date']
+        ).first()
+        
+        if existing:
+            # 既存のレコードを更新
+            for key, value in history.items():
+                setattr(existing, key, value)
+            db.commit()
+            db.refresh(existing)
+            return existing
+        
+        # 新しいレコードを作成
+        db_history = AuctionHistory(**history)
+        db.add(db_history)
+        db.commit()
+        db.refresh(db_history)
+        return db_history
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"オークション履歴の作成中にエラーが発生しました: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"オークション履歴の作成中にエラーが発生しました: {str(e)}"
+        )
+
 # ルーターをエクスポート
 __all__ = ["router"]

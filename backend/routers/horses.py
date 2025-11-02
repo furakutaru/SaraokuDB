@@ -165,16 +165,29 @@ async def create_horse(
 ):
     """新しい馬を登録するエンドポイント"""
     try:
-        logger.info(f"Creating new horse with data: {horse_data}")
+        logger.info("=== Starting create_horse endpoint ===")
+        logger.info(f"Request data: {json.dumps(horse_data, ensure_ascii=False, default=str)}")
         
         # 必須フィールドのチェック
-        required_fields = ["name", "sex", "sire", "dam"]
-        for field in required_fields:
-            if field not in horse_data:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Missing required field: {field}"
-                )
+        required_fields = ["name", "sex", "sire", "dam", "damsire"]
+        missing_fields = [field for field in required_fields if field not in horse_data or not horse_data[field]]
+        
+        if missing_fields:
+            error_msg = f"必須フィールドが不足しています: {', '.join(missing_fields)}"
+            logger.error(error_msg)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
+            )
+            
+        # フィールドの型チェック
+        if not isinstance(horse_data.get("name"), str):
+            error_msg = "nameは文字列である必要があります"
+            logger.error(error_msg)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
+            )
         
         # 既存の馬をチェック（名前で一意に特定）
         existing_horse = db.query(HorseModel).filter(
@@ -202,12 +215,24 @@ async def create_horse(
             
     except HTTPException:
         raise
+    except HTTPException as he:
+        db.rollback()
+        logger.error(f"HTTPエラーが発生しました: {str(he.detail)}", exc_info=True)
+        raise he
     except Exception as e:
         db.rollback()
-        logger.error(f"Error creating/updating horse: {str(e)}", exc_info=True)
+        error_msg = f"馬データの保存中に予期せぬエラーが発生しました: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        logger.error(f"エラーの種類: {type(e).__name__}")
+        logger.error(f"エラーが発生したデータ: {json.dumps(horse_data, ensure_ascii=False, default=str)}")
+        
+        # データベースエラーの場合はより詳細な情報を提供
+        if hasattr(e, 'orig') and hasattr(e.orig, 'pgerror'):
+            error_msg += f"\nデータベースエラー: {e.orig.pgerror}"
+            
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating/updating horse: {str(e)}"
+            detail=error_msg
         )
 
 @router.post("/batch", status_code=status.HTTP_201_CREATED, tags=["horses"])
