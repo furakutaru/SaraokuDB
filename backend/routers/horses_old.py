@@ -35,7 +35,7 @@ if project_root not in sys.path:
 from database import get_db
 from database.models import Horse, AuctionHistory, Horse as HorseModel
 from database.schemas import HorseResponse, HorseCreate
-from services.horse_serializer import serialize_horse, _parse_first_int, deserialize_horse
+from services.horse_serializer import serialize_horse, _parse_first_int
 from services.horses_list_mapper import map_horses_list
 
 # スクリプトのディレクトリをパスに追加
