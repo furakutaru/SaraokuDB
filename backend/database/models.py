@@ -101,12 +101,14 @@ class Horse(Base):
         remote_side="[User.id]"
     )
     
+    is_unsold = Column(Boolean, default=False, nullable=False, comment='最新のオークション情報から自動設定される主取りフラグ')
+    
     @property
-    def is_unsold(self):
-        """最新のオークション情報から主取りフラグを取得"""
+    def is_unsold_property(self):
+        """互換性のためのプロパティ（必要に応じて使用）"""
         if self.latest_auction:
             return self.latest_auction.is_unsold
-        return False
+        return self.is_unsold
 
 
 class AuctionHistory(Base):
@@ -127,10 +129,16 @@ class AuctionHistory(Base):
     auction_name = Column(String(200))   # セール名
     lot_number = Column(String(20))      # ロット番号
     auction_url = Column(String(500))    # オークションURL
-    is_unsold = Column(Boolean, default=False)  # 主取りフラグ
+    is_unsold = Column(Boolean, default=False, nullable=False, comment='主取りフラグ')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     scraped_at = Column(DateTime, nullable=True)  # スクレイピング日時
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # AuctionHistoryが作成・更新されたら、関連するHorseのis_unsoldも更新
+        if self.horse:
+            self.horse.is_unsold = self.is_unsold
     
     # リレーションシップ
     horse = relationship(
