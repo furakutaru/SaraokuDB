@@ -168,7 +168,7 @@ async def create_horse(
         logger.info(f"Creating new horse with data: {horse_data}")
         
         # 必須フィールドのチェック
-        required_fields = ["name", "sex", "color", "birth_date", "sire", "dam"]
+        required_fields = ["name", "sex", "sire", "dam"]
         for field in required_fields:
             if field not in horse_data:
                 raise HTTPException(
@@ -176,10 +176,9 @@ async def create_horse(
                     detail=f"Missing required field: {field}"
                 )
         
-        # 既存の馬をチェック（名前と誕生日で一意に特定）
+        # 既存の馬をチェック（名前で一意に特定）
         existing_horse = db.query(HorseModel).filter(
-            HorseModel.name == horse_data["name"],
-            HorseModel.birth_date == horse_data["birth_date"]
+            HorseModel.name == horse_data["name"]
         ).first()
         
         if existing_horse:
