@@ -287,6 +287,14 @@ async def get_horses(
                 "last_updated": datetime.utcnow().isoformat()
             }
         }
+    except Exception as e:
+        logger.error(f"Error in get_horses: {str(e)}", exc_info=True)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving horses: {str(e)}"
+        )
+
 
 @router.post("", response_model=HorseResponse, status_code=status.HTTP_201_CREATED, tags=["horses"])
 async def create_horse(
@@ -373,170 +381,6 @@ async def create_horses_batch(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error in batch create: {str(e)}"
         )
-                .subquery()
-            )
-            
-            # 価格情報を含むサブクエリ
-            auction_with_prices = (
-                db.query(
-                    AuctionHistory.horse_id,
-                    AuctionHistory.id.label('auction_id'),
-                    AuctionHistory.price,
-                    AuctionHistory.is_unsold
-                )
-                .join(
-                    latest_auction_subq,
-                    and_(
-                        AuctionHistory.horse_id == latest_auction_subq.c.horse_id,
-                        AuctionHistory.id == latest_auction_subq.c.latest_auction_id
-                    )
-                )
-                .subquery()
-            )
-            
-            # メインクエリと結合
-            query = query.outerjoin(
-                auction_with_prices,
-                Horse.id == auction_with_prices.c.horse_id
-            )
-            
-            # ソート順を適用
-            logger.info(f"Applying sort: {sort}")
-            
-            if sort == 'price_desc':
-                # 価格の降順（高い順）でソート（未落札は最後）
-                logger.info("Sorting by price_desc")
-                query = query.order_by(
-                    auction_with_prices.c.is_unsold.asc(),
-                    auction_with_prices.c.price.desc().nulls_last(),
-                    Horse.id.asc()
-                )
-                logger.info(f"SQL: {str(query)}")
-            
-            elif sort == 'price_asc':
-                # 価格の昇順（安い順）でソート（未落札は最後）
-                logger.info("Sorting by price_asc")
-                query = query.order_by(
-                    auction_with_prices.c.is_unsold.asc(),
-                    auction_with_prices.c.price.asc().nulls_last(),
-                    Horse.id.asc()
-                )
-                logger.info(f"SQL: {str(query)}")
-
-        # 価格以外のソート条件
-        elif sort == 'name_asc':
-            # 名前の昇順（A-Z）でソート
-            logger.info("Sorting by name_asc")
-            query = query.order_by(
-                Horse.name.asc(),
-                Horse.id.asc()
-            )
-            logger.info(f"SQL: {str(query)}")
-            
-        elif sort == 'name_desc':
-            # 名前の降順（Z-A）でソート
-            logger.info("Sorting by name_desc")
-            query = query.order_by(
-                Horse.name.desc(),
-                Horse.id.asc()
-            )
-            logger.info(f"SQL: {str(query)}")
-            
-        elif sort == 'date_desc':
-            # 日付の降順（最新を先頭に）
-            logger.info("Sorting by date_desc (default)")
-            query = query.order_by(Horse.id.desc())
-            logger.info(f"SQL: {str(query)}")
-            
-        else:
-            # デフォルトはIDの降順（最新の馬を先頭に）
-            logger.info(f"Unknown sort parameter: {sort}, using default sort (id desc)")
-            query = query.order_by(Horse.id.desc())
-            logger.info(f"SQL: {str(query)}")
-        
-        # 6. 総レコード数を取得
-        total_count = query.count()
-        
-        # 7. ページネーションを適用
-        query = query.offset(skip).limit(limit)
-        horses = query.all()
-        
-        # 8. シリアライズ
-        horses_data = []
-        for horse in horses:
-            try:
-                # 馬の基本情報を取得
-                horse_data = {
-                    'id': horse.id,
-                    'name': horse.name,
-                    'sex': horse.sex,
-                    'age': horse.age,
-                    'sire': horse.sire,
-                    'dam': horse.dam,
-                    'dam_sire': horse.dam_sire,
-                    'weight': horse.weight,
-                    'total_prize_start': horse.total_prize_start,
-                    'total_prize_latest': horse.total_prize_latest,
-                    'sold_price': horse.sold_price,
-                    'auction_date': horse.auction_date.isoformat() if hasattr(horse.auction_date, 'isoformat') else horse.auction_date,
-                    'seller': horse.seller,
-                    'disease_tags': horse.disease_tags,
-                    'comment': horse.comment,
-                    'image_url': horse.image_url,
-                    'detail_url': horse.detail_url,
-                    'jbis_url': horse.jbis_url,
-                    'is_unsold': getattr(horse, 'is_unsold', False),
-                    'unsold': getattr(horse, 'is_unsold', False)
-                }
-                
-                # 最新のオークション情報を取得
-                latest_auction = db.query(AuctionHistory).filter(
-                    AuctionHistory.horse_id == horse.id
-                ).order_by(
-                    AuctionHistory.auction_date.desc(),
-                    AuctionHistory.id.desc()
-                ).first()
-                
-                if latest_auction:
-                    # オークション情報をマージ
-                    auction_data = {
-                        'auction_date': latest_auction.auction_date.isoformat() if hasattr(latest_auction.auction_date, 'isoformat') else latest_auction.auction_date,
-                        'price': latest_auction.price,
-                        'sold_price': latest_auction.price,
-                        'seller': latest_auction.seller,
-                        'auction_house': latest_auction.auction_house,
-                        'auction_name': latest_auction.auction_name,
-                        'lot_number': latest_auction.lot_number,
-                        'auction_url': latest_auction.auction_url,
-                        'is_unsold': getattr(latest_auction, 'is_unsold', False)
-                    }
-                    horse_data.update(auction_data)
-                    horse_data['unsold'] = horse_data['is_unsold']
-                
-                horses_data.append(horse_data)
-                
-            except Exception as e:
-                logger.error(f"Error processing horse {getattr(horse, 'id', 'unknown')}: {str(e)}")
-                continue
-        
-        logger.info(f"Retrieved {len(horses_data)} horses (skip: {skip}, limit: {limit})")
-        
-        # 10. 結果を返す
-        return {
-            "horses": horses_data,
-            "metadata": {
-                "total": total_count,
-                "skip": skip,
-                "limit": limit,
-                "last_updated": datetime.utcnow().isoformat()
-            }
-        }
-    except Exception as e:
-        logger.error(f"Error in get_horses: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An error occurred while processing your request: {str(e)}"
-        )
 
 @router.get("/{horse_id}", response_model=Dict[str, Any], tags=["horses"])
 async def get_horse_by_id(
@@ -580,12 +424,29 @@ async def get_horse_by_id(
         else:
             race_record = "未出走"
         
-        # 結果を返す
+        # 馬の基本情報を返す
         return {
-            "total": len(horses_data),
-            "success": sum(1 for r in results if r["status"] == "success"),
-            "errors": sum(1 for r in results if r["status"] == "error"),
-            "results": results
+            "id": horse.id,
+            "name": horse.name,
+            "sex": horse.sex,
+            "age": horse.age,
+            "sire": horse.sire,
+            "dam": horse.dam,
+            "dam_sire": horse.dam_sire,
+            "weight": horse.weight,
+            "total_prize_start": horse.total_prize_start,
+            "total_prize_latest": horse.total_prize_latest,
+            "sold_price": horse.sold_price,
+            "auction_date": horse.auction_date.isoformat() if hasattr(horse.auction_date, 'isoformat') else horse.auction_date,
+            "seller": horse.seller,
+            "disease_tags": horse.disease_tags,
+            "comment": horse.comment,
+            "image_url": horse.image_url,
+            "detail_url": horse.detail_url,
+            "jbis_url": horse.jbis_url,
+            "is_unsold": getattr(horse, 'is_unsold', False),
+            "latest_auction": latest_auction,
+            "race_record": race_record
         }
     except Exception as e:
         db.rollback()
