@@ -500,20 +500,71 @@ async def get_horse_by_id(
                 logger.warning(f"Failed to parse auction_date: {e}")
                 auction_date = horse.auction_date
         
-        # race_record を取得
-        race_record = "未出走"
+        # race_record を取得してフォーマットを統一
+        race_record = {
+            "total_races": 0,
+            "wins": 0,
+            "record_format": "simple",
+            "formatted_record": "未出走"
+        }
+        
         if hasattr(horse, 'race_record') and horse.race_record:
             try:
+                # 文字列の場合はJSONとしてパース
                 if isinstance(horse.race_record, str):
-                    if horse.race_record.strip().startswith('{') or horse.race_record.strip().startswith('['):
-                        race_record = json.loads(horse.race_record)
-                    else:
-                        race_record = horse.race_record
+                    if horse.race_record.strip() and horse.race_record.strip() != "未出走":
+                        parsed_record = json.loads(horse.race_record)
+                        
+                        # 配列形式の場合は、配列の長さを総レース数として扱う
+                        if isinstance(parsed_record, list):
+                            total_races = len(parsed_record)
+                            wins = 0
+                            
+                            # 配列内の各レースから勝ち星をカウント
+                            for race in parsed_record:
+                                if isinstance(race, dict) and race.get('finish_position') == '1':
+                                    wins += 1
+                            
+                            race_record = {
+                                "total_races": total_races,
+                                "wins": wins,
+                                "record_format": "simple",
+                                "formatted_record": f"{total_races}戦{wins}勝" if total_races > 0 else "未出走"
+                            }
+                        # 辞書形式の場合は必要なフィールドを抽出
+                        elif isinstance(parsed_record, dict):
+                            # シンプル形式の場合はそのまま使用
+                            if "formatted_record" in parsed_record:
+                                race_record = parsed_record
+                            # 詳細形式の場合はシンプル形式に変換
+                            elif "races" in parsed_record:
+                                race_record = {
+                                    "total_races": parsed_record.get("races", 0),
+                                    "wins": parsed_record.get("wins", 0),
+                                    "record_format": "simple",
+                                    "formatted_record": f"{parsed_record.get('races', 0)}戦{parsed_record.get('wins', 0)}勝"
+                                }
+                # 文字列でない場合
                 else:
-                    race_record = horse.race_record
-            except (json.JSONDecodeError, AttributeError) as e:
+                    record_dict = horse.race_record
+                    if isinstance(record_dict, dict):
+                        if "formatted_record" in record_dict:
+                            race_record = record_dict
+                        elif "races" in record_dict:
+                            race_record = {
+                                "total_races": record_dict.get("races", 0),
+                                "wins": record_dict.get("wins", 0),
+                                "record_format": "simple",
+                                "formatted_record": f"{record_dict.get('races', 0)}戦{record_dict.get('wins', 0)}勝"
+                            }
+            except (json.JSONDecodeError, AttributeError, TypeError) as e:
                 logger.warning(f"Failed to parse race_record: {e}")
-                race_record = str(horse.race_record) if horse.race_record else "未出走"
+                race_record = {
+                    "total_races": 0,
+                    "wins": 0,
+                    "record_format": "simple",
+                    "formatted_record": "未出走"
+                }
         
         # 馬の基本情報を返す
         response_data = {

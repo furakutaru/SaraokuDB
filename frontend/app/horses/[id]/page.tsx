@@ -780,150 +780,65 @@ interface PageProps {
 
 // レース成績表示用のコンポーネント
 const RaceRecordDisplay = ({ record, raceRecords }: { record: any, raceRecords?: any }) => {
-  // デバッグ用
-  console.log('RaceRecordDisplay - record:', record);
-  console.log('RaceRecordDisplay - raceRecords:', raceRecords);
-
   const renderRaceRecord = () => {
-    // まずrecordをチェック（下位互換性のため）
-    if (record === '未出走' || record?.race_record === '未出走') {
-      return <span className="font-medium">未出走</span>;
+    // 優先順位: raceRecords > record
+    const data = raceRecords || record;
+    
+    // データが存在しない場合
+    if (!data) {
+      return <span className="font-medium">データなし</span>;
     }
 
-    // race_records が存在する場合は、それを優先的に使用
-    if (raceRecords) {
-      // race_records がオブジェクトで、race_record プロパティを持つ場合
-      if (typeof raceRecords === 'object' && raceRecords.race_record) {
-        if (raceRecords.race_record === '未出走') {
-          return <span className="font-medium">未出走</span>;
-        }
-        // race_record をパースして再帰的に処理
-        try {
-          const parsedRecord = JSON.parse(raceRecords.race_record);
-          return <RaceRecordDisplay record={parsedRecord} />;
-        } catch (e) {
-          console.error('race_record のパースに失敗しました:', e, '値:', raceRecords.race_record);
-          return <span className="font-medium">{raceRecords.race_record}</span>;
-        }
-      }
-      // race_records が '未出走' 文字列の場合はそのまま表示
-      else if (raceRecords === '未出走') {
+    // 文字列の場合の処理
+    if (typeof data === 'string') {
+      // 空文字列、空のオブジェクト、未出走の場合は「未出走」を表示
+      if (data.trim() === '' || data === '{}' || data === '[]' || data === '未出走') {
         return <span className="font-medium">未出走</span>;
       }
-
-      let parsedRaceRecords = raceRecords;
       
-      // race_records が文字列の場合はパースを試みる
-      if (typeof parsedRaceRecords === 'string') {
-        // 空文字列や空白のみの場合はスキップ
-        if (parsedRaceRecords.trim() === '') {
-          parsedRaceRecords = null;
-        } 
-        // それ以外の文字列の場合はJSONとしてパースを試みる
-        else {
-          try {
-            // 文字列をそのままパースしてみる
-            parsedRaceRecords = JSON.parse(parsedRaceRecords);
-            console.log('パースされたrace_records:', parsedRaceRecords);
-          } catch (e) {
-            console.error('race_records のパースに失敗しました:', e, '値:', parsedRaceRecords);
-            // パースに失敗した場合はそのまま表示
-            return <span className="font-medium">{parsedRaceRecords}</span>;
-          }
-        }
+      // JSON文字列の場合はパースを試みる
+      try {
+        const parsed = JSON.parse(data);
+        return <RaceRecordDisplay record={parsed} />;
+      } catch (e) {
+        // パースに失敗した場合はそのまま表示
+        return <span className="font-medium">{data}</span>;
+      }
+    }
+    
+    // オブジェクトの場合
+    if (typeof data === 'object') {
+      // 空のオブジェクトの場合は「未出走」を表示
+      if (Object.keys(data).length === 0) {
+        return <span className="font-medium">未出走</span>;
       }
       
-      // パース後のオブジェクトを確認
-      if (parsedRaceRecords && typeof parsedRaceRecords === 'object') {
-        // 空のオブジェクトの場合は「未出走」を表示
-        if (Object.keys(parsedRaceRecords).length === 0) {
-          return <span className="font-medium">未出走</span>;
-        }
+      // 新しい形式（formatted_record と total_races を含む）
+      if (data.formatted_record) {
+        return <span className="font-medium">{data.formatted_record}</span>;
+      }
+      
+      // 古い形式（total_races と wins を含む）
+      if (data.total_races !== undefined) {
+        const wins = data.wins || 0;
+        const seconds = data.seconds || 0;
+        const thirds = data.thirds || 0;
+        const others = Math.max(0, Number(data.total_races) - wins - seconds - thirds);
         
-        // formatted_record が存在する場合はそれを表示
-        if (parsedRaceRecords.formatted_record) {
-          return <span className="font-medium">{parsedRaceRecords.formatted_record}</span>;
-        }
-        // total_races が存在する場合
-        else if (parsedRaceRecords.total_races !== undefined) {
-          if (parsedRaceRecords.total_races > 0 || parsedRaceRecords.total_races === '0') {
-            const wins = parsedRaceRecords.wins || 0;
-            const seconds = parsedRaceRecords.seconds || 0;
-            const thirds = parsedRaceRecords.thirds || 0;
-            const others = Math.max(0, Number(parsedRaceRecords.total_races) - wins - seconds - thirds);
-            return (
-              <span className="font-medium">
-                {`${parsedRaceRecords.total_races}戦${wins}勝[${wins}-${seconds}-${thirds}-${others}]`}
-              </span>
-            );
-          } else {
-            return <span className="font-medium">未出走</span>;
-          }
-        }
-      }
-    }
-    
-    // 従来の record の処理（下位互換性のため保持）
-    if (record) {
-      // オブジェクトでrace_recordプロパティを持つ場合
-      if (typeof record === 'object' && record.race_record) {
-        if (record.race_record === '未出走') {
-          return <span className="font-medium">未出走</span>;
-        }
-        try {
-          const parsedRecord = JSON.parse(record.race_record);
-          return <RaceRecordDisplay record={parsedRecord} />;
-        } catch (e) {
-          console.error('record.race_record のパースに失敗しました:', e, '値:', record.race_record);
-          return <span className="font-medium">{record.race_record}</span>;
-        }
-      }
-      // 文字列の場合
-      else if (typeof record === 'string') {
-        // 空のオブジェクトを表す文字列または'未出走'の場合は「未出走」を表示
-        if (record === '{}' || record === '[]' || record === '未出走') {
-          return <span className="font-medium">未出走</span>;
-        }
-        // JSON文字列の可能性がある場合
-        if ((record.startsWith('{') && record.endsWith('}')) || 
-            (record.startsWith('[') && record.endsWith(']'))) {
-          try {
-            const parsed = JSON.parse(record);
-            return <RaceRecordDisplay record={parsed} />;
-          } catch (e) {
-            // パースに失敗した場合はそのまま表示（ただし'未出走'の場合は上記で処理済み）
-            return <span className="font-medium">{record}</span>;
-          }
-        }
-        return <span className="font-medium">{record}</span>;
+        return (
+          <span className="font-medium">
+            {`${data.total_races}戦${wins}勝[${wins}-${seconds}-${thirds}-${others}]`}
+          </span>
+        );
       }
       
-      // オブジェクトの場合
-      if (typeof record === 'object') {
-        // 空のオブジェクトの場合は「未出走」を表示
-        if (Object.keys(record).length === 0) {
-          return <span className="font-medium">未出走</span>;
-        }
-        // total_races と wins が存在する場合は新しい形式で表示
-        if (record.total_races !== undefined && record.wins !== undefined) {
-          const wins = record.wins || 0;
-          const seconds = record.seconds || 0;
-          const thirds = record.thirds || 0;
-          const others = Math.max(0, Number(record.total_races) - wins - seconds - thirds);
-          return (
-            <span className="font-medium">
-              {`${record.total_races}戦${wins}勝[${wins}-${seconds}-${thirds}-${others}]`}
-            </span>
-          );
-        }
-        // formatted_record が存在する場合
-        else if (record.formatted_record) {
-          // formatted_record が「11戦0勝」のような形式の場合、そのまま表示
-          return <span className="font-medium">{record.formatted_record}</span>;
-        }
+      // その他の形式（下位互換性のため）
+      if (data.race_record) {
+        return <RaceRecordDisplay record={data.race_record} />;
       }
     }
     
+    // どの形式にも該当しない場合は「データなし」を表示
     return <span className="font-medium">データなし</span>;
   };
 

@@ -6,18 +6,14 @@
 このスクリプトは、楽天競馬オークションのデータをスクレイピングし、構造化されたデータとして保存します。
 """
 
-import argparse
-import functools
-import hashlib
-import json
-import logging
 import os
 import re
-import subprocess
 import sys
 import time
-import uuid
+import json
 import random
+import logging
+import sqlite3
 import traceback
 import urllib.parse
 import requests
@@ -27,12 +23,49 @@ from typing import Any, Dict, List, Optional, Tuple, Union, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse, parse_qs, urlunparse
+
+# プロジェクトのルートディレクトリをPythonパスに追加
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+# バックエンドディレクトリをPythonパスに追加
+backend_path = project_root / "backend"
+if str(backend_path) not in sys.path:
+    sys.path.insert(0, str(backend_path))
+
+print(f"Python path: {sys.path}")
+
+# 環境変数の読み込み
+from dotenv import load_dotenv
+load_dotenv()
+
+# 必要な標準ライブラリのインポート
+import functools
+import uuid
+import subprocess
+import argparse
+
+# dateutilのインポートを試みる
+DATEUTIL_AVAILABLE = False
 try:
-    from dateutil import parser
+    import dateutil.parser
     DATEUTIL_AVAILABLE = True
 except ImportError:
-    DATEUTIL_AVAILABLE = False
+    print("警告: dateutil モジュールが見つかりません。日付のパース機能が制限されます。")
+    
+    # 必要な関数を代替実装
+    def parse_date(date_str):
+        """簡易的な日付パース関数 (dateutilの代替)"""
+        try:
+            return datetime.strptime(str(date_str).split()[0], '%Y-%m-%d')
+        except (ValueError, AttributeError):
+            return None
+    
+    # 警告を表示
+    import warnings
     import logging
+    warnings.warn("dateutilモジュールが見つかりません。日付のパースに制限があります。")
     logging.warning("dateutil モジュールが利用できません。日付のパース機能が制限されます。")
 
 
@@ -373,36 +406,87 @@ def load_json_file(*args, **kwargs):
 import requests
 from bs4 import BeautifulSoup, Tag
 from requests.adapters import HTTPAdapter
-from typing import Optional, Dict, Any
-import traceback
-import logging
-from pathlib import Path
-import json
-from datetime import datetime
-import sys
 import os
+import sys
+import json
+import time
+import random
+import logging
+import sqlite3
+import traceback
 from pathlib import Path
+from typing import Dict, List, Optional, Any, Tuple, Union
+from datetime import datetime, timedelta
 
 # プロジェクトのルートディレクトリをPythonパスに追加
 project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))  # 先頭に追加して優先的に検索されるようにする
 
+# バックエンドディレクトリをPythonパスに追加
+backend_path = project_root / "backend"
+if str(backend_path) not in sys.path:
+    sys.path.insert(0, str(backend_path))
+
+print(f"Python path: {sys.path}")
+
 # 環境変数の読み込み
 from dotenv import load_dotenv
 load_dotenv()
 
 # SQLAlchemy関連のインポート
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text
+from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.ext.declarative import declarative_base
 
+# データベース接続文字列を取得
 try:
     # バックエンドモジュールが利用可能な場合
-    from backend.database.models import Base, Horse, AuctionHistory
-    from backend.database.database import DATABASE_URL
-    BACKEND_AVAILABLE = True
-except ImportError:
-    # バックエンドモジュールが利用できない場合のフォールバック
+    try:
+        # 絶対パスでインポートを試みる
+        print("バックエンドモジュールをインポート中...")
+        try:
+            from backend.database.models import Base, Horse, AuctionHistory
+            from backend.database.database import DATABASE_URL
+            print("バックエンドモジュールのインポートに成功しました。")
+            BACKEND_AVAILABLE = True
+        except ImportError as e:
+            print(f"絶対パスでのインポートに失敗しました: {e}")
+            # 相対パスを試す
+            try:
+                from ..backend.database.models import Base, Horse, AuctionHistory
+                from ..backend.database.database import DATABASE_URL
+                print("相対パスでのバックエンドモジュールのインポートに成功しました。")
+                BACKEND_AVAILABLE = True
+            except ImportError as ie:
+                print(f"相対パスでのインポートにも失敗しました: {ie}")
+                raise
+    except Exception as e:
+        print(f"バックエンドモジュールのインポート中にエラーが発生しました: {e}")
+        print("簡易モードで実行します。")
+        BACKEND_AVAILABLE = False
+        
+        # 簡易的なモデル定義
+        Base = declarative_base()
+        
+        class Horse(Base):
+            __tablename__ = 'horses'
+            id = Column(Integer, primary_key=True)
+            name = Column(String)
+            race_record = Column(Text)
+            # その他の必要なカラムをここに追加
+            
+        class AuctionHistory(Base):
+            __tablename__ = 'auction_histories'
+            id = Column(Integer, primary_key=True)
+            # 必要なカラムをここに追加
+            
+        # 環境変数からデータベースURLを取得
+        DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///saraokudb.sqlite3")
+        
+except Exception as e:
+    print(f"エラーが発生しました: {e}")
+    BACKEND_AVAILABLE = False
     BACKEND_AVAILABLE = False
     
     # 簡易的なモデル定義
@@ -1921,15 +2005,15 @@ class ImprovedRakutenScraper:
             return str(date_str)
             
         # dateutil.parserを使用して日付をパース
-        try:
-            from dateutil import parser
-            dt = parser.parse(str(date_str))
-            return dt.strftime('%Y-%m-%d')
-        except ImportError:
+        if DATEUTIL_AVAILABLE:
+            try:
+                dt = dateutil.parser.parse(str(date_str))
+                return dt.strftime('%Y-%m-%d')
+            except Exception as e:
+                self.logger.warning(f"日付のパースに失敗しました: {e}")
+                return None
+        else:
             self.logger.warning("dateutil モジュールが利用できません。日付のパース機能が制限されます。")
-            return None
-        except Exception as e:
-            self.logger.warning(f"日付のパースに失敗しました: {e}")
             return None
 
     def _process_horse_info(self, card, index: int, total: int) -> Optional[Dict[str, Any]]:
@@ -2802,13 +2886,15 @@ class ImprovedRakutenScraper:
             # レース記録を抽出
             race_record_data, race_success = self.race_record_extractor.extract(html_content)
             if race_success and race_record_data:
-                # 抽出したデータをrace_recordsに保存（後でrace_recordにマッピングされる）
+                # 抽出したデータをrace_recordsとrace_recordに保存
                 horse_info['race_records'] = race_record_data
+                horse_info['race_record'] = race_record_data  # race_recordにも同じデータを設定
                 self.logger.debug(f'抽出されたレース記録: {race_record_data}')
             else:
                 self.logger.warning('レース記録の抽出に失敗しました')
-                # 空の辞書で初期化（後でrace_recordにマッピングされる）
+                # 空の辞書で初期化
                 horse_info['race_records'] = {}
+                horse_info['race_record'] = {}  # race_recordも空の辞書で初期化
                 
             # オークション日は _process_horse_info で取得するため、ここでは取得しない
             
