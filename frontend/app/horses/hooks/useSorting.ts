@@ -75,17 +75,17 @@ export const useSorting = (horses: Horse[] = []): UseSortingReturn => {
       }
     }
 
-    // キャンセル（主取り）の処理
-    const isACanceled = a.auction_histories?.[0]?.canceled || false;
-    const isBCanceled = b.auction_histories?.[0]?.canceled || false;
+    // 未落札の処理
+    const isAUnsold = a.auction_histories?.[0]?.is_unsold || false;
+    const isBUnsold = b.auction_histories?.[0]?.is_unsold || false;
 
-    // キャンセル状態が異なる場合、キャンセルを先頭に
-    if (isACanceled !== isBCanceled) {
-      return isACanceled ? -1 : 1;
+    // 未落札状態が異なる場合、未落札を先頭に
+    if (isAUnsold !== isBUnsold) {
+      return isAUnsold ? -1 : 1;
     }
     
-    // 両方キャンセルの場合はIDでソート
-    if (isACanceled && isBCanceled) {
+    // 両方未落札の場合はIDでソート
+    if (isAUnsold && isBUnsold) {
       const aId = Number(a.id) || 0;
       const bId = Number(b.id) || 0;
       return aId - bId; // キャンセル同士はID順
@@ -93,27 +93,27 @@ export const useSorting = (horses: Horse[] = []): UseSortingReturn => {
     
     // 数値の比較（両方キャンセルでない場合）
     if (typeof aValue === 'number' && typeof bValue === 'number') {
-      // 主取り（キャンセル）の場合は0円相当として扱う
-      const aPrice = isACanceled ? 0 : aValue;
-      const bPrice = isBCanceled ? 0 : bValue;
+      // 未落札の場合は0円相当として扱う
+      const aPrice = isAUnsold ? 0 : aValue;
+      const bPrice = isBUnsold ? 0 : bValue;
       
       // 価格で比較（昇順）
       if (sortOrder === 'asc') {
         return aPrice - bPrice;
       }
       
-      // 両方0の場合はIDでソート
+      // 両方0の場合はIDでソート（昇順）
       if (aValue === 0 && bValue === 0) {
         const aId = Number(a.id) || 0;
         const bId = Number(b.id) || 0;
-        return sortOrder === 'asc' ? aId - bId : bId - aId;
+        return aId - bId;
       }
       // 片方が0の場合は0を後ろに
       if (aValue === 0) return 1;
       if (bValue === 0) return -1;
       
-      // 通常の数値比較
-      const result = sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      // 通常の数値比較（降順でソート）
+      const result = bValue - aValue;
       console.log('数値比較:', { aValue, bValue, sortOrder, result });
       return result;
     }

@@ -50,7 +50,7 @@ interface HorseCardProps {
 
 export default function HorseCard({ horse, auctionHistory = [], onClick }: HorseCardProps) {
   // 最新のオークション履歴を取得
-  const latestAuction = horse.latest_auction || null;
+  const latestAuction = horse.latestAuction || null;
 
   // 最新のオークション情報を取得
   const getLatestAuction = (): AuctionHistory | null => {
@@ -154,7 +154,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
             {latestAuctionInfo?.total_prize_latest !== undefined && (
               <p>総賞金: {formatPrize(latestAuctionInfo.total_prize_latest)}</p>
             )}
-            {latestAuctionInfo?.weight && latestAuctionInfo.weight > 0 && (
+            {latestAuctionInfo?.weight && Number(latestAuctionInfo.weight) > 0 && (
               <p>{latestAuctionInfo.weight}kg</p>
             )}
           </div>

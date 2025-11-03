@@ -33,7 +33,7 @@ export interface Horse {
   age: number;
   sire: string;
   dam: string;
-  damsire: string;
+  dam_sire: string;
   image_url: string;
   jbis_url: string;
   detail_url: string;
@@ -98,8 +98,11 @@ export interface FilterOptions {
 }
 
 // ソートオプション
-export type SortOption = 'name' | 'price' | 'age' | 'date';
 export type SortOrder = 'asc' | 'desc';
+export type SortOption = {
+  field: string;
+  order: SortOrder;
+};
 
 // ソート可能なフィールド
 export type SortableField = keyof Horse;

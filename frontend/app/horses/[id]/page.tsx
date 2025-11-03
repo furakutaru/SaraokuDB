@@ -97,14 +97,15 @@ import { getHorseData as getHorseDataFromApi } from '../../../src/utils/horseApi
 // 型定義は ./types.ts に移動しました
 
 // HorseWithCalculations を拡張して、ページ固有のプロパティを追加
-interface HorseWithPageProps extends Omit<HorseWithCalculations, 'auction_history'> {
+interface HorseWithPageProps extends Omit<HorseWithCalculations, 'auction_history' | 'dam_sire' | 'seller' | 'total_prize_latest' | 'damsire'> {
   id: string | number;
   name: string;
   sex: string;
   age: number;
   sire: string;
   dam: string;
-  damsire: string;
+  // dam_sire は HorseWithCalculations から除外されているため、ここで明示的に定義
+  dam_sire: string;
   weight?: number | null;
   auction_id?: string;
   history: AuctionHistory[];  // 履歴データ
@@ -112,11 +113,11 @@ interface HorseWithPageProps extends Omit<HorseWithCalculations, 'auction_histor
   auction_history?: ExtendedAuctionHistory[];  // オプショナルなオークション履歴
   sold_price?: number | null;
   total_prize_start: number;
-  total_prize_latest: number | null;
+  total_prize_latest: number | null; // HorseWithCalculations の total_prize_latest をオーバーライド
   is_unsold?: boolean;
   unsold?: boolean;
   unsold_count: number;
-  seller?: string | null;
+  seller?: string | null; // HorseWithCalculations の seller をオーバーライド
   // 画像URLは文字列またはオブジェクトのどちらか
   image_url: string | { image_url: string };
   // 互換性のため、文字列としてのimage_urlも保持
@@ -128,7 +129,6 @@ interface HorseWithPageProps extends Omit<HorseWithCalculations, 'auction_histor
   disease_tags: string[];
   created_at?: string;
   updated_at?: string;
-  dam_sire?: string;
   comment?: string;
   // 表示用のフォーマット済み文字列
   display_price: string;
@@ -328,7 +328,7 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
                     sex: staticBase.sex || '不明',
                     sire: staticBase.sire || '不明',
                     dam: staticBase.dam || '不明',
-                    damsire: staticBase.dam_sire || staticBase.damsire || '不明',
+                    dam_sire: staticBase.dam_sire || '不明',
                     image_url: staticBase.primary_image || staticBase.image_url || '',
                     jbis_url: staticBase.jbis_url,
                     detail_url: staticBase.detail_url || staticBase.auction_url || '',
@@ -468,7 +468,7 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
             sex: horseBaseData.sex || '不明',
             sire: horseBaseData.sire || '不明',
             dam: horseBaseData.dam || '不明',
-            damsire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
+            dam_sire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
             image_url: horseBaseData.primary_image || horseBaseData.image_url || '',
             jbis_url: horseBaseData.jbis_url,
             detail_url: horseBaseData.detail_url || horseBaseData.auction_url || '',
@@ -627,7 +627,7 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
       age: Number(horseBaseData.age) || 0, // 数値に変換
       sire: horseBaseData.sire || '不明',
       dam: horseBaseData.dam || '不明',
-      damsire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
+      dam_sire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
       weight: typeof horseBaseData.weight === 'string' ? parseFloat(horseBaseData.weight) : horseBaseData.weight || null,
       
       // オークション情報
@@ -736,7 +736,7 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
       rakuten_url: (horse as any).rakuten_url || '',
       auction_url: (horse as any).auction_url || '',
       unsold_count: (horse as any).unsold_count || 0,
-      dam_sire: (horse as any).dam_sire || horse.damsire || '不明'
+      dam_sire: (horse as any).dam_sire || (horse as any).damsire || '不明'
     });
 
     const horseWithPageProps = toHorseWithPageProps(horse);
@@ -1196,7 +1196,7 @@ export default function HorseDetailPage({ params }: PageProps) {
       rakuten_url: (horse as any).rakuten_url || '',
       auction_url: (horse as any).auction_url || '',
       unsold_count: (horse as any).unsold_count || 0,
-      dam_sire: (horse as any).dam_sire || horse.damsire || '不明'
+      dam_sire: (horse as any).dam_sire || (horse as any).damsire || '不明'
     };
   })();
   

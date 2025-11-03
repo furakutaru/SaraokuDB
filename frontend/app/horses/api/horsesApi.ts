@@ -76,7 +76,7 @@ interface ApiHorse {
   age?: string | number;
   sire?: string;
   dam?: string;
-  damsire?: string;
+  dam_sire?: string;
   auction_histories?: Array<{
     id?: number;
     horse_id?: string | number;

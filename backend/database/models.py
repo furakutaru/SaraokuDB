@@ -56,7 +56,15 @@ class Horse(Base):
     sire = Column(String(100))  # 父
     dam = Column(String(100))  # 母
     dam_sire = Column(String(100))  # 母父
-    damsire = Column(String(100))  # 母父 (dam_sire のエイリアス、互換性のため)
+    
+    # 後方互換性のためのプロパティ
+    @property
+    def damsire(self):
+        return self.dam_sire
+        
+    @damsire.setter
+    def damsire(self, value):
+        self.dam_sire = value
     race_record = Column(Text)  # 通算成績 (JSON形式で保存)
     weight = Column(Integer)  # 最終出走馬体重
     total_prize_start = Column(Float)  # 出品時の地方賞金

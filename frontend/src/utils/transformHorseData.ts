@@ -55,11 +55,11 @@ export function transformHorseData(apiData: any): Horse {
     age: apiData.age || 0,
     sire: apiData.sire || '不明',
     dam: apiData.dam || '不明',
-    damsire: apiData.damsire || '不明',
+    dam_sire: apiData.dam_sire || apiData.damsire || '不明',
     image_url: apiData.image_url || '',
     jbis_url: apiData.jbis_url || '',
     auction_url: apiData.auction_url || '',
-    weight: apiData.weight || null,
+    weight: apiData.weight ? Number(apiData.weight) : null,
     disease_tags: apiData.disease_tags 
       ? (Array.isArray(apiData.disease_tags) 
           ? apiData.disease_tags 
@@ -99,7 +99,7 @@ export function transformHorseData(apiData: any): Horse {
       sold_price: apiData.sold_price || null,
       total_prize_start: apiData.total_prize_start || 0,
       total_prize_latest: apiData.total_prize_latest || 0,
-      weight: apiData.weight || null,
+      weight: apiData.weight ? Number(apiData.weight) : null,
       seller: parseSeller(apiData.seller || ''),
       is_unsold: apiData.is_unsold || false,
       comment: Array.isArray(apiData.comment) ? apiData.comment[0] : (apiData.comment || ''),
@@ -131,7 +131,7 @@ export function transformHorseData(apiData: any): Horse {
       sold_price: apiData.sold_price || null,
       total_prize_start: apiData.total_prize_start || 0,
       total_prize_latest: apiData.total_prize_latest || 0,
-      weight: apiData.weight || null,
+      weight: apiData.weight ? Number(apiData.weight) : null,
       seller: parseSeller(apiData.seller || ''),
       is_unsold: apiData.is_unsold || false,
       comment: apiData.comment || '',

@@ -20,6 +20,16 @@ class HorseBase(BaseModel):
     sire: Optional[str] = None
     dam: Optional[str] = None
     dam_sire: Optional[str] = None
+    
+    # 後方互換性のためのプロパティ
+    @property
+    def damsire(self):
+        return self.dam_sire
+        
+    @damsire.setter
+    def damsire(self, value):
+        self.dam_sire = value
+
     race_record: Optional[Union[RaceRecordSummary, str]] = None
     weight: Optional[int] = None
     total_prize_start: Optional[float] = None

@@ -283,3 +283,77 @@ from .horses_old import (
     get_horses_with_auction_histories,
     extract_disease_tags
 )
+
+# 馬IDで検索するエンドポイント
+@router.get("/{horse_id}", response_model=Dict[str, Any], tags=["horses"])
+async def get_horse_by_id(
+    horse_id: Annotated[int, Path(title="The ID of the horse to get", ge=1)],
+    db: Session = Depends(get_db)
+):
+    """馬IDを指定して馬の詳細情報を取得するエンドポイント"""
+    try:
+        # 馬の基本情報を取得
+        horse = db.query(Horse).filter(Horse.id == horse_id).first()
+        if not horse:
+            raise HTTPException(status_code=404, detail="Horse not found")
+        
+        # 最新のオークション情報を取得
+        latest_auction = db.query(AuctionHistory).filter(
+            AuctionHistory.horse_id == horse_id
+        ).order_by(AuctionHistory.id.desc()).first()
+        
+        # auction_date をパース
+        auction_date = None
+        if horse.auction_date:
+            try:
+                parsed_dates = json.loads(horse.auction_date)
+                if isinstance(parsed_dates, list) and len(parsed_dates) > 0:
+                    auction_date = parsed_dates[0]  # 最初の日付を取得
+            except (json.JSONDecodeError, TypeError):
+                auction_date = horse.auction_date
+        
+        # race_record を取得
+        race_record = None
+        if hasattr(horse, 'race_record') and horse.race_record:
+            try:
+                # race_record がJSON文字列の場合はパースする
+                if isinstance(horse.race_record, str) and horse.race_record.strip().startswith('{'):
+                    race_record = json.loads(horse.race_record)
+                else:
+                    race_record = horse.race_record
+            except json.JSONDecodeError:
+                race_record = horse.race_record
+        else:
+            race_record = "未出走"
+        
+        # 馬の基本情報を返す
+        return {
+            "id": horse.id,
+            "name": horse.name,
+            "sex": horse.sex,
+            "age": horse.age,
+            "sire": horse.sire,
+            "dam": horse.dam,
+            "dam_sire": horse.dam_sire,
+            "weight": horse.weight,
+            "total_prize_start": horse.total_prize_start,
+            "total_prize_latest": horse.total_prize_latest,
+            "sold_price": horse.sold_price,
+            "auction_date": horse.auction_date.isoformat() if hasattr(horse.auction_date, 'isoformat') else horse.auction_date,
+            "seller": horse.seller,
+            "disease_tags": horse.disease_tags,
+            "comment": horse.comment,
+            "image_url": horse.image_url,
+            "detail_url": horse.detail_url,
+            "jbis_url": horse.jbis_url,
+            "is_unsold": getattr(horse, 'is_unsold', False),
+            "latestAuction": latest_auction,  # フロントエンドの期待する形式に合わせて latest_auction から latestAuction に変更
+            "race_record": race_record
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error getting horse by ID: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting horse by ID: {str(e)}"
+        )

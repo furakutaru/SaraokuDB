@@ -30,7 +30,7 @@ export const useFilters = (horses: Horse[] = [], initialFilters?: Partial<Filter
       horse.name?.toLowerCase().includes(searchQuery) ||
       horse.sire?.toLowerCase().includes(searchQuery) ||
       horse.dam?.toLowerCase().includes(searchQuery) ||
-      horse.damsire?.toLowerCase().includes(searchQuery);
+      horse.dam_sire?.toLowerCase().includes(searchQuery);
 
     // 性別によるフィルタリング
     const matchesSex = 

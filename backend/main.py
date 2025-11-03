@@ -75,11 +75,27 @@ app = FastAPI(
 # CORSミドルウェアの設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # フロントエンドのURLを許可
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],  # フロントエンドのURLを許可
     allow_credentials=True,
-    allow_methods=["*"],  # すべてのHTTPメソッドを許可
-    allow_headers=["*"],  # すべてのヘッダーを許可
-    expose_headers=["*"]  # すべてのレスポンスヘッダーを公開
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "*",
+        "Authorization",
+        "Content-Type",
+        "Access-Control-Allow-Origin",
+        "Access-Control-Allow-Headers",
+        "Access-Control-Allow-Methods"
+    ],
+    expose_headers=[
+        "*",
+        "Content-Disposition",
+        "Content-Length",
+        "Content-Type"
+    ],
+    max_age=86400  # 24時間
 )
 
 # Include routers

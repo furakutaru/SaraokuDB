@@ -64,10 +64,10 @@ export default function DataTable({ horses, sortKey, sortOrder, onSort, renderSo
               <td className="px-3 py-2">{displayAge(horse.age)}</td>
               <td className="px-3 py-2">{horse.sire}</td>
               <td className="px-3 py-2 text-right">
-                <WeightDisplay value={horse.effectiveWeight} />
+                <WeightDisplay value={horse.weight} />
               </td>
               <td className="px-3 py-2">
-                <PriceDisplay soldPrice={horse.sold_price} isUnsold={horse.is_unsold} unsold={horse.unsold} />
+                <PriceDisplay soldPrice={horse.sold_price ? Number(horse.sold_price) : null} isUnsold={horse.is_unsold} unsold={horse.unsold} />
               </td>
               <td className="px-3 py-2">
                 {horse.total_prize_start !== undefined && horse.total_prize_start !== null && horse.total_prize_start > 0

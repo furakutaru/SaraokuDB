@@ -121,7 +121,7 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, onHorseClick }) => {
           <Box className="text-sm text-gray-600 mb-3 space-y-1">
             <p className="truncate" title={`父: ${horse.sire || '不明'}`}>父: {horse.sire || '不明'}</p>
             <p className="truncate" title={`母: ${horse.dam || '不明'}`}>母: {horse.dam || '不明'}</p>
-            <p className="truncate" title={`母父: ${horse.damsire || '不明'}`}>母父: {horse.damsire || '不明'}</p>
+            <p className="truncate" title={`母父: ${horse.dam_sire || '不明'}`}>母父: {horse.dam_sire || '不明'}</p>
           </Box>
 
           {/* オークション情報 */}

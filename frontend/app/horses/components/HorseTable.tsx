@@ -187,7 +187,7 @@ export const HorseTable: React.FC<HorseTableProps> = ({
                 <TableCell>{formatAge(horse.sex, horse.age)}</TableCell>
                 <TableCell>{horse.sire || '-'}</TableCell>
                 <TableCell>{horse.dam || '-'}</TableCell>
-                <TableCell>{horse.damsire || '-'}</TableCell>
+                <TableCell>{horse.dam_sire || '-'}</TableCell>
                 <TableCell>
                   {(() => {
                     const tags = horse.disease_tags;

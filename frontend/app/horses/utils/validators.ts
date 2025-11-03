@@ -10,7 +10,7 @@ export const isValidHorse = (horse: Horse): boolean => {
   
   // 必須フィールドの検証
   const requiredFields: Array<keyof Horse> = [
-    'id', 'name', 'sex', 'age', 'sire', 'dam', 'damsire',
+    'id', 'name', 'sex', 'age', 'sire', 'dam', 'dam_sire',
     'seller', 'auction_date'
   ];
   

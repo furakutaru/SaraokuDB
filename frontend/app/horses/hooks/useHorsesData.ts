@@ -81,7 +81,7 @@ export const useHorsesData = ({ latestAuction = true }: UseHorsesDataParams = {}
     console.log('Processed horse data:', {
       id: processedHorse.id,
       name: processedHorse.name,
-      damsire: processedHorse.damsire,
+      dam_sire: processedHorse.dam_sire,
       dam: processedHorse.dam,
       sire: processedHorse.sire
     });
