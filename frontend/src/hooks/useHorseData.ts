@@ -131,7 +131,7 @@ export const useHorseData = ({ initialData }: UseHorseDataProps = {}) => {
         horse.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         horse.sire?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         horse.dam?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        horse.damsire?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        horse.dam_sire?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         horse.seller?.toLowerCase().includes(searchTerm.toLowerCase());
       
       // 表示タイプによるフィルタリング

@@ -297,37 +297,83 @@ async def get_horse_by_id(
         if not horse:
             raise HTTPException(status_code=404, detail="Horse not found")
         
-        # 最新のオークション情報を取得
-        latest_auction = db.query(AuctionHistory).filter(
+        # オークション履歴を取得（最新のものから順に）
+        auction_histories = db.query(AuctionHistory).filter(
             AuctionHistory.horse_id == horse_id
-        ).order_by(AuctionHistory.id.desc()).first()
+        ).order_by(AuctionHistory.auction_date.desc()).all()
+        
+        # オークション履歴を辞書に変換するヘルパー関数
+        def serialize_auction_history(ah):
+            if ah is None:
+                return None
+                
+            # 日付フィールドをISOフォーマットに変換するヘルパー関数
+            def safe_isoformat(dt):
+                if dt is None:
+                    return None
+                if hasattr(dt, 'isoformat'):
+                    return dt.isoformat()
+                return str(dt) if dt else None
+                
+            return {
+                'id': getattr(ah, 'id', None),
+                'horse_id': getattr(ah, 'horse_id', None),
+                'horse_name': getattr(ah, 'horse_name', None),
+                'sire_name': getattr(ah, 'sire_name', None),
+                'dam_name': getattr(ah, 'dam_name', None),
+                'damsire_name': getattr(ah, 'damsire_name', None),
+                'auction_date': safe_isoformat(getattr(ah, 'auction_date', None)),
+                'price': getattr(ah, 'price', None),
+                'seller': getattr(ah, 'seller', None),
+                'buyer': getattr(ah, 'buyer', None),
+                'auction_house': getattr(ah, 'auction_house', None),
+                'auction_name': getattr(ah, 'auction_name', None),
+                'lot_number': getattr(ah, 'lot_number', None),
+                'auction_url': getattr(ah, 'auction_url', None),
+                'is_unsold': getattr(ah, 'is_unsold', False),
+                'created_at': safe_isoformat(getattr(ah, 'created_at', None)),
+                'updated_at': safe_isoformat(getattr(ah, 'updated_at', None)),
+                'scraped_at': safe_isoformat(getattr(ah, 'scraped_at', None)),
+                'user_id': getattr(ah, 'user_id', None)
+            }
+        
+        # オークション履歴をシリアライズ
+        auction_histories_list = [serialize_auction_history(ah) for ah in auction_histories]
+        
+        # 最新のオークション情報を取得（存在する場合）
+        latest_auction_dict = auction_histories_list[0] if auction_histories_list else None
         
         # auction_date をパース
         auction_date = None
-        if horse.auction_date:
+        if hasattr(horse, 'auction_date') and horse.auction_date:
             try:
-                parsed_dates = json.loads(horse.auction_date)
-                if isinstance(parsed_dates, list) and len(parsed_dates) > 0:
-                    auction_date = parsed_dates[0]  # 最初の日付を取得
-            except (json.JSONDecodeError, TypeError):
+                if isinstance(horse.auction_date, str):
+                    parsed_dates = json.loads(horse.auction_date)
+                    if isinstance(parsed_dates, list) and len(parsed_dates) > 0:
+                        auction_date = parsed_dates[0]  # 最初の日付を取得
+                else:
+                    auction_date = horse.auction_date
+            except (json.JSONDecodeError, TypeError, AttributeError) as e:
+                logger.warning(f"Failed to parse auction_date: {e}")
                 auction_date = horse.auction_date
         
         # race_record を取得
-        race_record = None
+        race_record = "未出走"
         if hasattr(horse, 'race_record') and horse.race_record:
             try:
-                # race_record がJSON文字列の場合はパースする
-                if isinstance(horse.race_record, str) and horse.race_record.strip().startswith('{'):
-                    race_record = json.loads(horse.race_record)
+                if isinstance(horse.race_record, str):
+                    if horse.race_record.strip().startswith('{') or horse.race_record.strip().startswith('['):
+                        race_record = json.loads(horse.race_record)
+                    else:
+                        race_record = horse.race_record
                 else:
                     race_record = horse.race_record
-            except json.JSONDecodeError:
-                race_record = horse.race_record
-        else:
-            race_record = "未出走"
+            except (json.JSONDecodeError, AttributeError) as e:
+                logger.warning(f"Failed to parse race_record: {e}")
+                race_record = str(horse.race_record) if horse.race_record else "未出走"
         
         # 馬の基本情報を返す
-        return {
+        response_data = {
             "id": horse.id,
             "name": horse.name,
             "sex": horse.sex,
@@ -339,7 +385,7 @@ async def get_horse_by_id(
             "total_prize_start": horse.total_prize_start,
             "total_prize_latest": horse.total_prize_latest,
             "sold_price": horse.sold_price,
-            "auction_date": horse.auction_date.isoformat() if hasattr(horse.auction_date, 'isoformat') else horse.auction_date,
+            "auction_date": auction_date.isoformat() if hasattr(auction_date, 'isoformat') else auction_date,
             "seller": horse.seller,
             "disease_tags": horse.disease_tags,
             "comment": horse.comment,
@@ -347,9 +393,12 @@ async def get_horse_by_id(
             "detail_url": horse.detail_url,
             "jbis_url": horse.jbis_url,
             "is_unsold": getattr(horse, 'is_unsold', False),
-            "latestAuction": latest_auction,  # フロントエンドの期待する形式に合わせて latest_auction から latestAuction に変更
-            "race_record": race_record
+            "race_record": race_record,
+            "auction_histories": auction_histories_list,
+            "latestAuction": latest_auction_dict
         }
+        
+        return response_data
     except Exception as e:
         db.rollback()
         logger.error(f"Error getting horse by ID: {str(e)}", exc_info=True)

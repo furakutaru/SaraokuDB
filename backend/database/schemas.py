@@ -53,18 +53,6 @@ class HorseCreate(HorseBase):
 class HorseUpdate(HorseBase):
     total_prize_latest: Optional[float] = None
 
-class HorseResponse(HorseBase):
-    id: int
-    created_at: datetime
-    updated_at: datetime
-    scraped_at: Optional[datetime] = None  # スクレイピング日時
-
-    # Pydantic v2: enable ORM mode equivalent
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
-    
-    # プロパティをモデルフィールドとして認識させる
-    is_unsold: bool = False
-
 class AuctionHistoryBase(BaseModel):
     horse_id: int
     horse_name: Optional[str] = None
@@ -88,8 +76,23 @@ class AuctionHistory(AuctionHistoryBase):
     created_at: datetime
     updated_at: datetime
     scraped_at: Optional[datetime] = None  # スクレイピング日時
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    model_config = ConfigDict(from_attributes=True)
+class HorseResponse(HorseBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    scraped_at: Optional[datetime] = None  # スクレイピング日時
+
+    # Pydantic v2: enable ORM mode equivalent
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    
+    # プロパティをモデルフィールドとして認識させる
+    is_unsold: bool = False
+    
+    # オークション履歴
+    auction_histories: List[AuctionHistory] = []
+
 
 class StatisticsResponse(BaseModel):
     total_horses: int

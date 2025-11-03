@@ -97,7 +97,7 @@ def map_horses_list(horses: List[Any]) -> Tuple[List[Dict[str, Any]], List[Dict[
                     'horse_name': latest_auction.horse_name,
                     'sire_name': latest_auction.sire_name,
                     'dam_name': latest_auction.dam_name,
-                    'damsire_name': latest_auction.damsire_name,
+                    'dam_sire_name': latest_auction.dam_sire_name,
                     'is_unsold': horse_dict['is_unsold'],
                     'unsold': horse_dict['is_unsold'],  # フロントエンドの互換性のため追加
                     'created_at': latest_auction.created_at,
@@ -113,9 +113,7 @@ def map_horses_list(horses: List[Any]) -> Tuple[List[Dict[str, Any]], List[Dict[
                 sex = str(horse_dict['sex']).strip()
                 horse_dict['sex'] = ''.join(c for c in sex if c not in ' \t\n\r\f\v')
             
-            # フロントエンド用にフィールド名を調整
-            if 'dam_sire' in horse_dict:
-                horse_dict['damsire'] = horse_dict.pop('dam_sire')
+            # dam_sire をそのまま使用するように変更
             
             # 詳細URLを設定
             if 'detail_url' not in horse_dict and hasattr(horse, 'detail_url'):

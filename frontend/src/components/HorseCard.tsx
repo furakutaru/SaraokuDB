@@ -7,7 +7,7 @@ import { formatPrize, formatPrice } from '@/utils/format';
 // HorseWithCalculations 型を使用
 
 // 血統情報から指定された種類の馬名を抽出する関数
-const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsire'): string => {
+const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'dam_sire'): string => {
   if (!text) return '';
   
   // 各タイプに応じた正規表現パターンを定義
@@ -17,7 +17,7 @@ const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsi
     // 母：の直後の空白以外の文字列（全角スペースを含む）を取得
     dam: /母[：:]([^\s　]+(?:[ 　][^\s　]+)*)/,
     // 母の父：の直後の空白以外の文字列（全角スペースを含む）を取得
-    damsire: /(?:母の?父|母父)[：:]([^\s　]+(?:[ 　][^\s　]+)*)/
+    dam_sire: /(?:母の?父|母父)[：:]([^\s　]+(?:[ 　][^\s　]+)*)/
   };
   
   // 指定されたタイプのパターンで検索
@@ -33,7 +33,7 @@ const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsi
   if (type === 'dam' && text.includes('母：')) {
     return text.split('母：')[1].split(/[\s　]/)[0];
   }
-  if (type === 'damsire' && (text.includes('母の父：') || text.includes('母父：'))) {
+  if (type === 'dam_sire' && (text.includes('母の父：') || text.includes('母父：'))) {
     const delimiter = text.includes('母の父：') ? '母の父：' : '母父：';
     return text.split(delimiter)[1].split(/[\s　]/)[0];
   }
@@ -98,7 +98,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
   // 血統情報を抽出（直接のプロパティを使用）
   const sire = horse.sire || '';
   const dam = horse.dam || '';
-  const damsire = horse.damsire || '';
+  const dam_sire = horse.dam_sire || '';
 
   // 病気タグの有無をチェック
   const hasDiseaseTags = Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0;
@@ -145,7 +145,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
             <div className="grid grid-cols-2 gap-1">
               <div>父: {sire || '不明'}</div>
               <div>母: {dam || '不明'}</div>
-              <div>母父: {damsire || '不明'}</div>
+              <div>母父: {dam_sire || '不明'}</div>
             </div>
           </div>
           

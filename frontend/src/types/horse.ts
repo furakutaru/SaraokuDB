@@ -57,7 +57,7 @@ export interface BaseHorse {
   sex: Sex;
   sire: string;
   dam: string;
-  damsire: string;
+  dam_sire: string;
   image_url: ImageUrl | string;
   jbis_url?: string;
   detail_url?: string;

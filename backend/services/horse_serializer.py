@@ -137,7 +137,7 @@ def serialize_horse(horse: Any, include_auction: bool = False) -> Dict[str, Any]
         'sex': data.get('sex'),
         'sire': data.get('sire'),
         'dam': data.get('dam'),
-        'damsire': data.get('damsire'),
+        'dam_sire': data.get('dam_sire'),
         'weight': data.get('weight'),
         'seller': data.get('seller'),
         'comment': data.get('comment'),
