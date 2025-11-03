@@ -9,7 +9,7 @@ from typing_extensions import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Body, Path
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, or_
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -24,12 +24,53 @@ from database import get_db
 from database.models import Horse, AuctionHistory, Horse as HorseModel
 from database.schemas import HorseResponse, HorseCreate
 
+# サービスをインポート
+from services.horses_list_mapper import map_horses_list
+
 # ルーターの設定
 router = APIRouter(tags=["horses"])
 
 # 必要なモデルとスキーマのインポート
 class DiseaseExtractionRequest(BaseModel):
     comment: str
+
+# 疾病情報抽出モジュールを一時的に無効化
+DiseaseInfoExtractor = None
+logger.info("DiseaseInfoExtractor is temporarily disabled")
+
+@router.post("/extract-disease-tags", tags=["horses"])
+async def extract_disease_tags(
+    request: Request,
+    disease_request: DiseaseExtractionRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    コメントから疾病タグを抽出するエンドポイント
+    
+    Args:
+        disease_request: 抽出対象のコメントを含むリクエストボディ
+        
+    Returns:
+        {
+            "tags": List[str]  # 抽出された疾病タグのリスト
+        }
+    """
+    if not DiseaseInfoExtractor:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="DiseaseInfoExtractor could not be imported"
+        )
+    
+    try:
+        extractor = DiseaseInfoExtractor(logger=logger)
+        result = extractor.extract(disease_request.comment)
+        return {"tags": result.get("diseases", [])}
+    except Exception as e:
+        logger.error(f"Error extracting disease tags: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error extracting disease tags: {str(e)}"
+        )
 
 @router.get("", response_model=Dict[str, Any], tags=["horses"])
 async def get_horses(
@@ -73,10 +114,27 @@ async def get_horses(
         logger.info(f"Request URL: {request.url}")
         logger.info(f"Query params: {request.query_params}")
         
-        # 1. 最新のオークション日を取得
+        # 1. 最新のオークション日を取得（horsesテーブルから直接取得）
         latest_date = db.query(
+            func.max(Horse.auction_date)
+        ).filter(
+            Horse.auction_date.isnot(None)
+        ).scalar()
+        
+        logger.info(f"Latest auction date from horses table: {latest_date}")
+        
+        # 念のため、AuctionHistoryテーブルからも最新日を取得して比較
+        latest_from_auction = db.query(
             func.max(AuctionHistory.auction_date)
         ).scalar()
+        
+        logger.info(f"Latest auction date from auction_histories table: {latest_from_auction}")
+        
+        # より新しい日付を使用
+        if latest_date is None or (latest_from_auction and latest_from_auction > latest_date):
+            latest_date = latest_from_auction
+            
+        logger.info(f"Using latest auction date: {latest_date}")
         
         # 2. 馬の基本クエリを構築
         query = db.query(Horse)
@@ -89,9 +147,22 @@ async def get_horses(
         
         # 4. 最新のオークション日でフィルタリング
         if latest_auction.lower() == 'true' and latest_date:
+            # 最新のオークション日を直接指定してフィルタリング
             query = query.filter(
-                Horse.auction_date.like(f'%{latest_date}%')
+                or_(
+                    Horse.auction_date == latest_date,
+                    Horse.auction_date.like(f'%{latest_date}%')
+                )
             )
+            logger.info(f"Filtering by latest auction date: {latest_date} (exact or partial match)")
+            
+            # デバッグ用：フィルタリング対象の馬の数をログに出力
+            count = query.count()
+            logger.info(f"Found {count} horses with auction date matching: {latest_date}")
+            
+            # デバッグ用：実際の日付の一覧をログに出力
+            dates = [r[0] for r in db.query(Horse.auction_date).distinct().all() if r[0]]
+            logger.info(f"Distinct auction dates in database: {dates}")
         
         # 5. ソートを適用
         if sort == 'price_desc':
@@ -156,6 +227,84 @@ async def get_horses(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting horses: {str(e)}"
+        )
+
+@router.get("/latest", response_model=Dict[str, Any], tags=["horses"])
+async def get_latest_horses(
+    request: Request,
+    skip: int = 0,
+    limit: int = 100,
+    sort: str = 'price_desc',
+    db: Session = Depends(get_db)
+):
+    """最新のオークションの馬一覧を取得するエンドポイント
+    
+    Args:
+        skip: スキップするレコード数
+        limit: 取得する最大レコード数
+        sort: 並べ替え方法（'price_desc', 'price_asc', 'name_asc', 'name_desc'）
+        
+    Returns:
+        最新のオークションに出品された馬の一覧
+    """
+    logger.info("Calling /horses/latest endpoint")
+    return await get_horses(request, skip, limit, sort, None, 'true', db)
+
+@router.get("/with_auction_histories", response_model=Dict[str, Any], tags=["horses"])
+async def get_horses_with_auction_histories(
+    request: Request,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    馬の一覧をオークション履歴と一緒に取得するエンドポイント
+    N+1問題を解消するために、オークション履歴を一括で取得する
+    
+    Args:
+        skip: スキップするレコード数
+        limit: 取得する最大レコード数
+        
+    Returns:
+        {
+            "horses": List[Dict],  # 馬のリスト
+            "auction_histories": List[Dict],  # オークション履歴のリスト
+            "metadata": {
+                "total": int,     # 総レコード数
+                "skip": int,      # スキップ数
+                "limit": int      # リミット数
+            }
+        }
+    """
+    try:
+        logger.info("\n=== Starting get_horses_with_auction_histories endpoint ===")
+        
+        # 総レコード数を取得
+        total = db.query(Horse).count()
+        
+        # 馬データを取得（ページネーション適用）
+        horses = db.query(Horse).order_by(Horse.id).offset(skip).limit(limit).all()
+        
+        # マッパー関数でデータを変換
+        horses_data, auction_histories = map_horses_list(horses)
+        
+        logger.info(f"Processed {len(horses_data)} horses and {len(auction_histories)} auction histories")
+        
+        return {
+            "horses": horses_data,
+            "auction_histories": auction_histories,
+            "metadata": {
+                "total": total,
+                "skip": skip,
+                "limit": limit
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in get_horses_with_auction_histories: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
         )
 
 @router.post("", response_model=HorseResponse, status_code=status.HTTP_201_CREATED, tags=["horses"])
@@ -276,13 +425,7 @@ async def create_horses_batch(
             detail=f"Error in batch create: {str(e)}"
         )
 
-# 既存のエンドポイントをインポート
-from .horses_old import (
-    get_horse_by_id,
-    get_latest_horses,
-    get_horses_with_auction_histories,
-    extract_disease_tags
-)
+# 既存のエンドポイントは既に統合済み
 
 # 馬IDで検索するエンドポイント
 @router.get("/{horse_id}", response_model=Dict[str, Any], tags=["horses"])
