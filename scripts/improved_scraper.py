@@ -2886,15 +2886,23 @@ class ImprovedRakutenScraper:
             # レース記録を抽出
             race_record_data, race_success = self.race_record_extractor.extract(html_content)
             if race_success and race_record_data:
-                # 抽出したデータをrace_recordsとrace_recordに保存
-                horse_info['race_records'] = race_record_data
-                horse_info['race_record'] = race_record_data  # race_recordにも同じデータを設定
-                self.logger.debug(f'抽出されたレース記録: {race_record_data}')
+                # 必要なフィールドのみを抽出して保存
+                horse_info['race_record'] = {
+                    'total_races': race_record_data.get('total_races', 0),
+                    'wins': race_record_data.get('wins', 0),
+                    'record_format': race_record_data.get('record_format', 'simple'),
+                    'formatted_record': race_record_data.get('formatted_record', '0戦0勝')
+                }
+                self.logger.debug(f'抽出されたレース記録: {horse_info["race_record"]}')
             else:
                 self.logger.warning('レース記録の抽出に失敗しました')
-                # 空の辞書で初期化
-                horse_info['race_records'] = {}
-                horse_info['race_record'] = {}  # race_recordも空の辞書で初期化
+                # デフォルト値で初期化
+                horse_info['race_record'] = {
+                    'total_races': 0,
+                    'wins': 0,
+                    'record_format': 'simple',
+                    'formatted_record': '0戦0勝'
+                }
                 
             # オークション日は _process_horse_info で取得するため、ここでは取得しない
             

@@ -21,6 +21,7 @@ class RaceRecordExtractor(BaseExtractor):
         """
         try:
             self.logger.debug("レース実績の抽出を開始します")
+            self.logger.debug(f"入力HTMLの先頭500文字: {html_content[:500]}...")
             
             # レース実績のサマリーを抽出（例: "62戦6勝［6-8-5-43］"）
             race_summary = {}
@@ -65,10 +66,12 @@ class RaceRecordExtractor(BaseExtractor):
                     # 詳細情報がない場合はシンプルな形式で返す
                     formatted_record = f"{race_summary['total_races']}戦{race_summary['wins']}勝"
                 
-                # 元のデータと整形済みの文字列の両方を返す
+                # 必要なフィールドのみを含む形式で返す
                 result = {
-                    **race_summary,
-                    'formatted_record': formatted_record
+                    'total_races': race_summary.get('total_races', 0),
+                    'wins': race_summary.get('wins', 0),
+                    'record_format': 'simple',
+                    'formatted_record': f"{race_summary.get('total_races', 0)}戦{race_summary.get('wins', 0)}勝"
                 }
                 self.logger.debug(f"レース実績を抽出しました: {result}")
                 return result, True
@@ -84,7 +87,8 @@ class RaceRecordExtractor(BaseExtractor):
                         race_summary = {
                             'total_races': int(match.group(1)),
                             'wins': int(match.group(2)),
-                            'record_format': 'from_comment'
+                            'record_format': 'simple',
+                            'formatted_record': f"{int(match.group(1))}戦{int(match.group(2))}勝"
                         }
                         self.logger.debug(f"コメントからレース実績を抽出しました: {race_summary}")
                         return race_summary, True

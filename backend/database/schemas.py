@@ -3,14 +3,10 @@ from typing import List, Optional, Union, Dict, Any
 from datetime import datetime
 
 class RaceRecordSummary(BaseModel):
-    status: Optional[str] = None
-    races: Optional[int] = None
-    wins: Optional[int] = None
-    first: Optional[int] = None
-    second: Optional[int] = None
-    third: Optional[int] = None
-    other: Optional[int] = None
-    summary: Optional[str] = None
+    total_races: int = 0
+    wins: int = 0
+    record_format: str = "simple"
+    formatted_record: str = "0戦0勝"
 
 class HorseBase(BaseModel):
     name: str
