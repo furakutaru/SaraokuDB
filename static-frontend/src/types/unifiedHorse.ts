@@ -10,12 +10,17 @@ export interface UnifiedHorse {
   is_unsold: boolean;
   sold_price?: number | null;
   auction_date?: string;
+  total_prize_latest: number;
   seller?: string;
   basic_info?: BasicInfo;
   race_records?: {
     total_prize_money: number;
     last_race_date?: string;
     last_prize_update?: string;
+    total_races: number;
+    wins: number;
+    record_format?: string;
+    formatted_record?: string;
   };
   auction_history?: AuctionHistory[];
   latest_auction?: {

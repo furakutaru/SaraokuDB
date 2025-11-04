@@ -128,14 +128,25 @@ export function formatPrice(
 }
 
 /**
- * 賞金をフォーマットする（未出走チェックあり）
+ * 賞金をフォーマットする
  * @param amount 賞金額（数値または文字列）
  * @param raceRecords レース記録情報（未出走判定用）
  * @returns フォーマットされた賞金文字列（例: "1,000万円" または "未出走"）
  */
 export function formatPrize(
-  amount: number | string | null | undefined, 
-  raceRecords?: any[] | null
+  amount: number | string | null | undefined,
+  raceRecords?: {
+    total_prize_money: number;
+    total_races?: number;  // 追加: 未出走判定用
+    last_race_date?: string;
+    last_prize_update?: string;
+    race_record?: {
+      total_races?: number;
+      formatted_record?: string;
+      [key: string]: any;
+    };
+    [key: string]: any;
+  } | null
 ): string {
   // 値がnullまたはundefinedまたは空文字の場合は'-'を返す
   if (amount === null || amount === undefined || amount === '') {
@@ -145,9 +156,82 @@ export function formatPrize(
   // 数値に変換
   const numAmount = Number(amount);
   
-  // race_recordsが空で、かつ賞金が0の場合は「未出走」を返す
-  if ((!raceRecords || raceRecords.length === 0) && numAmount === 0) {
-    return '未出走';
+  // 未出走チェック
+  const isUnraced = (records: any): boolean => {
+    if (records === null || records === undefined || records === '') {
+      return false;
+    }
+    
+    if (Array.isArray(records)) {
+      return records.length === 0;
+    }
+    
+    if (typeof records === 'string') {
+      return records === 'データなし' || records === '未出走' || records === '';
+    }
+    
+    if (typeof records === 'object') {
+      if (Object.keys(records).length === 0) return true;
+      
+      // 未出走を判定する条件を追加
+      if ('is_unraced' in records && records.is_unraced === true) return true;
+      if ('total_races' in records) {
+        const totalRaces = records.total_races;
+        return totalRaces === 0 || totalRaces === '0' || totalRaces === '0戦0勝';
+      }
+      if ('formatted_record' in records) {
+        const formattedRecord = records.formatted_record;
+        return formattedRecord === 'データなし' || formattedRecord === '未出走' || formattedRecord === '0戦0勝';
+      }
+      if ('race_records' in records) {
+        const raceRecords = records.race_records;
+        return Array.isArray(raceRecords) && raceRecords.length === 0;
+      }
+      
+      // race_record オブジェクトの場合のチェックを追加
+      if ('race_record' in records && records.race_record) {
+        const raceRecord = records.race_record;
+        if ('total_races' in raceRecord && raceRecord.total_races === 0) {
+          return true;
+        }
+        if ('formatted_record' in raceRecord && 
+            (raceRecord.formatted_record === '0戦0勝' || raceRecord.formatted_record === '未出走')) {
+          return true;
+        }
+      }
+      
+      const unracedIndicators = ['unraced', '未出走', 'データなし', 'no_data', 'nodata', '0戦0勝'];
+      return Object.values(records).some(value => 
+        unracedIndicators.includes(String(value).toLowerCase())
+      );
+    }
+    
+    return false;
+  };
+
+  // 未出走の場合は「未出走」を返す
+  if (raceRecords) {
+    // total_races が 0 の場合は未出走とみなす
+    if ('total_races' in raceRecords && raceRecords.total_races === 0) {
+      return '未出走';
+    }
+    
+    // race_record オブジェクトをチェック
+    if (raceRecords.race_record && typeof raceRecords.race_record === 'object') {
+      const raceRecord = raceRecords.race_record;
+      if (raceRecord.total_races === 0) {
+        return '未出走';
+      }
+      if (raceRecord.formatted_record && 
+          (raceRecord.formatted_record === '0戦0勝' || raceRecord.formatted_record === '未出走')) {
+        return '未出走';
+      }
+    }
+    
+    // その他の未出走条件もチェック
+    if (isUnraced(raceRecords) || (numAmount === 0 || numAmount === null || numAmount === undefined)) {
+      return '未出走';
+    }
   }
   
   // 数値に変換できない、または0の場合は'0円'を返す

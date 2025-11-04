@@ -113,7 +113,7 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
         {formatPrize(horse.total_prize_start, horse.race_records)}
       </td>
       <td className="px-3 py-2">
-        {formatPrize(horse.total_prize_latest)}
+        {formatPrize(horse.total_prize_latest, horse.race_records)}
       </td>
       <td className="px-3 py-2">
         {calcROI(horse.total_prize_latest, horse.total_prize_start, horse.sold_price)}

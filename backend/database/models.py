@@ -1,7 +1,9 @@
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, ForeignKey, create_engine, text, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text, create_engine
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.sql.expression import text
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -84,6 +86,9 @@ class Horse(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     scraped_at = Column(DateTime, nullable=True)  # スクレイピング日時
+    
+    # 統合されたレース記録
+    unified_race_records = Column(JSON, nullable=True, comment='統合されたレース記録（JSON形式）')
     
     # リレーションシップ
     auction_histories = relationship(

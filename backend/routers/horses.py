@@ -508,6 +508,13 @@ async def get_horse_by_id(
             "formatted_record": "未出走"
         }
         
+        # race_records を取得（賞金情報など）
+        race_records = {
+            "total_prize_money": 0,
+            "last_race_date": None,
+            "last_prize_update": None
+        }
+        
         if hasattr(horse, 'race_record') and horse.race_record:
             try:
                 # 文字列の場合はJSONとしてパース
@@ -557,6 +564,13 @@ async def get_horse_by_id(
                                 "record_format": "simple",
                                 "formatted_record": f"{record_dict.get('races', 0)}戦{record_dict.get('wins', 0)}勝"
                             }
+                            # 賞金情報があれば取得
+                            if "total_prize_money" in record_dict:
+                                race_records["total_prize_money"] = record_dict.get("total_prize_money", 0)
+                            if "last_race_date" in record_dict:
+                                race_records["last_race_date"] = record_dict.get("last_race_date")
+                            if "last_prize_update" in record_dict:
+                                race_records["last_prize_update"] = record_dict.get("last_prize_update")
             except (json.JSONDecodeError, AttributeError, TypeError) as e:
                 logger.warning(f"Failed to parse race_record: {e}")
                 race_record = {
@@ -565,6 +579,17 @@ async def get_horse_by_id(
                     "record_format": "simple",
                     "formatted_record": "未出走"
                 }
+        
+        # 統合されたレース記録を作成
+        unified_race_records = {
+            "total_races": race_record.get("total_races", 0),
+            "wins": race_record.get("wins", 0),
+            "record_format": race_record.get("record_format", "simple"),
+            "formatted_record": race_record.get("formatted_record", "未出走"),
+            "total_prize_money": race_records.get("total_prize_money", 0),
+            "last_race_date": race_records.get("last_race_date"),
+            "last_prize_update": race_records.get("last_prize_update")
+        }
         
         # 馬の基本情報を返す
         response_data = {
@@ -587,7 +612,9 @@ async def get_horse_by_id(
             "detail_url": horse.detail_url,
             "jbis_url": horse.jbis_url,
             "is_unsold": getattr(horse, 'is_unsold', False),
-            "race_record": race_record,
+            "race_record": race_record,  # 後方互換性のため残す
+            "race_records": race_records,  # 後方互換性のため残す
+            "unified_race_records": unified_race_records,  # 新しい統合形式
             "auction_histories": auction_histories_list,
             "latestAuction": latest_auction_dict
         }
