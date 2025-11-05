@@ -37,13 +37,6 @@ class User(Base, TimestampMixin):
         primaryjoin="User.id == foreign(AuctionHistory.user_id)",
         remote_side="[AuctionHistory.user_id]"
     )
-    horses = relationship(
-        "Horse", 
-        back_populates="owner",
-        foreign_keys="[Horse.owner_id]",
-        primaryjoin="User.id == foreign(Horse.owner_id)",
-        remote_side="[Horse.owner_id]"
-    )
 
 # sex, seller, sold_price, commentを履歴（配列/JSON文字列）で保存
 class Horse(Base):
@@ -77,7 +70,6 @@ class Horse(Base):
     seller = Column(Text)  # 販売申込者（JSON配列文字列: ["社台", ...]）
     comment = Column(Text)  # コメント履歴（JSON配列文字列: ["1回目コメント", ...]）
     image_url = Column(String(500))  # 馬画像URL
-    primary_image = Column(String(500))  # 馬体写真1枚目のURL
     jbis_url = Column(String(500))  # JBISの馬情報ページURL
     detail_url = Column(String(500))  # 楽天競馬オークションの詳細ページURL
     unsold_count = Column(Integer, default=0)  # 主取り回数
@@ -107,15 +99,6 @@ class Horse(Base):
         lazy='joined',  # 常に結合してロード
         overlaps="latest_horse"  # 双方向リレーションシップの競合を解決
     )
-    owner_id = Column(Integer, ForeignKey('public.users.id', name='fk_horses_owner_id_users'), nullable=True)
-    owner = relationship(
-        "User", 
-        back_populates="horses",
-        foreign_keys=[owner_id],
-        primaryjoin="Horse.owner_id == User.id",
-        remote_side="[User.id]"
-    )
-    
     is_unsold = Column(Boolean, default=False, nullable=False, comment='最新のオークション情報から自動設定される主取りフラグ')
     
     @property
