@@ -53,6 +53,13 @@ try:
     DATEUTIL_AVAILABLE = True
 except ImportError:
     print("警告: dateutil モジュールが見つかりません。日付のパース機能が制限されます。")
+    # 代替の日付パース関数を定義
+    def parse_date(date_str):
+        """簡易的な日付パース関数 (dateutilの代替)"""
+        try:
+            return datetime.strptime(str(date_str).split()[0], '%Y-%m-%d')
+        except (ValueError, AttributeError):
+            return None
     
     # 必要な関数を代替実装
     def parse_date(date_str):
@@ -587,13 +594,12 @@ from scripts.components.comment_extractor import CommentExtractor
 from scripts.components.race_record_extractor import RaceRecordExtractor
 from scripts.components.price_extractor import PriceExtractor
 from scripts.components.horse_info_extractor import HorseInfoExtractor
+# prize_money のインポートは削除されました
 from scripts.components.auction_date_extractor import AuctionDateExtractor
 from scripts.components.horse_weight_extractor import HorseWeightExtractor
 from scripts.components.seller_info_extractor import SellerInfoExtractor
-from scripts.components.prize_info_extractor import PrizeInfoExtractor
 from scripts.components.price_info_extractor import PriceInfoExtractor
 from scripts.components.image_extractor import ImageExtractor
-from scripts.components.prize_extractor import PrizeExtractor  # 追加されたインポート文
 
 # BaseExtractor は components.image_extractor からインポートされます
 
@@ -632,7 +638,7 @@ from scripts.components.pedigree_extractor import PedigreeExtractor
 from scripts.components.race_record_extractor import RaceRecordExtractor
 from scripts.components.prize_extractor import PrizeExtractor
 from scripts.components.comment_extractor import CommentExtractor
-from scripts.components.prize_money import CurrentPrizeExtractor, AuctionPrizeExtractor
+# prize_money のインポートは削除されました
 from scripts.components.price_extractor import PriceExtractor
 from scripts.core.utils.html_saver import HTMLSaver
 
@@ -1153,12 +1159,11 @@ class ImprovedRakutenScraper:
             'horse_weight_extractor': HorseWeightExtractor,
             # JBIS関連の抽出器を一時的に無効化（BOT判定回避のため）
             # 'jbis_link_extractor': JbisLinkExtractor,
-            'prize_info_extractor': PrizeInfoExtractor,
+            # 'prize_info_extractor': PrizeInfoExtractor,  # prize_money 関連のため削除
             # 'current_prize_extractor': CurrentPrizeExtractor,
             'pedigree_extractor': PedigreeExtractor,
             'prize_extractor': PrizeExtractor,
             'comment_extractor': CommentExtractor,
-            'auction_prize_extractor': AuctionPrizeExtractor,
             'price_extractor': PriceExtractor,
             'price_info_extractor': PriceInfoExtractor,
             'seller_info_extractor': SellerInfoExtractor,
@@ -1541,8 +1546,6 @@ class ImprovedRakutenScraper:
         # 2回目の初期化を削除（既に初期化済み）
         self.prize_extractor = PrizeExtractor()
         self.comment_extractor = CommentExtractor()
-        self.current_prize_extractor = CurrentPrizeExtractor()
-        self.auction_prize_extractor = AuctionPrizeExtractor()
         self.price_extractor = PriceExtractor()
         
         # 出力ディレクトリの確認
@@ -2259,36 +2262,11 @@ class ImprovedRakutenScraper:
                         return None
                 
                 # データ構造の整理
-                if 'prize_money' not in horse_info or not isinstance(horse_info['prize_money'], dict):
-                    horse_info['prize_money'] = {}
-                
-                # 古い形式の total_prize があれば統合
-                if 'total_prize' in horse_info and 'total_prize' not in horse_info['prize_money']:
-                    horse_info['prize_money']['total_prize'] = horse_info['total_prize']
-                    # 古いフィールドを削除
-                    del horse_info['total_prize']
-                
-                # 古い形式の original_text があれば統合
-                if 'original_text' in horse_info and 'original_text' not in horse_info['prize_money']:
-                    horse_info['prize_money']['original_text'] = horse_info['original_text']
-                    # 古いフィールドを削除
-                    del horse_info['original_text']
-                
-                # デフォルト値の設定
-                horse_info['prize_money'].setdefault('total_prize', 0)
-                horse_info['prize_money'].setdefault('total_prize_start', horse_info['prize_money'].get('total_prize', 0))
-                horse_info['prize_money'].setdefault('original_text', '')
-                horse_info['prize_money'].setdefault('pattern_used', 'default')
-                horse_info['prize_money'].setdefault('note', '')
+                # prize_money 関連のコードは削除されました
                 
                 # sold_price を整数に変換
                 if 'sold_price' in horse_info:
                     horse_info['sold_price'] = self._convert_to_int(horse_info['sold_price'])
-                    
-                    # 念のため、sold_price が total_prize にコピーされていないか確認
-                    if horse_info.get('prize_money', {}).get('total_prize') == horse_info['sold_price']:
-                        horse_info['prize_money']['total_prize'] = 0
-                        self.logger.warning(f"sold_price が total_prize にコピーされていたため、total_prize を0にリセットしました")
                 
                 horse_info['is_unsold'] = self._convert_to_bool(horse_info.get('is_unsold', False))
                 horse_info.setdefault('disease_tags', [])
@@ -2330,8 +2308,6 @@ class ImprovedRakutenScraper:
             
             # オプションフィールドの抽出を実行
             extractors = [
-                # 一時的に賞金情報の抽出を無効化
-                # ('prize_money', 'prize_info_extractor', '賞金情報', True),
                 ('price', 'price_info_extractor', '価格情報', True),
                 ('seller', 'seller_info_extractor', '販売者情報', True),
                 ('race_records', 'race_record_extractor', 'レース記録', True),
@@ -2507,16 +2483,6 @@ class ImprovedRakutenScraper:
                                     prize_value *= 10000
                                 total_prize_start = int(prize_value)
                                 
-                                # 賞金情報を辞書に追加
-                                if 'prize_money' not in basic_info:
-                                    basic_info['prize_money'] = {}
-                                basic_info['prize_money'].update({
-                                    'total_prize': 0,  # 無効化
-                                    'total_prize_start': total_prize_start,
-                                    'original_text': prize_text,
-                                    'pattern_used': 'top_page_extraction',
-                                    'note': 'トップページから抽出した賞金情報'
-                                })
                                 self.logger.info(f'total_prize_startをトップページから抽出しました: {total_prize_start} (元のテキスト: {prize_text})')
                                 break
                         except (ValueError, AttributeError) as e:
@@ -2542,16 +2508,6 @@ class ImprovedRakutenScraper:
                                     prize_value *= 10000
                                 total_prize_start = int(prize_value)
                                 
-                                # 賞金情報を辞書に追加
-                                if 'prize_money' not in basic_info:
-                                    basic_info['prize_money'] = {}
-                                basic_info['prize_money'].update({
-                                    'total_prize': 0,  # 無効化
-                                    'total_prize_start': total_prize_start,
-                                    'original_text': prize_text,
-                                    'pattern_used': 'top_page_extraction',
-                                    'note': 'トップページから抽出した賞金情報'
-                                })
                                 self.logger.info(f'total_prize_startをトップページから抽出しました: {total_prize_start} (元のテキスト: {prize_text})')
                                 break
                         except (ValueError, AttributeError) as e:
@@ -3090,26 +3046,7 @@ def save_horses_to_file(horses: List[Dict[str, Any]], output_path: Path) -> bool
                 if field not in horse or not horse[field]:
                     horse[field] = ''
             
-            # 賞金情報が数値でない場合は0を設定
-            if 'total_prize_start' not in horse or not isinstance(horse.get('total_prize_start'), (int, float)):
-                horse['total_prize_start'] = 0
-            if 'total_prize_latest' not in horse or not isinstance(horse.get('total_prize_latest'), (int, float)):
-                horse['total_prize_latest'] = 0
-            
-            # prize_moneyオブジェクトを初期化
-            if 'prize_money' not in horse or not isinstance(horse.get('prize_money'), dict):
-                horse['prize_money'] = {
-                    "total_prize": 0,  # JBISから取得する予定の値（現在は0のまま）
-                    "total_prize_start": 0,
-                    "original_text": "",
-                    "pattern_used": "default",
-                    "note": ""
-                }
-            
-            # total_prize_startの値をprize_moneyオブジェクトに設定
-            if 'total_prize_start' in horse:
-                horse['prize_money']['total_prize_start'] = horse['total_prize_start']
-                horse['prize_money']['note'] = "オークションページから抽出した賞金情報"
+            # 賞金情報の処理は削除されました
             
             # 日付フィールドを文字列に変換
             for date_field in ['auction_date', 'created_at', 'updated_at']:
