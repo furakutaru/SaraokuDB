@@ -135,14 +135,23 @@ const displayPrice = (horse: Horse, auctionHistory: AuctionHistory | null | unde
 // --- コンポーネント ---
 const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
   const router = useRouter();
-  const [horse, setHorse] = useState<Horse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [horse, setHorse] = useState<Horse | null>(null);
+  const [auctionHistory, setAuctionHistory] = useState<AuctionHistory | null>(null);
+
+  // デバッグ用のuseEffect
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && horse) {
+      console.log('horse.latest_auction:', horse.latest_auction);
+      console.log('auctionHistory:', auctionHistory);
+    }
+  }, [horse, auctionHistory]);
 
   useEffect(() => {
     const fetchHorseData = async () => {
       try {
-        setLoading(true);
+        setIsLoading(true);
         // APIエンドポイントからデータを取得（末尾のスラッシュを追加）
         const response = await fetch(`/api/horses/${params.id}/`, {
           method: 'GET',
@@ -201,14 +210,14 @@ const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
         console.error('馬データの取得中にエラーが発生しました:', err);
         setError('馬データの取得中にエラーが発生しました');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
     fetchHorseData();
   }, [params.id]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -245,11 +254,25 @@ const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
     );
   }
 
+  useEffect(() => {
+    console.log('Page - horse.latest_auction:', JSON.stringify(horse.latest_auction, null, 2));
+  }, [horse.latest_auction]);
+  
   return <HorseDetailContent horse={horse} auctionHistory={horse.latest_auction || null} />;
 };
 
 const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) => {
   const router = useRouter();
+  
+  useEffect(() => {
+    if (auctionHistory?.price) {
+      console.log('Rendering prize - auctionHistory:', JSON.stringify({
+        price: auctionHistory.price,
+        total_prize_start: auctionHistory.total_prize_start,
+        hasTotalPrizeStart: 'total_prize_start' in auctionHistory
+      }, null, 2));
+    }
+  }, [auctionHistory]);
 
   // 基本情報を取得
   const basicInfo = horse.basic_info || {
@@ -458,9 +481,9 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                   <div className="text-2xl font-bold text-red-600">
                     {displayPrice(horse, auctionHistory)}
                   </div>
-                  {latestAuction?.price && (
+                  {auctionHistory?.price && (
                     <div className="mt-2 text-sm text-gray-600">
-                      前回落札価格: {formatPrice(latestAuction.price)}
+                      {formatPrize(horse.unified_race_records?.total_prize_money, { unified_race_records: false })}
                     </div>
                   )}
                 </div>

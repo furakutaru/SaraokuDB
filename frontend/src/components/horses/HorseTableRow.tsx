@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { formatDate, formatPrice, formatManYen } from '../../utils/format';
+import { formatDate, formatPrice, formatPrize } from '../../utils/format';
 import type { RaceRecordInfo } from '@/components/common/AuctionPrizeDisplay';
 import { getSexColor, formatSex } from '@/utils/sex';
 import type { HorseWithCalculations } from '@/types/horse';
@@ -34,12 +34,9 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
     });
   };
 
-  // formatManYen を AuctionPrizeDisplay の formatPrizeMan プロップに渡せる形式に変換
-  const formatPrizeManWrapper = (amount: string | number | null | undefined, _raceRecords?: RaceRecordInfo | null): string => {
-    if (amount === null || amount === undefined) return '-';
-    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    if (isNaN(numAmount)) return '-';
-    return formatManYen(numAmount);
+  // formatPrize を使用するように変更
+  const formatPrizeManWrapper = (amount: string | number | null | undefined, raceRecords?: RaceRecordInfo | null): string => {
+    return formatPrize(amount, raceRecords);
   };
 
   // 性別のフォーマットはutils/sex.tsのformatSex関数を使用

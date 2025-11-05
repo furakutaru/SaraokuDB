@@ -140,18 +140,57 @@ export function formatPrize(
     [key: string]: any;
   } | null
 ): string {
+  console.log('formatPrize called with:', { amount, raceRecords });
+  
   // raceRecords が存在し、unified_race_records が true の場合は「未出走」を返す
   if (raceRecords && typeof raceRecords.unified_race_records === 'boolean' && raceRecords.unified_race_records) {
+    console.log('formatPrize: returning 未出走');
     return '未出走';
   }
   
-  const numAmount = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
+  // amount が null または undefined の場合は「-」を返す
+  if (amount === null || amount === undefined) {
+    console.log('formatPrize: amount is null or undefined, returning -');
+    return '-';
+  }
 
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  console.log('formatPrize: numAmount:', numAmount, 'raceRecords:', raceRecords);
+
+  // 数値に変換できない場合は「0.0万円」を返す
+  if (isNaN(numAmount)) {
+    console.log('formatPrize: numAmount is NaN, returning 0.0万円');
+    return '0.0万円';
+  }
+  
+  // 0の場合はraceRecordsのtotal_prize_moneyを確認
+  if (numAmount === 0 && raceRecords && 'total_prize_money' in raceRecords) {
+    const prizeMoney = raceRecords.total_prize_money;
+    if (prizeMoney !== undefined && prizeMoney !== null) {
+      const prizeValue = typeof prizeMoney === 'string' ? parseFloat(prizeMoney) : prizeMoney;
+      if (!isNaN(prizeValue) && prizeValue > 0) {
+        console.log('formatPrize: using raceRecords.total_prize_money:', prizeValue);
+        return `${(prizeValue / 10000).toFixed(1)}万円`;
+      }
+    }
+  }
+  
+  // 0の場合はtotal_prize_startを確認
   if (numAmount === 0) {
+    if (raceRecords && 'total_prize_start' in raceRecords) {
+      const prizeStart = raceRecords.total_prize_start;
+      if (prizeStart !== undefined && prizeStart > 0) {
+        console.log('formatPrize: using total_prize_start:', prizeStart);
+        return `${(prizeStart / 10000).toFixed(1)}万円`;
+      }
+    }
+    console.log('formatPrize: numAmount is 0, returning 0.0万円');
     return '0.0万円';
   }
 
-  return `${(numAmount / 10000).toFixed(1)}万円`;
+  const result = `${(numAmount / 10000).toFixed(1)}万円`;
+  console.log('formatPrize: returning', result);
+  return result;
 }
 
 /**

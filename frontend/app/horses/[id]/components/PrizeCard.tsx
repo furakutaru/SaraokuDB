@@ -47,8 +47,9 @@ const PrizeCard: React.FC<PrizeCardProps> = ({ horse, latestHistory }) => {
         <div className="grid grid-cols-2 gap-4 text-center">
           <div>
             <div className="text-lg font-semibold text-gray-900">
-              {formatPrize(horse.total_prize_latest, {
-                total_prize_money: horse.total_prize_latest || 0,
+              {formatPrize(latestHistory.total_prize_start, {
+                total_prize_money: latestHistory.total_prize_start || 0,
+                total_prize_start: latestHistory.total_prize_start,
                 unified_race_records: (horse as any).unified_race_records
               })}
             </div>
