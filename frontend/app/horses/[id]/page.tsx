@@ -62,7 +62,8 @@ import {
   formatDate as formatDateUtil,
   formatPrizeMan,
   formatCurrency,
-  formatPrice
+  formatPrice,
+  formatPrize
 } from '../../../src/utils/format';
 import { BaseAuctionHistory } from '../../../src/types/horse';
 
@@ -73,8 +74,7 @@ type AuctionHistory = ExtendedAuctionHistory;
 import { HeaderCard } from './components';
 import ExternalLinks from './components/ExternalLinks';
 import { ErrorMessage, SimpleError } from './components/ErrorDisplay';
-import dynamic from 'next/dynamic';
-const LoadingSpinner = dynamic(() => import('./components/LoadingSpinner'), { ssr: false });
+import { LoadingSpinner } from './components/LoadingSpinner';
 import { HorseHeader } from './components/HorseHeader';
 import AuctionHistoryCard from './components/AuctionHistoryCard';
 import { CommentCard } from './components/CommentCard';
@@ -713,7 +713,9 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
               ? (h as any).disease_tags 
               : (typeof (h as any).disease_tags === 'string' 
                   ? (h as any).disease_tags.split(',').filter(Boolean) 
-                  : [])
+                  : []),
+            // unified_race_records を追加（API レスポンスの値を優先）
+            unified_race_records: (horse as any).unified_race_records === true || false
           }))
         : [],
       // 必須プロパティを追加
@@ -1088,7 +1090,9 @@ export default function HorseDetailPage({ params }: PageProps) {
               ? (h as any).disease_tags 
               : (typeof (h as any).disease_tags === 'string' 
                   ? (h as any).disease_tags.split(',').filter(Boolean) 
-                  : [])
+                  : []),
+            // unified_race_records を追加（API レスポンスの値を優先）
+            unified_race_records: (horse as any).unified_race_records === true || false
           }))
         : [],
       // 必須プロパティを追加
@@ -1545,7 +1549,23 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                           <td className="px-2 py-1 border text-right">
                             {formatPrice(h.sold_price, h.unsold || h.is_unsold)}
                           </td>
-                          <td className="px-2 py-1 border text-right">{formatPrizeMan(h.total_prize_start)}</td>
+                          <td className="px-2 py-1 border text-right">
+                            {(() => {
+                              // 馬の基本情報から unified_race_records を取得
+                              const unifiedRaceRecords = horse?.unified_race_records || false;
+                              
+                              // デバッグ用のログを出力
+                              console.log('formatPrize called with:', {
+                                amount: h.total_prize_start,
+                                unified_race_records: unifiedRaceRecords
+                              });
+                              
+                              // unified_race_records のみを渡す
+                              return formatPrize(h.total_prize_start, {
+                                unified_race_records: unifiedRaceRecords
+                              });
+                            })()}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1703,6 +1723,8 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
       sex: h.sex || '',
       age: h.age || '',
       race_record: h.race_record || {},
+      // 親コンポーネントの unified_race_records を各アイテムに追加
+      unified_race_records: horse.unified_race_records || false
     } as const));
 
     return (

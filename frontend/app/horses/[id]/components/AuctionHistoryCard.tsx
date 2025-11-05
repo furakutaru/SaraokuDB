@@ -2,6 +2,7 @@ import React from 'react';
 import { Typography, Button, Card, CardHeader, CardContent } from '@mui/material';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import { formatPrize } from '@/utils/format';
 
 export interface AuctionHistory {
   id?: string | number;
@@ -115,9 +116,17 @@ const AuctionHistoryCard: React.FC<AuctionHistoryCardProps> = ({
                   <Typography variant="h6" component="h4" sx={{ fontWeight: 'bold', fontSize: '1.25rem', mb: 1 }}>
                     {formatAuctionDate(item.auction_date)}
                   </Typography>
-                  <p className="text-sm text-gray-500">
-                    落札価格: {formatPrizeMan(item.price ?? item.sold_price, item.unsold || item.is_unsold)}
-                  </p>
+                  <div className="text-base font-medium">
+                    落札時賞金:{" "}
+                    <span className="font-bold">
+                      {formatPrizeMan(history[0].total_prize_start, {
+                        ...history[0].race_record,
+                        // @ts-ignore - 型エラーを無視
+                        unified_race_records: history[0].unified_race_records,
+                        is_unsold: history[0].is_unsold || history[0].unsold || (history[0].unsold_count || 0) > 0
+                      })}
+                    </span>
+                  </div>
                 </div>
                 {item.detail_url && (
                   <Button 

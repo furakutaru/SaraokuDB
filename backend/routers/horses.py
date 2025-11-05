@@ -184,6 +184,42 @@ async def get_horses(
         # 7. 結果をシリアライズ
         horses_data = []
         for horse in horses:
+            # race_record をパースして unified_race_records を設定
+            is_unraced = False
+            
+            if horse.race_record:
+                try:
+                    # 文字列の場合はJSONとしてパース
+                    if isinstance(horse.race_record, str):
+                        if horse.race_record.strip() and horse.race_record.strip() != "未出走":
+                            parsed_record = json.loads(horse.race_record)
+                            
+                            # 配列形式の場合は、配列の長さを総レース数として扱う
+                            if isinstance(parsed_record, list):
+                                total_races = len(parsed_record)
+                                is_unraced = total_races == 0
+                            # 辞書形式の場合は必要なフィールドを抽出
+                            elif isinstance(parsed_record, dict):
+                                # シンプル形式の場合はそのまま使用
+                                if "formatted_record" in parsed_record:
+                                    total_races = parsed_record.get("total_races", 0)
+                                    is_unraced = total_races == 0
+                                # 詳細形式の場合はシンプル形式に変換
+                                elif "races" in parsed_record:
+                                    total_races = parsed_record.get("races", 0)
+                                    is_unraced = total_races == 0
+                    # 文字列でない場合
+                    elif isinstance(horse.race_record, dict):
+                        record_dict = horse.race_record
+                        if "formatted_record" in record_dict:
+                            total_races = record_dict.get("total_races", 0)
+                            is_unraced = total_races == 0
+                        elif "races" in record_dict:
+                            total_races = record_dict.get("races", 0)
+                            is_unraced = total_races == 0
+                except (json.JSONDecodeError, AttributeError, TypeError) as e:
+                    logger.warning(f"Failed to parse race_record for horse {horse.id}: {e}")
+                    is_unraced = False
             horse_data = {
                 "id": horse.id,
                 "name": horse.name,
@@ -205,7 +241,8 @@ async def get_horses(
                 "detail_url": horse.detail_url,
                 "jbis_url": horse.jbis_url,
                 "is_unsold": horse.is_unsold if hasattr(horse, 'is_unsold') else False,
-                "unsold": horse.is_unsold if hasattr(horse, 'is_unsold') else False
+                "unsold": horse.is_unsold if hasattr(horse, 'is_unsold') else False,
+                "unified_race_records": is_unraced  # race_record に基づいて設定
             }
             horses_data.append(horse_data)
         
@@ -580,16 +617,12 @@ async def get_horse_by_id(
                     "formatted_record": "未出走"
                 }
         
-        # 統合されたレース記録を作成
-        unified_race_records = {
-            "total_races": race_record.get("total_races", 0),
-            "wins": race_record.get("wins", 0),
-            "record_format": race_record.get("record_format", "simple"),
-            "formatted_record": race_record.get("formatted_record", "未出走"),
-            "total_prize_money": race_records.get("total_prize_money", 0),
-            "last_race_date": race_records.get("last_race_date"),
-            "last_prize_update": race_records.get("last_prize_update")
-        }
+        # 未出走かどうかを示すフラグ
+        # total_racesが0の場合はtrue、それ以外はfalse
+        is_unraced = race_record.get("total_races", 0) == 0
+        
+        # 未出走フラグを設定（必ずboolean型で設定）
+        unified_race_records = bool(is_unraced)
         
         # 馬の基本情報を返す
         response_data = {

@@ -1,7 +1,9 @@
 import Link from 'next/link';
-import { formatPrice, formatPrize } from '@/utils/format';
+import { formatDate, formatPrice, formatManYen } from '../../utils/format';
+import type { RaceRecordInfo } from '@/components/common/AuctionPrizeDisplay';
 import { getSexColor, formatSex } from '@/utils/sex';
 import type { HorseWithCalculations } from '@/types/horse';
+import AuctionPrizeDisplay from '@/components/common/AuctionPrizeDisplay';
 
 type HorseTableRowProps = {
   horse: HorseWithCalculations;
@@ -9,6 +11,7 @@ type HorseTableRowProps = {
 };
 
 export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
+  console.log('HorseTableRow - horse.race_record:', horse.race_record);
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.tagName !== 'A' && target.tagName !== 'A') {
@@ -29,6 +32,14 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
       const strTag = String(tag).trim();
       return !(strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。');
     });
+  };
+
+  // formatManYen を AuctionPrizeDisplay の formatPrizeMan プロップに渡せる形式に変換
+  const formatPrizeManWrapper = (amount: string | number | null | undefined, _raceRecords?: RaceRecordInfo | null): string => {
+    if (amount === null || amount === undefined) return '-';
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(numAmount)) return '-';
+    return formatManYen(numAmount);
   };
 
   // 性別のフォーマットはutils/sex.tsのformatSex関数を使用
@@ -110,10 +121,29 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
         )}
       </td>
       <td className="px-3 py-2">
-        {formatPrize(horse.total_prize_start, horse.race_records)}
+        <AuctionPrizeDisplay
+          raceRecord={{
+            ...(typeof horse.race_record === 'string' 
+              ? JSON.parse(horse.race_record) 
+              : horse.race_record || {}),
+            // トップレベルの unified_race_records も含める
+            unified_race_records: horse.unified_race_records,
+            // デバッグ用に horse オブジェクト全体をログに出力
+            _debug_horse: JSON.parse(JSON.stringify(horse))
+          }}
+          totalPrizeStart={horse.total_prize_start}
+          isUnsold={horse.is_unsold || horse.unsold || (horse.unsold_count || 0) > 0}
+          formatPrizeMan={formatPrizeManWrapper}
+        />
       </td>
       <td className="px-3 py-2">
-        {formatPrize(horse.total_prize_latest, horse.race_records)}
+        {formatPrice(
+          horse.total_prize_latest, 
+          horse.is_unsold || horse.unsold || (horse.unsold_count || 0) > 0,
+          false,
+          horse.total_prize_latest,
+          0
+        )}
       </td>
       <td className="px-3 py-2">
         {calcROI(horse.total_prize_latest, horse.total_prize_start, horse.sold_price)}

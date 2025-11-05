@@ -8,6 +8,7 @@ export type RaceRecord = string | {
   thirds?: number;
   record_format?: string;
   formatted_record?: string;
+  unified_race_records?: boolean;
   [key: string]: any;
 };
 

@@ -174,6 +174,7 @@ export interface HorseWithCalculations extends Horse {
   
   // 病歴タグ
   disease_tags?: string[] | null;
+  unified_race_records?: boolean;
 }
 
 // ==================== APIレスポンス ====================

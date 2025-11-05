@@ -1,10 +1,15 @@
 import React from 'react';
 import { Typography, Card, CardHeader, CardContent, Box } from '@mui/material';
-import { formatManYen } from '../../../../src/utils/format';
+import { formatManYen, formatPrize } from '../../../../src/utils/format';
 
 export interface PrizeCardProps {
   horse: {
     total_prize_latest?: number | null;
+    race_record?: {
+      total_races?: number;
+      formatted_record?: string;
+      [key: string]: any;
+    } | null;
   };
   latestHistory: {
     total_prize_start?: number | null;
@@ -42,13 +47,19 @@ const PrizeCard: React.FC<PrizeCardProps> = ({ horse, latestHistory }) => {
         <div className="grid grid-cols-2 gap-4 text-center">
           <div>
             <div className="text-lg font-semibold text-gray-900">
-              {formatManYen(startPrize)}
+              {formatPrize(horse.total_prize_latest, {
+                total_prize_money: horse.total_prize_latest || 0,
+                unified_race_records: (horse as any).unified_race_records
+              })}
             </div>
             <div className="text-xs text-gray-600">落札時</div>
           </div>
           <div>
             <div className="text-lg font-semibold text-gray-900">
-              {formatManYen(latestPrize)}
+              {formatPrize(latestPrize, {
+                total_prize_money: latestPrize || 0,
+                unified_race_records: (horse as any).unified_race_records
+              })}
             </div>
             <div className="text-xs text-gray-600">現在</div>
           </div>
