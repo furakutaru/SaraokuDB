@@ -142,6 +142,8 @@ interface HorseWithPageProps extends Omit<HorseWithCalculations, 'auction_histor
   // 計算済みの数値
   roi: number;
   price_per_kg: number;
+  // レース記録の統合フラグ
+  unified_race_records?: boolean;
   [key: string]: any; // その他のプロパティを許容
 }
 
@@ -673,7 +675,10 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
       
       // HorseWithCalculations から必要な追加プロパティ
       roi: 0,
-      price_per_kg: 0
+      price_per_kg: 0,
+      
+      // 未出走フラグ
+      unified_race_records: horseBaseData.unified_race_records || false
     };
     
     console.log('Debug - Mapped horse URLs:', {
@@ -715,7 +720,7 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
                   ? (h as any).disease_tags.split(',').filter(Boolean) 
                   : []),
             // unified_race_records を追加（API レスポンスの値を優先）
-            unified_race_records: (horse as any).unified_race_records === true || false
+            unified_race_records: (h as any).unified_race_records ?? (horse as any).unified_race_records ?? false
           }))
         : [],
       // 必須プロパティを追加
@@ -1092,7 +1097,7 @@ export default function HorseDetailPage({ params }: PageProps) {
                   ? (h as any).disease_tags.split(',').filter(Boolean) 
                   : []),
             // unified_race_records を追加（API レスポンスの値を優先）
-            unified_race_records: (horse as any).unified_race_records === true || false
+            unified_race_records: (h as any).unified_race_records ?? (horse as any).unified_race_records ?? false
           }))
         : [],
       // 必須プロパティを追加
@@ -1723,15 +1728,44 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
       sex: h.sex || '',
       age: h.age || '',
       race_record: h.race_record || {},
-      // 親コンポーネントの unified_race_records を各アイテムに追加
-      unified_race_records: horse.unified_race_records || false
+      // 各履歴アイテムのunified_race_recordsを保持し、なければ親の値を使用
+      unified_race_records: h.unified_race_records ?? horse.unified_race_records
     } as const));
+
+    // formatPrizeMan を formatPrize に合わせてラップする関数
+    const formatPrizeManWrapper = (price: number | string | null | undefined, isUnsold?: boolean) => {
+      // デバッグ用にログを出力
+      console.log('formatPrizeManWrapper called with:', { 
+        price, 
+        isUnsold, 
+        horseUnifiedRaceRecords: horse.unified_race_records,
+        horse: horse
+      });
+      
+      // raceRecordsオブジェクトを作成
+      const raceRecords = {
+        unified_race_records: horse.unified_race_records || false,
+        total_prize_money: price ? (typeof price === 'string' ? parseFloat(price) : price) : 0,
+        total_prize_start: price ? (typeof price === 'string' ? parseFloat(price) : price) : 0
+      };
+      
+      const result = formatPrize(price, raceRecords);
+      
+      console.log('formatPrizeManWrapper result:', { 
+        result, 
+        raceRecords,
+        price,
+        isUnsold,
+        horseUnifiedRaceRecords: horse.unified_race_records
+      });
+      return result;
+    };
 
     return (
       <AuctionHistoryCard 
         history={formattedHistory as any}  // 型アサーションを使用
         formatDate={formatDate}
-        formatPrizeMan={formatPrizeMan}
+        formatPrizeMan={formatPrizeManWrapper}
       />
     );
   };

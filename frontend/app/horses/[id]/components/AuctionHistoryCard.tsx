@@ -119,7 +119,10 @@ const AuctionHistoryCard: React.FC<AuctionHistoryCardProps> = ({
                   <div className="text-base font-medium">
                     落札時賞金:{" "}
                     <span className="font-bold">
-                      {formatPrize(item.total_prize_start, { total_prize_start: item.total_prize_start })}
+                      {formatPrizeMan(
+                        item.total_prize_start, 
+                        Boolean(item.unified_race_records ?? item.is_unsold ?? item.unsold)
+                      )}
                     </span>
                   </div>
                 </div>

@@ -5,14 +5,17 @@ import { formatManYen, formatPrize } from '../../../../src/utils/format';
 export interface PrizeCardProps {
   horse: {
     total_prize_latest?: number | null;
+    unified_race_records?: boolean | { unified_race_records?: boolean } | null;
     race_record?: {
       total_races?: number;
       formatted_record?: string;
       [key: string]: any;
     } | null;
+    [key: string]: any;
   };
   latestHistory: {
     total_prize_start?: number | null;
+    [key: string]: any;
   };
 }
 
@@ -26,6 +29,11 @@ const PrizeCard: React.FC<PrizeCardProps> = ({ horse, latestHistory }) => {
   const latestPrize = Number(horse?.total_prize_latest ?? 0);
   const diff = latestPrize - startPrize;
   const diffFormatted = diff > 0 ? `+${formatManYen(diff)}` : formatManYen(diff);
+  
+  // unified_race_records の値を取得
+  const unifiedRaceRecords = typeof horse.unified_race_records === 'object' 
+    ? horse.unified_race_records?.unified_race_records 
+    : horse.unified_race_records;
 
   return (
     <Card className="mb-6">
@@ -50,7 +58,7 @@ const PrizeCard: React.FC<PrizeCardProps> = ({ horse, latestHistory }) => {
               {formatPrize(latestHistory.total_prize_start, {
                 total_prize_money: latestHistory.total_prize_start || 0,
                 total_prize_start: latestHistory.total_prize_start,
-                unified_race_records: (horse as any).unified_race_records
+                unified_race_records: Boolean(unifiedRaceRecords)
               })}
             </div>
             <div className="text-xs text-gray-600">落札時</div>
@@ -59,7 +67,7 @@ const PrizeCard: React.FC<PrizeCardProps> = ({ horse, latestHistory }) => {
             <div className="text-lg font-semibold text-gray-900">
               {formatPrize(latestPrize, {
                 total_prize_money: latestPrize || 0,
-                unified_race_records: (horse as any).unified_race_records
+                unified_race_records: Boolean(unifiedRaceRecords)
               })}
             </div>
             <div className="text-xs text-gray-600">現在</div>
