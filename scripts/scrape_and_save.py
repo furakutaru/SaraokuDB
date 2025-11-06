@@ -201,19 +201,19 @@ class ScraperClient:
             if 'race_records' in data_to_send:
                 race_records = data_to_send.get('race_records', [])
                 
-                # レコードが存在するか確認
-                if not race_records or not isinstance(race_records, list):
-                    # レコードが空または不正な形式の場合はデフォルト値を設定
+                # レコードが存在するか確認（型チェックのみ行う）
+                if not isinstance(race_records, list):
+                    # 不正な形式の場合はデフォルト値を設定
                     data_to_send['race_record'] = {
                         'total_races': 0,
                         'wins': 0,
                         'record_format': 'simple',
                         'formatted_record': '0戦0勝'
                     }
-                    logger.info("race_records が空または不正な形式のためデフォルト値を設定")
+                    logger.info("race_records が不正な形式のためデフォルト値を設定")
                 else:
                     try:
-                        # レコードから必要な情報を集計
+                        # レコードから必要な情報を集計（空の配列でも処理可能）
                         total_races = len(race_records)
                         wins = sum(1 for r in race_records if isinstance(r, dict) and str(r.get('finish_position', '')).strip() == '1')
                         
@@ -224,7 +224,7 @@ class ScraperClient:
                         data_to_send['race_record'] = {
                             'total_races': total_races,
                             'wins': wins,
-                            'record_format': 'detailed',
+                            'record_format': 'detailed' if race_records else 'simple',
                             'formatted_record': formatted_record,
                             'records': race_records  # 元のレコードも保持
                         }
