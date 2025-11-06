@@ -197,34 +197,54 @@ class ScraperClient:
                         formatted_race_records.append(formatted_record)
                 data_to_send['race_records'] = formatted_race_records
             
-            # race_records を処理して必要なフィールドのみを race_record に設定
+            # race_records を処理して必要なフィールドを race_record に設定
             if 'race_records' in data_to_send:
-                race_records = data_to_send.pop('race_records')
+                race_records = data_to_send.get('race_records', [])
                 
-                # 空のリストまたはNoneの場合はデフォルト値を設定
-                if not race_records:
+                # レコードが存在するか確認
+                if not race_records or not isinstance(race_records, list):
+                    # レコードが空または不正な形式の場合はデフォルト値を設定
                     data_to_send['race_record'] = {
                         'total_races': 0,
                         'wins': 0,
                         'record_format': 'simple',
                         'formatted_record': '0戦0勝'
                     }
-                    logger.debug("race_records が空のためデフォルト値を設定")
+                    logger.info("race_records が空または不正な形式のためデフォルト値を設定")
                 else:
-                    # 最初のレコードから必要なフィールドを抽出
-                    first_record = race_records[0] if isinstance(race_records, list) and len(race_records) > 0 else {}
-                    
-                    # 必要なフィールドのみを抽出して設定
-                    data_to_send['race_record'] = {
-                        'total_races': first_record.get('total_races', 0),
-                        'wins': first_record.get('wins', 0),
-                        'record_format': first_record.get('record_format', 'simple'),
-                        'formatted_record': first_record.get('formatted_record', '0戦0勝')
-                    }
-                    logger.debug(f"race_records から必要なフィールドを抽出: {data_to_send['race_record']}")
+                    try:
+                        # レコードから必要な情報を集計
+                        total_races = len(race_records)
+                        wins = sum(1 for r in race_records if isinstance(r, dict) and str(r.get('finish_position', '')).strip() == '1')
+                        
+                        # フォーマットされた文字列を生成
+                        formatted_record = f"{total_races}戦{wins}勝"
+                        
+                        # レコードを設定
+                        data_to_send['race_record'] = {
+                            'total_races': total_races,
+                            'wins': wins,
+                            'record_format': 'detailed',
+                            'formatted_record': formatted_record,
+                            'records': race_records  # 元のレコードも保持
+                        }
+                        
+                        logger.info(f"race_records からレコードを抽出: {data_to_send['race_record']}")
+                        
+                    except Exception as e:
+                        logger.error(f"レコードの処理中にエラーが発生しました: {str(e)}")
+                        logger.error(traceback.format_exc())
+                        
+                        # エラーが発生した場合はデフォルト値を設定
+                        data_to_send['race_record'] = {
+                            'total_races': 0,
+                            'wins': 0,
+                            'record_format': 'simple',
+                            'formatted_record': '0戦0勝'
+                        }
                 
                 # JSON文字列に変換
-                data_to_send['race_record'] = json.dumps(data_to_send['race_record'], ensure_ascii=False)
+                data_to_send['race_record'] = json.dumps(data_to_send['race_record'], ensure_ascii=False, ensure_ascii=False)
             
             # prize_money が辞書型の場合は数値に変換
             if 'prize_money' in data_to_send and isinstance(data_to_send['prize_money'], dict):

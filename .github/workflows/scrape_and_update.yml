@@ -365,17 +365,30 @@ jobs:
             
             # スクリプトを実行（絶対パスで指定）
             cd "$SCRIPT_DIR"
+            
+            # 出力ディレクトリが存在することを確認
+            mkdir -p "$OUTPUT_DIR"
+            
+            # スクリプトを実行
             python -u "$SCRIPT_NAME" --output-dir "$OUTPUT_DIR" 2>&1 | tee -a "$GITHUB_WORKSPACE/$LOG_FILE"
             EXIT_CODE=${PIPESTATUS[0]}
             
             if [ $EXIT_CODE -eq 0 ]; then
               # 出力ファイルを確認
               OUTPUT_FILE="$OUTPUT_DIR/horses.json"
+              
+              # 出力ファイルが存在するか確認
               if [ -f "$OUTPUT_FILE" ]; then
                 FILESIZE=$(wc -c <"$OUTPUT_FILE")
                 if [ "$FILESIZE" -gt 100 ]; then
+                  # 互換性のため、古いパスにもコピーを作成
+                  LEGACY_DIR="/home/runner/work/SaraokuDB/SaraokuDB/static-frontend/public/data"
+                  mkdir -p "$LEGACY_DIR"
+                  cp "$OUTPUT_FILE" "$LEGACY_DIR/horses.json"
+                  
                   SUCCESS=true
                   echo "::notice::✅ スクレイピングが正常に完了しました (出力ファイル: $OUTPUT_FILE, サイズ: ${FILESIZE}バイト)"
+                  echo "::notice::✅ 互換性のため、ファイルを $LEGACY_DIR/horses.json にもコピーしました"
                   break
                 else
                   echo "::warning::⚠️ 出力ファイルのサイズが小さすぎます (${FILESIZE}バイト)"
