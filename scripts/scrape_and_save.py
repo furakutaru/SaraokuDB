@@ -244,7 +244,7 @@ class ScraperClient:
                         }
                 
                 # JSON文字列に変換
-                data_to_send['race_record'] = json.dumps(data_to_send['race_record'], ensure_ascii=False, ensure_ascii=False)
+                data_to_send['race_record'] = json.dumps(data_to_send['race_record'], ensure_ascii=False)
             
             # prize_money が辞書型の場合は数値に変換
             if 'prize_money' in data_to_send and isinstance(data_to_send['prize_money'], dict):
