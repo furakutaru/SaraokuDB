@@ -168,39 +168,11 @@ class ScraperClient:
             elif 'disease_tags' not in data_to_send or data_to_send['disease_tags'] is None:
                 data_to_send['disease_tags'] = ""
             
-            # race_recordsが存在しない場合は空のリストを設定
-            if 'race_records' not in data_to_send:
-                data_to_send['race_records'] = []
-            
-            # race_recordsが辞書のリストの場合、必要なフィールドのみを抽出して新しいリストを作成
-            if isinstance(data_to_send['race_records'], list):
-                formatted_race_records = []
-                for record in data_to_send['race_records']:
-                    if isinstance(record, dict):
-                        formatted_record = {
-                            'race_name': record.get('race_name'),
-                            'race_date': record.get('race_date'),
-                            'course': record.get('course'),
-                            'distance': record.get('distance'),
-                            'track_condition': record.get('track_condition'),
-                            'finish_position': record.get('finish_position'),
-                            'margin': record.get('margin'),
-                            'jockey': record.get('jockey'),
-                            'weight': record.get('weight'),
-                            'finish_time': record.get('finish_time'),
-                            'odds': record.get('odds'),
-                            'favorite': record.get('favorite'),
-                            'race_class': record.get('race_class'),
-                            'race_condition': record.get('race_condition'),
-                            'prize_money': record.get('prize_money')
-                        }
-                        formatted_race_records.append(formatted_record)
-                data_to_send['race_records'] = formatted_race_records
-            
-            # race_records を処理して必要なフィールドを race_record に設定
-            race_records = data_to_send.get('race_records', [])
-            
+            # race_record の初期化
             try:
+                # race_records を取得（存在しない場合は空のリスト）
+                race_records = data_to_send.get('race_records', [])
+                
                 # レコードがリストでない場合は空のリストに変換
                 if not isinstance(race_records, list):
                     logger.warning(f"race_records がリストではありません: {type(race_records)}. 空のリストに変換します。")
@@ -219,10 +191,14 @@ class ScraperClient:
                     'wins': wins,
                     'record_format': 'detailed' if race_records else 'simple',
                     'formatted_record': formatted_record,
-                    'records': race_records  # 元のレコードも保持
+                    'records': race_records  # 元のレコードを保持
                 }
                 
-                logger.info(f"race_records からレコードを抽出: {data_to_send['race_record']}")
+                logger.info(f"レコードを処理しました: {data_to_send['race_record']}")
+                
+                # 元のrace_recordsは不要になったので削除
+                if 'race_records' in data_to_send:
+                    del data_to_send['race_records']
                 
             except Exception as e:
                 logger.error(f"レコードの処理中にエラーが発生しました: {str(e)}")
@@ -236,9 +212,9 @@ class ScraperClient:
                     'formatted_record': '0戦0勝',
                     'records': []
                 }
-                
-                # JSON文字列に変換
-                data_to_send['race_record'] = json.dumps(data_to_send['race_record'], ensure_ascii=False)
+            
+            # 常にJSON文字列に変換
+            data_to_send['race_record'] = json.dumps(data_to_send['race_record'], ensure_ascii=False)
             
             # prize_money が辞書型の場合は数値に変換
             if 'prize_money' in data_to_send and isinstance(data_to_send['prize_money'], dict):
