@@ -885,7 +885,8 @@
       "total_races": 0,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "0戦0勝"
+      "formatted_record": "0戦0勝",
+      "records": []
     }
   },
   {
@@ -914,7 +915,8 @@
       "total_races": 0,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "0戦0勝"
+      "formatted_record": "0戦0勝",
+      "records": []
     }
   },
   {
@@ -951,7 +953,8 @@
       "total_races": 17,
       "wins": 2,
       "record_format": "simple",
-      "formatted_record": "17戦2勝"
+      "formatted_record": "17戦2勝",
+      "records": []
     }
   },
   {
@@ -986,7 +989,8 @@
       "total_races": 4,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "4戦0勝"
+      "formatted_record": "4戦0勝",
+      "records": []
     }
   },
   {
@@ -1021,7 +1025,8 @@
       "total_races": 2,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "2戦0勝"
+      "formatted_record": "2戦0勝",
+      "records": []
     }
   },
   {
@@ -1056,7 +1061,8 @@
       "total_races": 3,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "3戦0勝"
+      "formatted_record": "3戦0勝",
+      "records": []
     }
   },
   {
@@ -1093,7 +1099,8 @@
       "total_races": 5,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "5戦0勝"
+      "formatted_record": "5戦0勝",
+      "records": []
     }
   },
   {
@@ -1130,7 +1137,8 @@
       "total_races": 10,
       "wins": 1,
       "record_format": "simple",
-      "formatted_record": "10戦1勝"
+      "formatted_record": "10戦1勝",
+      "records": []
     }
   },
   {
@@ -1169,7 +1177,8 @@
       "total_races": 12,
       "wins": 3,
       "record_format": "simple",
-      "formatted_record": "12戦3勝"
+      "formatted_record": "12戦3勝",
+      "records": []
     }
   },
   {
@@ -1207,7 +1216,8 @@
       "total_races": 17,
       "wins": 1,
       "record_format": "simple",
-      "formatted_record": "17戦1勝"
+      "formatted_record": "17戦1勝",
+      "records": []
     }
   },
   {
@@ -1244,7 +1254,8 @@
       "total_races": 26,
       "wins": 3,
       "record_format": "simple",
-      "formatted_record": "26戦3勝"
+      "formatted_record": "26戦3勝",
+      "records": []
     }
   },
   {
@@ -1279,7 +1290,8 @@
       "total_races": 8,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "8戦0勝"
+      "formatted_record": "8戦0勝",
+      "records": []
     }
   },
   {
@@ -1316,7 +1328,8 @@
       "total_races": 11,
       "wins": 1,
       "record_format": "simple",
-      "formatted_record": "11戦1勝"
+      "formatted_record": "11戦1勝",
+      "records": []
     }
   },
   {
@@ -1351,7 +1364,8 @@
       "total_races": 5,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "5戦0勝"
+      "formatted_record": "5戦0勝",
+      "records": []
     }
   },
   {
@@ -1386,7 +1400,8 @@
       "total_races": 7,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "7戦0勝"
+      "formatted_record": "7戦0勝",
+      "records": []
     }
   },
   {
@@ -1423,7 +1438,8 @@
       "total_races": 23,
       "wins": 1,
       "record_format": "simple",
-      "formatted_record": "23戦1勝"
+      "formatted_record": "23戦1勝",
+      "records": []
     }
   },
   {
@@ -1458,7 +1474,8 @@
       "total_races": 17,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "17戦0勝"
+      "formatted_record": "17戦0勝",
+      "records": []
     }
   },
   {
@@ -1493,7 +1510,8 @@
       "total_races": 15,
       "wins": 2,
       "record_format": "simple",
-      "formatted_record": "15戦2勝"
+      "formatted_record": "15戦2勝",
+      "records": []
     }
   },
   {
@@ -1530,7 +1548,8 @@
       "total_races": 10,
       "wins": 2,
       "record_format": "simple",
-      "formatted_record": "10戦2勝"
+      "formatted_record": "10戦2勝",
+      "records": []
     }
   },
   {
@@ -1565,7 +1584,8 @@
       "total_races": 23,
       "wins": 2,
       "record_format": "simple",
-      "formatted_record": "23戦2勝"
+      "formatted_record": "23戦2勝",
+      "records": []
     }
   },
   {
@@ -1600,7 +1620,8 @@
       "total_races": 39,
       "wins": 4,
       "record_format": "simple",
-      "formatted_record": "39戦4勝"
+      "formatted_record": "39戦4勝",
+      "records": []
     }
   },
   {
@@ -1635,7 +1656,8 @@
       "total_races": 60,
       "wins": 4,
       "record_format": "simple",
-      "formatted_record": "60戦4勝"
+      "formatted_record": "60戦4勝",
+      "records": []
     }
   },
   {
@@ -1672,7 +1694,8 @@
       "total_races": 31,
       "wins": 7,
       "record_format": "simple",
-      "formatted_record": "31戦7勝"
+      "formatted_record": "31戦7勝",
+      "records": []
     }
   },
   {
@@ -1700,7 +1723,8 @@
       "total_races": 0,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "0戦0勝"
+      "formatted_record": "0戦0勝",
+      "records": []
     }
   },
   {
@@ -1730,7 +1754,8 @@
       "total_races": 0,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "0戦0勝"
+      "formatted_record": "0戦0勝",
+      "records": []
     }
   },
   {
@@ -1759,7 +1784,8 @@
       "total_races": 0,
       "wins": 0,
       "record_format": "simple",
-      "formatted_record": "0戦0勝"
+      "formatted_record": "0戦0勝",
+      "records": []
     }
   }
 ]
