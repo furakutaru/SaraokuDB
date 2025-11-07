@@ -198,50 +198,44 @@ class ScraperClient:
                 data_to_send['race_records'] = formatted_race_records
             
             # race_records を処理して必要なフィールドを race_record に設定
-            if 'race_records' in data_to_send:
-                race_records = data_to_send.get('race_records', [])
-                
-                # レコードが存在するか確認（型チェックのみ行う）
+            race_records = data_to_send.get('race_records', [])
+            
+            try:
+                # レコードがリストでない場合は空のリストに変換
                 if not isinstance(race_records, list):
-                    # 不正な形式の場合はデフォルト値を設定
-                    data_to_send['race_record'] = {
-                        'total_races': 0,
-                        'wins': 0,
-                        'record_format': 'simple',
-                        'formatted_record': '0戦0勝'
-                    }
-                    logger.info("race_records が不正な形式のためデフォルト値を設定")
-                else:
-                    try:
-                        # レコードから必要な情報を集計（空の配列でも処理可能）
-                        total_races = len(race_records)
-                        wins = sum(1 for r in race_records if isinstance(r, dict) and str(r.get('finish_position', '')).strip() == '1')
-                        
-                        # フォーマットされた文字列を生成
-                        formatted_record = f"{total_races}戦{wins}勝"
-                        
-                        # レコードを設定
-                        data_to_send['race_record'] = {
-                            'total_races': total_races,
-                            'wins': wins,
-                            'record_format': 'detailed' if race_records else 'simple',
-                            'formatted_record': formatted_record,
-                            'records': race_records  # 元のレコードも保持
-                        }
-                        
-                        logger.info(f"race_records からレコードを抽出: {data_to_send['race_record']}")
-                        
-                    except Exception as e:
-                        logger.error(f"レコードの処理中にエラーが発生しました: {str(e)}")
-                        logger.error(traceback.format_exc())
-                        
-                        # エラーが発生した場合はデフォルト値を設定
-                        data_to_send['race_record'] = {
-                            'total_races': 0,
-                            'wins': 0,
-                            'record_format': 'simple',
-                            'formatted_record': '0戦0勝'
-                        }
+                    logger.warning(f"race_records がリストではありません: {type(race_records)}. 空のリストに変換します。")
+                    race_records = []
+                
+                # レコードから必要な情報を集計（空の配列でも処理可能）
+                total_races = len(race_records)
+                wins = sum(1 for r in race_records if isinstance(r, dict) and str(r.get('finish_position', '')).strip() == '1')
+                
+                # フォーマットされた文字列を生成
+                formatted_record = f"{total_races}戦{wins}勝"
+                
+                # レコードを設定
+                data_to_send['race_record'] = {
+                    'total_races': total_races,
+                    'wins': wins,
+                    'record_format': 'detailed' if race_records else 'simple',
+                    'formatted_record': formatted_record,
+                    'records': race_records  # 元のレコードも保持
+                }
+                
+                logger.info(f"race_records からレコードを抽出: {data_to_send['race_record']}")
+                
+            except Exception as e:
+                logger.error(f"レコードの処理中にエラーが発生しました: {str(e)}")
+                logger.error(traceback.format_exc())
+                
+                # エラーが発生した場合はデフォルト値を設定
+                data_to_send['race_record'] = {
+                    'total_races': 0,
+                    'wins': 0,
+                    'record_format': 'simple',
+                    'formatted_record': '0戦0勝',
+                    'records': []
+                }
                 
                 # JSON文字列に変換
                 data_to_send['race_record'] = json.dumps(data_to_send['race_record'], ensure_ascii=False)

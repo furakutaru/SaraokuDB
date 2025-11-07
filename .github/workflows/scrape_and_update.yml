@@ -381,10 +381,15 @@ jobs:
               if [ -f "$OUTPUT_FILE" ]; then
                 FILESIZE=$(wc -c <"$OUTPUT_FILE")
                 if [ "$FILESIZE" -gt 100 ]; then
-                  # 互換性のため、古いパスにもコピーを作成
+                  # 互換性のため、古いパスにもコピーを作成（パスが異なる場合のみ）
                   LEGACY_DIR="/home/runner/work/SaraokuDB/SaraokuDB/static-frontend/public/data"
-                  mkdir -p "$LEGACY_DIR"
-                  cp "$OUTPUT_FILE" "$LEGACY_DIR/horses.json"
+                  if [ "$OUTPUT_FILE" != "$LEGACY_DIR/horses.json" ]; then
+                    mkdir -p "$LEGACY_DIR"
+                    cp "$OUTPUT_FILE" "$LEGACY_DIR/horses.json"
+                    echo "::notice::✅ 互換性のためファイルをコピーしました: $LEGACY_DIR/horses.json"
+                  else
+                    echo "::notice::ℹ️ コピーは不要です（ソースと宛先が同じです）"
+                  fi
                   
                   SUCCESS=true
                   echo "::notice::✅ スクレイピングが正常に完了しました (出力ファイル: $OUTPUT_FILE, サイズ: ${FILESIZE}バイト)"
