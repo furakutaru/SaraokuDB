@@ -191,12 +191,32 @@ class ScraperClient:
                                 'wins': 0,
                                 'record_format': 'simple',
                                 'formatted_record': '0戦0勝',
-                                'records': []  # 空のリストを追加
+                                'records': []
                             }
                     
                     # records フィールドが存在しない場合は追加
-                    if 'records' not in data_to_send['race_record']:
+                    if not isinstance(data_to_send['race_record'], dict):
+                        data_to_send['race_record'] = {
+                            'total_races': 0,
+                            'wins': 0,
+                            'record_format': 'simple',
+                            'formatted_record': '0戦0勝',
+                            'records': []
+                        }
+                    elif 'records' not in data_to_send['race_record']:
                         data_to_send['race_record']['records'] = []
+                
+                # レース記録が正しく設定されているか確認
+                if not isinstance(data_to_send['race_record'].get('total_races'), int) or \
+                   not isinstance(data_to_send['race_record'].get('wins'), int):
+                    logger.warning(f"レース記録の形式が不正です: {data_to_send['race_record']}")
+                    data_to_send['race_record'] = {
+                        'total_races': 0,
+                        'wins': 0,
+                        'record_format': 'simple',
+                        'formatted_record': '0戦0勝',
+                        'records': []
+                    }
                 
                 logger.info(f"レコードを処理しました: {data_to_send['race_record']}")
                 
@@ -210,11 +230,11 @@ class ScraperClient:
                     'wins': 0,
                     'record_format': 'simple',
                     'formatted_record': '0戦0勝',
-                    'records': []  # 空のリストを追加
+                    'records': []
                 }
             
             # 常にJSON文字列に変換
-            data_to_send['race_record'] = json.dumps(data_to_save['race_record'], ensure_ascii=False)
+            data_to_send['race_record'] = json.dumps(data_to_send['race_record'], ensure_ascii=False)
             
             # prize_money が辞書型の場合は数値に変換
             if 'prize_money' in data_to_send and isinstance(data_to_send['prize_money'], dict):
