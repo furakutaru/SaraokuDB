@@ -34,7 +34,7 @@ def setup_relationships():
         AuctionHistory.horse = relationship(
             "Horse",
             foreign_keys="[AuctionHistory.horse_id]",
-            backref=backref("auction_histories", order_by="AuctionHistory.auction_date.desc()"),
+            back_populates="auction_histories",
             viewonly=True  # 読み取り専用に設定
         )
 
