@@ -6,8 +6,8 @@ on:
   workflow_dispatch:  # 手動実行用
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: write  # リポジトリへの書き込み権限
+  pull-requests: write  # PR作成用
 
 jobs:
   update-prizes:
@@ -18,12 +18,6 @@ jobs:
       GITHUB_ACTIONS: "true"
       PYTHONUNBUFFERED: 1
       PYTHONPATH: ${{ github.workspace }}
-      ACTIONS_STEP_DEBUG: true
-      ACTIONS_RUNNER_DEBUG: true
-      # Vercel Postgres 接続の最適化
-      PGSSLMODE: require
-      PGCONNECT_TIMEOUT: 10
-      PGTCP_USER_TIMEOUT: 10000
     
     steps:
       - name: Checkout repository
@@ -56,12 +50,8 @@ jobs:
           PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
           PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
           PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
-          # Vercel Postgres 接続情報
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
-          POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
-          POSTGRES_DATABASE: ${{ secrets.POSTGRES_DATABASE }}
+          # データベース接続情報
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           set -x
           
@@ -100,34 +90,37 @@ jobs:
             exit 1
           fi
           
-          echo "::notice::✅ 認証に成功しました"
-          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
-          echo "AUTH_HEADER=Bearer $TOKEN" >> $GITHUB_ENV
+          # トークンを出力に設定
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          echo "auth_header=Bearer $TOKEN" >> $GITHUB_OUTPUT
           
-          # データベースURLを構築（PROD_API_BASE_URLからpostgresql:// に変換）
-          if [[ "$PROD_API_BASE_URL" == https://* ]]; then
-              # https://example.com を postgresql://example.com に変換
-              DB_HOST=$(echo "$PROD_API_BASE_URL" | sed 's|^https\?://||')
-              echo "DATABASE_URL=postgresql://$DB_HOST" >> $GITHUB_ENV
-          else
-              echo "DATABASE_URL=$PROD_API_BASE_URL" >> $GITHUB_ENV
-          fi
+          echo "::notice::認証に成功しました"
+
+      - name: Set environment variables
+        run: |
+          # 環境変数を設定
+          echo "TOKEN=${{ steps.auth.outputs.token }}" >> $GITHUB_ENV
+          echo "AUTH_HEADER=${{ steps.auth.outputs.auth_header }}" >> $GITHUB_ENV
           
-          echo "::group::🔑 認証情報の設定"
-          echo "TOKEN: ${TOKEN:0:10}..."
-          echo "AUTH_HEADER: Bearer ${TOKEN:0:10}..."
-          echo "DATABASE_URL: $PROD_API_BASE_URL"
+          # デバッグ用に環境変数をログに出力（機密情報はマスク）
+          echo "::group::🔑 設定された環境変数"
+          echo "TOKEN: ${TOKEN:0:5}..."
+          echo "AUTH_HEADER: Bearer ${TOKEN:0:5}..."
+          echo "DATABASE_URL: ${DATABASE_URL:0:20}..."
           echo "::endgroup::"
-          
+
       - name: Run update_horse_prizes.py
         run: |
           set -e
           echo "Updating horse prizes..."
           python scripts/update_horse_prizes.py
         env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
           TOKEN: ${{ env.TOKEN }}
           AUTH_HEADER: ${{ env.AUTH_HEADER }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          LOG_LEVEL: DEBUG
+          GITHUB_ACTIONS: "true"
           
       - name: Check for changes
         if: success()
