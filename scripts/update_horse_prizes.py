@@ -5,12 +5,14 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session, selectinload, load_only
 from sqlalchemy import select, update, func, or_
-from typing import List, Optional, Generator, Tuple
+from typing import List, Optional, Generator, Tuple, os
 import random
 import time
 import sys
 from pathlib import Path
 import argparse
+import sqlalchemy
+import psycopg2
 
 # プロジェクトのルートディレクトリをパスに追加
 project_root = str(Path(__file__).parent.parent)
@@ -33,6 +35,31 @@ if DATABASE_URL.startswith('https://'):
 
 # 環境変数を上書き
 os.environ["DATABASE_URL"] = DATABASE_URL
+
+# 接続情報をログに出力（機密情報をマスク）
+parsed_url = urlparse(DATABASE_URL)
+masked_url = f"{parsed_url.scheme}://{'*' * 8}:{'*' * 8}@{parsed_url.hostname}:{parsed_url.port}{parsed_url.path}"
+print(f"Database URL: {masked_url}")
+
+# リトライ用のユーティリティ関数
+def retry_on_db_error(max_retries=3, delay=5):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (sqlalchemy.exc.OperationalError, psycopg2.OperationalError) as e:
+                    last_exception = e
+                    if attempt < max_retries - 1:
+                        wait_time = delay * (attempt + 1)
+                        print(f"Database operation failed (attempt {attempt + 1}/{max_retries}). "
+                              f"Retrying in {wait_time} seconds...")
+                        time.sleep(wait_time)
+                    continue
+            raise last_exception
+        return wrapper
+    return decorator
 
 # モデルのインポート前にデータベース設定を読み込む
 from backend.database import engine, SessionLocal, get_db
@@ -308,15 +335,20 @@ async def process_horse(scraper, db: Session, horse: Horse) -> bool:
         logger.debug(f"{delay:.2f}秒待機します...")
         await asyncio.sleep(delay)
 
+@retry_on_db_error(max_retries=3, delay=5)
+def get_db_session():
+    """データベースセッションを取得する（リトライ付き）"""
+    return SessionLocal()
+
 async def process_horses_async(batch_size: int = 10):
     """賞金情報を更新する非同期メイン処理
     
     Args:
         batch_size (int): 一度に処理する馬の数
     """
-    db = SessionLocal()
-    
+    db = None
     try:
+        db = get_db_session()
         # 更新対象の馬を取得
         horses = get_horses_to_update(db, batch_size=batch_size)
         
@@ -339,8 +371,12 @@ async def process_horses_async(batch_size: int = 10):
         
     except Exception as e:
         logger.error(f"処理中にエラーが発生しました: {str(e)}", exc_info=True)
+    except Exception as e:
+        print(f"Error updating horse prizes: {str(e)}")
+        raise
     finally:
-        db.close()
+        if db:
+            db.close()
 
 def process_horses():
     """同期インターフェースを提供するラッパー関数"""

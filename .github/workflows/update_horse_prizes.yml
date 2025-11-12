@@ -20,6 +20,10 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
       ACTIONS_STEP_DEBUG: true
       ACTIONS_RUNNER_DEBUG: true
+      # Vercel Postgres 接続の最適化
+      PGSSLMODE: require
+      PGCONNECT_TIMEOUT: 10
+      PGTCP_USER_TIMEOUT: 10000
     
     steps:
       - name: Checkout repository

@@ -182,7 +182,15 @@ engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
     pool_size=5,
-    max_overflow=10
+    max_overflow=10,
+    pool_timeout=30,  # 接続プールのタイムアウトを30秒に設定
+    connect_args={
+        'connect_timeout': 10,  # 接続タイムアウトを10秒に設定
+        'keepalives': 1,  # TCPキープアライブを有効化
+        'keepalives_idle': 30,  # アイドル状態のキープアライブ間隔を30秒に設定
+        'keepalives_interval': 10,  # 未確認のキープアライブを再送信する間隔を10秒に設定
+        'keepalives_count': 5  # 接続が切断されたとみなすまでの未応答数を5回に設定
+    }
 )
 
 # セッションファクトリ
