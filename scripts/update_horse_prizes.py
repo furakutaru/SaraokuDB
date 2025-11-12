@@ -1,16 +1,13 @@
-import asyncio
-import aiohttp
 import logging
-from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
-from sqlalchemy.orm import Session, selectinload, load_only
-from sqlalchemy import select, update, func, or_
-from typing import List, Optional, Generator, Tuple
+from datetime import datetime
 import random
-import time
+import os
 import sys
+import time
+from typing import Dict, Any, Optional
 from pathlib import Path
 import argparse
+import requests
 import sqlalchemy
 import psycopg2
 
@@ -19,27 +16,90 @@ project_root = str(Path(__file__).parent.parent)
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-# 環境変数からデータベースURLを取得
+# 環境変数から認証情報を取得
 import os
-from urllib.parse import urlparse, urlunparse
+import requests
+from typing import Dict, Any, Optional
 
-# データベースURLを取得
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL environment variable is not set")
+# APIのベースURLを取得
+API_BASE_URL = os.getenv("PROD_API_BASE_URL")
+TOKEN = os.getenv("TOKEN")
+AUTH_HEADER = os.getenv("AUTH_HEADER")
 
-# データベースURLがhttps://で始まる場合、postgresql://に置き換える
-if DATABASE_URL.startswith('https://'):
-    parsed = urlparse(DATABASE_URL)
-    DATABASE_URL = f"postgresql://{parsed.netloc}{parsed.path}"
+if not API_BASE_URL or not TOKEN or not AUTH_HEADER:
+    raise ValueError("Required environment variables (PROD_API_BASE_URL, TOKEN, AUTH_HEADER) are not set")
 
-# 環境変数を上書き
-os.environ["DATABASE_URL"] = DATABASE_URL
+# APIクライアントクラス
+class ApiClient:
+    def __init__(self, base_url: str, token: str, auth_header: str):
+        self.base_url = base_url.rstrip('/')
+        self.session = requests.Session()
+        self.session.headers.update({
+            'Authorization': auth_header,
+            'Content-Type': 'application/json'
+        })
+        
+    def get(self, endpoint: str, params: Optional[Dict] = None) -> Dict[str, Any]:
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        response = self.session.get(url, params=params, timeout=30)
+        response.raise_for_status()
+        return response.json()
+    
+    def post(self, endpoint: str, data: Dict) -> Dict[str, Any]:
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        response = self.session.post(url, json=data, timeout=30)
+        response.raise_for_status()
+        return response.json()
 
-# 接続情報をログに出力（機密情報をマスク）
-parsed_url = urlparse(DATABASE_URL)
-masked_url = f"{parsed_url.scheme}://{'*' * 8}:{'*' * 8}@{parsed_url.hostname}:{parsed_url.port}{parsed_url.path}"
-print(f"Database URL: {masked_url}")
+# グローバルAPIクライアントを初期化
+api_client = ApiClient(API_BASE_URL, TOKEN, AUTH_HEADER)
+
+# データベース接続の代わりにAPIを使用するためのヘルパー関数
+def get_db():
+    """APIを使用してデータベースセッションをエミュレート"""
+    class DBSession:
+        def __init__(self, api_client):
+            self.api_client = api_client
+            
+        def query(self, model):
+            return QueryBuilder(self.api_client, model)
+            
+        def commit(self):
+            pass
+            
+        def close(self):
+            pass
+            
+        def __enter__(self):
+            return self
+            
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.close()
+
+    return DBSession(api_client)
+
+class QueryBuilder:
+    """APIを使用してSQLAlchemyのクエリをエミュレート"""
+    def __init__(self, api_client, model):
+        self.api_client = api_client
+        self.model = model
+        self.filters = {}
+        
+    def filter(self, **kwargs):
+        self.filters.update(kwargs)
+        return self
+        
+    def all(self):
+        endpoint = f"api/{self.model.__tablename__}"
+        response = self.api_client.get(endpoint, params=self.filters)
+        return [self.model(**item) for item in response.get('items', [])]
+    
+    def first(self):
+        result = self.all()
+        return result[0] if result else None
+
+# データベース接続の代わりにAPIを使用
+SessionLocal = get_db
 
 # リトライ用のユーティリティ関数
 def retry_on_db_error(max_retries=3, delay=5):
@@ -61,27 +121,13 @@ def retry_on_db_error(max_retries=3, delay=5):
         return wrapper
     return decorator
 
-# モデルのインポート前にデータベース設定を読み込む
-from backend.database import engine, SessionLocal, get_db
-from backend.models.horse import Horse
-from backend.models.horse_prize_history import HorsePrizeHistory
-
 # ロガーの設定
 logger = logging.getLogger(__name__)
-from backend.models import Base
 
-# テーブルを作成
-Base.metadata.create_all(bind=engine)
+# テーブル作成は不要（API経由で行う）
 
 # モデルをインポート
-from backend.models.horse import Horse
-from backend.models.auction_history import AuctionHistory
-from scripts.keibabook_scraper import KeibaBookScraper, RetryableError
-
-# 非同期セッションの取得
-def get_db() -> Session:
-    """データベースセッションを取得"""
-    return SessionLocal()
+from scripts.keibabook_scraper import KeibaBookScraper
 
 # ロギング設定
 logging.basicConfig(
@@ -346,37 +392,42 @@ async def process_horses_async(batch_size: int = 10):
     Args:
         batch_size (int): 一度に処理する馬の数
     """
-    db = None
+    logger.info("賞金情報の更新を開始します")
+    
     try:
-        db = get_db_session()
-        # 更新対象の馬を取得
-        horses = get_horses_to_update(db, batch_size=batch_size)
+        # APIから更新対象の馬を取得
+        response = api_client.get("api/horses", params={"needs_prize_update": True, "limit": batch_size})
+        horses = response.get('items', [])
         
         if not horses:
-            logger.info("更新対象の馬は見つかりませんでした")
+            logger.info("更新対象の馬はありません")
             return
             
-        logger.info(f"賞金情報を更新する馬が {len(horses)} 件見つかりました")
+        logger.info(f"{len(horses)}件の馬の賞金情報を更新します")
         
-        # スクレイピングクライアントの初期化
-        async with aiohttp.ClientSession() as session:
-            scraper = KeibaBookScraper(session=session)
-            
-            # 非同期で馬の情報を処理
-            tasks = [process_horse(scraper, db, horse) for horse in horses]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+        # スクレイパーを初期化
+        scraper = KeibaBookScraper()
         
-        success_count = sum(1 for r in results if r is True)
-        logger.info(f"処理が完了しました: 成功 {success_count}/{len(horses)} 件")
+        # 各馬の処理を実行
+        for horse in horses:
+            try:
+                # 馬の賞金情報を更新
+                response = api_client.post(f"api/horses/{horse['id']}/update_prize", {})
+                logger.info(f"馬 '{horse.get('name')}' (ID: {horse.get('id')}) の賞金情報を更新しました")
+                
+                # レートリミット対策（1〜3秒のランダムな遅延）
+                delay = random.uniform(1, 3)
+                await asyncio.sleep(delay)
+                
+            except Exception as e:
+                logger.error(f"馬の処理中にエラーが発生しました (ID: {horse.get('id')}): {str(e)}")
+                continue
+        
+        logger.info("処理が完了しました")
         
     except Exception as e:
         logger.error(f"処理中にエラーが発生しました: {str(e)}", exc_info=True)
-    except Exception as e:
-        print(f"Error updating horse prizes: {str(e)}")
         raise
-    finally:
-        if db:
-            db.close()
 
 def process_horses():
     """同期インターフェースを提供するラッパー関数"""
