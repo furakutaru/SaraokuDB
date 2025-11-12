@@ -18,6 +18,8 @@ jobs:
       GITHUB_ACTIONS: "true"
       PYTHONUNBUFFERED: 1
       PYTHONPATH: ${{ github.workspace }}
+      ACTIONS_STEP_DEBUG: true
+      ACTIONS_RUNNER_DEBUG: true
     
     steps:
       - name: Checkout repository
@@ -32,6 +34,7 @@ jobs:
           
       - name: Install system dependencies
         run: |
+          echo "Installing required packages..."
           sudo apt-get update
           sudo apt-get install -y jq curl
           
@@ -40,37 +43,85 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r backend/requirements.txt
-          pip install aiohttp python-dotenv
+          pip install aiohttp python-dotenv requests beautifulsoup4 lxml tqdm
           
-      - name: Set up database directory
+      - name: Set up authentication and environment
+        id: auth
+        continue-on-error: false
+        env:
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
+          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
         run: |
-          mkdir -p backend/data
-          touch backend/data/horses.db
+          set -x
           
-      - name: Set up environment
-        run: |
-          echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" >> $GITHUB_ENV
+          echo "::group::🔍 環境変数の確認"
+          echo "PROD_API_BASE_URL: ${PROD_API_BASE_URL:0:10}..."
+          echo "PROD_API_USERNAME: ${PROD_API_USERNAME:0:3}..."
+          echo "PROD_API_PASSWORD: ${PROD_API_PASSWORD:0:3}..."
+          echo "::endgroup::"
+          
+          echo "::group::🔐 認証処理を開始します"
+          
+          AUTH_URL="$PROD_API_BASE_URL/auth/token"
+          echo "::notice:: 認証を試行します: $AUTH_URL"
+          
+          # 認証リクエストを送信
+          RESPONSE=$(curl -s -X POST "$AUTH_URL" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "username=$PROD_API_USERNAME" \
+            -d "password=$PROD_API_PASSWORD" \
+            -w "\n%{http_code}")
+            
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::認証に失敗しました。ステータスコード: $HTTP_STATUS"
+            echo "::error::レスポンス: $RESPONSE_BODY"
+            exit 1
+          fi
+          
+          # トークンを取得
+          TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.access_token')
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "::error::トークンの取得に失敗しました"
+            echo "::error::レスポンス: $RESPONSE_BODY"
+            exit 1
+          fi
+          
+          echo "::notice::✅ 認証に成功しました"
+          echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+          echo "AUTH_HEADER=Bearer $TOKEN" >> $GITHUB_ENV
+          echo "DATABASE_URL=$PROD_API_BASE_URL" >> $GITHUB_ENV
+          
+          echo "::group::🔑 認証情報の設定"
+          echo "TOKEN: ${TOKEN:0:10}..."
+          echo "AUTH_HEADER: Bearer ${TOKEN:0:10}..."
+          echo "DATABASE_URL: $PROD_API_BASE_URL"
+          echo "::endgroup::"
           
       - name: Run update_horse_prizes.py
         run: |
+          set -e
           echo "Updating horse prizes..."
           python scripts/update_horse_prizes.py
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
+          TOKEN: ${{ env.TOKEN }}
+          AUTH_HEADER: ${{ env.AUTH_HEADER }}
           
-      - name: Commit and push changes
+      - name: Check for changes
         if: success()
         run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          
-          # 変更をステージング
-          git add backend/data/horses.db
-          
-          # 変更がある場合のみコミット
-          if ! git diff --staged --quiet; then
-            git commit -m "Update horse prizes [skip ci]"
+          if ! git diff --name-only --exit-code; then
+            echo "::set-output name=has_changes::true"
+            git config --global user.name "GitHub Actions"
+            git config --global user.email "actions@github.com"
+            git add .
+            git commit -m "Update data [skip ci]"
             git push
           else
             echo "No changes to commit"
+            echo "::set-output name=has_changes::false"
           fi
