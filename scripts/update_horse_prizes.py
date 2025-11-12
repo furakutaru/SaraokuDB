@@ -1,15 +1,24 @@
+import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import os
 import sys
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pathlib import Path
 import argparse
 import requests
 import sqlalchemy
+from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import select, func, or_, and_
+from sqlalchemy.orm.attributes import flag_modified
+from dateutil.relativedelta import relativedelta
 import psycopg2
+
+# モデルクラスのインポート
+from backend.models.horse import Horse
+from backend.models.horse_prize_history import HorsePrizeHistory
 
 # プロジェクトのルートディレクトリをパスに追加
 project_root = str(Path(__file__).parent.parent)
