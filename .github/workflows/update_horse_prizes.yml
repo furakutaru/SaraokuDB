@@ -93,7 +93,15 @@ jobs:
           echo "::notice::✅ 認証に成功しました"
           echo "TOKEN=$TOKEN" >> $GITHUB_ENV
           echo "AUTH_HEADER=Bearer $TOKEN" >> $GITHUB_ENV
-          echo "DATABASE_URL=$PROD_API_BASE_URL" >> $GITHUB_ENV
+          
+          # データベースURLを構築（PROD_API_BASE_URLからpostgresql:// に変換）
+          if [[ "$PROD_API_BASE_URL" == https://* ]]; then
+              # https://example.com を postgresql://example.com に変換
+              DB_HOST=$(echo "$PROD_API_BASE_URL" | sed 's|^https\?://||')
+              echo "DATABASE_URL=postgresql://$DB_HOST" >> $GITHUB_ENV
+          else
+              echo "DATABASE_URL=$PROD_API_BASE_URL" >> $GITHUB_ENV
+          fi
           
           echo "::group::🔑 認証情報の設定"
           echo "TOKEN: ${TOKEN:0:10}..."

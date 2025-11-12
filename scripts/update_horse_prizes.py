@@ -17,6 +17,23 @@ project_root = str(Path(__file__).parent.parent)
 if project_root not in sys.path:
     sys.path.append(project_root)
 
+# 環境変数からデータベースURLを取得
+import os
+from urllib.parse import urlparse, urlunparse
+
+# データベースURLを取得
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set")
+
+# データベースURLがhttps://で始まる場合、postgresql://に置き換える
+if DATABASE_URL.startswith('https://'):
+    parsed = urlparse(DATABASE_URL)
+    DATABASE_URL = f"postgresql://{parsed.netloc}{parsed.path}"
+
+# 環境変数を上書き
+os.environ["DATABASE_URL"] = DATABASE_URL
+
 # モデルのインポート前にデータベース設定を読み込む
 from backend.database import engine, SessionLocal, get_db
 from backend.models.horse import Horse
