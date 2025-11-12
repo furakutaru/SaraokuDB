@@ -198,18 +198,31 @@ def get_horses_to_update(db: Session, batch_size: int = 10) -> List[Horse]:
         api_client = get_api_client()
         
         # 更新が必要な馬を取得
-        response = api_client.get("api/horses", params={
-            "needs_prize_update": "true",
-            "limit": batch_size
-        })
-        
-        if not response or 'items' not in response:
-            logger.warning("APIからのレスポンスが不正です")
-            return []
+        try:
+            response = api_client.get("api/horses", params={
+                "needs_prize_update": "true",
+                "limit": batch_size
+            })
             
-        horses = response['items']
-        if not horses:
-            logger.info("更新対象の馬はありません")
+            logger.debug(f"APIレスポンス: {response}")
+            
+            # レスポンスがリストの場合はそのまま使用
+            if isinstance(response, list):
+                horses = response
+            # レスポンスが辞書で'items'キーを持つ場合
+            elif isinstance(response, dict) and 'items' in response:
+                horses = response['items']
+            # その他の形式の場合は空リストを返す
+            else:
+                logger.warning(f"予期しないAPIレスポンス形式: {type(response)}")
+                return []
+                
+            if not horses:
+                logger.info("更新対象の馬はありません")
+                return []
+                
+        except Exception as e:
+            logger.error(f"APIリクエスト中にエラーが発生しました: {str(e)}")
             return []
             
         logger.info(f"更新対象の馬が {len(horses)} 件見つかりました")
