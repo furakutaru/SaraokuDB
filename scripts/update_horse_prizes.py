@@ -164,6 +164,10 @@ def get_horses_to_update(db: Session, batch_size: int = 10) -> List[Horse]:
     """
     try:
         now = datetime.now()
+        one_day_ago = now - timedelta(days=1)
+        update_interval_ago = now - timedelta(days=UPDATE_INTERVAL_DAYS)
+        
+        from backend.models.auction_history import AuctionHistory
         
         # デバッグ用：データベースの状態を確認
         logger.info("デバッグ: データベースの状態を確認します...")
@@ -190,30 +194,41 @@ def get_horses_to_update(db: Session, batch_size: int = 10) -> List[Horse]:
                 f"件数: {status.count}"
             )
         
-        # 更新対象の馬を取得
-        # 1. 次回更新日が現在日時より前のもの
-        # 2. 次回更新日が設定されていないもの
-        # 3. オークション日から1日以上経過したもの
-        # 4. 最終更新日が古い順に並べ替え
-        one_day_ago = now - timedelta(days=1)
+        # デバッグ用：各条件にマッチする馬の数をカウント
+        conditions = [
+            ("次回更新日が設定されており、その日付を過ぎている",
+             and_(
+                 Horse.next_update_due_date.is_not(None),
+                 Horse.next_update_due_date <= now
+             )),
+            
+            ("初回実行 (last_prize_update が NULL)",
+             Horse.last_prize_update.is_(None)),
+            
+            ("前回の更新から指定日数以上経過",
+             and_(
+                 Horse.last_prize_update.is_not(None),
+                 Horse.last_prize_update <= update_interval_ago
+             )),
+            
+            ("オークション日から1日以上経過",
+             exists().where(
+                 and_(
+                     AuctionHistory.horse_id == Horse.id,
+                     AuctionHistory.auction_date <= one_day_ago
+                 )
+             ))
+        ]
         
-        from backend.models.auction_history import AuctionHistory
+        # 各条件にマッチする馬の数をログに出力
+        for cond_name, cond in conditions:
+            count = db.scalar(select(func.count()).select_from(Horse).where(
+                Horse.is_retired == False,
+                cond
+            ))
+            logger.info(f"条件 '{cond_name}': {count} 件")
         
-        # オークション日から1日以上経過した馬を取得するサブクエリ
-        recent_auction_subq = (
-            select(AuctionHistory.horse_id)
-            .where(
-                and_(
-                    AuctionHistory.horse_id == Horse.id,
-                    AuctionHistory.auction_date <= one_day_ago
-                )
-            )
-            .exists()
-        )
-        
-        # 前回の更新から指定日数以上経過しているか確認
-        update_interval_ago = now - timedelta(days=UPDATE_INTERVAL_DAYS)
-        
+        # 更新対象の馬を取得（条件を緩和）
         stmt = (
             select(Horse)
             .options(
@@ -223,32 +238,23 @@ def get_horses_to_update(db: Session, batch_size: int = 10) -> List[Horse]:
             .where(
                 Horse.is_retired == False,  # 引退していない馬のみ
                 or_(
-                    # 次回更新日が設定されており、その日付を過ぎている場合
+                    # 次回更新日が設定されており、その日付を過ぎている
                     and_(
                         Horse.next_update_due_date.is_not(None),
                         Horse.next_update_due_date <= now
                     ),
-                    # 次回更新日が未設定で、以下のいずれかの条件を満たす場合
+                    # 初回実行 (last_prize_update が NULL)
+                    Horse.last_prize_update.is_(None),
+                    # 前回の更新から指定日数以上経過
                     and_(
-                        Horse.next_update_due_date.is_(None),
-                        or_(
-                            # 初回実行時 (last_prize_update が NULL) でオークション日から1日以上経過
-                            and_(
-                                Horse.last_prize_update.is_(None),
-                                recent_auction_subq
-                            ),
-                            # 前回の更新から指定日数以上経過
-                            Horse.last_prize_update <= update_interval_ago,
-                            # 前回の更新以降にオークションが行われ、1日以上経過
-                            and_(
-                                exists().where(
-                                    and_(
-                                        AuctionHistory.horse_id == Horse.id,
-                                        AuctionHistory.auction_date > Horse.last_prize_update,
-                                        AuctionHistory.auction_date <= one_day_ago
-                                    )
-                                )
-                            )
+                        Horse.last_prize_update.is_not(None),
+                        Horse.last_prize_update <= update_interval_ago
+                    ),
+                    # オークション日から1日以上経過
+                    exists().where(
+                        and_(
+                            AuctionHistory.horse_id == Horse.id,
+                            AuctionHistory.auction_date <= one_day_ago
                         )
                     )
                 )
@@ -267,57 +273,7 @@ def get_horses_to_update(db: Session, batch_size: int = 10) -> List[Horse]:
         horses = result.scalars().all()
         
         if not horses:
-            # デバッグ用に条件を個別に確認
-            logger.info("デバッグ: 更新対象の馬が見つかりませんでした。条件を確認します...")
-            
-            # 各条件にマッチする馬の数をカウント
-            conditions = [
-                (
-                    "次回更新日が設定されており、その日付を過ぎている",
-                    and_(
-                        Horse.next_update_due_date.is_not(None),
-                        Horse.next_update_due_date <= now
-                    )
-                ),
-                (
-                    "初回実行 (last_prize_update が NULL) でオークション日から1日以上経過",
-                    and_(
-                        Horse.next_update_due_date.is_(None),
-                        Horse.last_prize_update.is_(None),
-                        recent_auction_subq
-                    )
-                ),
-                (
-                    "前回の更新から指定日数以上経過",
-                    and_(
-                        Horse.next_update_due_date.is_(None),
-                        Horse.last_prize_update <= update_interval_ago
-                    )
-                ),
-                (
-                    "前回の更新以降にオークションが行われ、1日以上経過",
-                    and_(
-                        Horse.next_update_due_date.is_(None),
-                        exists().where(
-                            and_(
-                                AuctionHistory.horse_id == Horse.id,
-                                AuctionHistory.auction_date > Horse.last_prize_update,
-                                AuctionHistory.auction_date <= one_day_ago
-                            )
-                        )
-                    )
-                )
-            ]
-            
-            # 各条件にマッチする馬の数をログに出力
-            for cond_name, cond in conditions:
-                count = db.scalar(select(func.count()).select_from(Horse).where(cond))
-                logger.info(f"条件 '{cond_name}': {count} 件")
-            
-            # 引退していない馬の総数を確認
-            total_active = db.scalar(select(func.count()).where(Horse.is_retired == False))
-            logger.info(f"引退していない馬の総数: {total_active} 件")
-            
+            logger.warning("更新対象の馬が見つかりませんでした。条件を確認してください。")
             return []
             
         logger.info(f"更新対象の馬が {len(horses)} 件見つかりました")
@@ -533,36 +489,45 @@ async def process_horses_async(batch_size: int = 10):
     logger.info("賞金情報の更新を開始します")
     
     try:
-        # APIから更新対象の馬を取得
-        response = api_client.get("api/horses", params={"needs_prize_update": True, "limit": batch_size})
-        horses = response.get('items', [])
+        # データベースセッションを取得
+        db = SessionLocal()
         
-        if not horses:
-            logger.info("更新対象の馬はありません")
-            return
+        try:
+            # 更新対象の馬を取得
+            horses = get_horses_to_update(db, batch_size=batch_size)
             
-        logger.info(f"{len(horses)}件の馬の賞金情報を更新します")
-        
-        # スクレイパーを初期化
-        scraper = KeibaBookScraper()
-        
-        # 各馬の処理を実行
-        for horse in horses:
-            try:
-                # 馬の賞金情報を更新
-                response = api_client.post(f"api/horses/{horse['id']}/update_prize", {})
-                logger.info(f"馬 '{horse.get('name')}' (ID: {horse.get('id')}) の賞金情報を更新しました")
+            if not horses:
+                logger.info("更新対象の馬はありません")
+                return
                 
-                # レートリミット対策（1〜3秒のランダムな遅延）
-                delay = random.uniform(1, 3)
-                await asyncio.sleep(delay)
-                
-            except Exception as e:
-                logger.error(f"馬の処理中にエラーが発生しました (ID: {horse.get('id')}): {str(e)}")
-                continue
-        
-        logger.info("処理が完了しました")
-        
+            logger.info(f"{len(horses)}件の馬の賞金情報を更新します")
+            
+            # スクレイパーを初期化
+            scraper = KeibaBookScraper()
+            
+            # 各馬の処理を実行
+            for horse in horses:
+                try:
+                    # 馬の賞金情報を更新
+                    success = await process_horse(scraper, db, horse)
+                    if success:
+                        logger.info(f"馬 '{horse.name}' (ID: {horse.id}) の賞金情報を更新しました")
+                    else:
+                        logger.warning(f"馬 '{horse.name}' (ID: {horse.id}) の賞金情報の更新に失敗しました")
+                    
+                    # レートリミット対策（1〜3秒のランダムな遅延）
+                    delay = random.uniform(1, 3)
+                    await asyncio.sleep(delay)
+                    
+                except Exception as e:
+                    logger.error(f"馬の処理中にエラーが発生しました (ID: {getattr(horse, 'id', 'N/A')}): {str(e)}")
+                    continue
+            
+            logger.info("処理が完了しました")
+            
+        finally:
+            db.close()
+            
     except Exception as e:
         logger.error(f"処理中にエラーが発生しました: {str(e)}", exc_info=True)
         raise
