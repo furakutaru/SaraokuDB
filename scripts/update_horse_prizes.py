@@ -242,7 +242,57 @@ def get_horses_to_update(db: Session, batch_size: int = 10) -> List[Horse]:
         horses = result.scalars().all()
         
         if not horses:
-            logger.info("更新対象の馬は見つかりませんでした")
+            # デバッグ用に条件を個別に確認
+            logger.info("デバッグ: 更新対象の馬が見つかりませんでした。条件を確認します...")
+            
+            # 各条件にマッチする馬の数をカウント
+            conditions = [
+                (
+                    "次回更新日が設定されており、その日付を過ぎている",
+                    and_(
+                        Horse.next_update_due_date.is_not(None),
+                        Horse.next_update_due_date <= now
+                    )
+                ),
+                (
+                    "初回実行 (last_prize_update が NULL) でオークション日から1日以上経過",
+                    and_(
+                        Horse.next_update_due_date.is_(None),
+                        Horse.last_prize_update.is_(None),
+                        recent_auction_subq
+                    )
+                ),
+                (
+                    "前回の更新から指定日数以上経過",
+                    and_(
+                        Horse.next_update_due_date.is_(None),
+                        Horse.last_prize_update <= update_interval_ago
+                    )
+                ),
+                (
+                    "前回の更新以降にオークションが行われ、1日以上経過",
+                    and_(
+                        Horse.next_update_due_date.is_(None),
+                        exists().where(
+                            and_(
+                                AuctionHistory.horse_id == Horse.id,
+                                AuctionHistory.auction_date > Horse.last_prize_update,
+                                AuctionHistory.auction_date <= one_day_ago
+                            )
+                        )
+                    )
+                )
+            ]
+            
+            # 各条件にマッチする馬の数をログに出力
+            for cond_name, cond in conditions:
+                count = db.scalar(select(func.count()).select_from(Horse).where(cond))
+                logger.info(f"条件 '{cond_name}': {count} 件")
+            
+            # 引退していない馬の総数を確認
+            total_active = db.scalar(select(func.count()).where(Horse.is_retired == False))
+            logger.info(f"引退していない馬の総数: {total_active} 件")
+            
             return []
             
         logger.info(f"更新対象の馬が {len(horses)} 件見つかりました")

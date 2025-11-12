@@ -102,14 +102,10 @@ jobs:
           echo "TOKEN=${{ steps.auth.outputs.token }}" >> $GITHUB_ENV
           echo "AUTH_HEADER=${{ steps.auth.outputs.auth_header }}" >> $GITHUB_ENV
           
-          # データベースURLを構築
-          if [[ "${{ secrets.PROD_API_BASE_URL }}" == https://* ]]; then
-            # https://example.com を postgresql://example.com に変換
-            DB_HOST=$(echo "${{ secrets.PROD_API_BASE_URL }}" | sed 's|^https\?://||')
-            echo "DATABASE_URL=postgresql://$DB_HOST" >> $GITHUB_ENV
-          else
-            echo "DATABASE_URL=postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@${{ secrets.POSTGRES_HOST }}:${{ secrets.POSTGRES_PORT }}/${{ secrets.POSTGRES_DATABASE }}" >> $GITHUB_ENV
-          fi
+          # データベースURLを設定
+          # PROD_API_BASE_URL から直接DATABASE_URLを構築
+          DB_HOST=$(echo "${{ secrets.PROD_API_BASE_URL }}" | sed 's|^https\?://||')
+          echo "DATABASE_URL=postgresql://$DB_HOST" >> $GITHUB_ENV
           
           # 更新間隔を設定
           echo "UPDATE_HORSE_PRIZES_INTERVAL_DAYS=${{ github.event.inputs.update_interval_days || '1' }}" >> $GITHUB_ENV
@@ -139,15 +135,15 @@ jobs:
           
       - name: Check for changes
         if: success()
+        id: git-commit
         run: |
           if ! git diff --name-only --exit-code; then
-            echo "::set-output name=has_changes::true"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
             git config --global user.name "GitHub Actions"
             git config --global user.email "actions@github.com"
             git add .
-            git commit -m "Update data [skip ci]"
+            git commit -m "Update horse prize data"
             git push
           else
-            echo "No changes to commit"
-            echo "::set-output name=has_changes::false"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
           fi
