@@ -1,0 +1,76 @@
+name: Update Horse Prizes
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 毎日深夜0時に実行
+  workflow_dispatch:  # 手動実行用
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-prizes:
+    name: Update Horse Prizes
+    runs-on: ubuntu-latest
+    env:
+      LOG_LEVEL: DEBUG
+      GITHUB_ACTIONS: "true"
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: ${{ github.workspace }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+          
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r backend/requirements.txt
+          pip install aiohttp python-dotenv
+          
+      - name: Set up database directory
+        run: |
+          mkdir -p backend/data
+          touch backend/data/horses.db
+          
+      - name: Set up environment
+        run: |
+          echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" >> $GITHUB_ENV
+          
+      - name: Run update_horse_prizes.py
+        run: |
+          echo "Updating horse prizes..."
+          python scripts/update_horse_prizes.py
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          
+      - name: Commit and push changes
+        if: success()
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          
+          # 変更をステージング
+          git add backend/data/horses.db
+          
+          # 変更がある場合のみコミット
+          if ! git diff --staged --quiet; then
+            git commit -m "Update horse prizes [skip ci]"
+            git push
+          else
+            echo "No changes to commit"
+          fi
