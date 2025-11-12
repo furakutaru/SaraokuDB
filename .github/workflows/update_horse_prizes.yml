@@ -102,23 +102,38 @@ jobs:
           echo "TOKEN=${{ steps.auth.outputs.token }}" >> $GITHUB_ENV
           echo "AUTH_HEADER=${{ steps.auth.outputs.auth_header }}" >> $GITHUB_ENV
           
+          # データベースURLを構築
+          if [[ "${{ secrets.PROD_API_BASE_URL }}" == https://* ]]; then
+            # https://example.com を postgresql://example.com に変換
+            DB_HOST=$(echo "${{ secrets.PROD_API_BASE_URL }}" | sed 's|^https\?://||')
+            echo "DATABASE_URL=postgresql://$DB_HOST" >> $GITHUB_ENV
+          else
+            echo "DATABASE_URL=postgresql://${{ secrets.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@${{ secrets.POSTGRES_HOST }}:${{ secrets.POSTGRES_PORT }}/${{ secrets.POSTGRES_DATABASE }}" >> $GITHUB_ENV
+          fi
+          
+          # 更新間隔を設定
+          echo "UPDATE_HORSE_PRIZES_INTERVAL_DAYS=${{ github.event.inputs.update_interval_days || '1' }}" >> $GITHUB_ENV
+          
           # デバッグ用に環境変数をログに出力（機密情報はマスク）
           echo "::group::🔑 設定された環境変数"
           echo "TOKEN: ${TOKEN:0:5}..."
           echo "AUTH_HEADER: Bearer ${TOKEN:0:5}..."
           echo "DATABASE_URL: ${DATABASE_URL:0:20}..."
+          echo "UPDATE_HORSE_PRIZES_INTERVAL_DAYS: ${UPDATE_HORSE_PRIZES_INTERVAL_DAYS}"
           echo "::endgroup::"
 
       - name: Run update_horse_prizes.py
         run: |
           set -e
           echo "Updating horse prizes..."
+          echo "更新間隔: ${UPDATE_HORSE_PRIZES_INTERVAL_DAYS}日"
           python scripts/update_horse_prizes.py
         env:
           PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
           TOKEN: ${{ env.TOKEN }}
           AUTH_HEADER: ${{ env.AUTH_HEADER }}
           DATABASE_URL: ${{ env.DATABASE_URL }}
+          UPDATE_HORSE_PRIZES_INTERVAL_DAYS: ${{ env.UPDATE_HORSE_PRIZES_INTERVAL_DAYS }}
           LOG_LEVEL: DEBUG
           GITHUB_ACTIONS: "true"
           

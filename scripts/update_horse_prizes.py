@@ -11,7 +11,7 @@ import argparse
 import requests
 import sqlalchemy
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import select, func, or_, and_
+from sqlalchemy import select, func, or_, and_, exists
 from sqlalchemy.orm.attributes import flag_modified
 from dateutil.relativedelta import relativedelta
 import psycopg2
@@ -25,10 +25,14 @@ project_root = str(Path(__file__).parent.parent)
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-# 環境変数から認証情報を取得
+# 環境変数から設定を取得
 import os
 import requests
 from typing import Dict, Any, Optional
+
+# 更新間隔（日数）
+# テスト時: 1、本番環境: 90 に変更する
+UPDATE_INTERVAL_DAYS = 1
 
 # APIのベースURLを取得
 API_BASE_URL = os.getenv("PROD_API_BASE_URL")
@@ -163,8 +167,28 @@ def get_horses_to_update(db: Session, batch_size: int = 10) -> List[Horse]:
         
         # 更新対象の馬を取得
         # 1. 次回更新日が現在日時より前のもの
-        # 2. もしくは、次回更新日が設定されていないもの
-        # 3. 最終更新日が古い順に並べ替え
+        # 2. 次回更新日が設定されていないもの
+        # 3. オークション日から1日以上経過したもの
+        # 4. 最終更新日が古い順に並べ替え
+        one_day_ago = now - timedelta(days=1)
+        
+        from backend.models.auction_history import AuctionHistory
+        
+        # オークション日から1日以上経過した馬を取得するサブクエリ
+        recent_auction_subq = (
+            select(AuctionHistory.horse_id)
+            .where(
+                and_(
+                    AuctionHistory.horse_id == Horse.id,
+                    AuctionHistory.auction_date <= one_day_ago
+                )
+            )
+            .exists()
+        )
+        
+        # 前回の更新から指定日数以上経過しているか確認
+        update_interval_ago = now - timedelta(days=UPDATE_INTERVAL_DAYS)
+        
         stmt = (
             select(Horse)
             .options(
@@ -174,12 +198,42 @@ def get_horses_to_update(db: Session, batch_size: int = 10) -> List[Horse]:
             .where(
                 Horse.is_retired == False,  # 引退していない馬のみ
                 or_(
-                    Horse.next_update_due_date <= now,
-                    Horse.next_update_due_date.is_(None)
+                    # 次回更新日が設定されており、その日付を過ぎている場合
+                    and_(
+                        Horse.next_update_due_date.is_not(None),
+                        Horse.next_update_due_date <= now
+                    ),
+                    # 次回更新日が未設定で、以下のいずれかの条件を満たす場合
+                    and_(
+                        Horse.next_update_due_date.is_(None),
+                        or_(
+                            # 初回実行時 (last_prize_update が NULL) でオークション日から1日以上経過
+                            and_(
+                                Horse.last_prize_update.is_(None),
+                                recent_auction_subq
+                            ),
+                            # 前回の更新から指定日数以上経過
+                            Horse.last_prize_update <= update_interval_ago,
+                            # 前回の更新以降にオークションが行われ、1日以上経過
+                            and_(
+                                exists().where(
+                                    and_(
+                                        AuctionHistory.horse_id == Horse.id,
+                                        AuctionHistory.auction_date > Horse.last_prize_update,
+                                        AuctionHistory.auction_date <= one_day_ago
+                                    )
+                                )
+                            )
+                        )
+                    )
                 )
             )
             .order_by(
-                Horse.last_prize_update.asc()  # 古いものから順に取得
+                # 1. 初回実行 (last_prize_update が NULL) のものから
+                # 2. 前回の更新が古いものから
+                # 3. 次回更新日が古いものから
+                Horse.last_prize_update.asc(nulls_first=True),
+                Horse.next_update_due_date.asc(nulls_last=True)
             )
             .limit(batch_size)  # 一度に処理する件数を制限
         )
