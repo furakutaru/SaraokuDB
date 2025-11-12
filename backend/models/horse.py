@@ -1,3 +1,4 @@
+from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Numeric
 from sqlalchemy.orm import relationship
 from .base import Base
@@ -17,4 +18,11 @@ class Horse(Base):
     dam = Column(String, nullable=True, comment='母馬名')
     sex = Column(String, nullable=True, comment='性別')
     
-    # リレーションシップは __init__.py で定義
+    # 賞金管理関連のフィールド
+    last_prize_update = Column(DateTime(timezone=True), comment='最終賞金更新日時')
+    next_update_due_date = Column(DateTime(timezone=True), comment='次回更新予定日')
+    update_interval_months = Column(Integer, default=3, comment='更新間隔（月）')
+    is_retired = Column(Boolean, default=False, comment='引退フラグ')
+    
+    # リレーションシップ
+    prize_histories = relationship("HorsePrizeHistory", back_populates="horse", cascade="all, delete-orphan")

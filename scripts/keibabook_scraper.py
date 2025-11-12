@@ -208,18 +208,25 @@ class KeibaBookScraper:
             logger.warning(f"トークンの取得に失敗しました: {str(e)}")
             token = 'dummy_token'
         
+        # 検索パラメータを設定
         data = {
             "_token": token,
-            "bamei": name,
+            "bamei": name,  # 馬名
             "search": "1",  # 1: 部分一致
-            "sire": father,
-            # 母名はコメントアウト（同名の馬が複数いる場合に問題が発生するため）
-            # "brood": mother,
-            "masyof[]": "1",  # 中央現役以外も含む
-            "sort": "kbamei",
-            "group": "10",
-            "page": "0",
-            "sort_type": "asc"
+            "sire": father,  # 父馬名
+            "sirecd": "",  # 父馬CD（空でOK）
+            "search_sire": "1",  # 父馬名で検索する場合は1
+            "brood": "",  # 母馬名（空文字）
+            "broodcd": "",  # 母馬CD（空でOK）
+            "search_brood": "0",  # 母馬名で検索しない
+            "nenrei1": "",  # 年齢（空で全件）
+            "nenrei2": "",  # 年齢（空で全件）
+            "seibet[]": ["0", "1", "2"],  # 性別（牡・牝・セン）
+            "masyof[]": ["1"],  # 中央現役以外も含む
+            "sort": "kbamei",  # 馬名順
+            "group": "10",  # 1ページあたりの表示件数
+            "page": "0",  # ページ番号
+            "sort_type": "asc"  # 昇順
         }
 
         # 年齢の条件をコメントアウト（検索条件を緩和）
@@ -277,199 +284,93 @@ class KeibaBookScraper:
         
         # デバッグ用にHTMLを保存
         timestamp = int(time.time())
-        with open(f"debug_search_results_{timestamp}.html", "w", encoding="utf-8") as f:
+        debug_filename = f"debug_search_results_{timestamp}.html"
+        with open(debug_filename, "w", encoding="utf-8") as f:
             f.write(html)
+        logger.debug(f"デバッグ用HTMLを保存しました: {debug_filename}")
         
         # 検索結果のテーブルを探す
-        table = soup.find('table', class_='default search')
+        table = soup.find('table', class_='default')
         
         if not table:
             logger.warning("検索結果テーブルが見つかりませんでした")
-            # デバッグ用にHTMLを保存
-            with open(f'debug_no_table_{timestamp}.html', 'w', encoding='utf-8') as f:
-                f.write(html)
+            # エラーページの内容を確認
+            error_div = soup.find('div', class_='error')
+            if error_div:
+                error_msg = error_div.get_text(strip=True)
+                logger.error(f"エラーメッセージ: {error_msg}")
             return results
         
-        # テーブルのヘッダーを取得
-        thead = table.find('thead')
-        if not thead:
-            logger.warning("テーブルのヘッダーが見つかりませんでした")
-            return results
-            
-        # ヘッダーから各カラムのインデックスを取得
-        headers = [th.get_text(strip=True) for th in thead.find_all('th')]
-        logger.debug(f"見つかったヘッダー: {headers}")
+        # ヘッダー行をスキップして行を取得
+        rows = table.find_all('tr')[1:]  # 1行目はヘッダーなのでスキップ
         
-        try:
-            name_idx = headers.index('馬名')
-            birth_year_idx = headers.index('生年')
-            age_idx = headers.index('年齢')
-            gender_idx = headers.index('性別')
-            
-            # 「父母」が1つのカラムにまとまっている場合を想定
-            parents_idx = headers.index('父母') if '父母' in headers else -1
-            
-            # 個別の「父」「母」カラムが存在するか確認
-            father_idx = headers.index('父') if '父' in headers else parents_idx
-            mother_idx = headers.index('母') if '母' in headers else parents_idx
-        except ValueError as e:
-            logger.warning(f"必要なカラムが見つかりません: {str(e)}")
-            logger.debug(f"見つかったヘッダー: {headers}")
-            return results
-        
-        # テーブルのボディを取得
-        tbody = table.find('tbody')
-        if not tbody:
-            logger.warning("テーブルのボディが見つかりませんでした")
-            return results
-            
-        # 各行を処理
-        for row in tbody.find_all('tr'):
-            cols = row.find_all('td')
-            if len(cols) <= max(name_idx, birth_year_idx, age_idx, gender_idx, father_idx, mother_idx):
-                logger.warning(f"列数が不足しています: 必要な列数={max(name_idx, birth_year_idx, age_idx, gender_idx, father_idx, mother_idx) + 1}, 実際の列数={len(cols)}")
-                continue
-                
+        for row in rows:
             try:
-                # 馬名と詳細URLを取得
-                name_link = cols[name_idx].find('a')
-                if not name_link:
+                cols = row.find_all('td')
+                if len(cols) < 2:  # 有効な列が少なすぎる場合はスキップ
                     continue
                     
-                name = name_link.get_text(strip=True)
-                detail_url = name_link.get('href', '')
+                # 馬名と詳細URLを取得
+                name_link = cols[0].find('a', class_='umalink_click')
+                name = name_link.get_text(strip=True) if name_link else cols[0].get_text(strip=True)
+                detail_url = name_link['href'] if name_link and 'href' in name_link.attrs else ''
                 
-                # 性別を取得
-                gender = cols[gender_idx].get_text(strip=True)
+                # 性別と年齢
+                gender_cell = cols[1].get_text(strip=True)
+                gender = gender_cell[0] if gender_cell else ''  # 最初の1文字が性別
                 
-                # 年齢を取得（生年から計算）
-                birth_year = cols[birth_year_idx].get_text(strip=True)
-                current_year = datetime.now().year
-                age = current_year - int(birth_year) if birth_year.isdigit() else None
+                # 父と母
+                father = ''
+                mother = ''
+                parents = cols[2].find_all('a', class_='umalink_click')
+                if len(parents) >= 2:
+                    father = parents[0].get_text(strip=True)
+                    mother = parents[1].get_text(strip=True)
                 
-                # 賞金情報を取得（獲得総賞金から取得）
-                try:
-                    total_prize_idx = headers.index('獲得総賞金')
-                    total_prize_text = cols[total_prize_idx].get_text(strip=True)
-                    logger.debug(f"賞金テキスト: {total_prize_text}")
-                    
-                    # 不要な文字を削除
-                    clean_text = total_prize_text.replace(',', '').replace('円', '').strip()
-                    
-                    # 空文字またはハイフンの場合は0を返す
-                    if not clean_text or clean_text == '-':
-                        total_prize = 0
-                    # 「万」を含む場合
-                    elif '万' in clean_text:
-                        try:
-                            value = clean_text.replace('万', '')
-                            total_prize = int(float(value) * 10000)
-                        except ValueError as e:
-                            logger.warning(f"賞金の数値変換に失敗しました: {clean_text}, エラー: {str(e)}")
-                            total_prize = 0
-                    # 通常の数値の場合
-                    else:
-                        try:
-                            total_prize = int(clean_text)
-                        except ValueError as e:
-                            logger.warning(f"賞金の数値変換に失敗しました: {clean_text}, エラー: {str(e)}")
-                            total_prize = 0
-                    
-                    logger.debug(f"変換後の賞金: {total_prize}円")
-                except (ValueError, IndexError) as e:
-                    logger.warning(f"賞金情報の取得中にエラーが発生しました: {str(e)}")
-                    logger.debug(f"ヘッダー: {headers}")
-                    logger.debug(f"列数: {len(cols)}")
-                    total_prize = 0
+                # 賞金（11列目、0から数えて10）
+                prize = 0
+                if len(cols) > 10:
+                    prize_text = cols[10].get_text(strip=True)
+                    try:
+                        if prize_text and prize_text != '-':
+                            # 「1,234万5,678円」形式を想定
+                            if '万' in prize_text:
+                                parts = prize_text.replace('円', '').split('万')
+                                if len(parts) == 2:
+                                    prize = int(float(parts[0].replace(',', '')) * 10000 + float(parts[1].replace(',', '')))
+                                else:
+                                    prize = int(float(parts[0].replace(',', '')) * 10000)
+                            else:
+                                prize = int(prize_text.replace(',', '').replace('円', ''))
+                    except (ValueError, AttributeError) as e:
+                        logger.warning(f"賞金のパースに失敗しました: {prize_text}, エラー: {str(e)}")
                 
-                # 父と母の情報を取得
-                parents_text = cols[parents_idx].get_text(' ', strip=True) if parents_idx != -1 else ""
-                
-                # 父を取得（「父母」カラムから最初のリンクを取得）
-                father_elem = cols[father_idx].find('a')
-                father = father_elem.get_text(strip=True) if father_elem else ""
-                
-                # 母を取得（「父母」カラムから2番目のリンクを取得）
-                mother_links = cols[mother_idx].find_all('a')
-                mother = mother_links[1].get_text(strip=True) if len(mother_links) > 1 else ""
-                
-                # リンクが見つからない場合はテキストから抽出を試みる
-                if not father and parents_text:
-                    # 親の情報から「父」と「母」を分離するロジックを追加
-                    parents_parts = [p.strip() for p in parents_text.split('\n') if p.strip()]
-                    if len(parents_parts) >= 2:
-                        father = parents_parts[0]
-                        mother = parents_parts[1]
-                    elif parents_text:
-                        # 1行しかない場合は、最初の単語を父、2番目を母とする
-                        parts = parents_text.split()
-                        if len(parts) >= 2:
-                            father = parts[0]
-                            mother = parts[1]
-                
+                # 馬の情報を追加
                 horse_info = {
                     'name': name,
                     'gender': gender,
-                    'age': age,
                     'father': father,
                     'mother': mother,
-                    'prize': total_prize,  # 合計賞金
-                    'detail_url': f"https://p.keibabook.co.jp{detail_url}" if detail_url.startswith('/') else detail_url
+                    'prize': prize,
+                    'detail_url': detail_url
                 }
                 
                 results.append(horse_info)
+                logger.debug(f"抽出した馬情報: {horse_info}")
                 
             except Exception as e:
-                logger.warning(f"馬情報のパース中にエラーが発生しました: {str(e)}")
+                logger.warning(f"行の処理中にエラーが発生しました: {str(e)}")
+                logger.debug(f"エラーが発生した行: {row}")
                 continue
+                
+        return results
         
         if not results:
             logger.info("検索結果: 0件見つかりました")
-            # 検索フォームの内容を確認
-            form = soup.find('form', {'method': 'POST'})
-            if form:
-                logger.info("検索フォームの内容を確認しました")
-                # デバッグ用にフォームの内容をログに出力
-                for input_tag in form.find_all('input'):
-                    if input_tag.get('name') and input_tag.get('value'):
-                        logger.debug(f"フォームパラメータ: {input_tag['name']} = {input_tag['value']}")
         else:
             logger.info(f"検索結果: {len(results)}件見つかりました")
-            
+        
         return results
-
-    async def get_horse_prize(self, detail_url: str) -> Optional[int]:
-        """馬の詳細ページから賞金情報を取得"""
-        if not detail_url:
-            return None
-
-        if not detail_url.startswith('http'):
-            detail_url = f"https://p.keibabook.co.jp{detail_url}"
-
-        try:
-            response = await self._request_with_retry(
-                "GET",
-                detail_url,
-                headers=self.HEADERS,
-                timeout=30
-            )
-            
-            html = await response.text()
-            soup = BeautifulSoup(html, 'html.parser')
-            
-            # 賞金情報を取得（実際のHTML構造に合わせて調整が必要）
-            prize_text = soup.select_one('td:-soup-contains("賞金") + td')
-            if prize_text:
-                prize_str = prize_text.get_text(strip=True)
-                # 数字とカンマのみを抽出
-                import re
-                prize_num = re.sub(r'[^0-9]', '', prize_str)
-                return int(prize_num) if prize_num else None
-            return None
-
-        except Exception as e:
-            logger.error(f"賞金情報の取得中にエラーが発生しました: {str(e)}")
-            return None
 
     async def get_horse_info(
         self,

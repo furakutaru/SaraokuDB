@@ -3,6 +3,7 @@ from .base import Base
 from .user import User
 from .horse import Horse
 from .auction_history import AuctionHistory
+from .horse_prize_history import HorsePrizeHistory
 
 # 循環インポートを避けるために、リレーションシップはここで設定
 from sqlalchemy.orm import relationship, backref
@@ -16,6 +17,14 @@ def setup_relationships():
             back_populates="horse",
             order_by="AuctionHistory.auction_date.desc()",
             foreign_keys="[AuctionHistory.horse_id]"
+        )
+    
+    # 2. HorsePrizeHistory モデルのリレーションシップ
+    if not hasattr(HorsePrizeHistory, 'horse'):
+        HorsePrizeHistory.horse = relationship(
+            "Horse", 
+            back_populates="prize_histories",
+            foreign_keys=[HorsePrizeHistory.horse_id]
         )
     
     if not hasattr(Horse, 'latest_auction'):
