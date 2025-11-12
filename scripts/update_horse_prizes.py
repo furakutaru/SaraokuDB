@@ -165,6 +165,31 @@ def get_horses_to_update(db: Session, batch_size: int = 10) -> List[Horse]:
     try:
         now = datetime.now()
         
+        # デバッグ用：データベースの状態を確認
+        logger.info("デバッグ: データベースの状態を確認します...")
+        
+        # 引退していない馬の総数
+        total_active = db.scalar(select(func.count()).where(Horse.is_retired == False))
+        logger.info(f"引退していない馬の総数: {total_active} 件")
+        
+        # 各ステータスの馬の数を確認
+        statuses = db.execute(
+            select(
+                Horse.next_update_due_date.is_not(None).label("has_next_update"),
+                Horse.last_prize_update.is_not(None).label("has_last_update"),
+                func.count().label("count")
+            )
+            .where(Horse.is_retired == False)
+            .group_by("has_next_update", "has_last_update")
+        ).all()
+        
+        for status in statuses:
+            logger.info(
+                f"next_update_due_date: {status.has_next_update}, "
+                f"last_prize_update: {status.has_last_update}, "
+                f"件数: {status.count}"
+            )
+        
         # 更新対象の馬を取得
         # 1. 次回更新日が現在日時より前のもの
         # 2. 次回更新日が設定されていないもの
