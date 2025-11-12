@@ -1,11 +1,18 @@
-import asyncio
-import logging
-from datetime import datetime, timedelta
-import random
 import os
 import sys
+import json
 import time
-from typing import Dict, Any, Optional, List
+import random
+import logging
+import asyncio
+import argparse
+import sqlalchemy
+import psycopg2
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
+from typing import List, Optional, Dict, Any, Union, Tuple
+
+# ロギング設定
 from pathlib import Path
 import argparse
 import requests
@@ -111,8 +118,18 @@ class QueryBuilder:
         result = self.all()
         return result[0] if result else None
 
-# データベース接続の代わりにAPIを使用
-SessionLocal = get_db
+# データベース接続設定
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# 環境変数からデータベースURLを取得
+database_url = os.getenv("DATABASE_URL")
+if not database_url:
+    raise ValueError("DATABASE_URL environment variable is not set")
+
+# エンジンとセッションファクトリを作成
+engine = create_engine(database_url)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # リトライ用のユーティリティ関数
 def retry_on_db_error(max_retries=3, delay=5):
