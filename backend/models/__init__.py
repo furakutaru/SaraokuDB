@@ -18,6 +18,15 @@ def setup_relationships():
             order_by="AuctionHistory.auction_date.desc()",
             foreign_keys="[AuctionHistory.horse_id]"
         )
+        
+    # HorsePrizeHistory とのリレーションシップ
+    if not hasattr(Horse, 'prize_histories'):
+        Horse.prize_histories = relationship(
+            "HorsePrizeHistory", 
+            back_populates="horse",
+            order_by="HorsePrizeHistory.created_at.desc()",
+            cascade="all, delete-orphan"
+        )
     
     # 2. HorsePrizeHistory モデルのリレーションシップ
     if not hasattr(HorsePrizeHistory, 'horse'):
