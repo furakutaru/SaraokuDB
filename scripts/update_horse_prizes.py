@@ -8,9 +8,30 @@ import asyncio
 import argparse
 import sqlalchemy
 import psycopg2
+import requests
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from typing import List, Optional, Dict, Any, Union, Tuple
+
+class APIClient:
+    def __init__(self, base_url=None, token=None):
+        self.base_url = base_url or os.getenv('PROD_API_BASE_URL')
+        self.token = token or os.getenv('TOKEN')
+        self.session = requests.Session()
+        if self.token:
+            self.session.headers.update({
+                'Authorization': f'Bearer {self.token}'
+            })
+    
+    def get(self, endpoint, params=None):
+        url = f"{self.base_url}/{endpoint}"
+        response = self.session.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+
+def get_api_client():
+    """APIクライアントを取得する"""
+    return APIClient()
 
 # ロギング設定
 from pathlib import Path
@@ -118,18 +139,8 @@ class QueryBuilder:
         result = self.all()
         return result[0] if result else None
 
-# データベース接続設定
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-# 環境変数からデータベースURLを取得
-database_url = os.getenv("DATABASE_URL")
-if not database_url:
-    raise ValueError("DATABASE_URL environment variable is not set")
-
-# エンジンとセッションファクトリを作成
-engine = create_engine(database_url)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# データベース接続の代わりにAPIを使用
+SessionLocal = get_db
 
 # リトライ用のユーティリティ関数
 def retry_on_db_error(max_retries=3, delay=5):
@@ -170,131 +181,41 @@ logging.basicConfig(
 )
 
 def get_horses_to_update(db: Session, batch_size: int = 10) -> List[Horse]:
-    """更新対象の馬を取得
+    """更新対象の馬を取得（API経由）
     
     Args:
-        db (Session): データベースセッション
+        db (Session): APIクライアント
         batch_size (int): 一度に取得する馬の数
         
     Returns:
         List[Horse]: 更新対象の馬のリスト
     """
     try:
-        now = datetime.now()
-        one_day_ago = now - timedelta(days=1)
-        update_interval_ago = now - timedelta(days=UPDATE_INTERVAL_DAYS)
+        # APIから更新が必要な馬を取得
+        logger.info("デバッグ: APIから更新対象の馬を取得します...")
         
-        from backend.models.auction_history import AuctionHistory
+        # APIクライアントを取得
+        api_client = get_api_client()
         
-        # デバッグ用：データベースの状態を確認
-        logger.info("デバッグ: データベースの状態を確認します...")
+        # 更新が必要な馬を取得
+        response = api_client.get("api/horses", params={
+            "needs_prize_update": "true",
+            "limit": batch_size
+        })
         
-        # 引退していない馬の総数
-        total_active = db.scalar(select(func.count()).where(Horse.is_retired == False))
-        logger.info(f"引退していない馬の総数: {total_active} 件")
-        
-        # 各ステータスの馬の数を確認
-        statuses = db.execute(
-            select(
-                Horse.next_update_due_date.is_not(None).label("has_next_update"),
-                Horse.last_prize_update.is_not(None).label("has_last_update"),
-                func.count().label("count")
-            )
-            .where(Horse.is_retired == False)
-            .group_by("has_next_update", "has_last_update")
-        ).all()
-        
-        for status in statuses:
-            logger.info(
-                f"next_update_due_date: {status.has_next_update}, "
-                f"last_prize_update: {status.has_last_update}, "
-                f"件数: {status.count}"
-            )
-        
-        # デバッグ用：各条件にマッチする馬の数をカウント
-        conditions = [
-            ("次回更新日が設定されており、その日付を過ぎている",
-             and_(
-                 Horse.next_update_due_date.is_not(None),
-                 Horse.next_update_due_date <= now
-             )),
+        if not response or 'items' not in response:
+            logger.warning("APIからのレスポンスが不正です")
+            return []
             
-            ("初回実行 (last_prize_update が NULL)",
-             Horse.last_prize_update.is_(None)),
-            
-            ("前回の更新から指定日数以上経過",
-             and_(
-                 Horse.last_prize_update.is_not(None),
-                 Horse.last_prize_update <= update_interval_ago
-             )),
-            
-            ("オークション日から1日以上経過",
-             exists().where(
-                 and_(
-                     AuctionHistory.horse_id == Horse.id,
-                     AuctionHistory.auction_date <= one_day_ago
-                 )
-             ))
-        ]
-        
-        # 各条件にマッチする馬の数をログに出力
-        for cond_name, cond in conditions:
-            count = db.scalar(select(func.count()).select_from(Horse).where(
-                Horse.is_retired == False,
-                cond
-            ))
-            logger.info(f"条件 '{cond_name}': {count} 件")
-        
-        # 更新対象の馬を取得（条件を緩和）
-        stmt = (
-            select(Horse)
-            .options(
-                selectinload(Horse.prize_histories),
-                selectinload(Horse.latest_auction)
-            )
-            .where(
-                Horse.is_retired == False,  # 引退していない馬のみ
-                or_(
-                    # 次回更新日が設定されており、その日付を過ぎている
-                    and_(
-                        Horse.next_update_due_date.is_not(None),
-                        Horse.next_update_due_date <= now
-                    ),
-                    # 初回実行 (last_prize_update が NULL)
-                    Horse.last_prize_update.is_(None),
-                    # 前回の更新から指定日数以上経過
-                    and_(
-                        Horse.last_prize_update.is_not(None),
-                        Horse.last_prize_update <= update_interval_ago
-                    ),
-                    # オークション日から1日以上経過
-                    exists().where(
-                        and_(
-                            AuctionHistory.horse_id == Horse.id,
-                            AuctionHistory.auction_date <= one_day_ago
-                        )
-                    )
-                )
-            )
-            .order_by(
-                # 1. 初回実行 (last_prize_update が NULL) のものから
-                # 2. 前回の更新が古いものから
-                # 3. 次回更新日が古いものから
-                Horse.last_prize_update.asc(nulls_first=True),
-                Horse.next_update_due_date.asc(nulls_last=True)
-            )
-            .limit(batch_size)  # 一度に処理する件数を制限
-        )
-        
-        result = db.execute(stmt)
-        horses = result.scalars().all()
-        
+        horses = response['items']
         if not horses:
-            logger.warning("更新対象の馬が見つかりませんでした。条件を確認してください。")
+            logger.info("更新対象の馬はありません")
             return []
             
         logger.info(f"更新対象の馬が {len(horses)} 件見つかりました")
-        return horses
+        
+        # Horseオブジェクトに変換して返す
+        return [Horse(**horse) for horse in horses]
         
     except Exception as e:
         logger.error(f"更新対象の馬の取得中にエラーが発生しました: {str(e)}", exc_info=True)
