@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session, selectinload, load_only
 from sqlalchemy import select, update, func, or_
-from typing import List, Optional, Generator, Tuple, os
+from typing import List, Optional, Generator, Tuple
 import random
 import time
 import sys
