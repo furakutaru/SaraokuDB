@@ -134,9 +134,15 @@ def get_db():
             """変更をロールバック"""
             self._objects_to_add = []
             
-        def close(self):
+        async def close(self):
             """セッションを閉じる"""
-            self._objects_to_add = []
+            try:
+                if hasattr(self, '_aiohttp_session') and not self._aiohttp_session.closed:
+                    await self._aiohttp_session.close()
+            except Exception as e:
+                logger.error(f"セッションクローズ中にエラーが発生しました: {str(e)}")
+            finally:
+                self._objects_to_add = []
             
         def __enter__(self):
             return self
@@ -530,5 +536,18 @@ def process_horses():
     
     asyncio.run(process_horses_async(batch_size=args.batch_size))
 
+async def main():
+    try:
+        await process_horses_async()
+    except Exception as e:
+        logger.error(f"エラーが発生しました: {str(e)}")
+        raise
+    finally:
+        # グローバルなAPIクライアントをクローズ
+        if 'api_client' in globals():
+            if hasattr(api_client, 'session') and hasattr(api_client.session, 'close'):
+                api_client.session.close()
+                logger.info("APIクライアントをクローズしました")
+
 if __name__ == "__main__":
-    process_horses()
+    asyncio.run(main())
