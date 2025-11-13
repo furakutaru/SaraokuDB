@@ -104,20 +104,48 @@ def get_db():
     class DBSession:
         def __init__(self, api_client):
             self.api_client = api_client
+            self._objects_to_add = []
             
         def query(self, model):
             return QueryBuilder(self.api_client, model)
             
+        def add(self, obj):
+            """オブジェクトを追加（次回のcommitで保存）"""
+            self._objects_to_add.append(obj)
+            
         def commit(self):
-            pass
+            """変更をコミット（API経由で保存）"""
+            try:
+                for obj in self._objects_to_add:
+                    if hasattr(obj, 'to_dict'):
+                        data = obj.to_dict()
+                        # ここでAPIを呼び出してデータを保存
+                        if hasattr(obj, 'id') and obj.id:
+                            self.api_client.post(f"horses/{obj.id}", data)
+                        else:
+                            self.api_client.post("horses", data)
+                self._objects_to_add = []
+                return True
+            except Exception as e:
+                logger.error(f"コミット中にエラーが発生しました: {str(e)}")
+                return False
+            
+        def rollback(self):
+            """変更をロールバック"""
+            self._objects_to_add = []
             
         def close(self):
-            pass
+            """セッションを閉じる"""
+            self._objects_to_add = []
             
         def __enter__(self):
             return self
             
         def __exit__(self, exc_type, exc_val, exc_tb):
+            if exc_type is not None:
+                self.rollback()
+            else:
+                self.commit()
             self.close()
 
     return DBSession(api_client)
