@@ -221,22 +221,26 @@ def get_horses_to_update(db: Session, batch_size: int = 10) -> List[Horse]:
             # その他の形式の場合は空リストを返す
             else:
                 logger.warning(f"予期しないAPIレスポンス形式: {type(response)}")
-                logger.debug(f"レスポンス内容: {response}")
                 return []
                 
-            if not horses:
-                logger.info("更新対象の馬はありません")
-                return []
+            logger.info(f"更新対象の馬が {len(horses)} 件見つかりました")
+            
+            # Horseモデルの有効な属性のみを抽出してHorseオブジェクトを作成
+            valid_attrs = set(column.name for column in Horse.__table__.columns)
+            result_horses = []
+            
+            for horse_data in horses:
+                # 有効な属性のみを抽出（dam_sireは無視）
+                valid_horse_data = {k: v for k, v in horse_data.items() 
+                                 if k in valid_attrs and k != 'dam_sire'}
+                result_horses.append(Horse(**valid_horse_data))
                 
+            return result_horses
+            
         except Exception as e:
             logger.error(f"APIリクエスト中にエラーが発生しました: {str(e)}")
             return []
             
-        logger.info(f"更新対象の馬が {len(horses)} 件見つかりました")
-        
-        # Horseオブジェクトに変換して返す
-        return [Horse(**horse) for horse in horses]
-        
     except Exception as e:
         logger.error(f"更新対象の馬の取得中にエラーが発生しました: {str(e)}", exc_info=True)
         return []
