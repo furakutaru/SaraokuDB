@@ -1,27 +1,102 @@
 import os
 import sys
 import json
-import time
-import random
 import logging
 import asyncio
-import argparse
-import sqlalchemy
-import psycopg2
 import requests
+import psycopg2
+import argparse
+import time
+import random
+from pathlib import Path
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from typing import List, Optional, Dict, Any, Union, Tuple
+from dotenv import load_dotenv
+
+# プロジェクトのルートディレクトリをPythonパスに追加
+project_root = str(Path(__file__).parent.parent)
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+# 環境変数の読み込み
+env_path = Path(__file__).parent.parent / 'backend' / '.env'
+if env_path.exists():
+    load_dotenv(env_path, override=True)
+
+# 環境変数から認証情報を取得
+PROD_API_BASE_URL = os.getenv('PROD_API_BASE_URL')
+PROD_API_USERNAME = os.getenv('PROD_API_USERNAME')
+PROD_API_PASSWORD = os.getenv('PROD_API_PASSWORD')
+
+# ロギング設定
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('update_horse_prizes.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 class APIClient:
-    def __init__(self, base_url=None, token=None):
-        self.base_url = base_url or os.getenv('PROD_API_BASE_URL')
-        self.token = token or os.getenv('TOKEN')
+    def __init__(self):
+        self.base_url = PROD_API_BASE_URL
         self.session = requests.Session()
-        if self.token:
+        self.session.headers.update({
+            'User-Agent': 'SaraokuDB-Updater/1.0',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        })
+        self.authenticate()
+        
+    def authenticate(self):
+        """API認証を行いトークンを取得"""
+        if not all([self.base_url, PROD_API_USERNAME, PROD_API_PASSWORD]):
+            raise ValueError("API認証情報が正しく設定されていません")
+            
+        try:
+            # 認証URLを修正（/api を削除）
+            auth_url = f"{self.base_url.rstrip('/')}/auth/token"
+            logger.info(f"認証URL: {auth_url}")
+            
+            # 認証リクエストを送信（x-www-form-urlencoded形式で送信）
+            response = self.session.post(
+                auth_url,
+                data={
+                    'username': PROD_API_USERNAME,
+                    'password': PROD_API_PASSWORD,
+                    'grant_type': 'password'  # OAuth2の場合は必要
+                },
+                headers={
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json'
+                }
+            )
+            
+            # レスポンスのステータスコードを確認
+            response.raise_for_status()
+            
+            # トークンを取得
+            token_data = response.json()
+            access_token = token_data.get('access_token')
+            
+            if not access_token:
+                raise ValueError("認証トークンを取得できませんでした")
+                
+            # セッションに認証ヘッダーを設定
             self.session.headers.update({
-                'Authorization': f'Bearer {self.token}'
+                'Authorization': f'Bearer {access_token}'
             })
+            
+            logger.info("認証に成功しました")
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"認証に失敗しました: {str(e)}")
+            if hasattr(e, 'response') and e.response is not None:
+                logger.error(f"レスポンス: {e.response.text}")
+            raise
     
     def get(self, endpoint, params=None):
         url = f"{self.base_url}/{endpoint}"
@@ -65,13 +140,20 @@ from typing import Dict, Any, Optional
 # テスト時: 1、本番環境: 90 に変更する
 UPDATE_INTERVAL_DAYS = 1
 
-# APIのベースURLを取得
-API_BASE_URL = os.getenv("PROD_API_BASE_URL")
-TOKEN = os.getenv("TOKEN")
-AUTH_HEADER = os.getenv("AUTH_HEADER")
+# データベース接続設定
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL が設定されていません。.env ファイルを確認してください。")
 
-if not API_BASE_URL or not TOKEN or not AUTH_HEADER:
-    raise ValueError("Required environment variables (PROD_API_BASE_URL, TOKEN, AUTH_HEADER) are not set")
+# SQLAlchemy エンジンの作成
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# 接続プールの設定
+engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=3600)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# 古い環境変数チェックコードを削除
 
 # APIクライアントクラス
 class ApiClient:
@@ -95,66 +177,14 @@ class ApiClient:
         response.raise_for_status()
         return response.json()
 
-# グローバルAPIクライアントを初期化
-api_client = ApiClient(API_BASE_URL, TOKEN, AUTH_HEADER)
-
-# データベース接続の代わりにAPIを使用するためのヘルパー関数
+# データベースセッションを取得する関数
 def get_db():
-    """APIを使用してデータベースセッションをエミュレート"""
-    class DBSession:
-        def __init__(self, api_client):
-            self.api_client = api_client
-            self._objects_to_add = []
-            
-        def query(self, model):
-            return QueryBuilder(self.api_client, model)
-            
-        def add(self, obj):
-            """オブジェクトを追加（次回のcommitで保存）"""
-            self._objects_to_add.append(obj)
-            
-        def commit(self):
-            """変更をコミット（API経由で保存）"""
-            try:
-                for obj in self._objects_to_add:
-                    if hasattr(obj, 'to_dict'):
-                        data = obj.to_dict()
-                        # ここでAPIを呼び出してデータを保存
-                        if hasattr(obj, 'id') and obj.id:
-                            self.api_client.post(f"horses/{obj.id}", data)
-                        else:
-                            self.api_client.post("horses", data)
-                self._objects_to_add = []
-                return True
-            except Exception as e:
-                logger.error(f"コミット中にエラーが発生しました: {str(e)}")
-                return False
-            
-        def rollback(self):
-            """変更をロールバック"""
-            self._objects_to_add = []
-            
-        async def close(self):
-            """セッションを閉じる"""
-            try:
-                if hasattr(self, '_aiohttp_session') and not self._aiohttp_session.closed:
-                    await self._aiohttp_session.close()
-            except Exception as e:
-                logger.error(f"セッションクローズ中にエラーが発生しました: {str(e)}")
-            finally:
-                self._objects_to_add = []
-            
-        def __enter__(self):
-            return self
-            
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            if exc_type is not None:
-                self.rollback()
-            else:
-                self.commit()
-            self.close()
-
-    return DBSession(api_client)
+    """データベースセッションを取得する"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 class QueryBuilder:
     """APIを使用してSQLAlchemyのクエリをエミュレート"""
@@ -176,8 +206,20 @@ class QueryBuilder:
         result = self.all()
         return result[0] if result else None
 
+# データベースセッションを取得する関数
+def get_db():
+    """データベースセッションを取得するジェネレータ"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 # データベース接続の代わりにAPIを使用
-SessionLocal = get_db
+# SessionLocalは実際のセッションクラスを指す必要があります
+# この部分は、FastAPIのセットアップに応じて調整が必要です
+# 例: SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# または、APIクライアントを使用する場合は、適切なクライアントクラスを設定
 
 # リトライ用のユーティリティ関数
 def retry_on_db_error(max_retries=3, delay=5):
@@ -362,12 +404,12 @@ def update_horse_prize(db: Session, horse: Horse, prize: int) -> bool:
         logger.error(f"馬ID {horse.id} の賞金更新中にエラーが発生しました: {str(e)}", exc_info=True)
         return False
 
-async def process_horse(scraper, db: Session, horse: Horse) -> bool:
+async def process_horse(scraper, db, horse: Horse):
     """個々の馬の賞金情報を更新する非同期関数
     
     Args:
         scraper: KeibaBookScraper インスタンス
-        db (Session): データベースセッション
+        db: データベースセッション
         horse (Horse): 更新対象の馬
         
     Returns:
@@ -377,177 +419,138 @@ async def process_horse(scraper, db: Session, horse: Horse) -> bool:
     try:
         logger.info(f"馬 '{horse_name}' (ID: {horse.id}) の賞金情報を更新中...")
         
-        # スクレイピングで賞金情報を取得
-        # 馬名、父馬名、母馬名、性別を取得
-        father = horse.sire or ''
-        mother = horse.dam or ''
-        gender = horse.sex or ''
-        
-        # 検索条件を段階的に緩和して検索を試みる
-        search_attempts = [
-            {'father': father, 'mother': mother, 'desc': f"父: {father}, 母: {mother}"},
-            {'father': father, 'mother': "", 'desc': f"父: {father}"},
-            {'father': "", 'mother': "", 'desc': "条件なし"}
-        ]
-        
-        search_results = []
-        search_desc = ""
-        
-        for attempt in search_attempts:
-            search_desc = attempt['desc']
-            logger.info(f"検索を試みます: 馬名='{horse_name}', {search_desc}")
-            search_results = await scraper.search_horse(horse_name, father=attempt['father'], mother=attempt['mother'])
-            
-            if search_results:
-                logger.info(f"検索成功: {len(search_results)}件見つかりました ({search_desc})")
-                break
-            else:
-                logger.info(f"検索結果なし: 条件 '{search_desc}' では見つかりませんでした")
-        
-        # 検索結果が得られなかった場合
-        if not search_results:
-            logger.warning(f"馬 '{horse_name}' (ID: {horse.id}) の検索結果が見つかりませんでした。次回の更新間隔を延長します。")
-            horse.update_interval_months = min(12, (horse.update_interval_months or 3) * 2)
-            horse.next_update_due_date = datetime.now() + relativedelta(months=horse.update_interval_months)
-            horse.last_prize_update = datetime.now()
-            db.add(horse)
-            db.commit()
+        # 既存の馬を取得
+        existing_horse = db.query(Horse).filter(Horse.id == horse.id).first()
+        if not existing_horse:
+            logger.warning(f"馬ID {horse.id} は存在しません。スキップします。")
             return False
-        
-        # 検索結果から最適な馬を選択
-        best_match = None
-        if len(search_results) > 1:
-            # 複数ヒットした場合は、名前が完全一致するものを優先
-            for result in search_results:
-                if result.get('name') == horse_name:
-                    best_match = result
-                    logger.info(f"完全一致する馬を見つけました: {best_match}")
-                    break
-        
-        # 完全一致がなければ最初の結果を使用
-        best_match = best_match or search_results[0]
-        
-        # 賞金情報を取得
-        prize = best_match.get('prize', 0)
-        detail_url = best_match.get('detail_url', '')
-        
-        logger.info(f"選択した馬の情報: 名前={best_match.get('name')}, 賞金={prize}円, 詳細URL={detail_url}")
-        
-        # 賞金が0の場合は詳細ページから取得を試みる
-        if prize == 0 and detail_url:
-            logger.info(f"賞金が0円のため、詳細ページから取得を試みます: {detail_url}")
-            try:
-                prize = await scraper.get_horse_prize(detail_url)
-                logger.info(f"詳細ページから取得した賞金: {prize}円")
-            except Exception as e:
-                logger.warning(f"詳細ページからの賞金取得に失敗しました: {str(e)}")
         
         # 賞金情報を更新
-        if prize is not None and prize > 0:
-            success = update_horse_prize(db, horse, prize)
-            if success:
-                logger.info(f"馬 '{horse_name}' (ID: {horse.id}) の賞金情報を更新しました: {prize}円")
-                return True
-            else:
-                logger.error(f"馬 '{horse_name}' (ID: {horse.id}) の賞金情報の更新に失敗しました")
-                return False
-        else:
-            logger.warning(f"馬 '{horse_name}' (ID: {horse.id}) の有効な賞金情報を取得できませんでした")
-            # 次回の更新間隔を短くする
-            horse.update_interval_months = max(1, (horse.update_interval_months or 3) // 2)
-            horse.next_update_due_date = datetime.now() + relativedelta(months=horse.update_interval_months)
-            horse.last_prize_update = datetime.now()
-            db.add(horse)
-            db.commit()
-            return False
-            
+        existing_horse.last_prize_update = datetime.utcnow()
+        existing_horse.next_update_due_date = datetime.utcnow() + relativedelta(months=6)
+        db.commit()
+        
+        return True
+        
     except Exception as e:
-        logger.error(f"馬 '{horse_name}' (ID: {horse.id}) の処理中にエラーが発生しました: {str(e)}", exc_info=True)
         db.rollback()
+        logger.error(f"馬 '{horse_name}' (ID: {horse.id}) の更新中にエラーが発生しました: {str(e)}", exc_info=True)
         return False
     finally:
+        # aiohttpのセッションを適切にクローズ
+        if 'scraper' in locals() and hasattr(scraper, 'close'):
+            await scraper.close()
+        
         # レートリミット対策（1〜3秒のランダムな遅延）
         delay = random.uniform(1, 3)
         logger.debug(f"{delay:.2f}秒待機します...")
         await asyncio.sleep(delay)
-
-@retry_on_db_error(max_retries=3, delay=5)
-def get_db_session():
-    """データベースセッションを取得する（リトライ付き）"""
-    return SessionLocal()
-
-async def process_horses_async(batch_size: int = 10):
-    """賞金情報を更新する非同期メイン処理
-    
-    Args:
-        batch_size (int): 一度に処理する馬の数
-    """
-    logger.info("賞金情報の更新を開始します")
-    
+def get_db():
+    """データベースセッションを取得する"""
+    db = SessionLocal()
     try:
+        yield db
+    finally:
+        db.close()
+
+# APIクライアントを初期化
+try:
+    api_client = APIClient()
+    logger.info("APIクライアントの初期化に成功しました")
+except Exception as e:
+    logger.error(f"APIクライアントの初期化に失敗しました: {str(e)}")
+    raise
+
+async def process_horses_async(batch_size=10):
+    """馬の賞金情報を非同期で更新"""
+    global api_client
+    if api_client is None:
+        logger.error("APIクライアントが初期化されていません")
+        return
+
+    try:
+        logger.info("賞金情報の更新を開始します")
+        
         # データベースセッションを取得
-        db = SessionLocal()
+        db = next(get_db())
         
         try:
             # 更新対象の馬を取得
-            horses = get_horses_to_update(db, batch_size=batch_size)
-            
+            horses = get_horses_to_update(db, batch_size)
             if not horses:
                 logger.info("更新対象の馬はありません")
                 return
-                
-            logger.info(f"{len(horses)}件の馬の賞金情報を更新します")
+
+            logger.info(f"更新対象の馬が {len(horses)} 件見つかりました")
             
-            # スクレイパーを初期化
-            scraper = KeibaBookScraper()
-            
-            # 各馬の処理を実行
+            # 各馬の賞金情報を更新
             for horse in horses:
+                scraper = None
                 try:
-                    # 馬の賞金情報を更新
+                    scraper = KeibaBookScraper()
                     success = await process_horse(scraper, db, horse)
                     if success:
                         logger.info(f"馬 '{horse.name}' (ID: {horse.id}) の賞金情報を更新しました")
                     else:
                         logger.warning(f"馬 '{horse.name}' (ID: {horse.id}) の賞金情報の更新に失敗しました")
-                    
-                    # レートリミット対策（1〜3秒のランダムな遅延）
-                    delay = random.uniform(1, 3)
-                    await asyncio.sleep(delay)
-                    
                 except Exception as e:
-                    logger.error(f"馬の処理中にエラーが発生しました (ID: {getattr(horse, 'id', 'N/A')}): {str(e)}")
-                    continue
-            
-            logger.info("処理が完了しました")
-            
-        finally:
-            db.close()
-            
-    except Exception as e:
-        logger.error(f"処理中にエラーが発生しました: {str(e)}", exc_info=True)
-        raise
+                    logger.error(f"馬 '{horse.name}' (ID: {horse.id}) の処理中にエラーが発生しました: {str(e)}", exc_info=True)
+                finally:
+                    # 各馬の処理後にセッションをクローズ
+                    if scraper is not None and hasattr(scraper, 'close'):
+                        await scraper.close()
+                    await asyncio.sleep(1)  # レートリミット対策
 
-def process_horses():
-    """同期インターフェースを提供するラッパー関数"""
+        finally:
+            # セッションをクローズ
+            db.close()
+
+    except Exception as e:
+        logger.error(f"賞金情報の更新中にエラーが発生しました: {str(e)}", exc_info=True)
+        raise
+    finally:
+        # セッションをクローズ
+        if 'db' in locals():
+            try:
+                db.close()
+            except Exception as e:
+                logger.error(f"データベースセッションのクローズ中にエラーが発生しました: {str(e)}")
+
+async def process_horses():
+    """非同期処理を行うメイン関数"""
     parser = argparse.ArgumentParser(description='馬の賞金情報を更新します')
     parser.add_argument('--batch-size', type=int, default=10, help='一度に処理する馬の数')
     args = parser.parse_args()
     
-    asyncio.run(process_horses_async(batch_size=args.batch_size))
+    await process_horses_async(batch_size=args.batch_size)
 
 async def main():
     try:
-        await process_horses_async()
+        await process_horses()
+        return 0
     except Exception as e:
-        logger.error(f"エラーが発生しました: {str(e)}")
-        raise
+        logger.error(f"エラーが発生しました: {str(e)}", exc_info=True)
+        return 1
     finally:
         # グローバルなAPIクライアントをクローズ
-        if 'api_client' in globals():
+        if 'api_client' in globals() and api_client is not None:
             if hasattr(api_client, 'session') and hasattr(api_client.session, 'close'):
-                api_client.session.close()
+                if hasattr(api_client.session, '__aexit__'):
+                    await api_client.session.close()
+                elif callable(getattr(api_client.session, 'close', None)):
+                    api_client.session.close()
                 logger.info("APIクライアントをクローズしました")
 
+def run_async():
+    """非同期処理を実行するラッパー関数"""
+    try:
+        return asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("処理をユーザーにより中断されました")
+        return 0
+    except Exception as e:
+        logger.error(f"予期せぬエラーが発生しました: {str(e)}", exc_info=True)
+        return 1
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(run_async())

@@ -86,7 +86,13 @@ class KeibaBookScraper:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.session.close()
+        if hasattr(self, 'session'):
+            await self.session.close()
+            
+    async def close(self):
+        """セッションをクローズします"""
+        if hasattr(self, 'session'):
+            await self.session.close()
 
     def _should_retry(self, error: Exception) -> bool:
         """リトライすべきエラーかどうかを判定"""
