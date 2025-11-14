@@ -493,20 +493,72 @@ async def update_horse_prize(db: APIClient, horse: Dict, prize: int) -> bool:
         logger.error(f"馬ID {horse_id} の情報更新中にエラーが発生しました: {str(e)}", exc_info=True)
         return False
 
+async def push_next_update_only(db: APIClient, horse: Dict, months: int = 3) -> bool:
+    """賞金未登録想定の馬など、スクレイプを行わず次回更新日だけ先送りする。
+    
+    Args:
+        db: APIクライアント
+        horse: 馬情報（APIからの辞書）
+        months: 先送りする月数
+    Returns:
+        bool
+    """
+    try:
+        horse_id = horse.get('id')
+        if not horse_id:
+            return False
+        payload = {
+            "next_update_due_date": (datetime.now(timezone.utc) + relativedelta(months=months)).isoformat()
+        }
+        await db.patch(f"api/horses/{horse_id}", payload)
+        logger.info(f"馬ID {horse_id} は未登録名（年次表記）のためスクレイプをスキップ。次回更新を{months}ヶ月後へ設定")
+        return True
+    except Exception as e:
+        logger.error(f"馬ID {horse.get('id')} の次回更新日更新に失敗: {str(e)}")
+        return False
+
 async def process_horse(scraper, db: APIClient, horse: Dict) -> bool:
     """1頭の馬の賞金情報を更新"""
     try:
         horse_id = horse.get('id')
         horse_name = horse.get('name', '不明')
+        # 検索用に馬名を正規化（例: 「〇〇の23/24」などの年次表記を除去）
+        try:
+            import re
+            search_name = re.sub(r"の\d{2}$", "", horse_name).strip()
+        except Exception:
+            search_name = horse_name
         
         logger.info(f"馬ID {horse_id} ({horse_name}) の賞金情報を更新中...")
+
+        # 「◯◯の23/24」などの未登録名はスキップして次回更新だけ先送り
+        try:
+            import re
+            if re.search(r"の\d{2}$", horse_name):
+                return await push_next_update_only(db, horse, months=3)
+        except Exception:
+            pass
         
-        # スクレイピングで賞金情報を取得
-        prize = await scraper.get_horse_prize(horse_name)
-        
-        if prize is None:
-            logger.warning(f"馬ID {horse_id} の賞金情報を取得できませんでした")
+        # スクレイピングで賞金情報を取得（実装版）
+        # ヒット率向上のため、父母名・性別で絞り込まない（DBの表記ゆれ・ローマ字などで弾かれるため）
+        father = ''
+        mother = ''
+        auction_date = horse.get('auction_date')
+        gender = None
+
+        horse_info = await scraper.get_horse_info(
+            name=search_name,
+            father=father,
+            mother=mother,
+            auction_date=auction_date,
+            gender=gender
+        )
+
+        if not horse_info or horse_info.get('prize') in (None, 0):
+            logger.warning(f"馬ID {horse_id} の賞金情報を取得できませんでした（name={horse_name}, father={father}, mother={mother}）")
             return False
+
+        prize = int(horse_info.get('prize') or 0)
             
         # 賞金情報を更新
         success = await update_horse_prize(db, horse, prize)
@@ -535,13 +587,9 @@ async def process_horses_async(batch_size=10):
         allowed_methods = await db.options("api/horses/1")
         logger.info(f"APIがサポートしているメソッド: {', '.join(allowed_methods) if allowed_methods else '不明'}")
         
-        # スクレイパーを初期化
-        class KeibaBookScraper:
-            async def get_horse_prize(self, horse_name: str) -> Optional[int]:
-                # 実際のスクレイピング処理を実装
-                return 10000000  # 仮の値
-        
-        scraper = KeibaBookScraper()
+        # スクレイパーを初期化（実装版を使用）
+        from scripts.keibabook_scraper import KeibaBookScraper as RealKeibaBookScraper
+        scraper_ctx = RealKeibaBookScraper(verify_ssl=False)
         
         # 更新対象の馬を取得
         horses = await get_horses_to_update(db, batch_size)
@@ -553,8 +601,21 @@ async def process_horses_async(batch_size=10):
         logger.info(f"更新対象の馬が {len(horses)} 件見つかりました")
         
         # 各馬の賞金情報を非同期で更新
-        tasks = [process_horse(scraper, db, horse) for horse in horses]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        async with scraper_ctx as scraper:
+            # 併行数を制限してレートリミット回避
+            semaphore = asyncio.Semaphore(3)
+
+            async def run_with_sem(h):
+                async with semaphore:
+                    return await process_horse(scraper, db, h)
+
+            tasks = []
+            for idx, h in enumerate(horses):
+                # スタートを少しずつずらす
+                await asyncio.sleep(0.2)
+                tasks.append(asyncio.create_task(run_with_sem(h)))
+
+            results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # 結果を集計
         success_count = sum(1 for r in results if r is True)

@@ -230,7 +230,7 @@ class KeibaBookScraper:
             "seibet[]": ["0", "1", "2"],  # 性別（牡・牝・セン）
             "masyof[]": ["1"],  # 中央現役以外も含む
             "sort": "kbamei",  # 馬名順
-            "group": "10",  # 1ページあたりの表示件数
+            "group": "50",  # 1ページあたりの表示件数を拡大
             "page": "0",  # ページ番号
             "sort_type": "asc"  # 昇順
         }
@@ -276,6 +276,35 @@ class KeibaBookScraper:
             logger.info(f"レスポンスを {filename} に保存しました")
             
             results = await self._parse_search_results(html)
+
+            # テーブル未検出や0件の場合はフォールバック: 少し待ってから再試行 or 前方一致に切替
+            if not results:
+                try:
+                    await asyncio.sleep(1.0)
+                except Exception:
+                    pass
+                # 直近の問題: テーブル未検出や0件 → 前方一致に切り替えて再検索
+                data_fallback = data.copy()
+                data_fallback["search"] = "0"  # 0: で始まる
+                encoded_data_fb = urllib.parse.urlencode(data_fallback, doseq=True)
+                headers_fb = self.HEADERS.copy()
+                headers_fb["Content-Length"] = str(len(encoded_data_fb))
+                logger.info("フォールバック検索を実行します（前方一致, group=50）")
+
+                response_fb = await self._request_with_retry(
+                    "POST",
+                    self.BASE_URL,
+                    data=data_fallback,
+                    headers=headers_fb,
+                    timeout=30
+                )
+                html_fb = await response_fb.text()
+                timestamp_fb = datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename_fb = f'keibabook_response_{timestamp_fb}.html'
+                with open(filename_fb, 'w', encoding='utf-8') as f:
+                    f.write(html_fb)
+                logger.info(f"フォールバックレスポンスを {filename_fb} に保存しました")
+                results = await self._parse_search_results(html_fb)
             logger.info(f"検索結果: {len(results)}件見つかりました")
             return results
 
@@ -295,8 +324,18 @@ class KeibaBookScraper:
             f.write(html)
         logger.debug(f"デバッグ用HTMLを保存しました: {debug_filename}")
         
-        # 検索結果のテーブルを探す
-        table = soup.find('table', class_='default')
+        # 検索結果のテーブルを特定（ヘッダーの default テーブルではなく、結果の default search テーブル）
+        table = soup.select_one('table.default.search')
+        if not table:
+            # フォールバック: 獲得総賞金 のヘッダーを持つ default テーブルを探す
+            for cand in soup.select('table.default'):
+                thead = cand.find('thead')
+                if not thead:
+                    continue
+                headers = [th.get_text(strip=True) for th in thead.find_all('th')]
+                if any('獲得総賞金' in h for h in headers):
+                    table = cand
+                    break
         
         if not table:
             logger.warning("検索結果テーブルが見つかりませんでした")
@@ -307,8 +346,9 @@ class KeibaBookScraper:
                 logger.error(f"エラーメッセージ: {error_msg}")
             return results
         
-        # ヘッダー行をスキップして行を取得
-        rows = table.find_all('tr')[1:]  # 1行目はヘッダーなのでスキップ
+        # tbody 内の行を取得（ヘッダーは thead にある）
+        tbody = table.find('tbody') or table
+        rows = tbody.find_all('tr')
         
         for row in rows:
             try:
@@ -321,33 +361,49 @@ class KeibaBookScraper:
                 name = name_link.get_text(strip=True) if name_link else cols[0].get_text(strip=True)
                 detail_url = name_link['href'] if name_link and 'href' in name_link.attrs else ''
                 
-                # 性別と年齢
-                gender_cell = cols[1].get_text(strip=True)
-                gender = gender_cell[0] if gender_cell else ''  # 最初の1文字が性別
+                # 生年/年齢/性別（列位置がレイアウトで変わることがあるため安全に参照）
+                age = None
+                gender = ''
+                try:
+                    if len(cols) >= 5:
+                        # 年齢はだいたい index 3
+                        age_text = cols[3].get_text(strip=True)
+                        age = int(age_text) if age_text and age_text.isdigit() else None
+                        # 性別はだいたい index 4
+                        gender_cell = cols[4].get_text(strip=True)
+                        gender = gender_cell[0] if gender_cell else ''
+                except Exception:
+                    pass
                 
                 # 父と母
                 father = ''
                 mother = ''
-                parents = cols[2].find_all('a', class_='umalink_click')
+                # 父母はだいたい index 6 のセル内リンク
+                parent_cell_idx = 6 if len(cols) > 6 else 2
+                parents = cols[parent_cell_idx].find_all('a', class_='umalink_click')
                 if len(parents) >= 2:
                     father = parents[0].get_text(strip=True)
                     mother = parents[1].get_text(strip=True)
                 
-                # 賞金（11列目、0から数えて10）
+                # 賞金は最終列（獲得総賞金）を参照
                 prize = 0
-                if len(cols) > 10:
-                    prize_text = cols[10].get_text(strip=True)
+                if len(cols) > 0:
+                    prize_text = cols[-1].get_text(strip=True)
                     try:
                         if prize_text and prize_text != '-':
-                            # 「1,234万5,678円」形式を想定
-                            if '万' in prize_text:
-                                parts = prize_text.replace('円', '').split('万')
-                                if len(parts) == 2:
-                                    prize = int(float(parts[0].replace(',', '')) * 10000 + float(parts[1].replace(',', '')))
+                            txt = prize_text.replace('円', '').strip()
+                            if '万' in txt:
+                                # 例: "3,662.4万" や "1,234万5,678"
+                                if txt.endswith('万'):
+                                    value = txt[:-1].replace(',', '')  # 末尾の万を除去
+                                    prize = int(float(value) * 10000)
                                 else:
-                                    prize = int(float(parts[0].replace(',', '')) * 10000)
+                                    parts = txt.split('万')
+                                    head = parts[0].replace(',', '')
+                                    tail = parts[1].replace(',', '') if len(parts) > 1 else '0'
+                                    prize = int(float(head) * 10000 + float(tail))
                             else:
-                                prize = int(prize_text.replace(',', '').replace('円', ''))
+                                prize = int(txt.replace(',', ''))
                     except (ValueError, AttributeError) as e:
                         logger.warning(f"賞金のパースに失敗しました: {prize_text}, エラー: {str(e)}")
                 
@@ -355,6 +411,7 @@ class KeibaBookScraper:
                 horse_info = {
                     'name': name,
                     'gender': gender,
+                    'age': age,
                     'father': father,
                     'mother': mother,
                     'prize': prize,
@@ -413,6 +470,84 @@ class KeibaBookScraper:
         logger.debug(f"最終的な賞金情報: {best_match.get('prize')}円")
             
         return best_match
+
+    async def get_horse_prize(self, detail_path_or_url: str) -> Optional[int]:
+        """詳細ページから獲得総賞金を取得
+
+        Args:
+            detail_path_or_url: '/db/uma/xxxxx' などの相対パス、または絶対URL
+
+        Returns:
+            int または None
+        """
+        try:
+            if not detail_path_or_url:
+                return None
+
+            if detail_path_or_url.startswith('http'):
+                url = detail_path_or_url
+            else:
+                url = f"https://p.keibabook.co.jp{detail_path_or_url}"
+
+            # 取得
+            resp = await self._request_with_retry("GET", url, headers=self.HEADERS)
+            html = await resp.text()
+            soup = BeautifulSoup(html, 'html.parser')
+
+            # ラベルに "獲得総賞金" が含まれる行を探す
+            prize_text = None
+            # テーブル内のth/td構造を探索
+            for th in soup.find_all(['th','dt']):
+                label = th.get_text(strip=True)
+                if not label:
+                    continue
+                if '獲得総賞金' in label or '総賞金' in label:
+                    # 兄弟のtd/ddを取得
+                    td = th.find_next_sibling(['td','dd'])
+                    if td:
+                        prize_text = td.get_text(strip=True)
+                        break
+
+            # 代替: 『獲得総賞金』の語を含む任意要素から後続値を拾う
+            if not prize_text:
+                text_nodes = soup.find_all(text=True)
+                for t in text_nodes:
+                    if isinstance(t, str) and ('獲得総賞金' in t or '総賞金' in t):
+                        # 近傍の数字を探す
+                        parent = soup
+                        try:
+                            parent = t.parent
+                            # 次の要素のテキスト
+                            nxt = parent.find_next(string=True)
+                            if nxt and nxt != t:
+                                prize_text = nxt.strip()
+                                break
+                        except Exception:
+                            continue
+
+            if not prize_text:
+                return None
+
+            txt = prize_text.replace('円', '').strip()
+            if not txt or txt == '-':
+                return None
+
+            # 例: "3,662.4万" や "1,234万5,678"
+            if '万' in txt:
+                if txt.endswith('万'):
+                    value = txt[:-1].replace(',', '')
+                    return int(float(value) * 10000)
+                else:
+                    parts = txt.split('万')
+                    head = parts[0].replace(',', '')
+                    tail = parts[1].replace(',', '') if len(parts) > 1 else '0'
+                    return int(float(head) * 10000 + float(tail))
+            else:
+                return int(txt.replace(',', ''))
+
+        except Exception as e:
+            logger.warning(f"詳細ページから賞金取得に失敗: {str(e)}")
+            return None
 
     def _calculate_age(self, auction_date: str) -> int:
         """オークション日から現在の年齢を計算"""
