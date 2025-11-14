@@ -350,100 +350,115 @@ def update_prize_history(db: Session, horse_id: int, prize: int) -> HorsePrizeHi
         logger.info(f"馬ID {horse_id} の賞金履歴を更新しました: {prize}円")
         return history
     except Exception as e:
-        db.rollback()
         logger.error(f"馬ID {horse_id} の賞金履歴の更新中にエラーが発生しました: {str(e)}")
         raise
 
-def update_horse_prize(db: Session, horse: Horse, prize: int) -> bool:
+def update_horse_prize(db: APIClient, horse: Dict, prize: int) -> bool:
     """馬の賞金情報を更新し、次回の更新間隔を調整
     
     Args:
-        db (Session): データベースセッション
-        horse (Horse): 更新対象の馬
+        db (APIClient): APIクライアント
+        horse (Dict): 更新対象の馬の情報
         prize (int): 新しい賞金額（円）
         
     Returns:
         bool: 更新が成功したかどうか
     """
     try:
-        now = datetime.now()
+        now = datetime.now().isoformat()
+        horse_id = horse['id']
         
         # 前回の賞金を取得
-        last_prize = db.scalar(
-            select(func.coalesce(func.max(HorsePrizeHistory.prize), 0))
-            .where(HorsePrizeHistory.horse_id == horse.id)
-        ) or 0
+        try:
+            response = db.get(f"horses/{horse_id}/prize_history")
+            last_prize = response.get('last_prize', 0) if response else 0
+        except Exception as e:
+            logger.error(f"馬ID {horse_id} の前回賞金の取得に失敗しました: {str(e)}")
+            last_prize = 0
         
         # 賞金履歴を記録
-        update_prize_history(db, horse.id, prize)
+        try:
+            db.post(f"horses/{horse_id}/prize_history", {"prize": prize, "recorded_at": now})
+            logger.info(f"馬ID {horse_id} の賞金履歴を更新しました: {prize}円")
+        except Exception as e:
+            logger.error(f"馬ID {horse_id} の賞金履歴の更新に失敗しました: {str(e)}")
+            raise
+        
+        update_data = {
+            "last_prize_update": now,
+            "total_prize_latest": prize
+        }
         
         # 賞金に変化がなかった場合
         if prize == last_prize:
+            update_interval_months = horse.get('update_interval_months', 3)
+            
             # 更新間隔を延長
-            if horse.update_interval_months < 12:  # 1年未満の場合
-                horse.update_interval_months *= 2
+            if update_interval_months < 12:  # 1年未満の場合
+                update_interval_months = min(update_interval_months * 2, 12)
             else:
-                horse.update_interval_months = 12  # 最大1年ごと
+                update_interval_months = 12  # 最大1年ごと
                 
             # 3年間変化がなければ引退とみなす
-            if horse.last_prize_update and (now - horse.last_prize_update).days >= 3 * 365:
-                horse.is_retired = True
-                horse.next_update_due_date = None
-                logger.info(f"馬ID {horse.id} は3年間賞金に変化がなかったため、引退とみなします")
+            last_update = datetime.fromisoformat(horse.get('last_prize_update', now))
+            if (datetime.fromisoformat(now) - last_update).days >= 3 * 365:
+                update_data.update({
+                    "is_retired": True,
+                    "next_update_due_date": None
+                })
+                logger.info(f"馬ID {horse_id} は3年間賞金に変化がなかったため、引退とみなします")
             else:
-                horse.next_update_due_date = now + relativedelta(months=horse.update_interval_months)
-                logger.info(f"馬ID {horse.id} の次回更新間隔を {horse.update_interval_months} ヶ月後に設定")
+                next_update = (datetime.fromisoformat(now) + relativedelta(months=update_interval_months)).isoformat()
+                update_data.update({
+                    "update_interval_months": update_interval_months,
+                    "next_update_due_date": next_update
+                })
+                logger.info(f"馬ID {horse_id} の次回更新間隔を {update_interval_months} ヶ月後に設定")
         else:
             # 賞金に変化があれば間隔をリセット
-            horse.update_interval_months = 3
-            horse.next_update_due_date = now + relativedelta(months=3)
-            logger.info(f"馬ID {horse.id} の賞金が更新されたため、更新間隔を3ヶ月にリセット")
+            next_update = (datetime.fromisoformat(now) + relativedelta(months=3)).isoformat()
+            update_data.update({
+                "update_interval_months": 3,
+                "next_update_due_date": next_update
+            })
+            logger.info(f"馬ID {horse_id} の賞金が更新されたため、更新間隔を3ヶ月にリセット")
         
-        # 最終更新日を更新
-        horse.last_prize_update = now
-        horse.total_prize_latest = prize
-        
-        db.add(horse)
-        db.commit()
-        db.refresh(horse)
-        
+        # 馬の情報を更新
+        db.patch(f"horses/{horse_id}", update_data)
         return True
         
     except Exception as e:
-        db.rollback()
-        logger.error(f"馬ID {horse.id} の賞金更新中にエラーが発生しました: {str(e)}", exc_info=True)
+        logger.error(f"馬ID {horse_id} の更新中にエラーが発生しました: {str(e)}")
         return False
 
-async def process_horse(scraper, db, horse: Horse):
+async def process_horse(scraper, db: APIClient, horse: Dict) -> bool:
     """個々の馬の賞金情報を更新する非同期関数
     
     Args:
-        scraper: KeibaBookScraper インスタンス
-        db: データベースセッション
-        horse (Horse): 更新対象の馬
+        scraper: スクレイピング用のクライアント
+        db: APIクライアント
+        horse: 更新対象の馬の情報（辞書形式）
         
     Returns:
         bool: 処理が成功したかどうか
     """
-    horse_name = horse.name
     try:
-        logger.info(f"馬 '{horse_name}' (ID: {horse.id}) の賞金情報を更新中...")
+        horse_id = horse['id']
+        horse_name = horse.get('name', f'ID:{horse_id}')
+        logger.info(f"馬 '{horse_name}' (ID: {horse_id}) の賞金情報を更新中...")
         
-        # 既存の馬を取得
-        existing_horse = db.query(Horse).filter(Horse.id == horse.id).first()
-        if not existing_horse:
-            logger.warning(f"馬ID {horse.id} は存在しません。スキップします。")
+        # スクレイピングで賞金情報を取得
+        prize = await scraper.get_horse_prize(horse_name)
+        
+        if prize is not None:
+            # 賞金情報を更新
+            return update_horse_prize(db, horse, prize)
+        else:
+            logger.warning(f"馬 '{horse_name}' (ID: {horse_id}) の賞金情報を取得できませんでした")
             return False
-        
-        # 賞金情報を更新
-        existing_horse.last_prize_update = datetime.utcnow()
-        existing_horse.next_update_due_date = datetime.utcnow() + relativedelta(months=6)
-        db.commit()
-        
-        return True
-        
+            
     except Exception as e:
-        db.rollback()
+        logger.error(f"馬 '{horse_name}' (ID: {horse_id}) の更新中にエラーが発生しました: {str(e)}")
         logger.error(f"馬 '{horse_name}' (ID: {horse.id}) の更新中にエラーが発生しました: {str(e)}", exc_info=True)
         return False
     finally:
