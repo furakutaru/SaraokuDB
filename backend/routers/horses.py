@@ -60,6 +60,63 @@ async def extract_disease_tags(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="DiseaseInfoExtractor could not be imported"
         )
+
+# 部分更新用のPATCHエンドポイント（PUTと同等のallowed_fieldsで部分更新）
+@router.patch("/{horse_id}", tags=["horses"])
+async def patch_horse(
+    horse_id: Annotated[int, Path(title="The ID of the horse to update", ge=1)],
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db)
+):
+    """馬の情報を部分更新するエンドポイント（PATCH）
+
+    許可されたフィールドのみ更新します。
+    """
+    try:
+        horse = db.query(Horse).filter(Horse.id == horse_id).first()
+        if not horse:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Horse not found")
+
+        allowed_fields = {
+            "current_prize",
+            "last_prize_update",
+            "update_interval_months",
+            "is_retired",
+            "next_update_due_date",
+        }
+
+        updated = False
+        for key, value in payload.items():
+            if key in allowed_fields:
+                setattr(horse, key, value)
+                updated = True
+
+        if not updated:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="更新可能なフィールドが含まれていません"
+            )
+
+        db.commit()
+        db.refresh(horse)
+
+        return {
+            "id": horse.id,
+            "current_prize": getattr(horse, "current_prize", None),
+            "last_prize_update": getattr(horse, "last_prize_update", None),
+            "update_interval_months": getattr(horse, "update_interval_months", None),
+            "is_retired": getattr(horse, "is_retired", None),
+            "next_update_due_date": getattr(horse, "next_update_due_date", None),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error patching horse: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error patching horse: {str(e)}"
+        )
     
     try:
         extractor = DiseaseInfoExtractor(logger=logger)
