@@ -433,7 +433,7 @@ async def process_horse(scraper, db, horse):
         logger.info(f"馬 '{horse_name}' (ID: {horse_id}) の賞金情報を更新中...")
         
         # スクレイピングで賞金情報を取得
-        prize = await scraper.get_horse_prize(horse_name)
+        prize = await scraper.scrape_horse_prize(horse_name)
         
         if prize is not None:
             # 賞金情報を更新
