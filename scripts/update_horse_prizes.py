@@ -179,12 +179,22 @@ class ApiClient:
 
 # データベースセッションを取得する関数
 def get_db():
-    """データベースセッションを取得する"""
-    db = SessionLocal()
+    """
+    APIクライアントを取得するジェネレータ
+    
+    Yields:
+        APIClient: APIクライアントインスタンス
+    """
     try:
-        yield db
+        client = APIClient()
+        yield client
+    except Exception as e:
+        logger.error(f"APIクライアントの初期化に失敗しました: {str(e)}")
+        raise
     finally:
-        db.close()
+        if 'client' in locals():
+            # 必要に応じてクリーンアップ処理を追加
+            pass
 
 class QueryBuilder:
     """APIを使用してSQLAlchemyのクエリをエミュレート"""
