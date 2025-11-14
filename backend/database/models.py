@@ -60,7 +60,6 @@ class Horse(Base):
     @damsire.setter
     def damsire(self, value):
         self.dam_sire = value
-    race_record = Column(Text)  # 通算成績 (JSON形式で保存)
     weight = Column(Integer)  # 最終出走馬体重
     total_prize_start = Column(Float)  # 出品時の地方賞金
     total_prize_latest = Column(Float)  # 最新の地方賞金
@@ -77,9 +76,7 @@ class Horse(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     scraped_at = Column(DateTime, nullable=True)  # スクレイピング日時
-    
-    # 統合されたレース記録
-    unified_race_records = Column(JSON, nullable=True, comment='統合されたレース記録（JSON形式）')
+    race_record = Column(Text, nullable=True, comment='レース記録（JSON形式）')  # 既存の race_record カラムを使用
     
     # リレーションシップ
     auction_histories = relationship(
