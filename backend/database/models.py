@@ -97,6 +97,14 @@ class Horse(Base):
         overlaps="latest_horse"  # 双方向リレーションシップの競合を解決
     )
     is_unsold = Column(Boolean, default=False, nullable=False, comment='最新のオークション情報から自動設定される主取りフラグ')
+
+    # 賞金履歴とのリレーションシップ
+    prize_histories = relationship(
+        "HorsePrizeHistory",
+        back_populates="horse",
+        order_by="HorsePrizeHistory.created_at.desc()",
+        cascade="all, delete-orphan"
+    )
     
     @property
     def is_unsold_property(self):
@@ -104,6 +112,21 @@ class Horse(Base):
         if self.latest_auction:
             return self.latest_auction.is_unsold
         return self.is_unsold
+
+
+class HorsePrizeHistory(Base):
+    """馬の賞金履歴を管理するモデル"""
+    __tablename__ = 'horse_prize_histories'
+    __table_args__ = {'schema': 'public'}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    horse_id = Column(Integer, ForeignKey('public.horses.id', name='fk_horse_prize_histories_horse_id_horses'), nullable=False, index=True)
+    prize = Column(Integer, nullable=False, comment='賞金額（円）')
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+
+    # リレーションシップ
+    horse = relationship("Horse", back_populates="prize_histories")
 
 
 class AuctionHistory(Base):

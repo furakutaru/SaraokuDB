@@ -200,6 +200,136 @@ async def get_horses(skip: int = 0, limit: int = 100, db: Session = Depends(get_
             detail=f"馬データの取得中にエラーが発生しました: {str(e)}"
         )
 
+# 単一の馬データを取得するエンドポイント
+@app.get("/api/horses/{horse_id}")
+async def get_horse_by_id(horse_id: int, db: Session = Depends(get_db_session)):
+    try:
+        horse = db.query(Horse).filter(Horse.id == horse_id).first()
+        if not horse:
+            raise HTTPException(status_code=404, detail="Horse not found")
+
+        def safe_json_parse(json_str, default=None):
+            try:
+                if json_str and isinstance(json_str, str):
+                    parsed = json.loads(json_str)
+                    if isinstance(parsed, list):
+                        return parsed[-1] if parsed else default
+                    return parsed
+                return json_str
+            except json.JSONDecodeError:
+                return json_str
+
+        return {
+            "id": horse.id,
+            "name": horse.name or "未登録",
+            "current_prize": getattr(horse, "current_prize", None),
+            "last_prize_update": getattr(horse, "last_prize_update", None),
+            "update_interval_months": getattr(horse, "update_interval_months", None),
+            "is_retired": getattr(horse, "is_retired", None),
+            "next_update_due_date": getattr(horse, "next_update_due_date", None),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching horse {horse_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+# 馬の情報を部分更新（PATCH）
+@app.patch("/api/horses/{horse_id}")
+async def patch_horse(
+    horse_id: int,
+    payload: dict,
+    db: Session = Depends(get_db_session),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        horse = db.query(Horse).filter(Horse.id == horse_id).first()
+        if not horse:
+            raise HTTPException(status_code=404, detail="Horse not found")
+
+        allowed_fields = {
+            "current_prize",
+            "last_prize_update",
+            "update_interval_months",
+            "is_retired",
+            "next_update_due_date",
+        }
+
+        updated = False
+        for key, value in payload.items():
+            if key in allowed_fields:
+                setattr(horse, key, value)
+                updated = True
+
+        if not updated:
+            raise HTTPException(status_code=400, detail="更新可能なフィールドが含まれていません")
+
+        db.commit()
+        db.refresh(horse)
+
+        return {
+            "id": horse.id,
+            "current_prize": getattr(horse, "current_prize", None),
+            "last_prize_update": getattr(horse, "last_prize_update", None),
+            "update_interval_months": getattr(horse, "update_interval_months", None),
+            "is_retired": getattr(horse, "is_retired", None),
+            "next_update_due_date": getattr(horse, "next_update_due_date", None),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error patching horse {horse_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+# 馬の情報を更新（PUT）
+@app.put("/api/horses/{horse_id}")
+async def put_horse(
+    horse_id: int,
+    payload: dict,
+    db: Session = Depends(get_db_session),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        horse = db.query(Horse).filter(Horse.id == horse_id).first()
+        if not horse:
+            raise HTTPException(status_code=404, detail="Horse not found")
+
+        allowed_fields = {
+            "current_prize",
+            "last_prize_update",
+            "update_interval_months",
+            "is_retired",
+            "next_update_due_date",
+        }
+
+        updated = False
+        for key, value in payload.items():
+            if key in allowed_fields:
+                setattr(horse, key, value)
+                updated = True
+
+        if not updated:
+            raise HTTPException(status_code=400, detail="更新可能なフィールドが含まれていません")
+
+        db.commit()
+        db.refresh(horse)
+
+        return {
+            "id": horse.id,
+            "current_prize": getattr(horse, "current_prize", None),
+            "last_prize_update": getattr(horse, "last_prize_update", None),
+            "update_interval_months": getattr(horse, "update_interval_months", None),
+            "is_retired": getattr(horse, "is_retired", None),
+            "next_update_due_date": getattr(horse, "next_update_due_date", None),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error putting horse {horse_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
 # オークション履歴を取得するエンドポイント
 @app.get("/api/auction_histories")
 async def get_auction_histories(skip: int = 0, limit: int = 100, db: Session = Depends(get_db_session)):

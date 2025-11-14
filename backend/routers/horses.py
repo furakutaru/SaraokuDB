@@ -21,7 +21,7 @@ handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s -
 
 # データベース関連のインポート
 from database import get_db
-from database.models import Horse, AuctionHistory, Horse as HorseModel
+from database.models import Horse, AuctionHistory, HorsePrizeHistory, Horse as HorseModel
 from database.schemas import HorseResponse, HorseCreate
 
 # サービスをインポート
@@ -673,3 +673,104 @@ async def get_horse_by_id(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting horse by ID: {str(e)}"
         )
+
+
+@router.post("/{horse_id}/prize-history", tags=["horses"])
+async def create_horse_prize_history(
+    horse_id: Annotated[int, Path(title="The ID of the horse to add prize history for", ge=1)],
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db)
+):
+    """指定された馬の賞金履歴を追加するエンドポイント"""
+    try:
+        prize = payload.get("prize")
+        if prize is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="'prize' フィールドは必須です"
+            )
+
+        horse = db.query(Horse).filter(Horse.id == horse_id).first()
+        if not horse:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Horse not found")
+
+        history = HorsePrizeHistory(horse_id=horse_id, prize=prize)
+        db.add(history)
+        db.commit()
+        db.refresh(history)
+
+        return {
+            "id": history.id,
+            "horse_id": history.horse_id,
+            "prize": history.prize,
+            "created_at": history.created_at.isoformat() if history.created_at else None,
+            "updated_at": history.updated_at.isoformat() if history.updated_at else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating horse prize history: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating horse prize history: {str(e)}"
+        )
+
+
+@router.put("/{horse_id}", tags=["horses"])
+async def update_horse(
+    horse_id: Annotated[int, Path(title="The ID of the horse to update", ge=1)],
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db)
+):
+    """馬の情報を部分更新するエンドポイント
+
+    主に賞金関連フィールド（current_prize, last_prize_update など）を更新することを想定
+    """
+    try:
+        horse = db.query(Horse).filter(Horse.id == horse_id).first()
+        if not horse:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Horse not found")
+
+        # 許可するフィールドのみ更新
+        allowed_fields = {
+            "current_prize",
+            "last_prize_update",
+            "update_interval_months",
+            "is_retired",
+            "next_update_due_date",
+        }
+
+        updated = False
+        for key, value in payload.items():
+            if key in allowed_fields:
+                setattr(horse, key, value)
+                updated = True
+
+        if not updated:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="更新可能なフィールドが含まれていません"
+            )
+
+        db.commit()
+        db.refresh(horse)
+
+        return {
+            "id": horse.id,
+            "current_prize": getattr(horse, "current_prize", None),
+            "last_prize_update": getattr(horse, "last_prize_update", None),
+            "update_interval_months": getattr(horse, "update_interval_months", None),
+            "is_retired": getattr(horse, "is_retired", None),
+            "next_update_due_date": getattr(horse, "next_update_due_date", None),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating horse: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating horse: {str(e)}"
+        )
+
