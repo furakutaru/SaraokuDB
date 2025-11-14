@@ -152,11 +152,19 @@ class ScraperClient:
             # データのコピーを作成（元データを変更しないため）
             data_to_send = horse_data.copy()
             
-            # race_records が辞書型の場合はリストに変換
-            if 'race_records' in data_to_send and isinstance(data_to_send['race_records'], dict):
-                data_to_send['race_records'] = [data_to_send['race_records']]
-            elif 'race_records' in data_to_send and data_to_send['race_records'] is None:
-                data_to_send['race_records'] = []
+            # race_records を race_record に変換
+            if 'race_records' in data_to_send:
+                if data_to_send['race_records'] is not None:
+                    if isinstance(data_to_send['race_records'], (dict, list)):
+                        # 辞書やリストの場合はJSON文字列に変換
+                        data_to_send['race_record'] = json.dumps(data_to_send['race_records'], ensure_ascii=False)
+                    else:
+                        data_to_send['race_record'] = data_to_send['race_records']
+                # 元の race_records は削除
+                del data_to_send['race_records']
+            # race_record が存在しない場合は空のJSONオブジェクトを設定
+            elif 'race_record' not in data_to_send or data_to_send.get('race_record') is None:
+                data_to_send['race_record'] = '{}'  # 空のJSONオブジェクトを表す文字列
             
             # 必須フィールドのバリデーションと型変換
             if 'image_url' not in data_to_send or data_to_send['image_url'] is None:

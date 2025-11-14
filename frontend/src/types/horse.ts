@@ -71,11 +71,15 @@ export interface BaseHorse {
 export interface RaceRecord {
   date: string;
   race_name: string;
-  // 病歴タグ
   disease_tags?: string[] | null;
-  
-  // その他のフィールド
-  [key: string]: any; // 動的プロパティ用
+  total_races?: number;
+  wins?: number;
+  record_format?: string;
+  formatted_record?: string;
+  total_prize_money?: number;
+  last_race_date?: string;
+  last_prize_update?: string;
+  [key: string]: any; // その他の動的プロパティ
 }
 
 // ==================== 馬の詳細情報 ====================

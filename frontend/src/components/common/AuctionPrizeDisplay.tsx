@@ -42,15 +42,11 @@ const AuctionPrizeDisplay: React.FC<AuctionPrizeDisplayProps> = ({
   // デバッグ用: raceRecordの構造を確認
   console.log('AuctionPrizeDisplay - parsedRaceRecord:', parsedRaceRecord);
   
-  // 未出走チェック: unified_race_records が true の場合のみ未出走とみなす
-  // race_record オブジェクト内の unified_race_records も確認
-  const unifiedRaceRecords = parsedRaceRecord.unified_race_records || 
-                           (parsedRaceRecord.race_record && parsedRaceRecord.race_record.unified_race_records);
-  
-  const isUnraced = unifiedRaceRecords === true;
+  // 未出走チェック: total_races が 0 の場合に未出走とみなす
+  const isUnraced = parsedRaceRecord.total_races === 0;
   
   // デバッグ用: 未出走判定のログを出力
-  console.log('AuctionPrizeDisplay - isUnraced:', isUnraced, 'unifiedRaceRecords:', unifiedRaceRecords);
+  console.log('AuctionPrizeDisplay - isUnraced:', isUnraced);
 
   // 未出走の場合は「未出走」を表示
   if (isUnraced) {
@@ -61,9 +57,7 @@ const AuctionPrizeDisplay: React.FC<AuctionPrizeDisplayProps> = ({
   const prizeDisplay = formatPrizeMan(totalPrizeStart, {
     ...parsedRaceRecord,
     total_prize_money: totalPrizeStart || 0,
-    is_unsold: isUnsold,
-    // 念のため、ここでも unified_race_records を渡す
-    unified_race_records: unifiedRaceRecords
+    is_unsold: isUnsold
   });
 
   return <span>{prizeDisplay}</span>;

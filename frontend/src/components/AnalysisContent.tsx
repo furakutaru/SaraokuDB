@@ -168,8 +168,7 @@ export default function AnalysisContent() {
             detail_url: horse.detail_url || '',
             jbis_url: horse.jbis_url || horse.jbisUrl || '', // jbis_url または jbisUrl のいずれかが存在する場合に設定
             comment: horse.comment,
-            race_record: horse.race_record,
-            race_records: horse.race_records
+            race_record: horse.race_record
           };
           
           // デバッグ用: 最初の数件の馬データをログに出力
@@ -224,8 +223,7 @@ export default function AnalysisContent() {
             total_prize_start: latestAuction?.total_prize_start || horse.total_prize_start,
             total_prize_latest: latestAuction?.total_prize_latest || horse.total_prize_latest,
             comment: latestAuction?.comment || horse.comment,
-            race_record: horse.race_record,
-            race_records: horse.race_records
+            race_record: horse.race_record
           } as HorseWithCalculations;
         });
 

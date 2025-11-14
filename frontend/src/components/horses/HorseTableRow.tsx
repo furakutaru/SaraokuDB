@@ -123,8 +123,6 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
             ...(typeof horse.race_record === 'string' 
               ? JSON.parse(horse.race_record) 
               : horse.race_record || {}),
-            // トップレベルの unified_race_records も含める
-            unified_race_records: horse.unified_race_records,
             // デバッグ用に horse オブジェクト全体をログに出力
             _debug_horse: JSON.parse(JSON.stringify(horse))
           }}

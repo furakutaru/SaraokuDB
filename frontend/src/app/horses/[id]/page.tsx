@@ -108,7 +108,7 @@ const formatPrice = (price: number | string | null | undefined): string => {
 // 落札価格を表示する関数
 const displayPrice = (horse: Horse, auctionHistory: AuctionHistory | null | undefined) => {
   // 未出走の場合は「未出走」を返す
-  if (horse.unified_race_records?.total_races === 0) {
+  if (horse.race_record?.total_races === 0) {
     return '未出走';
   }
   
@@ -189,15 +189,11 @@ const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
             updated_at: horseData.metadata?.updated_at || new Date().toISOString(),
             data_source: horseData.metadata?.data_source || 'jbis'
           },
-          // レコード情報（統合済み）
-          unified_race_records: {
-            total_races: horseData.race_record?.total_races || 0,
-            wins: horseData.race_record?.wins || 0,
-            record_format: horseData.race_record?.record_format,
-            formatted_record: horseData.race_record?.formatted_record,
-            total_prize_money: horseData.race_records?.total_prize_money || 0,
-            last_race_date: horseData.race_records?.last_race_date,
-            last_prize_update: horseData.race_records?.last_prize_update
+          // レコード情報
+          race_record: horseData.race_record || {
+            total_races: 0,
+            wins: 0,
+            total_prize_money: 0
           },
           // オークション情報
           latest_auction: horseData.latest_auction || null,
@@ -381,13 +377,13 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                   {/* レース戦績と血統情報 - 横並び表示 */}
                   <div className="space-y-4">
                     {/* レース戦績 */}
-                    {horse.unified_race_records && (
+                    {horse.race_record && (
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <span className="text-gray-600 font-medium whitespace-nowrap">獲得賞金：</span>
-                        <span>{formatPrize(horse.unified_race_records.total_prize_money, horse.unified_race_records)}</span>
-                        {horse.unified_race_records.last_race_date && (
+                        <span>{formatPrize(horse.race_record.total_prize_money, horse.race_record)}</span>
+                        {horse.race_record.last_race_date && (
                           <span className="ml-2 text-xs text-gray-500">
-                            (最終出走: {formatDate(horse.unified_race_records.last_race_date)})
+                            (最終出走: {formatDate(horse.race_record.last_race_date)})
                           </span>
                         )}
                       </div>
@@ -483,7 +479,7 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                   </div>
                   {auctionHistory?.price && (
                     <div className="mt-2 text-sm text-gray-600">
-                      {formatPrize(horse.unified_race_records?.total_prize_money, { unified_race_records: false })}
+                      {formatPrize(horse.race_record?.total_prize_money || 0, horse.race_record)}
                     </div>
                   )}
                 </div>
