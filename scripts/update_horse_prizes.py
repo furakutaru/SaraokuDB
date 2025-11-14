@@ -316,6 +316,18 @@ def get_horses_to_update(db: Session, batch_size: int = 10) -> List[Horse]:
             result_horses = []
             
             for horse_data in horses:
+                # race_records の処理
+                if 'race_records' in horse_data:
+                    if isinstance(horse_data['race_records'], str):
+                        try:
+                            horse_data['race_records'] = json.loads(horse_data['race_records'])
+                        except json.JSONDecodeError:
+                            horse_data['race_records'] = {}
+                    elif horse_data['race_records'] is None:
+                        horse_data['race_records'] = {}
+                else:
+                    horse_data['race_records'] = {}
+                
                 # 有効な属性のみを抽出（dam_sireは無視）
                 valid_horse_data = {k: v for k, v in horse_data.items() 
                                  if k in valid_attrs and k != 'dam_sire'}

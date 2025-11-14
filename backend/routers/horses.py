@@ -354,6 +354,18 @@ async def create_horse(
         logger.info("=== Starting create_horse endpoint ===")
         logger.info(f"Request data: {json.dumps(horse_data, ensure_ascii=False, default=str)}")
         
+        # race_records の処理
+        if 'race_records' in horse_data:
+            if isinstance(horse_data['race_records'], str):
+                try:
+                    horse_data['race_records'] = json.loads(horse_data['race_records'])
+                except json.JSONDecodeError:
+                    horse_data['race_records'] = {}
+            elif horse_data['race_records'] is None:
+                horse_data['race_records'] = {}
+        else:
+            horse_data['race_records'] = {}
+        
         # 必須フィールドのチェック
         required_fields = ["name", "sex", "sire", "dam", "damsire"]
         missing_fields = [field for field in required_fields if field not in horse_data or not horse_data[field]]

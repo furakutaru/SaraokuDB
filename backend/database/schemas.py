@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import List, Optional, Union, Dict, Any
 from datetime import datetime
 
@@ -6,7 +6,13 @@ class RaceRecordSummary(BaseModel):
     total_races: int = 0
     wins: int = 0
     record_format: str = "simple"
-    formatted_record: str = "0戦0勝"
+    formatted_record: Optional[str] = None
+
+    @field_validator('formatted_record', mode='before')
+    def format_record(cls, v, values):
+        if v is None and 'total_races' in values.data and 'wins' in values.data:
+            return f"{values.data['total_races']}戦{values.data['wins']}勝"
+        return v
 
 class HorseBase(BaseModel):
     name: str
@@ -42,6 +48,10 @@ class HorseBase(BaseModel):
     auction_url: Optional[str] = None
     color: Optional[str] = None  # 毛色（オプション）
     bid_count: Optional[int] = None  # 入札数
+    race_records: Optional[RaceRecordSummary] = Field(
+        default_factory=RaceRecordSummary,
+        description="レース記録のサマリー"
+    )
 
 class HorseCreate(HorseBase):
     pass
