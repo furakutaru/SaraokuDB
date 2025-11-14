@@ -126,6 +126,8 @@ jobs:
           python scripts/update_horse_prizes.py
         env:
           PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
+          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
           TOKEN: ${{ env.TOKEN }}
           AUTH_HEADER: ${{ env.AUTH_HEADER }}
           DATABASE_URL: ${{ env.DATABASE_URL }}
