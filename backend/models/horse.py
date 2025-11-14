@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Numeric
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Numeric, JSON
 from sqlalchemy.orm import relationship
 from .base import Base
 
@@ -23,6 +23,7 @@ class Horse(Base):
     next_update_due_date = Column(DateTime(timezone=True), comment='次回更新予定日')
     update_interval_months = Column(Integer, default=3, comment='更新間隔（月）')
     is_retired = Column(Boolean, default=False, comment='引退フラグ')
+    race_records = Column(JSON, nullable=True, comment='レース記録（JSON形式）')
     
     # リレーションシップ
     prize_histories = relationship("HorsePrizeHistory", back_populates="horse", cascade="all, delete-orphan")

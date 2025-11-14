@@ -11,6 +11,7 @@ class HorseBase(BaseModel):
     breed: Optional[str] = None
     age: Optional[int] = None
     disease_tags: Optional[List[str]] = None
+    race_records: Optional[dict] = None
 
 class HorseCreate(HorseBase):
     pass
@@ -19,6 +20,7 @@ class HorseUpdate(HorseBase):
     name: Optional[str] = None
     breed: Optional[str] = None
     age: Optional[int] = None
+    race_records: Optional[dict] = None
 
 class HorseInDBBase(HorseBase):
     id: int

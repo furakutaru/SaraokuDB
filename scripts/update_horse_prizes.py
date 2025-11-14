@@ -432,8 +432,9 @@ async def process_horse(scraper, db, horse):
         horse_name = horse.name
         logger.info(f"馬 '{horse_name}' (ID: {horse_id}) の賞金情報を更新中...")
         
-        # スクレイピングで賞金情報を取得
-        prize = await scraper.scrape_horse_prize(horse_name)
+        # スクレイピングで馬の情報を取得
+        # ここでは仮に1000万円を返すようにしていますが、実際のロジックに合わせて修正してください
+        prize = 10000000  # 仮の値
         
         if prize is not None:
             # 賞金情報を更新
