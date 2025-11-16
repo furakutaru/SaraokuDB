@@ -40,9 +40,10 @@ const formatDate = (dateString: string | undefined): string => {
 };
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Horse, AuctionHistory, HorseWithCalculations } from '@/types/horse';
 import { HorseTable } from './horses/HorseTable';
+import { FiltersPanel, type Filters } from '@/components/analytics/FiltersPanel';
 
 // HorseWithCalculations 型を使用
 
@@ -96,6 +97,19 @@ export default function AnalysisContent() {
   const [sortKey, setSortKey] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const router = useRouter();
+  const [filters, setFilters] = useState<Filters>({
+    sex: { male: true, female: true, gelding: true },
+    minAge: 0,
+    maxAge: 30,
+    sire: '',
+    minROI: 0,
+    maxROI: 0,
+    minPrice: 0,
+    maxPrice: 0,
+    disease: 'any',
+    minWeight: 0,
+    maxWeight: 0,
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -243,6 +257,11 @@ export default function AnalysisContent() {
     fetchData();
   }, []);
 
+  // フックは早期returnの前に呼び出す必要がある
+  const sireSuggestions = useMemo(() => {
+    return horses.map(h => h.sire).filter(Boolean) as string[];
+  }, [horses]);
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -250,17 +269,95 @@ export default function AnalysisContent() {
     return <div className="min-h-screen flex items-center justify-center text-red-600">{error || 'データがありません'}</div>;
   }
 
-  // 表示する馬のリストをフィルタリング
-  const filteredHorsesList = horses.filter(horse => {
-    if (showType === 'roi') {
-      return horse.roi !== undefined && horse.roi > 0;
-    } else if (showType === 'value') {
-      const price = horse.sold_price || 0;
-      const prize = horse.total_prize_latest || 0;
-      return price > 0 && prize > 0 && prize >= price * 2;
+  const hasDisease = (tags: any): boolean => {
+    if (tags === undefined || tags === null || tags === '') return false;
+    if (Array.isArray(tags)) {
+      if (tags.length === 0) return false;
+      return !tags.every(tag => {
+        const strTag = String(tag).trim();
+        return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
+      });
     }
+    const strTag = String(tags).trim();
+    return !(strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。');
+  };
+
+  const calcROIValue = (h: HorseWithCalculations): number => {
+    const sold = typeof h.sold_price === 'number' ? h.sold_price : 0;
+    const start = h.total_prize_start || 0;
+    const latest = h.total_prize_latest || 0;
+    const earned = latest - start;
+    if (!sold || sold <= 0) return 0;
+    return (earned * 10000) / sold;
+  };
+
+  const inSex = (h: HorseWithCalculations): boolean => {
+    const s = String(h.sex || '');
+    const okMale = filters.sex.male && s.includes('牡');
+    const okFemale = filters.sex.female && s.includes('牝');
+    const okGelding = filters.sex.gelding && s.includes('セ');
+    return okMale || okFemale || okGelding || (!filters.sex.male && !filters.sex.female && !filters.sex.gelding);
+  };
+
+  const inAge = (h: HorseWithCalculations): boolean => {
+    const a = typeof h.age === 'number' ? h.age : (h.age ? parseFloat(String(h.age)) : NaN);
+    if (Number.isNaN(a)) return true;
+    return a >= filters.minAge && a <= filters.maxAge;
+  };
+
+  const inSire = (h: HorseWithCalculations): boolean => {
+    if (!filters.sire) return true;
+    const lhs = String(h.sire || '').normalize('NFC').toLowerCase();
+    const rhs = String(filters.sire).normalize('NFC').toLowerCase();
+    return lhs.includes(rhs);
+  };
+
+  const inPrice = (h: HorseWithCalculations): boolean => {
+    const p = typeof h.sold_price === 'number' ? h.sold_price : 0;
+    if (filters.minPrice && p < filters.minPrice) return false;
+    if (filters.maxPrice && filters.maxPrice > 0 && p > filters.maxPrice) return false;
     return true;
-  });
+  };
+
+  const inROI = (h: HorseWithCalculations): boolean => {
+    const r = calcROIValue(h);
+    if (filters.minROI && r < filters.minROI) return false;
+    if (filters.maxROI && filters.maxROI > 0 && r > filters.maxROI) return false;
+    return true;
+  };
+
+  const inDisease = (h: HorseWithCalculations): boolean => {
+    if (filters.disease === 'any') return true;
+    const has = hasDisease((h as any).disease_tags);
+    return filters.disease === 'yes' ? has : !has;
+  };
+
+  const inWeight = (h: HorseWithCalculations): boolean => {
+    const w = h.weight == null ? NaN : (typeof h.weight === 'number' ? h.weight : parseFloat(String(h.weight)));
+    if (Number.isNaN(w)) return true;
+    if (filters.minWeight && w < filters.minWeight) return false;
+    if (filters.maxWeight && filters.maxWeight > 0 && w > filters.maxWeight) return false;
+    return true;
+  };
+
+  const filteredHorsesList = horses
+    .filter(inSex)
+    .filter(inAge)
+    .filter(inSire)
+    .filter(inPrice)
+    .filter(inROI)
+    .filter(inDisease)
+    .filter(inWeight)
+    .filter(horse => {
+      if (showType === 'roi') {
+        return calcROIValue(horse) > 0;
+      } else if (showType === 'value') {
+        const price = horse.sold_price || 0;
+        const prize = horse.total_prize_latest || 0;
+        return price > 0 && prize > 0 && prize >= price * 2;
+      }
+      return true;
+    });
 
   // ソート
   if (sortKey) {
@@ -329,6 +426,38 @@ export default function AnalysisContent() {
       return sum + (isFinite(rio) ? rio : 0);
     }, 0) / horses.length
   ) : 0;
+  
+  // 集計ヘルパー
+  const avg = (arr: number[]) => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+  const median = (arr: number[]) => {
+    if (!arr.length) return 0;
+    const s = [...arr].sort((a,b)=>a-b);
+    const m = Math.floor(s.length/2);
+    return s.length % 2 ? s[m] : (s[m-1] + s[m]) / 2;
+  };
+
+  // フィルタ済みデータに基づく基本配列
+  const prizes = filteredHorsesList
+    .map(h => (typeof h.total_prize_latest === 'number' ? h.total_prize_latest : 0))
+    .filter((n): n is number => typeof n === 'number');
+  const weights = filteredHorsesList
+    .map(h => (h.weight == null ? NaN : (typeof h.weight === 'number' ? h.weight : parseFloat(String(h.weight)))))
+    .filter((n): n is number => !Number.isNaN(n));
+  const ages = filteredHorsesList
+    .map(h => (typeof h.age === 'number' ? h.age : (h.age ? parseFloat(String(h.age)) : NaN)))
+    .filter((n): n is number => !Number.isNaN(n));
+  const rois = filteredHorsesList
+    .map(calcROIValue)
+    .filter((n): n is number => isFinite(n));
+  const diseaseYesCount = filteredHorsesList.filter(h => hasDisease((h as any).disease_tags)).length;
+  const diseaseRatio = filteredHorsesList.length ? (diseaseYesCount / filteredHorsesList.length) * 100 : 0;
+
+  // 性別グループ
+  const sexGroups: Record<string, HorseWithCalculations[]> = {
+    '牡': filteredHorsesList.filter(h => String(h.sex||'').includes('牡')),
+    '牝': filteredHorsesList.filter(h => String(h.sex||'').includes('牝')),
+    'セ': filteredHorsesList.filter(h => String(h.sex||'').includes('セ')),
+  };
   
   // 平均価格を計算してメタデータを更新
   if (metadata) {
@@ -551,6 +680,72 @@ export default function AnalysisContent() {
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="max-w-7xl mx-auto">
+        <div className="mb-6">
+          <FiltersPanel
+            filters={filters}
+            onChange={(next) => setFilters(prev => ({ ...prev, ...next }))}
+            onReset={() => setFilters({
+              sex: { male: true, female: true, gelding: true },
+              minAge: 0,
+              maxAge: 30,
+              sire: '',
+              minROI: 0,
+              maxROI: 0,
+              minPrice: 0,
+              maxPrice: 0,
+              disease: 'any',
+              minWeight: 0,
+              maxWeight: 0,
+            })}
+            sireSuggestions={sireSuggestions}
+          />
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+          <div className="bg-white rounded-md border p-4">
+            <div className="text-gray-500">頭数</div>
+            <div className="text-xl font-semibold">{filteredHorsesList.length}</div>
+          </div>
+          <div className="bg-white rounded-md border p-4">
+            <div className="text-gray-500">獲得賞金傾向</div>
+            <div className="text-sm">平均 {Math.round(avg(prizes)).toLocaleString()} 円</div>
+            <div className="text-sm">中央値 {Math.round(median(prizes)).toLocaleString()} 円</div>
+          </div>
+          <div className="bg-white rounded-md border p-4">
+            <div className="text-gray-500">馬体重傾向</div>
+            <div className="text-sm">平均 {avg(weights).toFixed(1)} kg</div>
+            <div className="text-sm">中央値 {median(weights).toFixed(1)} kg</div>
+          </div>
+          <div className="bg-white rounded-md border p-4">
+            <div className="text-gray-500">年齢別傾向</div>
+            <div className="text-sm">平均 {avg(ages).toFixed(2)} 歳</div>
+          </div>
+          <div className="bg-white rounded-md border p-4">
+            <div className="text-gray-500">ROI傾向</div>
+            <div className="text-sm">平均 {avg(rois).toFixed(1)}</div>
+            <div className="text-sm">中央値 {median(rois).toFixed(1)}</div>
+          </div>
+          <div className="bg-white rounded-md border p-4">
+            <div className="text-gray-500">病歴</div>
+            <div className="text-sm">{diseaseRatio.toFixed(1)}%</div>
+          </div>
+          <div className="bg-white rounded-md border p-4 md:col-span-2 lg:col-span-3">
+            <div className="text-gray-500 mb-1">性別傾向（平均・中央値）</div>
+            <div className="grid grid-cols-3 gap-4">
+              {(['牡','牝','セ'] as const).map(sex => {
+                const group = sexGroups[sex] || [];
+                const gPrizes = group.map((h: HorseWithCalculations) => h.total_prize_latest || 0);
+                return (
+                  <div key={sex} className="text-sm">
+                    <div className="font-medium">{sex}</div>
+                    <div>平均賞金 {Math.round(avg(gPrizes)).toLocaleString()} 円</div>
+                    <div>中央値賞金 {Math.round(median(gPrizes)).toLocaleString()} 円</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
         {/* サマリー 横並びテキスト */}
         <div className="mb-6 text-lg font-semibold text-gray-700 flex flex-wrap gap-8">
           <span>総馬数: {horses.length}</span>
