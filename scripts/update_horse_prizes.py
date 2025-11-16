@@ -276,7 +276,7 @@ from typing import Dict, Any, Optional
 
 # 更新間隔（日数）
 # テスト時: 1、本番環境: 90 に変更する
-UPDATE_INTERVAL_DAYS = 1
+UPDATE_INTERVAL_DAYS = 90
 
 # データベース接続設定
 DATABASE_URL = os.getenv('DATABASE_URL')
