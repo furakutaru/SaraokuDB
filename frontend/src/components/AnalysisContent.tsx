@@ -72,6 +72,20 @@ const groupAuctionHistory = (auctionHistory: AuctionHistory[]): Record<string, A
   }, {} as Record<string, AuctionHistory[]>);
 };
 
+const DEFAULT_FILTERS: Filters = {
+  sex: { male: true, female: true, gelding: true },
+  minAge: 0,
+  maxAge: 30,
+  sire: '',
+  minROI: 0,
+  maxROI: 0,
+  minPrice: 0,
+  maxPrice: 0,
+  disease: 'any',
+  minWeight: 0,
+  maxWeight: 0,
+};
+
 export default function AnalysisContent() {
   const [horses, setHorses] = useState<HorseWithCalculations[]>([]);
   const [filteredHorses, setFilteredHorses] = useState<HorseWithCalculations[]>([]);
@@ -97,19 +111,7 @@ export default function AnalysisContent() {
   const [sortKey, setSortKey] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const router = useRouter();
-  const [filters, setFilters] = useState<Filters>({
-    sex: { male: true, female: true, gelding: true },
-    minAge: 0,
-    maxAge: 30,
-    sire: '',
-    minROI: 0,
-    maxROI: 0,
-    minPrice: 0,
-    maxPrice: 0,
-    disease: 'any',
-    minWeight: 0,
-    maxWeight: 0,
-  });
+  const [filters, setFilters] = useState<Filters>({ ...DEFAULT_FILTERS });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -261,6 +263,73 @@ export default function AnalysisContent() {
   const sireSuggestions = useMemo(() => {
     return horses.map(h => h.sire).filter(Boolean) as string[];
   }, [horses]);
+
+  const isFiltered = useMemo(() => {
+    return JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS);
+  }, [filters]);
+
+  // CSVエクスポートユーティリティ
+  const toCsv = (rows: any[]) => {
+    const headers = [
+      '馬名','性別','年齢','父','馬体重','落札価格','落札時賞金','現在賞金','ROI','リンク','病歴'
+    ];
+    const escape = (v: any) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+    const lines = [headers.join(',')];
+    for (const h of rows) {
+      const disease = Array.isArray((h as any).disease_tags)
+        ? (h as any).disease_tags.join(' / ')
+        : ((h as any).disease_tags ?? '');
+      const link = h.detail_url || h.auction_url || '';
+      const weightVal = h.weight ?? h.display_weight ?? '';
+      const soldPrice = typeof h.sold_price === 'number' ? h.sold_price : (h.price ?? '');
+      const row = [
+        h.name ?? '',
+        h.sex ?? '',
+        h.age ?? '',
+        h.sire ?? '',
+        weightVal,
+        soldPrice,
+        h.total_prize_start ?? '',
+        h.total_prize_latest ?? '',
+        typeof h.roi === 'number' ? h.roi : h.display_roi ?? '',
+        link,
+        disease,
+      ].map(escape).join(',');
+      lines.push(row);
+    }
+    // UTF-8 BOM を付与
+    const csvContent = '\uFEFF' + lines.join('\n');
+    return csvContent;
+  };
+
+  const downloadCsv = (filename: string, content: string) => {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportAll = () => {
+    const csv = toCsv(horses);
+    downloadCsv('horses_all.csv', csv);
+  };
+
+  const handleExportFiltered = () => {
+    const csv = toCsv(filteredHorsesList);
+    downloadCsv('horses_filtered.csv', csv);
+  };
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -438,7 +507,7 @@ export default function AnalysisContent() {
 
   // フィルタ済みデータに基づく基本配列
   const prizes = filteredHorsesList
-    .map(h => (typeof h.total_prize_latest === 'number' ? h.total_prize_latest : 0))
+    .map(h => (typeof (h as any).total_prize_start === 'number' ? (h as any).total_prize_start : 0))
     .filter((n): n is number => typeof n === 'number');
   const weights = filteredHorsesList
     .map(h => (h.weight == null ? NaN : (typeof h.weight === 'number' ? h.weight : parseFloat(String(h.weight)))))
@@ -680,104 +749,110 @@ export default function AnalysisContent() {
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
+        <div className="mb-3">
           <FiltersPanel
             filters={filters}
             onChange={(next) => setFilters(prev => ({ ...prev, ...next }))}
-            onReset={() => setFilters({
-              sex: { male: true, female: true, gelding: true },
-              minAge: 0,
-              maxAge: 30,
-              sire: '',
-              minROI: 0,
-              maxROI: 0,
-              minPrice: 0,
-              maxPrice: 0,
-              disease: 'any',
-              minWeight: 0,
-              maxWeight: 0,
-            })}
+            onReset={() => setFilters({ ...DEFAULT_FILTERS })}
             sireSuggestions={sireSuggestions}
+            onExportAll={handleExportAll}
+            onExportFiltered={handleExportFiltered}
           />
         </div>
 
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-          <div className="bg-white rounded-md border p-4">
-            <div className="text-gray-500">頭数</div>
-            <div className="text-xl font-semibold">{filteredHorsesList.length}</div>
-          </div>
-          <div className="bg-white rounded-md border p-4">
-            <div className="text-gray-500">獲得賞金傾向</div>
-            <div className="text-sm">平均 {Math.round(avg(prizes)).toLocaleString()} 円</div>
-            <div className="text-sm">中央値 {Math.round(median(prizes)).toLocaleString()} 円</div>
-          </div>
-          <div className="bg-white rounded-md border p-4">
-            <div className="text-gray-500">馬体重傾向</div>
-            <div className="text-sm">平均 {avg(weights).toFixed(1)} kg</div>
-            <div className="text-sm">中央値 {median(weights).toFixed(1)} kg</div>
-          </div>
-          <div className="bg-white rounded-md border p-4">
-            <div className="text-gray-500">年齢別傾向</div>
-            <div className="text-sm">平均 {avg(ages).toFixed(2)} 歳</div>
-          </div>
-          <div className="bg-white rounded-md border p-4">
-            <div className="text-gray-500">ROI傾向</div>
-            <div className="text-sm">平均 {avg(rois).toFixed(1)}</div>
-            <div className="text-sm">中央値 {median(rois).toFixed(1)}</div>
-          </div>
-          <div className="bg-white rounded-md border p-4">
-            <div className="text-gray-500">病歴</div>
-            <div className="text-sm">{diseaseRatio.toFixed(1)}%</div>
-          </div>
-          <div className="bg-white rounded-md border p-4 md:col-span-2 lg:col-span-3">
-            <div className="text-gray-500 mb-1">性別傾向（平均・中央値）</div>
-            <div className="grid grid-cols-3 gap-4">
-              {(['牡','牝','セ'] as const).map(sex => {
-                const group = sexGroups[sex] || [];
-                const gPrizes = group.map((h: HorseWithCalculations) => h.total_prize_latest || 0);
-                return (
-                  <div key={sex} className="text-sm">
-                    <div className="font-medium">{sex}</div>
-                    <div>平均賞金 {Math.round(avg(gPrizes)).toLocaleString()} 円</div>
-                    <div>中央値賞金 {Math.round(median(gPrizes)).toLocaleString()} 円</div>
-                  </div>
-                );
-              })}
+        <div className="grid [grid-template-columns:minmax(0,1fr)_240px] gap-6 items-start">
+          <div className="min-w-0">
+            <div className="flex gap-4 mb-4">
+              <Button 
+                onClick={() => setShowType('all')} 
+                className={`${showType==='all' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 hover:bg-blue-500'} text-white hover:text-white`}
+              >
+                全馬
+              </Button>
+              <Button 
+                onClick={() => setShowType('roi')} 
+                className={`${showType==='roi' ? 'bg-green-600 hover:bg-green-700' : 'bg-green-400 hover:bg-green-500'} text-white hover:text-white`}
+              >
+                ROIランキング
+              </Button>
+              <CustomButton 
+                onClick={() => setShowType('value')}
+                active={showType === 'value'}
+              >
+                妙味馬
+              </CustomButton>
             </div>
+            <HorseTable 
+              horses={filteredHorsesList}
+              onRowClick={handleRowClick}
+            />
           </div>
+          <aside className="col-start-2 w-[240px]">
+            <div className="sticky top-4 space-y-4">
+              <div className="bg-white rounded-md border p-4 text-sm">
+                <div className="text-gray-500 mb-2">絞り込み結果の統計</div>
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs text-gray-500">頭数</div>
+                    <div className="text-base font-semibold">{filteredHorsesList.length}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">病歴</div>
+                    <div className="text-sm">{diseaseRatio.toFixed(1)}%</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">獲得賞金</div>
+                    <div className="text-xs">平均 {Math.round(avg(prizes)).toLocaleString()} 円</div>
+                    <div className="text-xs">中央値 {Math.round(median(prizes)).toLocaleString()} 円</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">馬体重</div>
+                    <div className="text-xs">平均 {avg(weights).toFixed(1)} kg</div>
+                    <div className="text-xs">中央値 {median(weights).toFixed(1)} kg</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">年齢</div>
+                    <div className="text-xs">平均 {avg(ages).toFixed(2)} 歳</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">ROI</div>
+                    <div className="text-xs">平均 {avg(rois).toFixed(1)}</div>
+                    <div className="text-xs">中央値 {median(rois).toFixed(1)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">性別別（賞金）</div>
+                    <div className="space-y-2 mt-1">
+                      {(['牡','牝','セ'] as const).map(sex => {
+                        const group = sexGroups[sex] || [];
+                        const gPrizes = group.map((h: HorseWithCalculations) => (h as any).total_prize_start || 0);
+                        return (
+                          <div key={sex} className="text-xs">
+                            <div className="font-medium">{sex}</div>
+                            <div>平 {Math.round(avg(gPrizes)).toLocaleString()}</div>
+                            <div>中 {Math.round(median(gPrizes)).toLocaleString()}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {!isFiltered && (
+                <div className="bg-white rounded-md border p-4 text-sm">
+                  <details open={false}>
+                    <summary className="cursor-pointer select-none text-gray-600">全体データ（折りたたみ）</summary>
+                    <div className="mt-3 space-y-2 text-xs">
+                      <div>総馬数: {horses.length}</div>
+                      <div>平均落札価格: {formatCurrency(metadata.average_price)}</div>
+                      <div>平均ROI: {avgRIO.toFixed(2)}%</div>
+                    </div>
+                  </details>
+                </div>
+              )}
+            </div>
+          </aside>
         </div>
-        {/* サマリー 横並びテキスト */}
-        <div className="mb-6 text-lg font-semibold text-gray-700 flex flex-wrap gap-8">
-          <span>総馬数: {horses.length}</span>
-          <span>平均落札価格: {formatCurrency(metadata.average_price)}</span>
-          <span>平均ROI: {avgRIO.toFixed(2)}%</span>
-        </div>
-        {/* 指標ボタン（白文字色付き） */}
-        <div className="flex gap-4 mb-6">
-          <Button 
-            onClick={() => setShowType('all')} 
-            className={`${showType==='all' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 hover:bg-blue-500'} text-white hover:text-white`}
-          >
-            全馬
-          </Button>
-          <Button 
-            onClick={() => setShowType('roi')} 
-            className={`${showType==='roi' ? 'bg-green-600 hover:bg-green-700' : 'bg-green-400 hover:bg-green-500'} text-white hover:text-white`}
-          >
-            ROIランキング
-          </Button>
-          <CustomButton 
-            onClick={() => setShowType('value')}
-            active={showType === 'value'}
-          >
-            妙味馬
-          </CustomButton>
-        </div>
-        {/* DataTable風の表 */}
-        <HorseTable 
-          horses={horses}
-          onRowClick={handleRowClick}
-        />
       </div>
     </div>
   );
