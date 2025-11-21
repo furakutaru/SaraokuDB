@@ -2,7 +2,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CustomButton } from '@/components/ui/CustomButton';
 import Link from 'next/link';
 
 // 通貨をフォーマットするヘルパー関数
@@ -107,7 +106,6 @@ export default function AnalysisContent() {
     average_price: 0,
     last_updated: new Date().toISOString(),
   });
-  const [showType, setShowType] = useState<'all' | 'roi' | 'value'>('all');
   const [sortKey, setSortKey] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const router = useRouter();
@@ -416,17 +414,7 @@ export default function AnalysisContent() {
     .filter(inPrice)
     .filter(inROI)
     .filter(inDisease)
-    .filter(inWeight)
-    .filter(horse => {
-      if (showType === 'roi') {
-        return calcROIValue(horse) > 0;
-      } else if (showType === 'value') {
-        const price = horse.sold_price || 0;
-        const prize = horse.total_prize_latest || 0;
-        return price > 0 && prize > 0 && prize >= price * 2;
-      }
-      return true;
-    });
+    .filter(inWeight);
 
   // ソート
   if (sortKey) {
@@ -587,33 +575,7 @@ export default function AnalysisContent() {
     }
   }
 
-  // 指標ボタン用データ
-  const roiRanking = [...horses]
-    .filter(h => {
-      const soldPrice = h.sold_price !== null && h.sold_price !== undefined ? 
-        (typeof h.sold_price === 'number' ? h.sold_price : 0) : 0;
-      return soldPrice > 0 && h.total_prize_latest;
-    })
-    .sort((a, b) => {
-      const aSoldPrice = a.sold_price !== null && a.sold_price !== undefined ? 
-        (typeof a.sold_price === 'number' ? a.sold_price : 0) : 0;
-      const bSoldPrice = b.sold_price !== null && b.sold_price !== undefined ? 
-        (typeof b.sold_price === 'number' ? b.sold_price : 0) : 0;
-      const aROI = a.total_prize_latest ? a.total_prize_latest / (aSoldPrice || 1) : 0;
-      const bROI = b.total_prize_latest ? b.total_prize_latest / (bSoldPrice || 1) : 0;
-      return bROI - aROI;
-    })
-    .slice(0, 10);
-
-  const valueHorses = horses.filter(h => {
-    const soldPrice = h.sold_price !== null && h.sold_price !== undefined ? 
-      (typeof h.sold_price === 'number' ? h.sold_price : 0) : 0;
-    const prizeStart = h.total_prize_start || 0;
-    const prizeLatest = h.total_prize_latest || 0;
-    const earnedPrize = prizeLatest - prizeStart;
-    const rio = soldPrice > 0 ? earnedPrize / soldPrice : 0;
-    return soldPrice > 0 && rio > avgRIO && soldPrice < (metadata?.average_price || 0);
-  });
+  // 旧: 指標ボタン用データ（不要のため削除）
 
   // 表示切替
   let tableHorses: HorseWithCalculations[] = [...filteredHorsesList];
@@ -762,26 +724,7 @@ export default function AnalysisContent() {
 
         <div className="grid [grid-template-columns:minmax(0,1fr)_240px] gap-6 items-start">
           <div className="min-w-0">
-            <div className="flex gap-4 mb-4">
-              <Button 
-                onClick={() => setShowType('all')} 
-                className={`${showType==='all' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 hover:bg-blue-500'} text-white hover:text-white`}
-              >
-                全馬
-              </Button>
-              <Button 
-                onClick={() => setShowType('roi')} 
-                className={`${showType==='roi' ? 'bg-green-600 hover:bg-green-700' : 'bg-green-400 hover:bg-green-500'} text-white hover:text-white`}
-              >
-                ROIランキング
-              </Button>
-              <CustomButton 
-                onClick={() => setShowType('value')}
-                active={showType === 'value'}
-              >
-                妙味馬
-              </CustomButton>
-            </div>
+            {/* 旧: 表示切替ボタン（削除） */}
             <HorseTable 
               horses={filteredHorsesList}
               onRowClick={handleRowClick}
