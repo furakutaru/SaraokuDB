@@ -13,6 +13,7 @@
 """
 
 import os
+import re
 import sys
 import time
 import argparse
@@ -37,6 +38,35 @@ HEADERS = {
     "Accept-Language": "ja,en-US;q=0.9,en;q=0.8"
 }
 
+
+def clean_horse_name(full_name: str) -> str:
+    """legacyスクリプトと同等の馬名クリーニングを実施"""
+    if not full_name:
+        return ""
+
+    # NBSPなどを半角スペースに正規化
+    normalized = (
+        full_name
+        .replace("\xa0", " ")
+        .replace("\u3000", " ")
+    )
+
+    # 「※」以降の注釈を落とす
+    if "※" in normalized:
+        normalized = normalized.split("※", 1)[0]
+
+    # 「〜の23」などのパターンが含まれる場合はそこまでを採用
+    match = re.match(r"^.*?の[0-9０-９]+", normalized)
+    if match:
+        return match.group(0).strip()
+
+    # 先頭の単語（半角／全角スペースまで）を取得
+    parts = re.split(r"[\s\u3000]+", normalized.strip())
+    if parts:
+        return parts[0]
+
+    return normalized.strip()
+
 def fetch_item_page(item_id: int) -> Optional[str]:
     url = f"{BASE_URL}{item_id}"
     try:
@@ -60,7 +90,8 @@ def parse_horse_from_html(html: str, item_id: int) -> Optional[Dict[str, Any]]:
     name_span = soup.find("span", attrs={"itemprop": "name"})
     if not name_span:
         return None
-    name = name_span.get_text(strip=True)
+    raw_name = name_span.get_text(strip=True)
+    name = clean_horse_name(raw_name)
     if not name or len(name) < 2:
         return None
 
