@@ -13,15 +13,14 @@
 """
 
 import os
-import re
 import sys
 import time
 import argparse
+import json
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 import requests
-from bs4 import BeautifulSoup
 
 # プロジェクトルートをPythonパスに追加
 PROJECT_ROOT = Path(__file__).parents[2]
@@ -32,6 +31,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from backend.database.models import SessionLocal  # DATABASE_URL 必須
 from backend.services.horse_service import HorseService
 
+from scripts.rakuten.detail_parser import parse_detail_html
+
 BASE_URL = "https://auction.keiba.rakuten.co.jp/item/"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -39,75 +40,38 @@ HEADERS = {
 }
 
 
-def clean_horse_name(full_name: str) -> str:
-    """legacyスクリプトと同等の馬名クリーニングを実施"""
-    if not full_name:
-        return ""
-
-    # NBSPなどを半角スペースに正規化
-    normalized = (
-        full_name
-        .replace("\xa0", " ")
-        .replace("\u3000", " ")
-    )
-
-    # 「※」以降の注釈を落とす
-    if "※" in normalized:
-        normalized = normalized.split("※", 1)[0]
-
-    # 「〜の23」などのパターンが含まれる場合はそこまでを採用
-    match = re.match(r"^.*?の[0-9０-９]+", normalized)
-    if match:
-        return match.group(0).strip()
-
-    # 先頭の単語（半角／全角スペースまで）を取得
-    parts = re.split(r"[\s\u3000]+", normalized.strip())
-    if parts:
-        return parts[0]
-
-    return normalized.strip()
-
 def fetch_item_page(item_id: int) -> Optional[str]:
     url = f"{BASE_URL}{item_id}"
     try:
         resp = requests.get(url, headers=HEADERS, timeout=15)
         if resp.status_code == 404:
+            print(f"[INFO] 404 Not Found: item_id={item_id} url={url}")
             return None
+        if resp.status_code != 200:
+            print(f"[WARN] HTTP {resp.status_code}: item_id={item_id} url={url}")
         resp.raise_for_status()
         return resp.text
-    except Exception:
+    except requests.exceptions.Timeout:
+        print(f"[WARN] Timeout fetching item_id={item_id} url={url}")
+        return None
+    except Exception as e:
+        print(f"[WARN] Error fetching item_id={item_id} url={url}: {e}")
         return None
 
 
-def parse_horse_from_html(html: str, item_id: int) -> Optional[Dict[str, Any]]:
-    """最小限、現行HorseServiceで保存可能な形へ整形。
-    必須: name, auction_id
-    取得できない情報は空でOK。
-    """
-    soup = BeautifulSoup(html, "html.parser")
-
-    # 馬名（商品名）
-    name_span = soup.find("span", attrs={"itemprop": "name"})
-    if not name_span:
-        return None
-    raw_name = name_span.get_text(strip=True)
-    name = clean_horse_name(raw_name)
-    if not name or len(name) < 2:
-        return None
-
-    # ここでは最低限の項目に留める（詳細解析は後続で拡張可能）
-    horse: Dict[str, Any] = {
-        "name": name,
-        "auction_id": str(item_id),
-        # 以下オプション項目（未取得でも可）
-        # 現行の同一馬マージロジックは name 基準を併用しているため、最低限 name + auction_id を保存
-        # 必要に応じて auction_date 等のフィールドを将来追加
-    }
-
-    # 性別/年齢など、HTML内に分かりやすい箇所があれば追加抽出（暫定: 未取得）
-    # 例: 詳細テーブルから取得する場合はここで soup.select(...) を実装
-
-    return horse
+def parse_horse_from_html(
+    html: str,
+    item_id: int,
+    *,
+    detail_url: Optional[str] = None,
+    fallback_auction_date: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    return parse_detail_html(
+        html,
+        item_id,
+        detail_url=detail_url,
+        fallback_auction_date=fallback_auction_date,
+    )
 
 
 def save_horse_via_service(service: HorseService, horse_data: Dict[str, Any]) -> bool:
@@ -134,6 +98,10 @@ def iter_ids(args) -> List[int]:
                     continue
                 if line.isdigit():
                     ids.append(int(line))
+        else:
+            print(f"[WARN] 指定された ids_file が見つかりません: {p}")
+        if not ids:
+            print(f"[WARN] ids_file に有効な数値IDが見つかりませんでした: {p}")
         return ids
     # range 指定
     if args.start_id is None or args.end_id is None:
@@ -151,6 +119,8 @@ def main():
     parser.add_argument("--sleep", type=float, default=0.6, help="各リクエスト間のスリープ秒数")
     parser.add_argument("--max-empty", type=int, default=50, help="連続で空ページが続いた場合の打ち切り閾値")
     parser.add_argument("--dry-run", action="store_true", help="保存せずに抽出のみ行う")
+    parser.add_argument("--auction-date", type=str, default=None, help="未取得時に適用する開催日 (YYYY-MM-DD)")
+    parser.add_argument("--update-only", action="store_true", help="更新のみ: 出品履歴に関わるフィールドを更新しない")
     args = parser.parse_args()
 
     # 前提: DATABASE_URL が環境変数で設定済み（backend.database.models 参照）
@@ -160,6 +130,13 @@ def main():
 
     ids = iter_ids(args)
     total = len(ids)
+    # デバッグ: 読み込んだIDの件数と先頭サンプルを表示
+    print(f"[INFO] 読み込んだID件数: {total}")
+    if total > 0:
+        sample = ids[:10]
+        print(f"[INFO] 先頭サンプルID: {sample}")
+    else:
+        print("[WARN] IDが1件も読み込めませんでした。--ids-file のパスや内容をご確認ください。")
 
     found = saved = 0
     for i, item_id in enumerate(ids, 1):
@@ -173,15 +150,55 @@ def main():
             continue
 
         empty_run = 0
-        horse = parse_horse_from_html(html, item_id)
+        detail_url = f"{BASE_URL}{item_id}"
+        horse = parse_horse_from_html(
+            html,
+            item_id,
+            detail_url=detail_url,
+            fallback_auction_date=args.auction_date,
+        )
         if not horse:
             time.sleep(args.sleep)
             continue
 
         found += 1
         if args.dry_run:
-            print(f"[DRY] {found}/{total} name={horse['name']} auction_id={horse['auction_id']}")
+            summary = [
+                f"name={horse['name']}",
+                f"auction_id={horse['auction_id']}",
+            ]
+            for key in ["sex", "age", "seller", "sold_price", "auction_date", "total_prize_latest", "image_url"]:
+                value = horse.get(key)
+                if value is not None and value != "":
+                    summary.append(f"{key}={value}")
+            # race_record 内の賞金系フォールバック値も併記
+            rr = horse.get("race_record")
+            try:
+                if rr:
+                    rr_obj = rr if isinstance(rr, dict) else json.loads(rr)
+                    for k in ["total_prize_money", "central_prize_money", "local_prize_money", "last_prize_update"]:
+                        if isinstance(rr_obj, dict) and k in rr_obj and rr_obj[k] is not None:
+                            summary.append(f"race_record.{k}={rr_obj[k]}")
+            except Exception:
+                pass
+            if args.update_only:
+                summary.append("mode=update-only")
+            print(f"[DRY] {found}/{total} " + " ".join(summary))
         else:
+            # 更新のみモード: 出品履歴に関わるフィールドを送らない
+            if args.update_only:
+                # 既存の履歴カラムや出品ステータスに影響しうるキーを除外
+                for k in [
+                    "auction_date",  # 履歴扱いの可能性
+                    "sold_price",    # 価格履歴
+                    "is_unsold",     # 主取りステータス
+                    "unsold_count",  # 主取り回数
+                    "seller",        # 出品者履歴
+                    "comment",       # コメント履歴
+                ]:
+                    if k in horse:
+                        horse.pop(k, None)
+            # 保存
             ok = save_horse_via_service(service, horse)
             if ok:
                 saved += 1

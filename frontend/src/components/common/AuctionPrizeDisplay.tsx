@@ -36,8 +36,16 @@ const AuctionPrizeDisplay: React.FC<AuctionPrizeDisplayProps> = ({
   console.log('AuctionPrizeDisplay - raceRecord:', raceRecord);
   console.log('AuctionPrizeDisplay - totalPrizeStart:', totalPrizeStart);
   
-  // raceRecordが文字列の場合はパースする
-  const parsedRaceRecord = typeof raceRecord === 'string' ? JSON.parse(raceRecord) : raceRecord || {};
+  // raceRecordが文字列の場合は安全にパースする
+  const parsedRaceRecord = (() => {
+    if (typeof raceRecord !== 'string') return raceRecord || {};
+    try {
+      return JSON.parse(raceRecord);
+    } catch (e) {
+      console.warn('AuctionPrizeDisplay: failed to parse raceRecord string. Fallback to {}. value=', raceRecord, e);
+      return {} as Record<string, any>;
+    }
+  })();
   
   // デバッグ用: raceRecordの構造を確認
   console.log('AuctionPrizeDisplay - parsedRaceRecord:', parsedRaceRecord);

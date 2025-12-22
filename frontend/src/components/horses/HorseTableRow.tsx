@@ -12,6 +12,18 @@ type HorseTableRowProps = {
 
 export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
   console.log('HorseTableRow - horse.race_record:', horse.race_record);
+  // race_record が文字列の場合に安全にパースするヘルパー
+  const safeParseRaceRecord = (value: unknown): Record<string, any> => {
+    if (typeof value !== 'string') {
+      return (value as Record<string, any>) || {};
+    }
+    try {
+      return JSON.parse(value);
+    } catch (e) {
+      console.warn('Failed to parse race_record string. Fallback to {}. value=', value, e);
+      return {};
+    }
+  };
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.tagName !== 'A' && target.tagName !== 'A') {
@@ -120,9 +132,7 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
       <td className="px-3 py-2">
         <AuctionPrizeDisplay
           raceRecord={{
-            ...(typeof horse.race_record === 'string' 
-              ? JSON.parse(horse.race_record) 
-              : horse.race_record || {}),
+            ...safeParseRaceRecord(horse.race_record),
             // デバッグ用に horse オブジェクト全体をログに出力
             _debug_horse: JSON.parse(JSON.stringify(horse))
           }}

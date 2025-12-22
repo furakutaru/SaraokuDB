@@ -277,6 +277,26 @@ async def get_horses(
                 except (json.JSONDecodeError, AttributeError, TypeError) as e:
                     logger.warning(f"Failed to parse race_record for horse {horse.id}: {e}")
                     is_unraced = False
+            # race_recordから賞金情報のフォールバックを抽出
+            fallback_total_prize_latest = None
+            try:
+                if horse.race_record:
+                    if isinstance(horse.race_record, str):
+                        parsed = json.loads(horse.race_record)
+                    else:
+                        parsed = horse.race_record
+                    if isinstance(parsed, dict):
+                        # よくあるキー名をチェック
+                        for k in [
+                            'total_prize_money', 'total_prize_latest', 'current_prize',
+                            'totalPrizeMoney', 'totalPrizeLatest'
+                        ]:
+                            if k in parsed and parsed[k] is not None:
+                                fallback_total_prize_latest = parsed[k]
+                                break
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                fallback_total_prize_latest = None
+
             horse_data = {
                 "id": horse.id,
                 "name": horse.name,
@@ -288,13 +308,16 @@ async def get_horses(
                 "race_record": horse.race_record or "未出走",
                 "weight": horse.weight,
                 "total_prize_start": horse.total_prize_start,
-                "total_prize_latest": horse.total_prize_latest,
+                # DB未設定時は race_record 内の total_prize_money 等をフォールバック
+                "total_prize_latest": horse.total_prize_latest if horse.total_prize_latest is not None else fallback_total_prize_latest,
                 "sold_price": horse.sold_price,
                 "auction_date": horse.auction_date,
                 "seller": horse.seller,
                 "disease_tags": horse.disease_tags,
                 "comment": horse.comment,
                 "image_url": horse.image_url,
+                # 画像のフォールバック: primary_image が未設定なら image_url を使用
+                "primary_image": getattr(horse, 'primary_image', None) or horse.image_url,
                 "detail_url": horse.detail_url,
                 "jbis_url": horse.jbis_url,
                 "is_unsold": horse.is_unsold if hasattr(horse, 'is_unsold') else False,
@@ -695,6 +718,25 @@ async def get_horse_by_id(
         unified_race_records = bool(is_unraced)
         
         # 馬の基本情報を返す
+        # 詳細APIでも total_prize_latest のフォールバックを用意
+        fallback_total_prize_latest = None
+        try:
+            if hasattr(horse, 'race_record') and horse.race_record:
+                if isinstance(horse.race_record, str):
+                    parsed_rr = json.loads(horse.race_record)
+                else:
+                    parsed_rr = horse.race_record
+                if isinstance(parsed_rr, dict):
+                    for k in [
+                        'total_prize_money', 'total_prize_latest', 'current_prize',
+                        'totalPrizeMoney', 'totalPrizeLatest'
+                    ]:
+                        if k in parsed_rr and parsed_rr[k] is not None:
+                            fallback_total_prize_latest = parsed_rr[k]
+                            break
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            fallback_total_prize_latest = None
+
         response_data = {
             "id": horse.id,
             "name": horse.name,
@@ -705,13 +747,16 @@ async def get_horse_by_id(
             "dam_sire": horse.dam_sire,
             "weight": horse.weight,
             "total_prize_start": horse.total_prize_start,
-            "total_prize_latest": horse.total_prize_latest,
+            # DB未設定時は race_record 内の total_prize_money 等をフォールバック
+            "total_prize_latest": horse.total_prize_latest if horse.total_prize_latest is not None else fallback_total_prize_latest,
             "sold_price": horse.sold_price,
             "auction_date": auction_date.isoformat() if hasattr(auction_date, 'isoformat') else auction_date,
             "seller": horse.seller,
             "disease_tags": horse.disease_tags,
             "comment": horse.comment,
             "image_url": horse.image_url,
+            # 画像のフォールバック: primary_image が未設定なら image_url を使用
+            "primary_image": getattr(horse, 'primary_image', None) or horse.image_url,
             "detail_url": horse.detail_url,
             "jbis_url": horse.jbis_url,
             "is_unsold": getattr(horse, 'is_unsold', False),

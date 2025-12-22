@@ -220,9 +220,15 @@ export function formatPrizeWithRaceCheck(
   console.log('formatPrizeWithRaceCheck - raceRecordInfo:', raceRecordInfo);
   
   // raceRecordInfo が文字列の場合はパース
-  const record = typeof raceRecordInfo === 'string' 
-    ? JSON.parse(raceRecordInfo) 
-    : raceRecordInfo || {};
+  const record = (() => {
+    if (typeof raceRecordInfo !== 'string') return raceRecordInfo || {};
+    try {
+      return JSON.parse(raceRecordInfo);
+    } catch (e) {
+      console.warn('formatPrizeWithRaceCheck: failed to parse raceRecordInfo string. Fallback to {}. value=', raceRecordInfo, e);
+      return {} as Record<string, any>;
+    }
+  })();
 
   // 値がnullまたはundefinedまたは空文字の場合は'-'を返す
   if (amount === null || amount === undefined || amount === '') {
