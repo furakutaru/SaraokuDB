@@ -74,58 +74,64 @@ export default function HorsesPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showOnlyLatestAuction, setShowOnlyLatestAuction] = useState(true);
   const [latestAuctionDate, setLatestAuctionDate] = useState<string | null>(null);
+  const [page, setPage] = useState<number>(1);
+  const [limit, setLimit] = useState<number>(24);
+  const [total, setTotal] = useState<number>(0);
 
-  // 馬データを取得
+  // 馬データを取得（バックエンドAPI + ページネーション）
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
-        // 統一された馬データを取得
-        const response = await fetch('/data/horses_combined.json');
-        
+
+        const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8001';
+
+        // 並び順のマッピング（価格と名前はサーバ側、年齢はクライアント側で実施）
+        let sortParam = 'price_desc';
+        if (sortBy === 'name') {
+          sortParam = sortOrder === 'asc' ? 'name_asc' : 'name_desc';
+        } else if (sortBy === 'price') {
+          sortParam = sortOrder === 'asc' ? 'price_asc' : 'price_desc';
+        }
+
+        const skip = (page - 1) * limit;
+        const latestParam = showOnlyLatestAuction ? 'true' : 'false';
+
+        const url = `${API_BASE}/api/horses?skip=${skip}&limit=${limit}&sort=${encodeURIComponent(sortParam)}&latest_auction=${latestParam}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        });
+
         if (!response.ok) {
           throw new Error('データの取得に失敗しました');
         }
 
-        const data: HorseData = await response.json();
-        
-        // メタデータから最新のオークション日を取得
-        if (data.metadata) {
-          setLatestAuctionDate(data.metadata.last_updated);
-        }
-        
-        // 馬データを取得して整形
-        const processedHorses = (data.horses || []).map(horse => {
-          // 最新のオークション情報を取得
-          const latestAuction = horse.auction_history && Array.isArray(horse.auction_history) && horse.auction_history.length > 0
-            ? [...horse.auction_history].sort((a, b) => 
-                new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime()
-              )[0]
-            : null;
-          
-          // 互換性のためのプロパティを追加
-          return {
-            ...horse,
-            // 基本情報
-            name: horse.basic_info?.name || '',
-            sex: horse.basic_info?.sex || '',
-            age: horse.basic_info?.age || 0,
-            sire: horse.basic_info?.sire || '',
-            dam: horse.basic_info?.dam || '',
-            damsire: horse.basic_info?.damsire || '',
-            // オークション情報
-            latest_auction: latestAuction,
-            sold_price: latestAuction?.sold_price || latestAuction?.price || null,
-            auction_date: latestAuction?.auction_date || '',
-            seller: latestAuction?.seller || '',
-            is_unsold: latestAuction?.is_unsold || false,
-            // レコード情報
-            race_records: horse.race_records || { total_prize_money: 0 }
-          };
-        });
+        const data = await response.json();
 
-        setHorses(processedHorses);
+        // メタデータから合計件数などを取得
+        if (data?.metadata) {
+          setTotal(Number(data.metadata.total || 0));
+          // latestAuctionDate はAPIからは取得できないため表示は抑制
+          setLatestAuctionDate(null);
+        }
+
+        let items: HorseType[] = data?.horses || [];
+
+        // 年齢ソートのみクライアント側で適用
+        if (sortBy === 'age') {
+          items = [...items].sort((a: any, b: any) => {
+            const va = a.age || 0;
+            const vb = b.age || 0;
+            if (va === vb) return 0;
+            return sortOrder === 'asc' ? va - vb : vb - va;
+          });
+        }
+
+        setHorses(items);
         setError(null);
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -136,7 +142,7 @@ export default function HorsesPage() {
     };
 
     fetchData();
-  }, []);
+  }, [page, limit, sortBy, sortOrder, showOnlyLatestAuction]);
 
   // フィルタリングとソートを適用した馬のリストを取得
   const filteredHorses = horses.filter(horse => {
@@ -147,12 +153,6 @@ export default function HorsesPage() {
       (horse.sire && horse.sire.toLowerCase().includes(searchLower)) ||
       (horse.dam && horse.dam.toLowerCase().includes(searchLower)) ||
       (horse.damsire && horse.damsire.toLowerCase().includes(searchLower));
-    
-    // 最新のオークションのみ表示する場合
-    if (showOnlyLatestAuction && latestAuctionDate) {
-      return matchesSearch && horse.auction_date === latestAuctionDate.split('T')[0];
-    }
-    
     return matchesSearch;
   });
 
@@ -224,13 +224,11 @@ export default function HorsesPage() {
     <div className="min-h-screen bg-gray-50">
       <Header pageTitle="直近追加の馬" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {latestAuctionDate && (
-          <div className="mb-8">
-            <p className="text-sm text-gray-600">
-              オークションの日付: {new Date(latestAuctionDate).toLocaleDateString('ja-JP', {year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'})} | {sortedHorses.length}頭
-            </p>
-          </div>
-        )}
+        <div className="mb-8">
+          <p className="text-sm text-gray-600">
+            一覧: {total}頭中 {(page - 1) * limit + 1} - {Math.min(page * limit, total)}件を表示
+          </p>
+        </div>
         
         {/* 検索とフィルター */}
         <div className="mb-6">
@@ -306,6 +304,29 @@ export default function HorsesPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* ページネーション */}
+        <div className="mt-8 flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            ページ {page} / {Math.max(1, Math.ceil(total / limit))}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || loading}
+            >
+              前へ
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => (p * limit < total ? p + 1 : p))}
+              disabled={page * limit >= total || loading}
+            >
+              次へ
+            </Button>
+          </div>
         </div>
       </div>
     </div>

@@ -76,13 +76,14 @@ const DEFAULT_FILTERS: Filters = {
   minAge: 0,
   maxAge: 30,
   sire: '',
-  minROI: 0,
-  maxROI: 0,
-  minPrice: 0,
-  maxPrice: 0,
+  // 未入力（null）はフィルタ無効を意味する
+  minROI: null,
+  maxROI: null,
+  minPrice: null,
+  maxPrice: null,
   disease: 'any',
-  minWeight: 0,
-  maxWeight: 0,
+  minWeight: null,
+  maxWeight: null,
 };
 
 export default function AnalysisContent() {
@@ -110,18 +111,23 @@ export default function AnalysisContent() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const router = useRouter();
   const [filters, setFilters] = useState<Filters>({ ...DEFAULT_FILTERS });
+  const [page, setPage] = useState<number>(1);
+  const [limit, setLimit] = useState<number>(50);
+  const [total, setTotal] = useState<number>(0);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
-        
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8001';
-        
-        // 馬データを取得
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8001';
+        const skip = (page - 1) * limit;
+        const sortParam = sortKey === 'sold_price' ? (sortOrder === 'asc' ? 'price_asc' : 'price_desc')
+                         : sortKey === 'name' ? (sortOrder === 'asc' ? 'name_asc' : 'name_desc')
+                         : 'price_desc';
+        // 馬データを取得（ページネーション）
         console.log('馬データの取得を開始します...');
-        const response = await fetch(`${apiBaseUrl}/api/horses`, { 
+        const response = await fetch(`${apiBaseUrl}/api/horses?skip=${skip}&limit=${limit}&sort=${encodeURIComponent(sortParam)}`, { 
           cache: 'no-store',
           headers: {
             'Content-Type': 'application/json',
@@ -148,34 +154,13 @@ export default function AnalysisContent() {
 
         const responseData = await response.json();
         console.log('APIレスポンスを受信しました:', responseData);
-        
-        // データのバリデーションと正規化
-        let data = [];
-        if (Array.isArray(responseData)) {
-          data = responseData;
-        } else if (responseData && typeof responseData === 'object') {
-          data = responseData.horses || responseData.data || 
-                 Object.values(responseData).filter((item: any) => 
-                   item && typeof item === 'object' && 'id' in item
-                 );
-        }
-        
-        if (!Array.isArray(data)) {
-          console.error('無効な馬データ形式です:', responseData);
-          throw new Error('無効なデータ形式です: 有効な馬データが見つかりません');
-        }
-        
-        console.log(`馬データを取得しました: ${data.length}件`);
-        
-        // デバッグ用: 最初の馬データの全フィールドをログに出力（データがある場合のみ）
-        if (data.length > 0) {
-          console.log('最初の馬データの全フィールド:', Object.keys(data[0]));
-          console.log('最初の馬データのjbis_url:', data[0].jbis_url || data[0].jbisUrl || '未設定');
-        } else {
-          console.warn('馬データが空です');
-        }
+        const list = Array.isArray(responseData) ? responseData : (responseData?.horses || []);
+        const apiTotal = Number(responseData?.metadata?.total || list.length || 0);
+        setTotal(apiTotal);
 
-        const horsesWithAuction = data.map((horse: any) => {
+        console.log(`馬データを取得しました: ${list.length}件 / 総数: ${apiTotal}`);
+
+        const horsesWithAuction = list.map((horse: any) => {
           const mappedHorse = {
             ...horse,
             dam_sire: horse.dam_sire || '',
@@ -196,12 +181,12 @@ export default function AnalysisContent() {
         setHorses(horsesWithAuction);
         // メタデータを更新
         const newMetadata = {
-          total: data.length,
-          count: data.length,
+          total: apiTotal,
+          count: list.length,
           total_auctions: 0,
           average_price: 0,
           last_updated: new Date().toISOString(),
-          total_horses: data.length
+          total_horses: apiTotal
         };
         
         setMetadata(newMetadata);
@@ -255,7 +240,7 @@ export default function AnalysisContent() {
     };
 
     fetchData();
-  }, []);
+  }, [page, limit, sortKey, sortOrder]);
 
   // フックは早期returnの前に呼び出す必要がある
   const sireSuggestions = useMemo(() => {
@@ -720,6 +705,24 @@ export default function AnalysisContent() {
             onExportAll={handleExportAll}
             onExportFiltered={handleExportFiltered}
           />
+        </div>
+
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm text-gray-600">
+            一覧: {total}頭中 {(page - 1) * limit + 1} - {Math.min(page * limit, total)} 件を表示
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1 || loading}
+            >前へ</Button>
+            <Button
+              variant="outline"
+              onClick={() => setPage(p => (p * limit < total ? p + 1 : p))}
+              disabled={page * limit >= total || loading}
+            >次へ</Button>
+          </div>
         </div>
 
         <div className="grid [grid-template-columns:minmax(0,1fr)_240px] gap-6 items-start">

@@ -8,13 +8,13 @@ export type Filters = {
   minAge: number;
   maxAge: number;
   sire: string;
-  minROI: number;
-  maxROI: number;
-  minPrice: number;
-  maxPrice: number;
+  minROI: number | null;
+  maxROI: number | null;
+  minPrice: number | null;
+  maxPrice: number | null;
   disease: 'any' | 'yes' | 'no';
-  minWeight: number;
-  maxWeight: number;
+  minWeight: number | null;
+  maxWeight: number | null;
 };
 
 type Props = {
@@ -65,18 +65,50 @@ export const FiltersPanel: React.FC<Props> = ({ filters, onChange, onReset, sire
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-700 whitespace-nowrap">ROI</span>
           <div className="flex items-center gap-1.5">
-            <input type="number" className="w-20 border rounded px-2 py-0.5 h-7 text-xs" value={filters.minROI} min={0} onChange={(e) => onChange({ minROI: parseFloat(e.target.value || '0') })} />
+            <input
+              type="number"
+              className="w-20 border rounded px-2 py-0.5 h-7 text-xs"
+              value={filters.minROI ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                onChange({ minROI: v === '' ? null : parseFloat(v) });
+              }}
+            />
             <span>〜</span>
-            <input type="number" className="w-20 border rounded px-2 py-0.5 h-7 text-xs" value={filters.maxROI} min={filters.minROI} onChange={(e) => onChange({ maxROI: parseFloat(e.target.value || '0') })} />
+            <input
+              type="number"
+              className="w-20 border rounded px-2 py-0.5 h-7 text-xs"
+              value={filters.maxROI ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                onChange({ maxROI: v === '' ? null : parseFloat(v) });
+              }}
+            />
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-700 whitespace-nowrap">落札価格</span>
           <div className="flex items-center gap-1.5">
-            <input type="number" className="w-24 border rounded px-2 py-0.5 h-7 text-xs" value={filters.minPrice} min={0} onChange={(e) => onChange({ minPrice: parseInt(e.target.value || '0', 10) })} />
+            <input
+              type="number"
+              className="w-24 border rounded px-2 py-0.5 h-7 text-xs"
+              value={filters.minPrice ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                onChange({ minPrice: v === '' ? null : parseInt(v, 10) });
+              }}
+            />
             <span>〜</span>
-            <input type="number" className="w-24 border rounded px-2 py-0.5 h-7 text-xs" value={filters.maxPrice} min={filters.minPrice} onChange={(e) => onChange({ maxPrice: parseInt(e.target.value || '0', 10) })} />
+            <input
+              type="number"
+              className="w-24 border rounded px-2 py-0.5 h-7 text-xs"
+              value={filters.maxPrice ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                onChange({ maxPrice: v === '' ? null : parseInt(v, 10) });
+              }}
+            />
           </div>
         </div>
 
@@ -92,9 +124,25 @@ export const FiltersPanel: React.FC<Props> = ({ filters, onChange, onReset, sire
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-700 whitespace-nowrap">馬体重</span>
           <div className="flex items-center gap-1.5">
-            <input type="number" className="w-20 border rounded px-2 py-0.5 h-7 text-xs" value={filters.minWeight} min={0} onChange={(e) => onChange({ minWeight: parseInt(e.target.value || '0', 10) })} />
+            <input
+              type="number"
+              className="w-20 border rounded px-2 py-0.5 h-7 text-xs"
+              value={filters.minWeight ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                onChange({ minWeight: v === '' ? null : parseInt(v, 10) });
+              }}
+            />
             <span>〜</span>
-            <input type="number" className="w-20 border rounded px-2 py-0.5 h-7 text-xs" value={filters.maxWeight} min={filters.minWeight} onChange={(e) => onChange({ maxWeight: parseInt(e.target.value || '0', 10) })} />
+            <input
+              type="number"
+              className="w-20 border rounded px-2 py-0.5 h-7 text-xs"
+              value={filters.maxWeight ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                onChange({ maxWeight: v === '' ? null : parseInt(v, 10) });
+              }}
+            />
           </div>
         </div>
       </div>

@@ -117,58 +117,68 @@ export default function AnalysisContent() {
   const [sortKey, setSortKey] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const router = useRouter();
+  const [page, setPage] = useState<number>(1);
+  const [limit, setLimit] = useState<number>(50);
+  const [total, setTotal] = useState<number>(0);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // 両方のJSONを並行して取得
-        const [horsesResponse, auctionHistoryResponse] = await Promise.all([
-          fetch('/data/horses.json'),
-          fetch('/data/auction_history.json')
-        ]);
 
-        if (!horsesResponse.ok || !auctionHistoryResponse.ok) {
+        const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8001';
+        const skip = (page - 1) * limit;
+        const url = `${API_BASE}/api/horses/with_auction_histories?skip=${skip}&limit=${limit}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
           throw new Error('データの取得に失敗しました');
         }
 
-        const horsesData = await horsesResponse.json();
-        const auctionHistory = await auctionHistoryResponse.json();
+        const payload = await response.json();
+
+        const horsesData = payload?.horses || [];
+        const auctionHistory = payload?.auction_histories || [];
 
         // オークション履歴を馬IDでグループ化
         const auctionHistoryByHorseId = groupAuctionHistory(auctionHistory);
-        
+
         // 馬データにオークション履歴をマージ
-        const horsesWithHistory = (horsesData.horses as HorseWithAuction[]).map(horse => {
-          const history = auctionHistoryByHorseId[horse.id] || [];
-          const latestAuction = history[0]; // 最新のオークション情報
-          
+        const horsesWithHistory = (horsesData as HorseWithAuction[]).map(horse => {
+          const history = auctionHistoryByHorseId[String(horse.id)] || [];
+          const latestAuction = history[0];
           return {
             ...horse,
             latest_auction: latestAuction || null,
-            sold_price: latestAuction?.sold_price || null,
-            is_unsold: latestAuction?.is_unsold || false,
-            auction_date: latestAuction?.auction_date || horse.auction_date,
-            seller: latestAuction?.seller || horse.seller,
-            weight: latestAuction?.weight ?? horse.weight ?? null,
-            total_prize_start: latestAuction?.total_prize_start || horse.total_prize_start,
-            total_prize_latest: latestAuction?.total_prize_latest || horse.total_prize_latest,
-            comment: latestAuction?.comment || horse.comment
+            sold_price: latestAuction?.sold_price ?? horse.sold_price ?? null,
+            is_unsold: latestAuction?.is_unsold ?? horse.is_unsold ?? false,
+            auction_date: latestAuction?.auction_date ?? horse.auction_date,
+            seller: latestAuction?.seller ?? horse.seller,
+            weight: latestAuction?.weight ?? (horse as any).weight ?? null,
+            total_prize_start: latestAuction?.total_prize_start ?? horse.total_prize_start,
+            total_prize_latest: latestAuction?.total_prize_latest ?? horse.total_prize_latest,
+            comment: latestAuction?.comment ?? horse.comment
           } as HorseWithAuction;
         });
 
         setData({
           horses: horsesWithHistory,
           auction_history: auctionHistory,
-          metadata: horsesData.metadata || {
-            total_horses: horsesWithHistory.length,
+          metadata: {
+            total_horses: Number(payload?.metadata?.total || horsesWithHistory.length),
             total_auctions: auctionHistory.length,
-            average_price: auctionHistory.length > 0 
-              ? auctionHistory.reduce((sum: number, h: AuctionHistory) => sum + (h.sold_price || 0), 0) / auctionHistory.length
-              : 0,
+            average_price: 0,
             last_updated: new Date().toISOString()
           }
         });
+
+        setTotal(Number(payload?.metadata?.total || 0));
       } catch (e: any) {
         console.error('データ取得エラー:', e);
         setError('データの読み込みに失敗しました: ' + e.message);
@@ -178,7 +188,7 @@ export default function AnalysisContent() {
     };
 
     fetchData();
-  }, []);
+  }, [page, limit]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -426,7 +436,7 @@ export default function AnalysisContent() {
       <div className="max-w-7xl mx-auto">
         {/* サマリー 横並びテキスト */}
         <div className="mb-6 text-lg font-semibold text-gray-700 flex flex-wrap gap-8">
-          <span>総馬数: {horses.length}</span>
+          <span>総馬数: {total || horses.length}</span>
           <span>平均落札価格: {formatCurrency(data.metadata.average_price)}</span>
           <span>平均ROI: {avgRIO.toFixed(2)}%</span>
         </div>
@@ -552,6 +562,29 @@ export default function AnalysisContent() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* ページネーション */}
+        <div className="mt-6 flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            ページ {page} / {Math.max(1, Math.ceil((total || 0) / limit))}（{(page - 1) * limit + 1} - {Math.min(page * limit, total || page * limit)} 件）
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1 || loading}
+            >
+              前へ
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setPage(p => (p * limit < (total || 0) ? p + 1 : p))}
+              disabled={page * limit >= (total || 0) || loading}
+            >
+              次へ
+            </Button>
+          </div>
         </div>
       </div>
     </div>
