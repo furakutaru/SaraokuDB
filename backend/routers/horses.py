@@ -9,7 +9,8 @@ from typing_extensions import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Body, Path
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, cast
+from sqlalchemy.types import Integer, Float
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
@@ -138,6 +139,17 @@ async def get_horses(
     auction_date: Optional[str] = None,
     latest_auction: str = 'false',
     include_latest_auction: str = 'true',
+    id: Optional[int] = None,
+    q: Optional[str] = None,
+    sex: Optional[str] = None,
+    min_age: Optional[int] = None,
+    max_age: Optional[int] = None,
+    min_price: Optional[int] = None,
+    max_price: Optional[int] = None,
+    min_weight: Optional[int] = None,
+    max_weight: Optional[int] = None,
+    min_roi: Optional[float] = None,
+    max_roi: Optional[float] = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -202,6 +214,65 @@ async def get_horses(
                 Horse.auction_date.like(f'%{auction_date}%')
             )
         
+        # 3.5 IDでフィルタリング（完全一致）
+        if id is not None:
+            query = query.filter(Horse.id == id)
+
+        # 3.6 クイック検索（部分一致: name/sire/dam/dam_sire）
+        if q:
+            like = f"%{q}%"
+            query = query.filter(
+                or_(
+                    Horse.name.like(like),
+                    Horse.sire.like(like),
+                    Horse.dam.like(like),
+                    Horse.dam_sire.like(like)
+                )
+            )
+
+        # 3.7 性別フィルタ（カンマ区切りで複数指定可。例: sex=牡,牝,セ）
+        if sex:
+            try:
+                sexes = [s.strip() for s in sex.split(',') if s.strip()]
+                if sexes:
+                    query = query.filter(Horse.sex.in_(sexes))
+            except Exception:
+                pass
+
+        # 3.8 年齢レンジ
+        # 年齢は文字列空値が含まれる可能性があるため空文字をNULL化してからCAST
+        age_num = cast(func.nullif(Horse.age, ''), Integer)
+        if min_age is not None:
+            query = query.filter(age_num >= int(min_age))
+        if max_age is not None:
+            query = query.filter(age_num <= int(max_age))
+
+        # 3.9 価格レンジ
+        # 価格も空文字があり得るためNULL化してからCAST
+        price_num = cast(func.nullif(Horse.sold_price, ''), Float)
+        if min_price is not None:
+            query = query.filter(price_num >= float(min_price))
+        if max_price is not None:
+            query = query.filter(price_num <= float(max_price))
+
+        # 3.10 体重レンジ
+        # 体重も空文字をNULL化
+        weight_num = cast(func.nullif(Horse.weight, ''), Float)
+        if min_weight is not None:
+            query = query.filter(weight_num >= float(min_weight))
+        if max_weight is not None:
+            query = query.filter(weight_num <= float(max_weight))
+
+        # 3.11 ROIレンジ（(total_prize_latest - total_prize_start) * 10000 / sold_price）
+        if min_roi is not None or max_roi is not None:
+            earned = (cast(Horse.total_prize_latest, Float) - cast(Horse.total_prize_start, Float))
+            pricef = cast(Horse.sold_price, Float)
+            query = query.filter(pricef.isnot(None), pricef > 0)
+            if min_roi is not None:
+                query = query.filter((earned * 10000.0) / pricef >= float(min_roi))
+            if max_roi is not None:
+                query = query.filter((earned * 10000.0) / pricef <= float(max_roi))
+
         # 4. 最新のオークション日でフィルタリング
         if latest_auction.lower() == 'true' and latest_date:
             # 最新のオークション日を直接指定してフィルタリング
@@ -243,6 +314,7 @@ async def get_horses(
         for horse in horses:
             # race_record をパースして unified_race_records を設定
             is_unraced = False
+            normalized_race_record = None
             
             if horse.race_record:
                 try:
@@ -255,29 +327,51 @@ async def get_horses(
                             if isinstance(parsed_record, list):
                                 total_races = len(parsed_record)
                                 is_unraced = total_races == 0
+                                normalized_race_record = {
+                                    "total_races": total_races,
+                                    "wins": 0,
+                                    "record_format": "simple",
+                                    "formatted_record": f"{total_races}戦0勝" if total_races > 0 else "未出走"
+                                }
                             # 辞書形式の場合は必要なフィールドを抽出
                             elif isinstance(parsed_record, dict):
                                 # シンプル形式の場合はそのまま使用
                                 if "formatted_record" in parsed_record:
                                     total_races = parsed_record.get("total_races", 0)
                                     is_unraced = total_races == 0
+                                    normalized_race_record = parsed_record
                                 # 詳細形式の場合はシンプル形式に変換
                                 elif "races" in parsed_record:
                                     total_races = parsed_record.get("races", 0)
                                     is_unraced = total_races == 0
+                                    normalized_race_record = {
+                                        "total_races": parsed_record.get("races", 0),
+                                        "wins": parsed_record.get("wins", 0),
+                                        "record_format": "simple",
+                                        "formatted_record": f"{parsed_record.get('races', 0)}戦{parsed_record.get('wins', 0)}勝"
+                                    }
                     # 文字列でない場合
                     elif isinstance(horse.race_record, dict):
                         record_dict = horse.race_record
                         if "formatted_record" in record_dict:
                             total_races = record_dict.get("total_races", 0)
                             is_unraced = total_races == 0
+                            normalized_race_record = record_dict
                         elif "races" in record_dict:
                             total_races = record_dict.get("races", 0)
                             is_unraced = total_races == 0
+                            normalized_race_record = {
+                                "total_races": record_dict.get("races", 0),
+                                "wins": record_dict.get("wins", 0),
+                                "record_format": "simple",
+                                "formatted_record": f"{record_dict.get('races', 0)}戦{record_dict.get('wins', 0)}勝"
+                            }
+                        
                 except (json.JSONDecodeError, AttributeError, TypeError) as e:
                     logger.warning(f"Failed to parse race_record for horse {horse.id}: {e}")
                     is_unraced = False
             # race_recordから賞金情報のフォールバックを抽出
+            fallback_total_prize_start = None
             fallback_total_prize_latest = None
             try:
                 if horse.race_record:
@@ -286,15 +380,18 @@ async def get_horses(
                     else:
                         parsed = horse.race_record
                     if isinstance(parsed, dict):
-                        # よくあるキー名をチェック
-                        for k in [
-                            'total_prize_money', 'total_prize_latest', 'current_prize',
-                            'totalPrizeMoney', 'totalPrizeLatest'
-                        ]:
+                        # start候補: total_prize_money/totalPrizeMoney（サラオク由来、固定）
+                        for k in ['total_prize_money', 'totalPrizeMoney']:
+                            if k in parsed and parsed[k] is not None:
+                                fallback_total_prize_start = parsed[k]
+                                break
+                        # latest候補: total_prize_latest/current_prize/totalPrizeLatest（最新系のみ）
+                        for k in ['total_prize_latest', 'current_prize', 'totalPrizeLatest']:
                             if k in parsed and parsed[k] is not None:
                                 fallback_total_prize_latest = parsed[k]
                                 break
             except (json.JSONDecodeError, TypeError, AttributeError):
+                fallback_total_prize_start = None
                 fallback_total_prize_latest = None
 
             horse_data = {
@@ -305,9 +402,9 @@ async def get_horses(
                 "sire": horse.sire,
                 "dam": horse.dam,
                 "dam_sire": horse.dam_sire,
-                "race_record": horse.race_record or "未出走",
+                "race_record": normalized_race_record or horse.race_record or "未出走",
                 "weight": horse.weight,
-                "total_prize_start": horse.total_prize_start,
+                "total_prize_start": horse.total_prize_start if horse.total_prize_start is not None else fallback_total_prize_start,
                 # DB未設定時は race_record 内の total_prize_money 等をフォールバック
                 "total_prize_latest": horse.total_prize_latest if horse.total_prize_latest is not None else fallback_total_prize_latest,
                 "sold_price": horse.sold_price,
@@ -365,7 +462,16 @@ async def get_latest_horses(
         最新のオークションに出品された馬の一覧
     """
     logger.info("Calling /horses/latest endpoint")
-    return await get_horses(request, skip, limit, sort, None, 'true', db)
+    return await get_horses(
+        request=request,
+        skip=skip,
+        limit=limit,
+        sort=sort,
+        auction_date=None,
+        latest_auction='true',
+        include_latest_auction='true',
+        db=db
+    )
 
 @router.get("/with_auction_histories", response_model=Dict[str, Any], tags=["horses"])
 async def get_horses_with_auction_histories(
@@ -681,6 +787,8 @@ async def get_horse_by_id(
                                     "record_format": "simple",
                                     "formatted_record": f"{parsed_record.get('races', 0)}戦{parsed_record.get('wins', 0)}勝"
                                 }
+                            else:
+                                pass
                 # 文字列でない場合
                 else:
                     record_dict = horse.race_record
@@ -694,6 +802,8 @@ async def get_horse_by_id(
                                 "record_format": "simple",
                                 "formatted_record": f"{record_dict.get('races', 0)}戦{record_dict.get('wins', 0)}勝"
                             }
+                        else:
+                            pass
                             # 賞金情報があれば取得
                             if "total_prize_money" in record_dict:
                                 race_records["total_prize_money"] = record_dict.get("total_prize_money", 0)
@@ -718,7 +828,8 @@ async def get_horse_by_id(
         unified_race_records = bool(is_unraced)
         
         # 馬の基本情報を返す
-        # 詳細APIでも total_prize_latest のフォールバックを用意
+        # 詳細APIでも start/latest のフォールバックを用意
+        fallback_total_prize_start = None
         fallback_total_prize_latest = None
         try:
             if hasattr(horse, 'race_record') and horse.race_record:
@@ -727,14 +838,18 @@ async def get_horse_by_id(
                 else:
                     parsed_rr = horse.race_record
                 if isinstance(parsed_rr, dict):
-                    for k in [
-                        'total_prize_money', 'total_prize_latest', 'current_prize',
-                        'totalPrizeMoney', 'totalPrizeLatest'
-                    ]:
+                    # start候補: total_prize_money/totalPrizeMoney
+                    for k in ['total_prize_money', 'totalPrizeMoney']:
+                        if k in parsed_rr and parsed_rr[k] is not None:
+                            fallback_total_prize_start = parsed_rr[k]
+                            break
+                    # latest候補: total_prize_latest/current_prize/totalPrizeLatest
+                    for k in ['total_prize_latest', 'current_prize', 'totalPrizeLatest']:
                         if k in parsed_rr and parsed_rr[k] is not None:
                             fallback_total_prize_latest = parsed_rr[k]
                             break
         except (json.JSONDecodeError, TypeError, AttributeError):
+            fallback_total_prize_start = None
             fallback_total_prize_latest = None
 
         response_data = {
@@ -746,7 +861,7 @@ async def get_horse_by_id(
             "dam": horse.dam,
             "dam_sire": horse.dam_sire,
             "weight": horse.weight,
-            "total_prize_start": horse.total_prize_start,
+            "total_prize_start": horse.total_prize_start if horse.total_prize_start is not None else fallback_total_prize_start,
             # DB未設定時は race_record 内の total_prize_money 等をフォールバック
             "total_prize_latest": horse.total_prize_latest if horse.total_prize_latest is not None else fallback_total_prize_latest,
             "sold_price": horse.sold_price,

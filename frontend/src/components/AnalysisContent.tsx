@@ -114,6 +114,9 @@ export default function AnalysisContent() {
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(50);
   const [total, setTotal] = useState<number>(0);
+  // 入力ボックス用と送信用の状態を分離
+  const [searchInput, setSearchInput] = useState<string>('');
+  const [search, setSearch] = useState<string>('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -127,7 +130,38 @@ export default function AnalysisContent() {
                          : 'price_desc';
         // 馬データを取得（ページネーション）
         console.log('馬データの取得を開始します...');
-        const response = await fetch(`${apiBaseUrl}/api/horses?skip=${skip}&limit=${limit}&sort=${encodeURIComponent(sortParam)}`, { 
+        // 検索パラメータ（数値のみの場合は id、文字列は q）
+        const trimmed = search.trim();
+        const isIdSearch = /^\d+$/.test(trimmed);
+        const idParam = trimmed && isIdSearch ? `&id=${encodeURIComponent(trimmed)}` : '';
+        const qParamFromSearch = trimmed && !isIdSearch ? `&q=${encodeURIComponent(trimmed)}` : '';
+
+        // フィルタをサーバー側へ渡す（全体データに対する絞り込み）
+        const sexValues: string[] = [];
+        if (filters.sex.male) sexValues.push('牡');
+        if (filters.sex.female) sexValues.push('牝');
+        if (filters.sex.gelding) sexValues.push('セ');
+        const sexParam = sexValues.length > 0 && sexValues.length < 3
+          ? `&sex=${encodeURIComponent(sexValues.join(','))}`
+          : '';
+
+        const minAgeParam = filters.minAge && filters.minAge > 0 ? `&min_age=${filters.minAge}` : '';
+        const maxAgeParam = (typeof filters.maxAge === 'number' && filters.maxAge < 30) ? `&max_age=${filters.maxAge}` : '';
+
+        const minPriceParam = filters.minPrice != null ? `&min_price=${filters.minPrice}` : '';
+        const maxPriceParam = filters.maxPrice != null ? `&max_price=${filters.maxPrice}` : '';
+
+        const minWeightParam = filters.minWeight != null ? `&min_weight=${filters.minWeight}` : '';
+        const maxWeightParam = filters.maxWeight != null ? `&max_weight=${filters.maxWeight}` : '';
+
+        const minRoiParam = filters.minROI != null ? `&min_roi=${filters.minROI}` : '';
+        const maxRoiParam = filters.maxROI != null ? `&max_roi=${filters.maxROI}` : '';
+
+        // sireが入力されている場合は q にも反映（既にsearchが文字列のときはsearch優先）
+        const qParamFromSire = (!trimmed && filters.sire) ? `&q=${encodeURIComponent(filters.sire)}` : '';
+
+        const url = `${apiBaseUrl}/api/horses?skip=${skip}&limit=${limit}&sort=${encodeURIComponent(sortParam)}${idParam}${qParamFromSearch}${sexParam}${minAgeParam}${maxAgeParam}${minPriceParam}${maxPriceParam}${minWeightParam}${maxWeightParam}${minRoiParam}${maxRoiParam}${qParamFromSire}`;
+        const response = await fetch(url, { 
           cache: 'no-store',
           headers: {
             'Content-Type': 'application/json',
@@ -240,7 +274,7 @@ export default function AnalysisContent() {
     };
 
     fetchData();
-  }, [page, limit, sortKey, sortOrder]);
+  }, [page, limit, sortKey, sortOrder, search, filters]);
 
   // フックは早期returnの前に呼び出す必要がある
   const sireSuggestions = useMemo(() => {
@@ -707,11 +741,35 @@ export default function AnalysisContent() {
           />
         </div>
 
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 gap-3">
           <div className="text-sm text-gray-600">
             一覧: {total}頭中 {(page - 1) * limit + 1} - {Math.min(page * limit, total)} 件を表示
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {/* クイック検索（IDまたは名前/血統） */}
+            <input
+              type="text"
+              className="border rounded px-2 py-1 h-8 text-xs w-[220px]"
+              placeholder="ID または 馬名/父/母/母父 で検索"
+              value={searchInput}
+              onChange={(e) => {
+                setSearchInput(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setPage(1);
+                  setSearch(searchInput);
+                }
+              }}
+            />
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPage(1);
+                setSearch(searchInput);
+              }}
+              disabled={loading}
+            >検索</Button>
             <Button
               variant="outline"
               onClick={() => setPage(p => Math.max(1, p - 1))}

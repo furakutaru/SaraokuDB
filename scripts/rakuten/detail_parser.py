@@ -403,6 +403,39 @@ def parse_detail_html(
     except Exception:
         logger.exception("HorseInfoExtractor.extract failed")
 
+    # HorseInfoExtractor で戦績が取れない場合の補完: 戦績抽出器で HTML から戦績を抽出し、既存の race_record とマージ
+    try:
+        rr_data, ok = _race_record_extractor.extract(str(soup))
+        if ok and rr_data:
+            existing_rr = None
+            try:
+                if result.race_record:
+                    existing_rr = json.loads(result.race_record) if isinstance(result.race_record, str) else result.race_record
+            except Exception:
+                existing_rr = None
+
+            merged: Dict[str, Any] = {}
+            if isinstance(existing_rr, dict):
+                merged.update(existing_rr)
+
+            # 既存に total_races / wins が無い場合のみ補完（賞金情報などは保持）
+            if merged.get("total_races") is None:
+                merged["total_races"] = rr_data.get("total_races", 0)
+            if merged.get("wins") is None:
+                merged["wins"] = rr_data.get("wins", 0)
+            if merged.get("record_format") is None:
+                merged["record_format"] = rr_data.get("record_format", "simple")
+            if rr_data.get("formatted_record") and merged.get("formatted_record") is None:
+                merged["formatted_record"] = rr_data.get("formatted_record")
+
+            # race_record が未設定だった場合は rr_data をそのまま使う
+            if not merged:
+                merged = rr_data
+
+            result.race_record = json.dumps(merged, ensure_ascii=False)
+    except Exception:
+        logger.exception("RaceRecordExtractor.merge failed")
+
     if not result.seller:
         try:
             seller_info, ok = _seller_extractor.extract(soup)
@@ -454,13 +487,13 @@ def parse_detail_html(
     result.image_url = _extract_image_url(soup)
     result.jbis_url = _extract_jbis_url(soup)
 
-    # 賞金情報（中央/地方/総）を詳細ページから抽出し、合算を total_prize_latest として反映
+    # 賞金情報（中央/地方/総）を詳細ページから抽出し、合算を total_prize_start（オークション時点）として反映
     prize_info = _extract_prize_info(html)
     total_prize_money = prize_info.get("total_prize_money")
     if total_prize_money is not None:
         try:
-            # dataclass のフィールドに直接設定
-            result.total_prize_latest = int(total_prize_money)
+            # dataclass のフィールドに直接設定（サラオクページは更新されないため開始賞金として保持）
+            result.total_prize_start = int(total_prize_money)
             # 既存の race_record があれば統合、無ければ賞金情報を持つ簡易レコードを作成
             race_record_payload: Dict[str, Any] = {}
             if result.race_record:
