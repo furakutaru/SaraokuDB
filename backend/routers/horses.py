@@ -305,10 +305,43 @@ async def get_horses(
             # デフォルトは価格の降順
             query = query.order_by(Horse.sold_price.desc())
         
-        # 6. ページネーションを適用
-        total = query.count()
-        horses = query.offset(skip).limit(limit).all()
-        
+        # 6. 重複（同一馬名）の除去をDB側で実施（高速化）
+        #    フィルタ適用後の集合に対して、nameでパーティションし、updated_atの新しい行のみ採用
+        filtered_subq = query.with_entities(
+            Horse.id.label('id'),
+            Horse.name.label('name'),
+            Horse.updated_at.label('updated_at')
+        ).subquery()
+
+        ranked_subq = db.query(
+            filtered_subq.c.id.label('id'),
+            filtered_subq.c.name.label('name'),
+            func.row_number().over(
+                partition_by=filtered_subq.c.name,
+                order_by=filtered_subq.c.updated_at.desc()
+            ).label('rn')
+        ).subquery()
+
+        rep_ids_subq = db.query(ranked_subq.c.id).filter(ranked_subq.c.rn == 1).subquery()
+
+        final_query = db.query(Horse).filter(Horse.id.in_(rep_ids_subq))
+
+        # 並べ替えを適用（DB側でソート）
+        if sort == 'price_desc':
+            final_query = final_query.order_by(Horse.sold_price.desc())
+        elif sort == 'price_asc':
+            final_query = final_query.order_by(Horse.sold_price.asc())
+        elif sort == 'name_asc':
+            final_query = final_query.order_by(Horse.name.asc())
+        elif sort == 'name_desc':
+            final_query = final_query.order_by(Horse.name.desc())
+        else:
+            final_query = final_query.order_by(Horse.sold_price.desc())
+
+        # ページネーション
+        total = final_query.count()
+        horses = final_query.offset(skip).limit(limit).all()
+
         # 7. 結果をシリアライズ
         horses_data = []
         for horse in horses:
@@ -676,9 +709,27 @@ async def get_horse_by_id(
         if not horse:
             raise HTTPException(status_code=404, detail="Horse not found")
         
-        # オークション履歴を取得（最新のものから順に）
+        # 同一個体は「同名のみ」で集約（父母一致は考慮せず）
+        # 表記ゆれ対策のため、半角/全角スペース・中黒を除去して一致判定
+        def _norm_name(n: str) -> str:
+            try:
+                return (n or '').replace(' ', '').replace('　', '').replace('・', '').strip()
+            except Exception:
+                return n or ''
+
+        norm_target = _norm_name(horse.name)
+        normalized_horse_name = func.replace(func.replace(func.replace(Horse.name, ' ', ''), '　', ''), '・', '')
+        candidate_query = db.query(Horse).filter(normalized_horse_name == norm_target)
+        siblings = candidate_query.all()
+        sibling_ids = [h.id for h in siblings] if siblings else [horse_id]
+
+        # 同名だが別horse_idに紐づく履歴も拾う（名前の揺れで結合できないケースを補完）
+        normalized_ah_name = func.replace(func.replace(func.replace(AuctionHistory.horse_name, ' ', ''), '　', ''), '・', '')
         auction_histories = db.query(AuctionHistory).filter(
-            AuctionHistory.horse_id == horse_id
+            or_(
+                AuctionHistory.horse_id.in_(sibling_ids),
+                normalized_ah_name == norm_target
+            )
         ).order_by(AuctionHistory.auction_date.desc()).all()
         
         # オークション履歴を辞書に変換するヘルパー関数
@@ -716,11 +767,83 @@ async def get_horse_by_id(
                 'user_id': getattr(ah, 'user_id', None)
             }
         
-        # オークション履歴をシリアライズ
-        auction_histories_list = [serialize_auction_history(ah) for ah in auction_histories]
-        
+        # オークション履歴をシリアライズし、IDベースで重複除去（安全最小限）
+        raw_histories = [serialize_auction_history(ah) for ah in auction_histories]
+        seen_ids = set()
+        auction_histories_list = []
+        for ah in raw_histories:
+            hid = ah.get('id')
+            if hid in seen_ids:
+                continue
+            seen_ids.add(hid)
+            auction_histories_list.append(ah)
+
         # 最新のオークション情報を取得（存在する場合）
         latest_auction_dict = auction_histories_list[0] if auction_histories_list else None
+
+        # もし履歴が1件以下しか見つからない場合は、同名の Horse 行から履歴相当の情報を補完
+        if len(auction_histories_list) <= 1 and siblings:
+            def parse_first_date(value):
+                try:
+                    if isinstance(value, str):
+                        parsed = json.loads(value)
+                        if isinstance(parsed, list) and parsed:
+                            return parsed[0]
+                        return value
+                    return value
+                except Exception:
+                    return value
+
+            for sib in siblings:
+                try:
+                    item = {
+                        'id': None,
+                        'horse_id': sib.id,
+                        'horse_name': getattr(sib, 'name', None),
+                        'sire_name': getattr(sib, 'sire', None),
+                        'dam_name': getattr(sib, 'dam', None),
+                        'damsire_name': getattr(sib, 'dam_sire', None),
+                        'auction_date': parse_first_date(getattr(sib, 'auction_date', None)),
+                        'price': None,
+                        'seller': getattr(sib, 'seller', None),
+                        'buyer': None,
+                        'auction_house': None,
+                        'auction_name': None,
+                        'lot_number': None,
+                        'auction_url': getattr(sib, 'detail_url', None),
+                        'is_unsold': getattr(sib, 'is_unsold', False),
+                        'created_at': getattr(sib, 'created_at', None).isoformat() if getattr(sib, 'created_at', None) else None,
+                        'updated_at': getattr(sib, 'updated_at', None).isoformat() if getattr(sib, 'updated_at', None) else None,
+                        'scraped_at': getattr(sib, 'scraped_at', None).isoformat() if getattr(sib, 'scraped_at', None) else None,
+                        'user_id': None
+                    }
+                    # sold_price が履歴配列文字列の場合は最新要素を使う
+                    sp = getattr(sib, 'sold_price', None)
+                    try:
+                        if isinstance(sp, str):
+                            parsed_sp = json.loads(sp)
+                            if isinstance(parsed_sp, list) and parsed_sp:
+                                item['price'] = parsed_sp[-1]
+                            else:
+                                item['price'] = None
+                        else:
+                            item['price'] = sp
+                    except Exception:
+                        item['price'] = None
+
+                    auction_histories_list.append(item)
+                except Exception:
+                    continue
+
+            # auction_date の降順で再ソート
+            def _key_date(x):
+                d = x.get('auction_date')
+                try:
+                    return d.isoformat() if hasattr(d, 'isoformat') else str(d)
+                except Exception:
+                    return str(d)
+            auction_histories_list.sort(key=_key_date, reverse=True)
+            latest_auction_dict = auction_histories_list[0] if auction_histories_list else latest_auction_dict
         
         # auction_date をパース
         auction_date = None

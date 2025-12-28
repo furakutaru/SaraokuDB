@@ -597,13 +597,16 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
       weight: horseBaseData.weight ?? null,
       is_unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsold ?? false) || (horseBaseData.unsold_count > 0),
       created_at: horseBaseData.created_at || new Date().toISOString(),
+      updated_at: horseBaseData.updated_at || new Date().toISOString(),
       detail_url: detailUrl,
+      auction_url: detailUrl,
       primary_image: horseBaseData.primary_image || horseBaseData.image_url || '',
       disease_tags: Array.isArray(horseBaseData.disease_tags) 
-        ? horseBaseData.disease_tags 
-        : (horseBaseData.disease_tags || '').split(',').filter(Boolean),
+        ? horseBaseData.disease_tags.join(',') 
+        : (horseBaseData.disease_tags || ''),
       // 非推奨プロパティ（互換性のため）
-      unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsound ?? false) || (horseBaseData.unsold_count > 0)
+      unsold: (horseBaseData.unsold ?? false) || (horseBaseData.is_unsound ?? false) || (horseBaseData.unsold_count > 0),
+      price: horseBaseData.sold_price ?? null
     };
 
     // デバッグ用にAPIレスポンスをログ出力
@@ -621,6 +624,9 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
     // APIから受け取ったJBIS URLをそのまま使用
     const jbisUrl = horseBaseData.jbis_url || '';
 
+    // auction_histories を取得（APIレスポンスに含まれている場合）
+    const apiAuctionHistories = Array.isArray(data?.auction_histories) ? data.auction_histories : [];
+    
     const horse: HorseWithPageProps = {
       // 基本情報
       id: horseBaseData.id ?? horseId,
@@ -634,7 +640,32 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
       
       // オークション情報
       auction_id: data?.auction_id || horseBaseData.auction_id, // APIレスポンスのルートからauction_idを取得
-      history: [historyEntry],
+      auction_histories: apiAuctionHistories, // APIレスポンスから auction_histories を追加
+      history: apiAuctionHistories.length > 0 ? apiAuctionHistories.map((h: any) => ({
+        id: h.id || h.horse_id || `temp-${Date.now()}-${Math.random()}`,
+        horse_id: h.horse_id || horseBaseData.id || `temp-horse-${Date.now()}`,
+        auction_date: h.auction_date || new Date().toISOString().split('T')[0],
+        sold_price: h.price ?? h.sold_price ?? null,
+        total_prize_start: 0,
+        total_prize_latest: 0,
+        weight: null,
+        seller: h.seller || '不明',
+        is_unsold: h.is_unsold ?? false,
+        comment: horseBaseData.comment || '', // 現在の馬データのコメントを使用
+        created_at: h.created_at || new Date().toISOString(),
+        updated_at: h.updated_at || new Date().toISOString(),
+        detail_url: h.auction_url || null,
+        auction_url: h.auction_url || null,
+        price: h.price || null,
+        name: h.horse_name || horseBaseData.name || '不明',
+        sex: horseBaseData.sex || '不明',
+        age: Number(horseBaseData.age) || 0,
+        race_record: horseBaseData.race_record || null,
+        primary_image: horseBaseData.primary_image || horseBaseData.image_url || null,
+        disease_tags: Array.isArray(horseBaseData.disease_tags) ? horseBaseData.disease_tags.join(',') : (horseBaseData.disease_tags || ''),
+        unsold: h.is_unsold ?? false,
+        unified_race_records: horseBaseData.unified_race_records || false
+      })) : [historyEntry],
       sold_price: horseBaseData.sold_price ?? null,
       total_prize_start: horseBaseData.total_prize_start ?? 0,
       total_prize_latest: typeof horseBaseData.total_prize_latest === 'string' 
@@ -663,6 +694,7 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
         : (horseBaseData.disease_tags || '').split(',').filter(Boolean),
       created_at: horseBaseData.created_at || new Date().toISOString(),
       updated_at: horseBaseData.updated_at || new Date().toISOString(),
+      comment: horseBaseData.comment || '', // コメントフィールドを追加
       
       // 表示用
       display_price: formatPrizeFromYen(horseBaseData.sold_price || 0),
@@ -691,6 +723,8 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
     // HorseWithPageProps に変換するヘルパー関数
     const toHorseWithPageProps = (horse: HorseWithPageProps): HorseWithPageProps => ({
       ...horse,
+      // auction_histories を保持
+      auction_histories: (horse as any).auction_histories || [],
       // 必須プロパティを上書き
       history: Array.isArray(horse.history) 
         ? horse.history.map(h => ({
@@ -705,7 +739,7 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
             weight: h.weight ?? null,
             seller: (h as any).seller || '不明',
             is_unsold: (h as any).is_unsold || (h as any).unsold || false,
-            comment: (h as any).comment || '',
+            comment: (h as any).comment || horse.comment || '',
             created_at: (h as any).created_at || new Date().toISOString(),
             // 拡張プロパティ
             name: (h as any).name || horse.name || '不明',
@@ -743,7 +777,9 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
       rakuten_url: (horse as any).rakuten_url || '',
       auction_url: (horse as any).auction_url || '',
       unsold_count: (horse as any).unsold_count || 0,
-      dam_sire: (horse as any).dam_sire || (horse as any).damsire || '不明'
+      dam_sire: (horse as any).dam_sire || (horse as any).damsire || '不明',
+      // コメントフィールドを保持
+      comment: (horse as any).comment || ''
     });
 
     const horseWithPageProps = toHorseWithPageProps(horse);
@@ -935,15 +971,50 @@ export default function HorseDetailPage({ params }: PageProps) {
           throw new Error('馬のデータが見つかりませんでした');
         }
         
-        // オークション履歴を取得
-        const auctionHistoriesData = await getAuctionHistories(horseId);
+        // オークション履歴を取得（詳細APIのレスポンスに含まれていればそれを優先、なければ従来APIを呼ぶ）
+        const apiAuctionHistories = Array.isArray((horseData as any)?.auction_histories) && (horseData as any).auction_histories.length > 0
+          ? (horseData as any).auction_histories
+          : null;
+        const auctionHistoriesData = apiAuctionHistories ?? await getAuctionHistories(horseId);
+        
+        console.log('Debug - auction_histories check:', {
+          hasApiHistories: !!apiAuctionHistories,
+          apiHistoriesCount: apiAuctionHistories?.length || 0,
+          fetchedHistoriesCount: auctionHistoriesData?.length || 0,
+          horseDataHasHistories: !!(horseData as any)?.auction_histories,
+          horseDataHistoriesLength: Array.isArray((horseData as any)?.auction_histories) ? (horseData as any).auction_histories.length : 0
+        });
         
         // AuctionHistory を ExtendedAuctionHistory に変換
-        const extendedAuctionHistories: ExtendedAuctionHistory[] = auctionHistoriesData.map(history => ({
+        const extendedAuctionHistories: ExtendedAuctionHistory[] = (auctionHistoriesData as any[]).map((history: any) => ({
           ...history,
-          // sold_price を数値に変換（文字列の場合はパース、nullの場合はそのまま）
-          sold_price: history.sold_price ? Number(history.sold_price) : null,
-          // その他の必要なプロパティがあればここで追加
+          // sold_price を数値に変換（price または sold_price から取得）
+          sold_price: history.price ? Number(history.price) : (history.sold_price ? Number(history.sold_price) : null),
+          // price も sold_price にマッピング
+          price: history.price || history.sold_price || null,
+          // 必須プロパティを確実に設定
+          id: history.id || history.horse_id || `temp-${Date.now()}-${Math.random()}`,
+          horse_id: history.horse_id || horseData.id || `temp-horse-${Date.now()}`,
+          auction_date: history.auction_date || new Date().toISOString().split('T')[0],
+          name: history.horse_name || history.name || horseData.name || '不明',
+          sex: history.sex || horseData.sex || '不明',
+          age: Number(history.age) || Number(horseData.age) || 0,
+          seller: history.seller || '不明',
+          is_unsold: history.is_unsold ?? false,
+          unsold: history.is_unsold ?? false,
+          // コメントは履歴に固有のものがあればそれを使用、なければ現在の馬データのコメントを使用
+          comment: history.comment || (horseData as any).comment || '',
+          detail_url: history.auction_url || history.detail_url || null,
+          auction_url: history.auction_url || null,
+          race_record: history.race_record || (horseData as any).race_record || null,
+          primary_image: history.primary_image || horseData.primary_image || horseData.image_url || null,
+          disease_tags: history.disease_tags || (horseData as any).disease_tags || null,
+          total_prize_start: history.total_prize_start ?? 0,
+          total_prize_latest: history.total_prize_latest ?? 0,
+          weight: history.weight ?? null,
+          created_at: history.created_at || new Date().toISOString(),
+          updated_at: history.updated_at || new Date().toISOString(),
+          unified_race_records: history.unified_race_records ?? horseData.unified_race_records ?? false
         }));
         
         // ExtendedAuctionHistory を AuctionHistory に変換
@@ -956,8 +1027,8 @@ export default function HorseDetailPage({ params }: PageProps) {
         // 馬データにオークション履歴をマージ
         const horseWithHistories: HorseWithPageProps = {
           ...horseData,
-          auction_histories: formattedAuctionHistories,
-          history: extendedAuctionHistories // 互換性のため
+          auction_histories: formattedAuctionHistories,  // フォーマット済みのオークション履歴を使用
+          history: formattedAuctionHistories  // historyにも同じものを設定
         };
         
         console.log('Fetched horse data with histories:', {
@@ -972,16 +1043,20 @@ export default function HorseDetailPage({ params }: PageProps) {
         // 状態を更新
         setHorse(horseWithHistories);
         
-        // コメントがあるかチェック
+        // コメントがあるかチェック（horseWithHistories から取得）
         let hasAnyComment = false;
         let latestHistoryItem: ExtendedAuctionHistory | null = null;
         
-        if (horseData.history?.length > 0) {
-          hasAnyComment = horseData.history.some(h => h.comment && h.comment.trim() !== '');
-          console.log('Has comments in history:', hasAnyComment);
+        // 馬データのコメントもチェック
+        const horseComment = (horseWithHistories as any).comment || (horseData as any).comment || '';
+        const hasHorseComment = horseComment && horseComment.trim() !== '';
+        
+        if (horseWithHistories.history?.length > 0) {
+          hasAnyComment = horseWithHistories.history.some(h => h.comment && h.comment.trim() !== '') || hasHorseComment;
+          console.log('Has comments in history:', hasAnyComment, 'hasHorseComment:', hasHorseComment, 'horseComment length:', horseComment?.length);
           
           // 最新の履歴をセット（ソートして最新の1件を取得）
-          const sortedHistory = [...horseData.history].sort((a, b) => {
+          const sortedHistory = [...horseWithHistories.history].sort((a, b) => {
             const dateA = Array.isArray(a.auction_date) ? a.auction_date[0] : a.auction_date || '';
             const dateB = Array.isArray(b.auction_date) ? b.auction_date[0] : b.auction_date || '';
             return new Date(dateB).getTime() - new Date(dateA).getTime();
@@ -997,12 +1072,17 @@ export default function HorseDetailPage({ params }: PageProps) {
           if (isExtendedAuctionHistory(latestHistoryItem)) {
             console.log('Latest history:', {
               id: latestHistoryItem.id,
-              comment: latestHistoryItem.comment,
+              comment: latestHistoryItem.comment?.substring(0, 100),
+              commentLength: latestHistoryItem.comment?.length,
               disease_tags: latestHistoryItem.disease_tags
             });
           } else {
             console.log('No history available or invalid history item');
           }
+        } else if (hasHorseComment) {
+          // 履歴がないがコメントがある場合
+          hasAnyComment = true;
+          console.log('No history but has horse comment, length:', horseComment.length);
         }
         
         // 状態を一度に更新
@@ -1011,7 +1091,9 @@ export default function HorseDetailPage({ params }: PageProps) {
           latestHistory: latestHistoryItem
         });
         
-        setHorse(horseData);
+        // horseWithHistories をセット（履歴が含まれている）
+        // 既に976行目でセットされているが、コメントや履歴の更新後に再度セット
+        setHorse(horseWithHistories);
         setError(null);
       } catch (err) {
         console.error('馬データの取得中にエラーが発生しました:', err);
@@ -1030,7 +1112,10 @@ export default function HorseDetailPage({ params }: PageProps) {
     
     const history = Array.isArray(horse.history) ? horse.history : [];
     const latest = history[0] || null;
-    const hasAnyComments = history.some(h => h.comment?.trim().length > 0);
+    // 履歴のコメントまたは馬データのコメントがあるかチェック
+    const hasHistoryComments = history.some(h => h.comment && h.comment.trim().length > 0);
+    const hasHorseComment = (horse as any).comment && (horse as any).comment.trim().length > 0;
+    const hasAnyComments = hasHistoryComments || hasHorseComment;
     
     return { hasComments: hasAnyComments, latestHistory: latest };
   }, [horse]);
@@ -1082,7 +1167,7 @@ export default function HorseDetailPage({ params }: PageProps) {
             weight: h.weight ?? null,
             seller: (h as any).seller || '不明',
             is_unsold: (h as any).is_unsold || (h as any).unsold || false,
-            comment: (h as any).comment || '',
+            comment: (h as any).comment || horse.comment || '',
             created_at: (h as any).created_at || new Date().toISOString(),
             // 拡張プロパティ
             name: (h as any).name || horse.name || '不明',
