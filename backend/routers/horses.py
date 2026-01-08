@@ -84,6 +84,7 @@ async def patch_horse(
             "update_interval_months",
             "is_retired",
             "next_update_due_date",
+            "total_prize_latest",
         }
 
         updated = False
@@ -1079,6 +1080,7 @@ async def update_horse(
             "update_interval_months",
             "is_retired",
             "next_update_due_date",
+            "total_prize_latest",
         }
 
         updated = False
