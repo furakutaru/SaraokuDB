@@ -1005,13 +1005,16 @@ class TestConfig(ScraperConfig):
             cache_dir=kwargs.get('cache_dir', 'test_cache'),
             timeout=5,  # テスト時はタイムアウトを短く
             max_retries=0,  # テスト時はリトライを無効化
-            backoff_factor=0  # バックオフを無効化
+            backoff_factor=0.5  # バックオフを有効化
         )
 
 
 class ImprovedRakutenScraper:
-    """楽天競馬オークションのスクレイパークラス"""
-    
+    """
+    楽天競馬オークションのスクレイピングを行うクラス。
+    キャッシュ、リトライ、API連携機能を備える。
+    """
+    BROODMARE_KEYWORDS = ("繁殖牝馬", "※繁殖牝馬", "受胎")
     def __init__(
         self,
         config: Optional[ScraperConfig] = None,
@@ -1034,6 +1037,7 @@ class ImprovedRakutenScraper:
         self.save_html = save_html
         self.debug_mode = debug_mode
         self.logger = self.config.logger
+        self.broodmare_only = getattr(self.config, 'broodmare_only', False)
         
         # リクエストセッションの初期化
         self.session = requests.Session()
@@ -1067,6 +1071,8 @@ class ImprovedRakutenScraper:
         self.processed_count = 0  # 処理済みカウンタ
         
         self.logger.info("スクレイパーを初期化しました")
+        if self.broodmare_only:
+            self.logger.info("繁殖牝馬モード: 繁殖牝馬以外のデータ更新をスキップします")
     
     def _handle_error(self, error: Exception, context: str = "", log_level: str = "error", 
                     reraise: bool = False, **kwargs) -> Optional[Dict]:
@@ -1874,6 +1880,34 @@ class ImprovedRakutenScraper:
             
         return name
 
+    def _clean_name_text(self, raw_name: str) -> str:
+        """テキストベースの馬名をクリーンアップする"""
+        if not raw_name:
+            return ""
+
+        name = raw_name.strip().replace('\n', ' ')
+        patterns = [
+            r'※.*$', r'登録抹消.*$', r'新馬.*$', r'未出走.*$',
+            r'[0-9]+歳', r'[牡牝セ]', r'\(.*\)', r'\[.*\]'
+        ]
+        for pattern in patterns:
+            name = re.sub(pattern, '', name)
+
+        name = re.sub(r'\s+', ' ', name).strip()
+
+        if name.endswith(' セン'):
+            name = name[:-2].strip()
+        elif name.endswith('セン'):
+            name = name[:-2].strip()
+
+        return name or raw_name.strip()
+
+    def _detect_broodmare(self, raw_name: str) -> bool:
+        """原文の馬名に繁殖牝馬のキーワードが含まれるか判定"""
+        if not raw_name:
+            return False
+        return any(keyword in raw_name for keyword in self.BROODMARE_KEYWORDS)
+
     def _extract_age(self, age_elem, card):
         """年齢を抽出する
         
@@ -2061,24 +2095,29 @@ class ImprovedRakutenScraper:
             # タイトルから馬名部分を抽出（「|」で分割して最初の要素を取得）
             title_text = title_tag.get_text(strip=True)
             title_text = title_text.split('|')[0].strip() if '|' in title_text else title_text
-            
-            # 最初のスペース（全角・半角）までを馬名として抽出
-            import re
-            name_match = re.match(r'^([^ 　]+)', title_text)
-            if not name_match:
-                self.logger.warning("馬名の抽出に失敗しました")
+            raw_name = title_text
+
+            cleaned_name = self._clean_name_text(raw_name)
+            if not cleaned_name:
+                cleaned_name = raw_name
+
+            is_broodmare = self._detect_broodmare(raw_name)
+
+            if self.broodmare_only and not is_broodmare:
+                self.logger.debug(
+                    "Broodmare-onlyモードのためスキップします: %s", cleaned_name
+                )
                 return None
-                
-            name = name_match.group(1).strip()
-            self.logger.debug(f"抽出した馬名: {name} (元のテキスト: {title_text})")
-                
-            self.logger.debug(f"馬名を抽出: {name}")
+
+            self.logger.debug(f"抽出した馬名: {cleaned_name} (raw: {raw_name})")
             
             # 基本情報を辞書に格納
             horse_info = {
                 'id': horse_id,  # データベース用のID（後で自動採番される）
                 'auction_id': horse_id,  # オークションサイトの数値ID
-                'name': name,
+                'name': cleaned_name,
+                'raw_name': raw_name,
+                'is_broodmare': is_broodmare,
                 'detail_url': detail_url,
                 'scraped_at': datetime.now().isoformat()
             }
@@ -3218,6 +3257,7 @@ def main():
     parser.add_argument('--output', type=str, default='horses.json', help='出力ファイル名')
     parser.add_argument('--threads', type=int, default=5, help='並列スレッド数')
     parser.add_argument('--horse-id', type=str, help='特定の馬IDのみを処理する')
+    parser.add_argument('--broodmare-only', action='store_true', help='繁殖牝馬のみ保存する')
     args = parser.parse_args()
     
     # ログ設定
@@ -3229,7 +3269,8 @@ def main():
         # スクレイパーの初期化
         config = ScraperConfig(
             use_cache=not args.no_cache,
-            max_workers=args.threads
+            max_workers=args.threads,
+            broodmare_only=args.broodmare_only
         )
         
         # スクレイパーインスタンスを作成

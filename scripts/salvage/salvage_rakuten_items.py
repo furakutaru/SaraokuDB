@@ -121,6 +121,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="保存せずに抽出のみ行う")
     parser.add_argument("--auction-date", type=str, default=None, help="未取得時に適用する開催日 (YYYY-MM-DD)")
     parser.add_argument("--update-only", action="store_true", help="更新のみ: 出品履歴に関わるフィールドを更新しない")
+    parser.add_argument("--broodmare-only", action="store_true", help="繁殖牝馬のみ保存対象にする")
     args = parser.parse_args()
 
     # 前提: DATABASE_URL が環境変数で設定済み（backend.database.models 参照）
@@ -161,12 +162,21 @@ def main():
             time.sleep(args.sleep)
             continue
 
+        is_broodmare = bool(horse.get("is_broodmare"))
+        if args.broodmare_only and not is_broodmare:
+            print(f"[SKIP] Broodmare-only モードのためスキップ: item_id={item_id} name={horse.get('name')}")
+            time.sleep(args.sleep)
+            continue
+
         found += 1
         if args.dry_run:
             summary = [
                 f"name={horse['name']}",
                 f"auction_id={horse['auction_id']}",
             ]
+            if horse.get("raw_name"):
+                summary.append(f"raw_name={horse['raw_name']}")
+            summary.append(f"is_broodmare={is_broodmare}")
             for key in ["sex", "age", "seller", "sold_price", "auction_date", "total_prize_latest", "image_url"]:
                 value = horse.get(key)
                 if value is not None and value != "":

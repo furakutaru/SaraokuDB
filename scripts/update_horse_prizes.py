@@ -39,13 +39,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-def convert_prize_to_total(prize: Optional[int]) -> Optional[float]:
-    """円単位の賞金を total_prize_latest 用の万円単位へ変換"""
-    if prize is None:
-        return None
-    return round(prize / 10000, 2)
-
 class APIClient:
     def __init__(self):
         # 本番環境の認証情報を優先的に使用
@@ -408,12 +401,11 @@ async def update_prize_history(db: APIClient, horse_id: int, prize: int) -> Dict
         current_horse = await db.get(f"api/horses/{horse_id}")
         
         # 更新するデータを準備
-        total_prize_latest = convert_prize_to_total(prize)
         update_data = {
             "current_prize": prize,
             "last_prize_update": datetime.now(timezone.utc).isoformat(),
             "next_update_due_date": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
-            "total_prize_latest": total_prize_latest
+            "total_prize_latest": prize
         }
         
         # 馬情報を更新するエンドポイントにPATCHリクエストを送信
@@ -483,13 +475,12 @@ async def update_horse_prize(db: APIClient, horse: Dict, prize: int) -> bool:
             logger.info(f"馬ID {horse_id} の賞金が更新されたため、更新間隔を3ヶ月にリセット")
         
         # 馬の情報を更新
-        total_prize_latest = convert_prize_to_total(prize)
         update_data = {
             "current_prize": prize,
             "last_prize_update": datetime.now(timezone.utc).isoformat(),
             "update_interval_months": update_interval_months,
             "is_retired": is_retired,
-            "total_prize_latest": total_prize_latest
+            "total_prize_latest": prize
         }
         
         if next_update_due_date:

@@ -79,6 +79,7 @@ class ScraperConfig(Config):
     max_workers: int = MAX_WORKERS
     user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     health_keywords: list = field(default_factory=lambda: HEALTH_KEYWORDS)
+    broodmare_only: bool = False
 
 @dataclass
 class CacheConfig(Config):

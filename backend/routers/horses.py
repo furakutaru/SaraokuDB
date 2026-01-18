@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 from typing_extensions import Annotated
 
@@ -38,6 +38,86 @@ class DiseaseExtractionRequest(BaseModel):
 # 疾病情報抽出モジュールを一時的に無効化
 DiseaseInfoExtractor = None
 logger.info("DiseaseInfoExtractor is temporarily disabled")
+
+MIN_PRIZE_UPDATE_AGE_DAYS = 90
+PRIZE_UPDATE_FETCH_MULTIPLIER = 5
+
+
+def _extract_latest_history_value(raw_value):
+    """履歴カラム（JSON文字列/配列）から最新値を取得"""
+    if raw_value is None:
+        return None
+
+    if isinstance(raw_value, list):
+        return raw_value[-1] if raw_value else None
+
+    if isinstance(raw_value, dict):
+        return raw_value.get('auction_date') or raw_value.get('date') or raw_value.get('value')
+
+    if isinstance(raw_value, str):
+        stripped = raw_value.strip()
+        if not stripped:
+            return None
+        if stripped.startswith('[') or stripped.startswith('{'):
+            try:
+                parsed = json.loads(stripped)
+                if isinstance(parsed, list) and parsed:
+                    return parsed[-1]
+                if isinstance(parsed, dict):
+                    return parsed.get('auction_date') or parsed.get('date') or parsed.get('value')
+            except json.JSONDecodeError:
+                return stripped
+        return stripped
+
+    return raw_value
+
+
+def _parse_latest_auction_date(raw_value):
+    """auction_date の履歴から最新日付を datetime.date で返す"""
+    latest_value = _extract_latest_history_value(raw_value)
+    if not latest_value:
+        return None
+
+    if isinstance(latest_value, dict):
+        latest_value = latest_value.get('auction_date') or latest_value.get('date')
+
+    if latest_value is None:
+        return None
+
+    latest_str = str(latest_value).strip()
+    if not latest_str:
+        return None
+
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y%m%d"):
+        try:
+            return datetime.strptime(latest_str[:10], fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _is_next_update_due(horse, now_utc: datetime) -> bool:
+    due = getattr(horse, "next_update_due_date", None)
+    if due is None:
+        return True
+    if due.tzinfo is None:
+        due = due.replace(tzinfo=timezone.utc)
+    return due <= now_utc
+
+
+def _should_include_in_prize_batch(horse, now_utc: datetime) -> bool:
+    if getattr(horse, "is_retired", False):
+        return False
+    if not _is_next_update_due(horse, now_utc):
+        return False
+
+    latest_auction_date = _parse_latest_auction_date(getattr(horse, "auction_date", None))
+    if latest_auction_date is None:
+        return True
+
+    min_date = now_utc.date() - timedelta(days=MIN_PRIZE_UPDATE_AGE_DAYS)
+    return latest_auction_date <= min_date
+
 
 @router.post("/extract-disease-tags", tags=["horses"])
 async def extract_disease_tags(
@@ -83,6 +163,8 @@ async def patch_horse(
             "last_prize_update",
             "update_interval_months",
             "is_retired",
+            "raw_name",
+            "is_broodmare",
             "next_update_due_date",
             "total_prize_latest",
         }
@@ -104,10 +186,12 @@ async def patch_horse(
 
         return {
             "id": horse.id,
+            "raw_name": getattr(horse, "raw_name", None),
             "current_prize": getattr(horse, "current_prize", None),
             "last_prize_update": getattr(horse, "last_prize_update", None),
             "update_interval_months": getattr(horse, "update_interval_months", None),
             "is_retired": getattr(horse, "is_retired", None),
+            "is_broodmare": getattr(horse, "is_broodmare", None),
             "next_update_due_date": getattr(horse, "next_update_due_date", None),
         }
     except HTTPException:
@@ -151,6 +235,7 @@ async def get_horses(
     max_weight: Optional[int] = None,
     min_roi: Optional[float] = None,
     max_roi: Optional[float] = None,
+    needs_prize_update: bool = False,
     db: Session = Depends(get_db)
 ):
     """
@@ -209,6 +294,9 @@ async def get_horses(
         # 2. 馬の基本クエリを構築
         query = db.query(Horse)
         
+        needs_prize_update_flag = bool(needs_prize_update)
+        now_utc = datetime.now(timezone.utc)
+
         # 3. オークション日でフィルタリング
         if auction_date:
             query = query.filter(
@@ -274,6 +362,15 @@ async def get_horses(
             if max_roi is not None:
                 query = query.filter((earned * 10000.0) / pricef <= float(max_roi))
 
+        if needs_prize_update_flag:
+            query = query.filter(
+                Horse.is_retired.is_(False),
+                or_(
+                    Horse.next_update_due_date.is_(None),
+                    Horse.next_update_due_date <= now_utc
+                )
+            )
+
         # 4. 最新のオークション日でフィルタリング
         if latest_auction.lower() == 'true' and latest_date:
             # 最新のオークション日を直接指定してフィルタリング
@@ -328,7 +425,12 @@ async def get_horses(
         final_query = db.query(Horse).filter(Horse.id.in_(rep_ids_subq))
 
         # 並べ替えを適用（DB側でソート）
-        if sort == 'price_desc':
+        if needs_prize_update_flag:
+            final_query = final_query.order_by(
+                Horse.next_update_due_date.asc(),
+                Horse.id.asc()
+            )
+        elif sort == 'price_desc':
             final_query = final_query.order_by(Horse.sold_price.desc())
         elif sort == 'price_asc':
             final_query = final_query.order_by(Horse.sold_price.asc())
@@ -341,7 +443,17 @@ async def get_horses(
 
         # ページネーション
         total = final_query.count()
-        horses = final_query.offset(skip).limit(limit).all()
+        fetch_limit = limit
+        if needs_prize_update_flag:
+            fetch_limit = max(limit * PRIZE_UPDATE_FETCH_MULTIPLIER, limit)
+        horses = final_query.offset(skip).limit(fetch_limit).all()
+
+        if needs_prize_update_flag:
+            horses = [
+                horse for horse in horses
+                if _should_include_in_prize_batch(horse, now_utc)
+            ][:limit]
+            total = len(horses)
 
         # 7. 結果をシリアライズ
         horses_data = []
@@ -430,6 +542,7 @@ async def get_horses(
 
             horse_data = {
                 "id": horse.id,
+                "raw_name": getattr(horse, "raw_name", None),
                 "name": horse.name,
                 "sex": horse.sex,
                 "age": horse.age,
@@ -441,6 +554,12 @@ async def get_horses(
                 "total_prize_start": horse.total_prize_start if horse.total_prize_start is not None else fallback_total_prize_start,
                 # DB未設定時は race_record 内の total_prize_money 等をフォールバック
                 "total_prize_latest": horse.total_prize_latest if horse.total_prize_latest is not None else fallback_total_prize_latest,
+                "current_prize": getattr(horse, "current_prize", None),
+                "last_prize_update": horse.last_prize_update.isoformat() if getattr(horse, "last_prize_update", None) else None,
+                "next_update_due_date": horse.next_update_due_date.isoformat() if getattr(horse, "next_update_due_date", None) else None,
+                "update_interval_months": getattr(horse, "update_interval_months", None),
+                "is_retired": getattr(horse, "is_retired", None),
+                "is_broodmare": getattr(horse, "is_broodmare", None),
                 "sold_price": horse.sold_price,
                 "auction_date": horse.auction_date,
                 "seller": horse.seller,
@@ -1079,6 +1198,8 @@ async def update_horse(
             "last_prize_update",
             "update_interval_months",
             "is_retired",
+            "raw_name",
+            "is_broodmare",
             "next_update_due_date",
             "total_prize_latest",
         }
@@ -1100,10 +1221,12 @@ async def update_horse(
 
         return {
             "id": horse.id,
+            "raw_name": getattr(horse, "raw_name", None),
             "current_prize": getattr(horse, "current_prize", None),
             "last_prize_update": getattr(horse, "last_prize_update", None),
             "update_interval_months": getattr(horse, "update_interval_months", None),
             "is_retired": getattr(horse, "is_retired", None),
+            "is_broodmare": getattr(horse, "is_broodmare", None),
             "next_update_due_date": getattr(horse, "next_update_due_date", None),
         }
     except HTTPException:

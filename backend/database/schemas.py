@@ -17,6 +17,7 @@ class RaceRecordSummary(BaseModel):
 class HorseBase(BaseModel):
     name: str
     auction_id: Optional[str] = None
+    raw_name: Optional[str] = None
     sex: Optional[str] = None
     age: Optional[int] = None
     sire: Optional[str] = None
@@ -48,6 +49,7 @@ class HorseBase(BaseModel):
     auction_url: Optional[str] = None
     color: Optional[str] = None  # 毛色（オプション）
     bid_count: Optional[int] = None  # 入札数
+    is_broodmare: Optional[bool] = False
     race_records: Optional[RaceRecordSummary] = Field(
         default_factory=RaceRecordSummary,
         description="レース記録のサマリー"

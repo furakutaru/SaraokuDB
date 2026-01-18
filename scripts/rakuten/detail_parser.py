@@ -7,7 +7,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
@@ -21,12 +21,15 @@ from scripts.components.seller_info_extractor import SellerInfoExtractor
 
 
 logger = logging.getLogger(__name__)
+BROODMARE_KEYWORDS = ("繁殖牝馬", "※繁殖牝馬", "受胎")
 
 
 @dataclass
 class DetailParseResult:
     name: str
     auction_id: str
+    raw_name: Optional[str] = None
+    is_broodmare: bool = False
     sex: Optional[str] = None
     age: Optional[int] = None
     sire: Optional[str] = None
@@ -60,7 +63,7 @@ _price_info_extractor = PriceInfoExtractor(logger=logger.getChild("price_info"))
 _race_record_extractor = RaceRecordExtractor(logger=logger.getChild("race_record"))
 
 
-def _extract_name(soup: BeautifulSoup) -> Optional[str]:
+def _extract_name(soup: BeautifulSoup) -> Tuple[Optional[str], Optional[str]]:
     candidates = [
         ("span", {"itemprop": "name"}),
         ("h1", {"class": re.compile("horseName")}),
@@ -70,9 +73,9 @@ def _extract_name(soup: BeautifulSoup) -> Optional[str]:
         elem = soup.find(tag, attrs=attrs) if attrs else soup.find(tag)
         if elem and elem.get_text(strip=True):
             text = elem.get_text(strip=True).split("|")[0].strip()
-            m = re.match(r"^([^ 　]+)", text)
-            return m.group(1) if m else text
-    return None
+            cleaned = _clean_horse_name(text)
+            return cleaned, text
+    return None, None
 
 
 def _extract_image_url(soup: BeautifulSoup) -> Optional[str]:
@@ -359,6 +362,12 @@ def _clean_horse_name(name: str) -> str:
     return parts[0] if parts else normalized.strip()
 
 
+def _detect_broodmare(raw_name: Optional[str]) -> bool:
+    if not raw_name:
+        return False
+    return any(keyword in raw_name for keyword in BROODMARE_KEYWORDS)
+
+
 def parse_detail_html(
     html: str,
     item_id: int,
@@ -368,13 +377,14 @@ def parse_detail_html(
 ) -> Optional[Dict[str, Any]]:
     soup = BeautifulSoup(html, "html.parser")
 
-    name = _extract_name(soup)
+    name, raw_name = _extract_name(soup)
     if not name:
         logger.warning("馬名取得に失敗 item_id=%s", item_id)
         return None
-    name = _clean_horse_name(name)
 
     result = DetailParseResult(name=name, auction_id=str(item_id))
+    result.raw_name = raw_name or name
+    result.is_broodmare = _detect_broodmare(raw_name)
     result.detail_url = detail_url
 
     # horse info

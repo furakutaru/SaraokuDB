@@ -45,6 +45,7 @@ class Horse(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     auction_id = Column(String(20), unique=True, index=True, nullable=True)  # オークションサイトの数値ID
+    raw_name = Column(String(255), nullable=True, comment='スクレイピング時の生馬名')
     name = Column(String(100), nullable=False)  # 馬名（カタカナのみ）
     sex = Column(Text)  # 性別履歴（JSON配列文字列: ["牡", "牝", ...]）
     age = Column(Text)  # 年齢履歴（JSON配列文字列: [3, 4, ...]）
@@ -63,6 +64,12 @@ class Horse(Base):
     weight = Column(Integer)  # 最終出走馬体重
     total_prize_start = Column(Float)  # 出品時の地方賞金
     total_prize_latest = Column(Float)  # 最新の地方賞金
+    current_prize = Column(Integer, nullable=True)  # 現在の賞金（円）
+    last_prize_update = Column(DateTime(timezone=True), nullable=True, comment='最終賞金更新日時')
+    next_update_due_date = Column(DateTime(timezone=True), nullable=True, comment='次回更新予定日')
+    update_interval_months = Column(Integer, default=3, nullable=False, comment='更新間隔（月）')
+    is_retired = Column(Boolean, default=False, nullable=False, comment='引退フラグ')
+    is_broodmare = Column(Boolean, default=False, nullable=False, comment='繁殖牝馬フラグ')
     sold_price = Column(Text)  # 落札価格履歴（JSON配列文字列: [10000000, ...]）
     auction_date = Column(Text)  # 開催日履歴（JSON配列文字列: ["YYYY-MM-DD", ...]）
     disease_tags = Column(Text)  # 疾病タグ（JSON配列文字列: ["跛行", ...]）

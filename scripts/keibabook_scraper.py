@@ -458,7 +458,7 @@ class KeibaBookScraper:
 
         # 最もマッチする馬を選択
         best_match = self._select_best_match(results, name, father, mother, age)
-        
+
         # 賞金情報が検索結果に含まれている場合はそれを使用
         if 'prize' not in best_match or not best_match['prize']:
             # 検索結果に賞金情報がない場合のみ、詳細ページから取得を試みる
