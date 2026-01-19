@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Horse, AuctionHistory, HorseWithCalculations } from '@/types/horse';
 import { formatSex, getSexColor } from '@/utils/normalize';
 import { formatPrize, formatPrice } from '@/utils/format';
+import { BroodmareBadge } from '@/components/BroodmareBadge';
 
 // HorseWithCalculations 型を使用
 
@@ -49,6 +50,7 @@ interface HorseCardProps {
 }
 
 export default function HorseCard({ horse, auctionHistory = [], onClick }: HorseCardProps) {
+  const isBroodmare = Boolean(horse.is_broodmare);
   // 最新のオークション履歴を取得
   const latestAuction = horse.latestAuction || null;
 
@@ -105,7 +107,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
 
   return (
     <div className="relative group cursor-pointer" onClick={onClick}>
-      <div className="aspect-w-3 aspect-h-2 w-full overflow-hidden rounded-lg bg-gray-200">
+      <div className="aspect-w-3 aspect-h-2 w-full overflow-hidden rounded-lg bg-gray-200 relative">
         <img
           src={
             typeof horse.image_url === 'string' 
@@ -115,6 +117,9 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
           alt={horse.name || 'Unknown Horse'}
           className="h-48 w-full object-cover object-center group-hover:opacity-75"
         />
+        {horse.is_broodmare && (
+          <BroodmareBadge variant="tag" className="absolute top-2 left-2 shadow-md" ariaLabel="繁殖牝馬" />
+        )}
         {isUnsold && (
           <div className="absolute top-2 right-2 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded">
             主取り
@@ -124,7 +129,8 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
       <div className="mt-4 space-y-3">
         {/* 1行目: 馬名、年齢、性別、落札価格 */}
         <div className="flex items-center justify-between">
-          <h3 className="text-sm text-gray-700">
+          <h3 className="text-sm text-gray-700 flex items-center gap-2">
+            {horse.is_broodmare && <BroodmareBadge variant="circle" className="shrink-0" />}
             <span className="font-semibold">{horse.name}</span>
             <span className="ml-2 text-gray-500">{horse.age}歳</span>
             <span className="ml-2">

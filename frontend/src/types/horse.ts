@@ -100,6 +100,8 @@ export interface Horse extends BaseHorse {
   sold_price?: Price;
   is_unsold?: boolean;
   seller?: string;
+  is_broodmare?: boolean;
+  raw_name?: string;
   
   // 賞金関連
   total_prize_start?: number;

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
 import { DiseaseTags, extractDiseaseTags } from './diseaseTags';
 import SexBadge from '../components/SexBadge';
+import { BroodmareBadge } from '@/components/BroodmareBadge';
 import { getAuctionHistories } from '../api/horsesApi';
 import DateInfoCard from './components/DateInfoCard';
 import { format, parseISO, formatDistanceToNow, isDate } from 'date-fns';
@@ -1410,7 +1411,10 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', fontSize: '1.5rem', mb: 1 }}>{latestHistory.name}</Typography>
+                    <Typography variant="h5" component="h2" sx={{ fontWeight: 'bold', fontSize: '1.5rem', mb: 1 }} className="flex items-center gap-2">
+                      {horse.is_broodmare && <BroodmareBadge variant="circle" />}
+                      {latestHistory.name}
+                    </Typography>
                     {/* 性別・年齢 */}
                     <div className="flex items-center gap-2">
                       <SexBadge 
@@ -1440,7 +1444,8 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* 馬名（カード内の上部に表示）と性別・年齢 */}
                   <div className="md:col-span-2 flex items-center gap-3">
-                    <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
+                    <Typography variant="h6" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.25rem' }} className="flex items-center gap-2">
+                      {horse.is_broodmare && <BroodmareBadge variant="circle" />}
                       {latestHistory.name}
                     </Typography>
                     {/* 性別バッジと年齢 */}
@@ -1494,6 +1499,15 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                             {formatWeight(effectiveWeight)}
                           </span>
                         </div>
+                        {horse.is_broodmare && (
+                          <div className="flex items-center justify-between text-rose-600">
+                            <span className="text-gray-600">繁殖区分:</span>
+                            <span className="flex items-center gap-2 font-semibold">
+                              <BroodmareBadge variant="pill" />
+                              <span>繁殖牝馬</span>
+                            </span>
+                          </div>
+                        )}
                         {/* 販売者履歴 */}
                         <div className="flex justify-between">
                           <span className="text-gray-600">販売者:</span>

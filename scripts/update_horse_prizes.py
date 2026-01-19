@@ -374,8 +374,30 @@ async def get_horses_to_update(db: APIClient, batch_size: int = 10) -> List[Dict
                 logger.info("更新対象の馬が見つかりませんでした")
                 return []
 
-            logger.info(f"更新対象の馬が {len(horses)} 件見つかりました")
-            return horses
+            total = len(horses)
+            broodmare_skipped = [h for h in horses if h.get('is_broodmare')]
+            if broodmare_skipped:
+                logger.info(
+                    "繁殖牝馬のため賞金更新対象から除外: %d件 (例: %s)",
+                    len(broodmare_skipped),
+                    broodmare_skipped[0].get('name', '馬名不明')
+                )
+
+            filtered = [h for h in horses if not h.get('is_broodmare')]
+
+            if not filtered:
+                logger.info(
+                    "取得した %d 件がすべて繁殖牝馬だったため、更新対象はありません",
+                    total
+                )
+                return []
+
+            logger.info(
+                "更新対象の馬が %d 件見つかりました (繁殖牝馬で除外: %d件)",
+                len(filtered),
+                total - len(filtered)
+            )
+            return filtered
             
         except Exception as e:
             logger.error(f"APIリクエスト中にエラーが発生しました: {str(e)}")
@@ -486,7 +508,7 @@ async def update_horse_prize(db: APIClient, horse: Dict, prize: int) -> bool:
         if next_update_due_date:
             update_data["next_update_due_date"] = next_update_due_date
             
-        response = await db.put(f"api/horses/{horse_id}", update_data)
+        response = await db.patch(f"api/horses/{horse_id}", update_data)
         logger.info(f"馬ID {horse_id} の情報を更新しました: {response}")
         
         return True
@@ -655,8 +677,13 @@ async def main_async():
 
 def main():
     """同期メイン関数（エントリーポイント）"""
-    return asyncio.run(main_async())
+    result = asyncio.run(main_async())
+    # main_async は True/False を返す想定のため、終了コードに変換する
+    if isinstance(result, bool):
+        return 0 if result else 1
+    # それ以外（intなど）が返った場合はそのまま利用
+    return result
+
 
 if __name__ == "__main__":
     sys.exit(main())
-    sys.exit(run_async())

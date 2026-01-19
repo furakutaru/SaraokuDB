@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { parseDate } from '../utils/dateUtils';
+import { BroodmareBadge } from '@/components/BroodmareBadge';
 
 // 型定義のインポート
 import { Horse, Auction } from '../types';
@@ -178,8 +179,17 @@ export const HorseTable: React.FC<HorseTableProps> = ({
                     <Typography 
                       component="a" 
                       color="primary"
-                      sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                      sx={{ 
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        textDecoration: 'none', 
+                        '&:hover': { textDecoration: 'underline' } 
+                      }}
                     >
+                      {horse.is_broodmare && (
+                        <BroodmareBadge variant="circle" className="shrink-0" />
+                      )}
                       {horse.name || '-'}
                     </Typography>
                   </Link>

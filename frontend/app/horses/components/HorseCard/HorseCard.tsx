@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Box, Typography, Tooltip } from '@mui/material';
+import { BroodmareBadge } from '@/components/BroodmareBadge';
 
 // コンポーネントの型定義
 import type { Horse } from '../../types';
@@ -100,19 +101,31 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, onHorseClick }) => {
       className="block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
       onClick={handleClick}
     >
-      <Box component="div">
+      <Box component="div" className="relative">
         {/* 馬画像 */}
-        <HorseImage 
-          src={horse.image_url} 
-          alt={horse.name} 
-          className="w-full h-48 object-cover"
-        />
+        <div className="relative">
+          <HorseImage 
+            src={horse.image_url} 
+            alt={horse.name} 
+            className="w-full h-48 object-cover"
+          />
+          {horse.is_broodmare && (
+            <BroodmareBadge 
+              variant="tag" 
+              className="absolute top-3 left-3"
+              ariaLabel="繁殖牝馬"
+            />
+          )}
+        </div>
 
         {/* 馬の基本情報 */}
         <Box className="p-4">
           <Box className="flex justify-between items-start mb-2">
-            <Typography variant="h6" className="font-bold text-gray-900 truncate" title={horse.name}>
-              {horse.name}
+            <Typography variant="h6" className="font-bold text-gray-900 truncate flex items-center gap-2" title={horse.name}>
+              {horse.is_broodmare && (
+                <BroodmareBadge variant="circle" className="shrink-0" />
+              )}
+              <span>{horse.name}</span>
             </Typography>
             <SexBadge sex={sex} age={horse.age} />
           </Box>
