@@ -300,7 +300,25 @@ export default function AnalysisContent() {
   };
 
   const calcROIValue = (h: HorseWithCalculations): number => {
-    const sold = typeof h.sold_price === 'number' ? h.sold_price : 0;
+    const rawSold = h.sold_price as any;
+    let sold = 0;
+    if (typeof rawSold === 'number') {
+      sold = rawSold;
+    } else if (typeof rawSold === 'string') {
+      if (rawSold.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(rawSold);
+          sold = Array.isArray(parsed) ? Number(parsed[0]) : Number(parsed);
+        } catch (e) {
+          sold = parseFloat(rawSold.replace(/[^0-9.-]+/g, ''));
+        }
+      } else {
+        sold = parseFloat(rawSold.replace(/[^0-9.-]+/g, ''));
+      }
+    }
+
+    if (isNaN(sold)) sold = 0;
+
     const start = h.total_prize_start || 0;
     const latest = h.total_prize_latest || 0;
     const earned = latest - start;
@@ -338,7 +356,24 @@ export default function AnalysisContent() {
   };
 
   const inPrice = (h: HorseWithCalculations): boolean => {
-    const p = typeof h.sold_price === 'number' ? h.sold_price : 0;
+    const rawSold = h.sold_price as any;
+    let p = 0;
+    if (typeof rawSold === 'number') {
+      p = rawSold;
+    } else if (typeof rawSold === 'string') {
+      if (rawSold.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(rawSold);
+          p = Array.isArray(parsed) ? Number(parsed[0]) : Number(parsed);
+        } catch (e) {
+          p = parseFloat(rawSold.replace(/[^0-9.-]+/g, ''));
+        }
+      } else {
+        p = parseFloat(rawSold.replace(/[^0-9.-]+/g, ''));
+      }
+    }
+    if (isNaN(p)) p = 0;
+
     if (filters.minPrice && p < filters.minPrice) return false;
     if (filters.maxPrice && filters.maxPrice > 0 && p > filters.maxPrice) return false;
     return true;
