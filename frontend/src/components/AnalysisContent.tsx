@@ -388,17 +388,26 @@ export default function AnalysisContent() {
     },
     sire: (a, b) => (a?.sire ?? '').localeCompare(b?.sire ?? '', 'ja'),
     sold_price: (a, b) => {
-      const aPrice = a?.sold_price !== null && a?.sold_price !== undefined ?
-        (typeof a.sold_price === 'number' ? a.sold_price : 0) : 0;
-      const bPrice = b.sold_price !== null && b.sold_price !== undefined ?
-        (typeof b.sold_price === 'number' ? b.sold_price : 0) : 0;
-      return aPrice - bPrice;
+      const getNumericPrice = (p: any): number => {
+        if (p === null || p === undefined) return 0;
+        if (typeof p === 'number') return p;
+        const numStr = String(p).replace(/[^0-9]/g, '');
+        return parseInt(numStr, 10) || 0;
+      };
+      return getNumericPrice(a.sold_price) - getNumericPrice(b.sold_price);
     },
     total_prize_start: (a, b) => (a.total_prize_start || 0) - (b.total_prize_start || 0),
     total_prize_latest: (a, b) => (a.total_prize_latest || 0) - (b.total_prize_latest || 0),
     roi: (a, b) => {
-      const aSoldPrice = typeof a.sold_price === 'number' ? a.sold_price : 0;
-      const bSoldPrice = typeof b.sold_price === 'number' ? b.sold_price : 0;
+      const getNumericPrice = (p: any): number => {
+        if (p === null || p === undefined) return 0;
+        if (typeof p === 'number') return p;
+        const numStr = String(p).replace(/[^0-9]/g, '');
+        return parseInt(numStr, 10) || 0;
+      };
+
+      const aSoldPrice = getNumericPrice(a.sold_price);
+      const bSoldPrice = getNumericPrice(b.sold_price);
 
       // 落札後に稼いだ賞金総額 = 現在の総賞金 - オークション時の総賞金
       const aEarnedPrize = (a.total_prize_latest || 0) - (a.total_prize_start || 0);
@@ -411,24 +420,8 @@ export default function AnalysisContent() {
       return aROI - bROI;
     },
     disease_tags: (a, b) => {
-      // 病歴の有無を判定する関数
-      const hasDiseaseLocal = (horse: HorseWithCalculations) => {
-        const tags = (horse as any).disease_tags;
-        if (tags === undefined || tags === null || tags === '') return false;
-        if (Array.isArray(tags)) {
-          if (tags.length === 0) return false;
-          return !tags.every(tag => {
-            const strTag = String(tag).trim();
-            return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
-          });
-        }
-        const strTag = String(tags).trim();
-        return !(strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。');
-      };
-
-      const aHasDisease = hasDiseaseLocal(a) ? 1 : 0;
-      const bHasDisease = hasDiseaseLocal(b) ? 1 : 0;
-
+      const aHasDisease = hasDisease((a as any).disease_tags) ? 1 : 0;
+      const bHasDisease = hasDisease((b as any).disease_tags) ? 1 : 0;
       return aHasDisease - bHasDisease;
     },
   };
@@ -707,6 +700,7 @@ export default function AnalysisContent() {
 
   // ソートハンドラー
   const handleSort = (key: string) => {
+    setPage(1);
     if (sortKey === key) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
@@ -782,6 +776,9 @@ export default function AnalysisContent() {
             <HorseTable
               horses={displayedHorses}
               onRowClick={handleRowClick}
+              sortKey={sortKey}
+              sortOrder={sortOrder}
+              onSort={handleSort}
             />
           </div>
           <aside className="col-start-2 w-[240px]">
