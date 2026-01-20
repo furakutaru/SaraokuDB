@@ -4,6 +4,7 @@ import type { RaceRecordInfo } from '@/components/common/AuctionPrizeDisplay';
 import { getSexColor, formatSex } from '@/utils/sex';
 import type { HorseWithCalculations } from '@/types/horse';
 import AuctionPrizeDisplay from '@/components/common/AuctionPrizeDisplay';
+import { BroodmareBadge } from '@/components/BroodmareBadge';
 
 type HorseTableRowProps = {
   horse: HorseWithCalculations;
@@ -102,13 +103,18 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
       onClick={handleClick}
     >
       <td className="px-3 py-2 font-medium text-gray-900 whitespace-nowrap">
-        <Link 
-          href={`/horses/${horse.id}`} 
-          className="hover:underline text-blue-700 whitespace-nowrap"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {horse.name}
-        </Link>
+        <div className="flex items-center gap-2">
+          {horse.is_broodmare && (
+            <BroodmareBadge variant="circle" ariaLabel="繁殖牝馬" />
+          )}
+          <Link 
+            href={`/horses/${horse.id}`} 
+            className="hover:underline text-blue-700 whitespace-nowrap"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {horse.name}
+          </Link>
+        </div>
       </td>
       <td className="px-3 py-2">
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getSexColor(horse.sex)}`}>
@@ -130,24 +136,32 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
         )}
       </td>
       <td className="px-3 py-2">
-        <AuctionPrizeDisplay
-          raceRecord={{
-            ...safeParseRaceRecord(horse.race_record),
-            // デバッグ用に horse オブジェクト全体をログに出力
-            _debug_horse: JSON.parse(JSON.stringify(horse))
-          }}
-          totalPrizeStart={horse.total_prize_start}
-          isUnsold={horse.is_unsold || horse.unsold || (horse.unsold_count || 0) > 0}
-          formatPrizeMan={formatPrizeManWrapper}
-        />
+        {horse.is_broodmare ? (
+          '-'
+        ) : (
+          <AuctionPrizeDisplay
+            raceRecord={{
+              ...safeParseRaceRecord(horse.race_record),
+              // デバッグ用に horse オブジェクト全体をログに出力
+              _debug_horse: JSON.parse(JSON.stringify(horse))
+            }}
+            totalPrizeStart={horse.total_prize_start}
+            isUnsold={horse.is_unsold || horse.unsold || (horse.unsold_count || 0) > 0}
+            formatPrizeMan={formatPrizeManWrapper}
+          />
+        )}
       </td>
       <td className="px-3 py-2">
-        {formatPrice(
-          horse.total_prize_latest, 
-          horse.is_unsold || horse.unsold || (horse.unsold_count || 0) > 0,
-          false,
-          horse.total_prize_latest,
-          0
+        {horse.is_broodmare ? (
+          '-'
+        ) : (
+          formatPrice(
+            horse.total_prize_latest, 
+            horse.is_unsold || horse.unsold || (horse.unsold_count || 0) > 0,
+            false,
+            horse.total_prize_latest,
+            0
+          )
         )}
       </td>
       <td className="px-3 py-2">

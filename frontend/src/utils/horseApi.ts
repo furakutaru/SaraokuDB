@@ -114,6 +114,7 @@ export async function fetchHorsesList(): Promise<HorsesListResponse> {
       horses = responseData.map(record => ({
         id: record.id || record.horse_id || Math.random().toString(36).substr(2, 9),
         name: record.name || `馬名不明 (ID: ${record.id || record.horse_id || '不明'})`,
+        raw_name: record.raw_name || null,
         sex: record.sex || '不明',
         age: record.age || 0,
         sire: record.sire || '不明',
@@ -135,7 +136,8 @@ export async function fetchHorsesList(): Promise<HorsesListResponse> {
         auction_date: record.auction_date || null,
         total_prize_start: record.total_prize_start || 0,
         total_prize_latest: record.total_prize_latest || 0,
-        is_unsold: record.is_unsold || record.unsold || false
+        is_unsold: record.is_unsold || record.unsold || false,
+        is_broodmare: Boolean(record.is_broodmare)
       }));
       
       metadata = {

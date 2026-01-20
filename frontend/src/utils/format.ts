@@ -80,8 +80,12 @@ export function formatPrice(
   isUnsold: boolean = false,
   unsoldFlag?: boolean,
   soldPrice?: number | string | null | undefined,
-  unsoldCount: number = 0
+  unsoldCount: number = 0,
+  isBroodmare: boolean = false
 ): string {
+  if (isBroodmare) {
+    return '-';
+  }
   // 主取りフラグが立っている場合、またはunsold_countが1以上の場合は「主取り」を返す
   if (isUnsold === true || unsoldFlag === true || unsoldCount > 0) {
     return '主取り';
@@ -138,8 +142,12 @@ export function formatPrize(
   raceRecords?: {
     unified_race_records?: boolean;
     [key: string]: any;
-  } | null
+  } | null,
+  isBroodmare: boolean = false
 ): string {
+  if (isBroodmare) {
+    return '-';
+  }
   console.log('formatPrize called with:', { amount, raceRecords });
   
   // raceRecords が存在し、unified_race_records が true の場合は「未出走」を返す
@@ -214,8 +222,12 @@ interface RaceRecordInfo {
 
 export function formatPrizeWithRaceCheck(
   amount: number | string | null | undefined,
-  raceRecordInfo?: RaceRecordInfo | string | null
+  raceRecordInfo?: RaceRecordInfo | string | null,
+  isBroodmare: boolean = false
 ): string {
+  if (isBroodmare) {
+    return '-';
+  }
   // デバッグ用に raceRecordInfo をログに出力
   console.log('formatPrizeWithRaceCheck - raceRecordInfo:', raceRecordInfo);
   

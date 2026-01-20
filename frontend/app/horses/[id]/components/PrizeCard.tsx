@@ -59,7 +59,7 @@ const PrizeCard: React.FC<PrizeCardProps> = ({ horse, latestHistory }) => {
                 total_prize_money: latestHistory.total_prize_start || 0,
                 total_prize_start: latestHistory.total_prize_start,
                 unified_race_records: Boolean(unifiedRaceRecords)
-              })}
+              }, Boolean((horse as any)?.is_broodmare))}
             </div>
             <div className="text-xs text-gray-600">落札時</div>
           </div>
@@ -68,7 +68,7 @@ const PrizeCard: React.FC<PrizeCardProps> = ({ horse, latestHistory }) => {
               {formatPrize(latestPrize, {
                 total_prize_money: latestPrize || 0,
                 unified_race_records: Boolean(unifiedRaceRecords)
-              })}
+              }, Boolean((horse as any)?.is_broodmare))}
             </div>
             <div className="text-xs text-gray-600">現在</div>
           </div>

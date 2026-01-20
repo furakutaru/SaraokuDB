@@ -332,6 +332,7 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
                     sire: staticBase.sire || '不明',
                     dam: staticBase.dam || '不明',
                     dam_sire: staticBase.dam_sire || '不明',
+                    raw_name: staticBase.raw_name || staticBase.name,
                     image_url: staticBase.primary_image || staticBase.image_url || '',
                     jbis_url: staticBase.jbis_url,
                     detail_url: staticBase.detail_url || staticBase.auction_url || '',
@@ -373,6 +374,7 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
                     
                     // その他のプロパティ
                     name: staticBase.name || '不明',
+                    is_broodmare: Boolean(staticBase.is_broodmare),
                     age: Number(staticBase.age) || 0,
                     history: [{
                       id: staticBase.id,
@@ -472,6 +474,7 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
             sire: horseBaseData.sire || '不明',
             dam: horseBaseData.dam || '不明',
             dam_sire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
+            raw_name: horseBaseData.raw_name || horseBaseData.name,
             image_url: horseBaseData.primary_image || horseBaseData.image_url || '',
             jbis_url: horseBaseData.jbis_url,
             detail_url: horseBaseData.detail_url || horseBaseData.auction_url || '',
@@ -512,6 +515,7 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
             
             // その他のプロパティ
             name: horseBaseData.name || '不明',
+            is_broodmare: Boolean(horseBaseData.is_broodmare),
             age: Number(horseBaseData.age) || 0,
             history: [{
               // 基本プロパティ
@@ -638,6 +642,8 @@ async function getHorseData(horseId: string): Promise<{ horse: HorseWithPageProp
       dam: horseBaseData.dam || '不明',
       dam_sire: horseBaseData.dam_sire || horseBaseData.damsire || '不明',
       weight: typeof horseBaseData.weight === 'string' ? parseFloat(horseBaseData.weight) : horseBaseData.weight || null,
+      raw_name: horseBaseData.raw_name || horseBaseData.name,
+      is_broodmare: Boolean(horseBaseData.is_broodmare),
       
       // オークション情報
       auction_id: data?.auction_id || horseBaseData.auction_id, // APIレスポンスのルートからauction_idを取得
@@ -1502,10 +1508,7 @@ const HorseDetailContent: React.FC<HorseDetailContentProps> = ({
                         {horse.is_broodmare && (
                           <div className="flex items-center justify-between text-rose-600">
                             <span className="text-gray-600">繁殖区分:</span>
-                            <span className="flex items-center gap-2 font-semibold">
-                              <BroodmareBadge variant="pill" />
-                              <span>繁殖牝馬</span>
-                            </span>
+                            <span className="font-semibold">繁殖牝馬</span>
                           </div>
                         )}
                         {/* 販売者履歴 */}

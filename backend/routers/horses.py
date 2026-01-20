@@ -1098,12 +1098,14 @@ async def get_horse_by_id(
         response_data = {
             "id": horse.id,
             "name": horse.name,
+            "raw_name": getattr(horse, "raw_name", None),
             "sex": horse.sex,
             "age": horse.age,
             "sire": horse.sire,
             "dam": horse.dam,
             "dam_sire": horse.dam_sire,
             "weight": horse.weight,
+            "is_broodmare": getattr(horse, "is_broodmare", False),
             "total_prize_start": horse.total_prize_start if horse.total_prize_start is not None else fallback_total_prize_start,
             # DB未設定時は race_record 内の total_prize_money 等をフォールバック
             "total_prize_latest": horse.total_prize_latest if horse.total_prize_latest is not None else fallback_total_prize_latest,

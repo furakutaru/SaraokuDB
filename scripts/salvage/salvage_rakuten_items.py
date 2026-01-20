@@ -195,8 +195,9 @@ def main():
                 summary.append("mode=update-only")
             print(f"[DRY] {found}/{total} " + " ".join(summary))
         else:
-            # 更新のみモード: 出品履歴に関わるフィールドを送らない
-            if args.update_only:
+            # --update-only と --broodmare-only が同時指定された場合は賞金更新をスキップ
+            if args.update_only and args.broodmare_only:
+                print(f"[INFO] Broodmare-only & Update-only モード: 賞金更新をスキップします (item_id={item_id} name={horse.get('name')})")
                 # 既存の履歴カラムや出品ステータスに影響しうるキーを除外
                 for k in [
                     "auction_date",  # 履歴扱いの可能性
@@ -204,6 +205,21 @@ def main():
                     "is_unsold",     # 主取りステータス
                     "unsold_count",  # 主取り回数
                     "seller",        # 出品者履歴
+                    "comment",       # コメント履歴
+                    "total_prize_start",  # 賞金履歴
+                    "total_prize_latest",  # 賞金履歴
+                    "last_prize_update",  # 賞金更新日
+                ]:
+                    if k in horse:
+                        horse.pop(k, None)
+            # 更新のみモード: 出品履歴に関わるフィールドを送らない
+            # ただし、sold_price と seller は欠損データ補完のため保持
+            elif args.update_only:
+                # 既存の履歴カラムや出品ステータスに影響しうるキーを除外
+                for k in [
+                    "auction_date",  # 履歴扱いの可能性
+                    "is_unsold",     # 主取りステータス
+                    "unsold_count",  # 主取り回数
                     "comment",       # コメント履歴
                 ]:
                     if k in horse:

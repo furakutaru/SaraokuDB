@@ -126,10 +126,12 @@ def serialize_horse(horse: Any, include_auction: bool = False) -> Dict[str, Any]
     result = {
         'id': data.get('id'),
         'name': data.get('name'),
+        'raw_name': data.get('raw_name'),
         'breed': data.get('breed'),
         'age': data.get('age'),
         'sold_price': data.get('sold_price'),
         'is_unsold': data.get('is_unsold', False),
+        'is_broodmare': data.get('is_broodmare', False),
         'created_at': safe_isoformat(data.get('created_at')) if data.get('created_at') else None,
         'updated_at': safe_isoformat(data.get('updated_at')) if data.get('updated_at') else None,
         'auction_date': safe_isoformat(data.get('auction_date')) if data.get('auction_date') else None,
