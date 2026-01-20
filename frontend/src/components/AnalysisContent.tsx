@@ -9,7 +9,7 @@ const formatCurrency = (value: number | string | null | undefined): string => {
   if (value === null || value === undefined || value === '') return '-';
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
   if (isNaN(numValue) || numValue <= 0) return '-';
-  
+
   return new Intl.NumberFormat('ja-JP', {
     style: 'currency',
     currency: 'JPY',
@@ -72,7 +72,7 @@ const groupAuctionHistory = (auctionHistory: AuctionHistory[]): Record<string, A
 };
 
 const DEFAULT_FILTERS: Filters = {
-  sex: { male: true, female: true, gelding: true },
+  sex: { male: true, female: true, gelding: true, broodmare: false },
   minAge: 0,
   maxAge: 30,
   sire: '',
@@ -126,8 +126,8 @@ export default function AnalysisContent() {
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8001';
         const skip = (page - 1) * limit;
         const sortParam = sortKey === 'sold_price' ? (sortOrder === 'asc' ? 'price_asc' : 'price_desc')
-                         : sortKey === 'name' ? (sortOrder === 'asc' ? 'name_asc' : 'name_desc')
-                         : 'price_desc';
+          : sortKey === 'name' ? (sortOrder === 'asc' ? 'name_asc' : 'name_desc')
+            : 'price_desc';
         // 馬データを取得（ページネーション）
         console.log('馬データの取得を開始します...');
         // 検索パラメータ（数値のみの場合は id、文字列は q）
@@ -139,7 +139,7 @@ export default function AnalysisContent() {
         // フィルタをサーバー側へ渡す（全体データに対する絞り込み）
         const sexValues: string[] = [];
         if (filters.sex.male) sexValues.push('牡');
-        if (filters.sex.female) sexValues.push('牝');
+        if (filters.sex.female || filters.sex.broodmare) sexValues.push('牝');
         if (filters.sex.gelding) sexValues.push('セ');
         const sexParam = sexValues.length > 0 && sexValues.length < 3
           ? `&sex=${encodeURIComponent(sexValues.join(','))}`
@@ -161,13 +161,13 @@ export default function AnalysisContent() {
         const qParamFromSire = (!trimmed && filters.sire) ? `&q=${encodeURIComponent(filters.sire)}` : '';
 
         const url = `${apiBaseUrl}/api/horses?skip=${skip}&limit=${limit}&sort=${encodeURIComponent(sortParam)}${idParam}${qParamFromSearch}${sexParam}${minAgeParam}${maxAgeParam}${minPriceParam}${maxPriceParam}${minWeightParam}${maxWeightParam}${minRoiParam}${maxRoiParam}${qParamFromSire}`;
-        const response = await fetch(url, { 
+        const response = await fetch(url, {
           cache: 'no-store',
           headers: {
             'Content-Type': 'application/json',
           }
         });
-        
+
         console.log('APIリクエスト完了:', response.status, response.statusText);
 
         if (!response.ok) {
@@ -203,15 +203,15 @@ export default function AnalysisContent() {
             comment: horse.comment,
             race_record: horse.race_record
           };
-          
+
           // デバッグ用: 最初の数件の馬データをログに出力
           if (horse.id <= 5) {
             console.log(`馬ID: ${horse.id}, 名前: ${horse.name}, jbis_url: ${mappedHorse.jbis_url}`);
           }
-          
+
           return mappedHorse;
         });
-        
+
         setHorses(horsesWithAuction);
         // メタデータを更新
         const newMetadata = {
@@ -222,12 +222,12 @@ export default function AnalysisContent() {
           last_updated: new Date().toISOString(),
           total_horses: apiTotal
         };
-        
+
         setMetadata(newMetadata);
 
         // オークション履歴は使用しないため空のオブジェクトを設定
         const auctionHistoryByHorseId: Record<string, any[]> = {};
-        
+
         // 馬データにオークション情報をマージ
         const horsesWithHistory = horsesWithAuction.map((horse: HorseWithCalculations) => {
           // デバッグ用: ホワイトアッシュのデータをログに出力
@@ -240,7 +240,7 @@ export default function AnalysisContent() {
           }
           // 既存のオークション情報を保持
           const latestAuction = horse.latestAuction || (auctionHistoryByHorseId[horse.id] || [])[0];
-          
+
           // 馬の基本情報を保持しつつ、オークション情報をマージ
           return {
             ...horse,
@@ -288,7 +288,7 @@ export default function AnalysisContent() {
   // CSVエクスポートユーティリティ
   const toCsv = (rows: any[]) => {
     const headers = [
-      '馬名','性別','年齢','父','馬体重','落札価格','落札時賞金','現在賞金','ROI','リンク','病歴'
+      '馬名', '性別', '年齢', '父', '馬体重', '落札価格', '落札時賞金', '現在賞金', 'ROI', 'リンク', '病歴'
     ];
     const escape = (v: any) => {
       if (v === null || v === undefined) return '';
@@ -379,10 +379,18 @@ export default function AnalysisContent() {
 
   const inSex = (h: HorseWithCalculations): boolean => {
     const s = String(h.sex || '');
+    const isBroodmare = !!h.is_broodmare;
+
     const okMale = filters.sex.male && s.includes('牡');
-    const okFemale = filters.sex.female && s.includes('牝');
     const okGelding = filters.sex.gelding && s.includes('セ');
-    return okMale || okFemale || okGelding || (!filters.sex.male && !filters.sex.female && !filters.sex.gelding);
+
+    // 牝馬の判定（繁殖牝馬でないもの）
+    const okFemale = filters.sex.female && s.includes('牝') && !isBroodmare;
+
+    // 繁殖牝馬の判定
+    const okBroodmare = filters.sex.broodmare && isBroodmare;
+
+    return okMale || okFemale || okGelding || okBroodmare;
   };
 
   const inAge = (h: HorseWithCalculations): boolean => {
@@ -440,7 +448,7 @@ export default function AnalysisContent() {
     filteredHorsesList.sort((a: HorseWithCalculations, b: HorseWithCalculations) => {
       let aValue = (a as any)[sortKey];
       let bValue = (b as any)[sortKey];
-      
+
       // 価格の特別な処理
       if (sortKey === 'sold_price') {
         // 文字列の場合はカンマを削除して数値に変換
@@ -454,20 +462,20 @@ export default function AnalysisContent() {
           }
           return 0;
         };
-        
+
         aValue = parsePrice(aValue);
         bValue = parsePrice(bValue);
       } else {
         // その他のフィールドの処理
         aValue = aValue || 0;
         bValue = bValue || 0;
-        
+
         // 数値に変換
         if (typeof aValue === 'string') aValue = parseFloat(aValue) || 0;
         if (typeof bValue === 'string') bValue = parseFloat(bValue) || 0;
       }
-      
-      return sortOrder === 'asc' 
+
+      return sortOrder === 'asc'
         ? (aValue as number) - (bValue as number)
         : (bValue as number) - (aValue as number);
     });
@@ -478,7 +486,7 @@ export default function AnalysisContent() {
     horses.reduce((sum, h) => {
       let soldPrice = 0;
       const price = h.sold_price;
-      
+
       // sold_priceの型を安全に処理
       if (price !== null && price !== undefined) {
         if (typeof price === 'number') {
@@ -489,27 +497,27 @@ export default function AnalysisContent() {
           soldPrice = parseInt(numStr, 10) || 0;
         }
       }
-      
+
       const prizeStart = h.total_prize_start || 0;
       const prizeLatest = h.total_prize_latest || 0;
-      
+
       // 落札後に稼いだ賞金総額 = 現在の総賞金 - オークション時の総賞金
       const earnedPrize = prizeLatest - prizeStart;
-      
+
       // RIO = 落札後に稼いだ賞金総額 / 落札価格
       const rio = soldPrice > 0 ? (earnedPrize * 10000) / soldPrice : 0;
-      
+
       return sum + (isFinite(rio) ? rio : 0);
     }, 0) / horses.length
   ) : 0;
-  
+
   // 集計ヘルパー
-  const avg = (arr: number[]) => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+  const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
   const median = (arr: number[]) => {
     if (!arr.length) return 0;
-    const s = [...arr].sort((a,b)=>a-b);
-    const m = Math.floor(s.length/2);
-    return s.length % 2 ? s[m] : (s[m-1] + s[m]) / 2;
+    const s = [...arr].sort((a, b) => a - b);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
   };
 
   // フィルタ済みデータに基づく基本配列
@@ -530,39 +538,39 @@ export default function AnalysisContent() {
 
   // 性別グループ
   const sexGroups: Record<string, HorseWithCalculations[]> = {
-    '牡': filteredHorsesList.filter(h => String(h.sex||'').includes('牡')),
-    '牝': filteredHorsesList.filter(h => String(h.sex||'').includes('牝')),
-    'セ': filteredHorsesList.filter(h => String(h.sex||'').includes('セ')),
+    '牡': filteredHorsesList.filter(h => String(h.sex || '').includes('牡')),
+    '牝': filteredHorsesList.filter(h => String(h.sex || '').includes('牝')),
+    'セ': filteredHorsesList.filter(h => String(h.sex || '').includes('セ')),
   };
-  
+
   // 平均価格を計算してメタデータを更新
   if (metadata) {
     const validPrices = horses
       .map(h => {
         // 価格が数値でない場合は0として扱う
         const price = h.sold_price;
-        
+
         // null, undefined, 空文字の場合はスキップ
         if (price === null || price === undefined) {
           return null;
         }
-        
+
         // 数値の場合はそのまま返す
         if (typeof price === 'number') {
           return price > 0 ? price : null;
         }
-        
+
         // 文字列の場合は数値に変換を試みる
         const strPrice = String(price).trim();
         if (!strPrice) return null;
-        
+
         const num = parseInt(strPrice.replace(/[^0-9]/g, ''), 10);
         return isNaN(num) || num <= 0 ? null : num;
       })
-      .filter((price): price is number => 
+      .filter((price): price is number =>
         price !== null && price > 0
       );
-      
+
     if (validPrices.length > 0) {
       const sum = validPrices.reduce((a, b) => a + b, 0);
       const avg = Math.round(sum / validPrices.length);
@@ -583,7 +591,7 @@ export default function AnalysisContent() {
         console.groupEnd();
       });
       console.groupEnd();
-      
+
       console.warn('有効な落札価格データがありません。以下の可能性があります：', {
         '馬の総数': horses.length,
         'sold_price が数値の馬の数': horses.filter(h => typeof h.sold_price === 'number').length,
@@ -617,22 +625,22 @@ export default function AnalysisContent() {
   const calcROI = (prizeLatest: number | null | undefined, prizeStart: number | null | undefined, price: number | string | null | undefined): string => {
     // 賞金データがない場合は計算不可
     if (prizeLatest === undefined || prizeLatest === null || prizeStart === undefined || prizeStart === null) return '-';
-    
+
     // 価格を数値に変換
     const numPrice = price === null || price === undefined ? 0 : (typeof price === 'string' ? parseFloat(price) : price);
-    
+
     // 価格が無効な場合は計算不可
     if (isNaN(numPrice) || numPrice <= 0) return '-';
-    
+
     // 落札後に稼いだ賞金総額 = 現在の総賞金 - オークション時の総賞金
     const earnedPrize = prizeLatest - prizeStart;
-    
+
     // 落札価格が0以下の場合は計算不可
     if (numPrice <= 0) return '-';
-    
+
     // RIO = 落札後に稼いだ賞金総額 / 落札価格
     const rio = (earnedPrize * 10000) / numPrice;
-    
+
     // パーセンテージで返す（例: 0.15 → 15.0%）
     return (rio * 100).toFixed(1) + '%';
   };
@@ -652,17 +660,17 @@ export default function AnalysisContent() {
       return getNumericWeight(a?.weight) - getNumericWeight(b?.weight);
     },
     age: (a, b) => {
-      const ageA = typeof a?.age === 'number' ? a.age : 
-                 (a?.age ? parseFloat(String(a.age)) : 0);
-      const ageB = typeof b?.age === 'number' ? b.age : 
-                 (b?.age ? parseFloat(String(b.age)) : 0);
+      const ageA = typeof a?.age === 'number' ? a.age :
+        (a?.age ? parseFloat(String(a.age)) : 0);
+      const ageB = typeof b?.age === 'number' ? b.age :
+        (b?.age ? parseFloat(String(b.age)) : 0);
       return ageA - ageB;
     },
     sire: (a, b) => (a?.sire ?? '').localeCompare(b?.sire ?? '', 'ja'),
     sold_price: (a, b) => {
-      const aPrice = a?.sold_price !== null && a?.sold_price !== undefined ? 
+      const aPrice = a?.sold_price !== null && a?.sold_price !== undefined ?
         (typeof a.sold_price === 'number' ? a.sold_price : 0) : 0;
-      const bPrice = b.sold_price !== null && b.sold_price !== undefined ? 
+      const bPrice = b.sold_price !== null && b.sold_price !== undefined ?
         (typeof b.sold_price === 'number' ? b.sold_price : 0) : 0;
       return aPrice - bPrice;
     },
@@ -671,15 +679,15 @@ export default function AnalysisContent() {
     roi: (a, b) => {
       const aSoldPrice = typeof a.sold_price === 'number' ? a.sold_price : 0;
       const bSoldPrice = typeof b.sold_price === 'number' ? b.sold_price : 0;
-      
+
       // 落札後に稼いだ賞金総額 = 現在の総賞金 - オークション時の総賞金
       const aEarnedPrize = (a.total_prize_latest || 0) - (a.total_prize_start || 0);
       const bEarnedPrize = (b.total_prize_latest || 0) - (b.total_prize_start || 0);
-      
+
       // RIO = 落札後に稼いだ賞金総額 / 落札価格
       const aROI = aSoldPrice > 0 ? aEarnedPrize / aSoldPrice : 0;
       const bROI = bSoldPrice > 0 ? bEarnedPrize / bSoldPrice : 0;
-      
+
       return aROI - bROI;
     },
     disease_tags: (a, b) => {
@@ -697,10 +705,10 @@ export default function AnalysisContent() {
         const strTag = String(tags).trim();
         return !(strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。');
       };
-      
+
       const aHasDisease = hasDisease(a) ? 1 : 0;
       const bHasDisease = hasDisease(b) ? 1 : 0;
-      
+
       return aHasDisease - bHasDisease;
     },
   };
@@ -786,7 +794,7 @@ export default function AnalysisContent() {
         <div className="grid [grid-template-columns:minmax(0,1fr)_240px] gap-6 items-start">
           <div className="min-w-0">
             {/* 旧: 表示切替ボタン（削除） */}
-            <HorseTable 
+            <HorseTable
               horses={filteredHorsesList}
               onRowClick={handleRowClick}
             />
@@ -826,7 +834,7 @@ export default function AnalysisContent() {
                   <div>
                     <div className="text-xs text-gray-500">性別別（賞金）</div>
                     <div className="space-y-2 mt-1">
-                      {(['牡','牝','セ'] as const).map(sex => {
+                      {(['牡', '牝', 'セ'] as const).map(sex => {
                         const group = sexGroups[sex] || [];
                         const gPrizes = group.map((h: HorseWithCalculations) => (h as any).total_prize_start || 0);
                         return (
