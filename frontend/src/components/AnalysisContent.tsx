@@ -112,7 +112,7 @@ export default function AnalysisContent() {
   const router = useRouter();
   const [filters, setFilters] = useState<Filters>({ ...DEFAULT_FILTERS });
   const [page, setPage] = useState<number>(1);
-  const [limit, setLimit] = useState<number>(50);
+  const displayLimit = 50; // 1ページあたりの表示件数
   const [total, setTotal] = useState<number>(0);
   // 入力ボックス用と送信用の状態を分離
   const [searchInput, setSearchInput] = useState<string>('');
@@ -124,11 +124,12 @@ export default function AnalysisContent() {
         setLoading(true);
         setError(null);
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8001';
-        const skip = (page - 1) * limit;
-        const sortParam = sortKey === 'sold_price' ? (sortOrder === 'asc' ? 'price_asc' : 'price_desc')
-          : sortKey === 'name' ? (sortOrder === 'asc' ? 'name_asc' : 'name_desc')
-            : 'price_desc';
-        // 馬データを取得（ページネーション）
+
+        // 全件取得のための設定 (一度に取得する最大数)
+        const fetchLimit = 100000;
+
+        // ソートパラメータ (初期取得時は価格順などのデフォルト)
+        const sortParam = 'price_desc';
         console.log('馬データの取得を開始します...');
         // 検索パラメータ（数値のみの場合は id、文字列は q）
         const trimmed = search.trim();
@@ -160,7 +161,7 @@ export default function AnalysisContent() {
         // sireが入力されている場合は q にも反映（既にsearchが文字列のときはsearch優先）
         const qParamFromSire = (!trimmed && filters.sire) ? `&q=${encodeURIComponent(filters.sire)}` : '';
 
-        const url = `${apiBaseUrl}/api/horses?skip=${skip}&limit=${limit}&sort=${encodeURIComponent(sortParam)}${idParam}${qParamFromSearch}${sexParam}${minAgeParam}${maxAgeParam}${minPriceParam}${maxPriceParam}${minWeightParam}${maxWeightParam}${minRoiParam}${maxRoiParam}${qParamFromSire}`;
+        const url = `${apiBaseUrl}/api/horses?skip=0&limit=${fetchLimit}&sort=${encodeURIComponent(sortParam)}${idParam}${qParamFromSearch}${sexParam}${minAgeParam}${maxAgeParam}${minPriceParam}${maxPriceParam}${minWeightParam}${maxWeightParam}${minRoiParam}${maxRoiParam}${qParamFromSire}`;
         const response = await fetch(url, {
           cache: 'no-store',
           headers: {
@@ -274,9 +275,8 @@ export default function AnalysisContent() {
     };
 
     fetchData();
-  }, [page, limit, sortKey, sortOrder, search, filters]);
+  }, [search, filters]); // page と limit を依存関係から削除
 
-  // フックは早期returnの前に呼び出す必要がある
   const sireSuggestions = useMemo(() => {
     return horses.map(h => h.sire).filter(Boolean) as string[];
   }, [horses]);
@@ -285,76 +285,7 @@ export default function AnalysisContent() {
     return JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS);
   }, [filters]);
 
-  // CSVエクスポートユーティリティ
-  const toCsv = (rows: any[]) => {
-    const headers = [
-      '馬名', '性別', '年齢', '父', '馬体重', '落札価格', '落札時賞金', '現在賞金', 'ROI', 'リンク', '病歴'
-    ];
-    const escape = (v: any) => {
-      if (v === null || v === undefined) return '';
-      const s = String(v);
-      if (s.includes('"') || s.includes(',') || s.includes('\n')) {
-        return '"' + s.replace(/"/g, '""') + '"';
-      }
-      return s;
-    };
-    const lines = [headers.join(',')];
-    for (const h of rows) {
-      const disease = Array.isArray((h as any).disease_tags)
-        ? (h as any).disease_tags.join(' / ')
-        : ((h as any).disease_tags ?? '');
-      const link = h.detail_url || h.auction_url || '';
-      const weightVal = h.weight ?? h.display_weight ?? '';
-      const soldPrice = typeof h.sold_price === 'number' ? h.sold_price : (h.price ?? '');
-      const row = [
-        h.name ?? '',
-        h.sex ?? '',
-        h.age ?? '',
-        h.sire ?? '',
-        weightVal,
-        soldPrice,
-        h.total_prize_start ?? '',
-        h.total_prize_latest ?? '',
-        typeof h.roi === 'number' ? h.roi : h.display_roi ?? '',
-        link,
-        disease,
-      ].map(escape).join(',');
-      lines.push(row);
-    }
-    // UTF-8 BOM を付与
-    const csvContent = '\uFEFF' + lines.join('\n');
-    return csvContent;
-  };
-
-  const downloadCsv = (filename: string, content: string) => {
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportAll = () => {
-    const csv = toCsv(horses);
-    downloadCsv('horses_all.csv', csv);
-  };
-
-  const handleExportFiltered = () => {
-    const csv = toCsv(filteredHorsesList);
-    downloadCsv('horses_filtered.csv', csv);
-  };
-
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  }
-  if (error || !horses.length) {
-    return <div className="min-h-screen flex items-center justify-center text-red-600">{error || 'データがありません'}</div>;
-  }
-
+  // --- ヘルパー関数 ---
   const hasDisease = (tags: any): boolean => {
     if (tags === undefined || tags === null || tags === '') return false;
     if (Array.isArray(tags)) {
@@ -434,52 +365,180 @@ export default function AnalysisContent() {
     return true;
   };
 
-  const filteredHorsesList = horses
-    .filter(inSex)
-    .filter(inAge)
-    .filter(inSire)
-    .filter(inPrice)
-    .filter(inROI)
-    .filter(inDisease)
-    .filter(inWeight);
+  // ソート関数の型定義
+  type SortFunction = (a: HorseWithCalculations, b: HorseWithCalculations) => number;
+  const sortFunctions: Record<string, SortFunction> = {
+    name: (a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'ja'),
+    sex: (a, b) => (a?.sex ?? '').localeCompare(b?.sex ?? '', 'ja'),
+    weight: (a, b) => {
+      const getNumericWeight = (weight: any): number => {
+        if (weight === null || weight === undefined) return 0;
+        if (typeof weight === 'number') return weight;
+        const parsed = parseFloat(weight);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+      return getNumericWeight(a?.weight) - getNumericWeight(b?.weight);
+    },
+    age: (a, b) => {
+      const ageA = typeof a?.age === 'number' ? a.age :
+        (a?.age ? parseFloat(String(a.age)) : 0);
+      const ageB = typeof b?.age === 'number' ? b.age :
+        (b?.age ? parseFloat(String(b.age)) : 0);
+      return ageA - ageB;
+    },
+    sire: (a, b) => (a?.sire ?? '').localeCompare(b?.sire ?? '', 'ja'),
+    sold_price: (a, b) => {
+      const aPrice = a?.sold_price !== null && a?.sold_price !== undefined ?
+        (typeof a.sold_price === 'number' ? a.sold_price : 0) : 0;
+      const bPrice = b.sold_price !== null && b.sold_price !== undefined ?
+        (typeof b.sold_price === 'number' ? b.sold_price : 0) : 0;
+      return aPrice - bPrice;
+    },
+    total_prize_start: (a, b) => (a.total_prize_start || 0) - (b.total_prize_start || 0),
+    total_prize_latest: (a, b) => (a.total_prize_latest || 0) - (b.total_prize_latest || 0),
+    roi: (a, b) => {
+      const aSoldPrice = typeof a.sold_price === 'number' ? a.sold_price : 0;
+      const bSoldPrice = typeof b.sold_price === 'number' ? b.sold_price : 0;
 
-  // ソート
-  if (sortKey) {
-    filteredHorsesList.sort((a: HorseWithCalculations, b: HorseWithCalculations) => {
-      let aValue = (a as any)[sortKey];
-      let bValue = (b as any)[sortKey];
+      // 落札後に稼いだ賞金総額 = 現在の総賞金 - オークション時の総賞金
+      const aEarnedPrize = (a.total_prize_latest || 0) - (a.total_prize_start || 0);
+      const bEarnedPrize = (b.total_prize_latest || 0) - (b.total_prize_start || 0);
 
-      // 価格の特別な処理
-      if (sortKey === 'sold_price') {
-        // 文字列の場合はカンマを削除して数値に変換
-        const parsePrice = (price: any): number => {
-          if (price === null || price === undefined) return 0;
-          if (typeof price === 'number') return price;
-          if (typeof price === 'string') {
-            // カンマを削除して数値に変換
-            const cleanPrice = price.replace(/[^0-9.-]+/g, '');
-            return parseFloat(cleanPrice) || 0;
-          }
-          return 0;
-        };
+      // RIO = 落札後に稼いだ賞金総額 / 落札価格
+      const aROI = aSoldPrice > 0 ? aEarnedPrize / aSoldPrice : 0;
+      const bROI = bSoldPrice > 0 ? bEarnedPrize / bSoldPrice : 0;
 
-        aValue = parsePrice(aValue);
-        bValue = parsePrice(bValue);
-      } else {
-        // その他のフィールドの処理
-        aValue = aValue || 0;
-        bValue = bValue || 0;
+      return aROI - bROI;
+    },
+    disease_tags: (a, b) => {
+      // 病歴の有無を判定する関数
+      const hasDiseaseLocal = (horse: HorseWithCalculations) => {
+        const tags = (horse as any).disease_tags;
+        if (tags === undefined || tags === null || tags === '') return false;
+        if (Array.isArray(tags)) {
+          if (tags.length === 0) return false;
+          return !tags.every(tag => {
+            const strTag = String(tag).trim();
+            return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
+          });
+        }
+        const strTag = String(tags).trim();
+        return !(strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。');
+      };
 
-        // 数値に変換
-        if (typeof aValue === 'string') aValue = parseFloat(aValue) || 0;
-        if (typeof bValue === 'string') bValue = parseFloat(bValue) || 0;
+      const aHasDisease = hasDiseaseLocal(a) ? 1 : 0;
+      const bHasDisease = hasDiseaseLocal(b) ? 1 : 0;
+
+      return aHasDisease - bHasDisease;
+    },
+  };
+
+  // CSVエクスポートユーティリティ
+  const toCsv = (rows: any[]) => {
+    const headers = [
+      '馬名', '性別', '年齢', '父', '馬体重', '落札価格', '落札時賞金', '現在賞金', 'ROI', 'リンク', '病歴'
+    ];
+    const escape = (v: any) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+        return '"' + s.replace(/"/g, '""') + '"';
       }
+      return s;
+    };
+    const lines = [headers.join(',')];
+    for (const h of rows) {
+      const disease = Array.isArray((h as any).disease_tags)
+        ? (h as any).disease_tags.join(' / ')
+        : ((h as any).disease_tags ?? '');
+      const link = h.detail_url || h.auction_url || '';
+      const weightVal = h.weight ?? h.display_weight ?? '';
+      const soldPrice = typeof h.sold_price === 'number' ? h.sold_price : (h.price ?? '');
+      const row = [
+        h.name ?? '',
+        h.sex ?? '',
+        h.age ?? '',
+        h.sire ?? '',
+        weightVal,
+        soldPrice,
+        h.total_prize_start ?? '',
+        h.total_prize_latest ?? '',
+        typeof h.roi === 'number' ? h.roi : h.display_roi ?? '',
+        link,
+        disease,
+      ].map(escape).join(',');
+      lines.push(row);
+    }
+    // UTF-8 BOM を付与
+    const csvContent = '\uFEFF' + lines.join('\n');
+    return csvContent;
+  };
 
-      return sortOrder === 'asc'
-        ? (aValue as number) - (bValue as number)
-        : (bValue as number) - (aValue as number);
-    });
+  const downloadCsv = (filename: string, content: string) => {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportAll = () => {
+    const csv = toCsv(horses);
+    downloadCsv('horses_all.csv', csv);
+  };
+
+  const handleExportFiltered = () => {
+    const csv = toCsv(filteredHorsesList);
+    downloadCsv('horses_filtered.csv', csv);
+  };
+
+  // ROI計算済みのリストを作成しておく（ソートや統計で使用）
+  const horsesWithROI = useMemo(() => {
+    return horses.map(h => ({
+      ...h,
+      roi: calcROIValue(h)
+    }));
+  }, [horses]);
+
+  const filteredHorsesList = useMemo(() => {
+    return horsesWithROI
+      .filter(inSex)
+      .filter(inAge)
+      .filter(inSire)
+      .filter(inPrice)
+      .filter(inROI)
+      .filter(inDisease)
+      .filter(inWeight);
+  }, [horsesWithROI, filters]);
+
+  // ソート済みのリストを作成
+  const sortedHorsesList = useMemo(() => {
+    let list = [...filteredHorsesList];
+    if (sortKey && sortFunctions[sortKey]) {
+      list.sort((a, b) => {
+        const res = sortFunctions[sortKey](a, b);
+        return sortOrder === 'asc' ? res : -res;
+      });
+    }
+    return list;
+  }, [filteredHorsesList, sortKey, sortOrder]);
+
+  // 表示用の馬データ（ページネーション適用後）
+  const displayedHorses = useMemo(() => {
+    return sortedHorsesList.slice((page - 1) * displayLimit, page * displayLimit);
+  }, [sortedHorsesList, page, displayLimit]);
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
+  if (error || !horses.length) {
+    return <div className="min-h-screen flex items-center justify-center text-red-600">{error || 'データがありません'}</div>;
+  }
+
 
   // サマリー - RIO計算を詳細ページと合わせる
   const avgRIO = horses.length > 0 ? (
@@ -604,8 +663,6 @@ export default function AnalysisContent() {
 
   // 旧: 指標ボタン用データ（不要のため削除）
 
-  // 表示切替
-  let tableHorses: HorseWithCalculations[] = [...filteredHorsesList];
 
   // 年齢を表示するヘルパー関数（null/undefined/空文字の場合は'-'を表示）
   const displayAge = (age: string | number | null | undefined): string => {
@@ -645,80 +702,8 @@ export default function AnalysisContent() {
     return (rio * 100).toFixed(1) + '%';
   };
 
-  // ソート関数の型定義
-  type SortFunction = (a: HorseWithCalculations, b: HorseWithCalculations) => number;
-  const sortFunctions: Record<string, SortFunction> = {
-    name: (a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'ja'),
-    sex: (a, b) => (a?.sex ?? '').localeCompare(b?.sex ?? '', 'ja'),
-    weight: (a, b) => {
-      const getNumericWeight = (weight: any): number => {
-        if (weight === null || weight === undefined) return 0;
-        if (typeof weight === 'number') return weight;
-        const parsed = parseFloat(weight);
-        return isNaN(parsed) ? 0 : parsed;
-      };
-      return getNumericWeight(a?.weight) - getNumericWeight(b?.weight);
-    },
-    age: (a, b) => {
-      const ageA = typeof a?.age === 'number' ? a.age :
-        (a?.age ? parseFloat(String(a.age)) : 0);
-      const ageB = typeof b?.age === 'number' ? b.age :
-        (b?.age ? parseFloat(String(b.age)) : 0);
-      return ageA - ageB;
-    },
-    sire: (a, b) => (a?.sire ?? '').localeCompare(b?.sire ?? '', 'ja'),
-    sold_price: (a, b) => {
-      const aPrice = a?.sold_price !== null && a?.sold_price !== undefined ?
-        (typeof a.sold_price === 'number' ? a.sold_price : 0) : 0;
-      const bPrice = b.sold_price !== null && b.sold_price !== undefined ?
-        (typeof b.sold_price === 'number' ? b.sold_price : 0) : 0;
-      return aPrice - bPrice;
-    },
-    total_prize_start: (a, b) => (a.total_prize_start || 0) - (b.total_prize_start || 0),
-    total_prize_latest: (a, b) => (a.total_prize_latest || 0) - (b.total_prize_latest || 0),
-    roi: (a, b) => {
-      const aSoldPrice = typeof a.sold_price === 'number' ? a.sold_price : 0;
-      const bSoldPrice = typeof b.sold_price === 'number' ? b.sold_price : 0;
 
-      // 落札後に稼いだ賞金総額 = 現在の総賞金 - オークション時の総賞金
-      const aEarnedPrize = (a.total_prize_latest || 0) - (a.total_prize_start || 0);
-      const bEarnedPrize = (b.total_prize_latest || 0) - (b.total_prize_start || 0);
-
-      // RIO = 落札後に稼いだ賞金総額 / 落札価格
-      const aROI = aSoldPrice > 0 ? aEarnedPrize / aSoldPrice : 0;
-      const bROI = bSoldPrice > 0 ? bEarnedPrize / bSoldPrice : 0;
-
-      return aROI - bROI;
-    },
-    disease_tags: (a, b) => {
-      // 病歴の有無を判定する関数
-      const hasDisease = (horse: HorseWithCalculations) => {
-        const tags = (horse as any).disease_tags;
-        if (tags === undefined || tags === null || tags === '') return false;
-        if (Array.isArray(tags)) {
-          if (tags.length === 0) return false;
-          return !tags.every(tag => {
-            const strTag = String(tag).trim();
-            return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
-          });
-        }
-        const strTag = String(tags).trim();
-        return !(strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。');
-      };
-
-      const aHasDisease = hasDisease(a) ? 1 : 0;
-      const bHasDisease = hasDisease(b) ? 1 : 0;
-
-      return aHasDisease - bHasDisease;
-    },
-  };
-
-  if (sortKey && sortFunctions[sortKey]) {
-    tableHorses = [...tableHorses].sort((a, b) => {
-      const res = sortFunctions[sortKey](a, b);
-      return sortOrder === 'asc' ? res : -res;
-    });
-  }
+  // ソートハンドラー（ヘッダークリック時に呼び出し）
 
   // ソートハンドラー
   const handleSort = (key: string) => {
@@ -751,7 +736,7 @@ export default function AnalysisContent() {
 
         <div className="flex items-center justify-between mb-3 gap-3">
           <div className="text-sm text-gray-600">
-            一覧: {total}頭中 {(page - 1) * limit + 1} - {Math.min(page * limit, total)} 件を表示
+            一覧: {sortedHorsesList.length}頭中 {(page - 1) * displayLimit + 1} - {Math.min(page * displayLimit, sortedHorsesList.length)} 件を表示
           </div>
           <div className="flex items-center gap-2">
             {/* クイック検索（IDまたは名前/血統） */}
@@ -785,8 +770,8 @@ export default function AnalysisContent() {
             >前へ</Button>
             <Button
               variant="outline"
-              onClick={() => setPage(p => (p * limit < total ? p + 1 : p))}
-              disabled={page * limit >= total || loading}
+              onClick={() => setPage(p => ((p * displayLimit < sortedHorsesList.length) ? p + 1 : p))}
+              disabled={page * displayLimit >= sortedHorsesList.length || loading}
             >次へ</Button>
           </div>
         </div>
@@ -795,7 +780,7 @@ export default function AnalysisContent() {
           <div className="min-w-0">
             {/* 旧: 表示切替ボタン（削除） */}
             <HorseTable
-              horses={filteredHorsesList}
+              horses={displayedHorses}
               onRowClick={handleRowClick}
             />
           </div>
