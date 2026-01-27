@@ -63,29 +63,29 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
   // 体重を表示
   const displayWeight = (weight: string | number | null | undefined): string => {
     if (weight === null || weight === undefined || weight === '') return '-';
-    
+
     const weightStr = String(weight);
     const numWeight = parseFloat(weightStr.replace(/[^0-9.]/g, ''));
-    
+
     if (!isNaN(numWeight) && isFinite(numWeight)) {
       return `${Math.round(numWeight)} kg`;
     }
-    
+
     const trimmedWeight = weightStr.trim();
     if (trimmedWeight !== '') {
       return trimmedWeight.toLowerCase().includes('kg') ? trimmedWeight : `${trimmedWeight} kg`;
     }
-    
+
     return '-';
   };
 
   // ROIを計算
   const calcROI = (prizeLatest: number | null | undefined, prizeStart: number | null | undefined, price: any): string => {
     if (prizeLatest === null || prizeLatest === undefined || prizeStart === null || prizeStart === undefined) return '-';
-    
+
     const numPrice = price === null || price === undefined ? 0 : (typeof price === 'string' ? parseFloat(price) : price);
     if (isNaN(numPrice) || numPrice <= 0) return '-';
-    
+
     const earnedPrize = prizeLatest - prizeStart;
     const rio = (earnedPrize * 10000) / numPrice;
     return (rio * 100).toFixed(1) + '%';
@@ -97,8 +97,8 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
   };
 
   return (
-    <tr 
-      key={horse.id} 
+    <tr
+      key={horse.id}
       className="hover:bg-blue-50 cursor-pointer"
       onClick={handleClick}
     >
@@ -107,8 +107,8 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
           {horse.is_broodmare && (
             <BroodmareBadge variant="circle" ariaLabel="繁殖牝馬" />
           )}
-          <Link 
-            href={`/horses/${horse.id}`} 
+          <Link
+            href={`/horses/${horse.id}`}
             className="hover:underline text-blue-700 whitespace-nowrap"
             onClick={(e) => e.stopPropagation()}
           >
@@ -128,10 +128,10 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
       </td>
       <td className="px-3 py-2">
         {formatPrice(
-          horse.sold_price, 
+          horse.sold_price,
           horse.is_unsold || horse.unsold || (horse.unsold_count || 0) > 0, // isUnsoldパラメータ
-          false, 
-          horse.sold_price, 
+          false,
+          horse.sold_price,
           0
         )}
       </td>
@@ -155,12 +155,9 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
         {horse.is_broodmare ? (
           '-'
         ) : (
-          formatPrice(
-            horse.total_prize_latest, 
-            horse.is_unsold || horse.unsold || (horse.unsold_count || 0) > 0,
-            false,
+          formatPrizeManWrapper(
             horse.total_prize_latest,
-            0
+            safeParseRaceRecord(horse.race_record)
           )
         )}
       </td>
@@ -170,10 +167,10 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
       <td className="px-3 py-2">
         <div className="flex flex-col gap-1 items-center">
           {horse.jbis_url && horse.jbis_url.trim() !== '' && (
-            <a 
-              href={horse.jbis_url} 
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <a
+              href={horse.jbis_url}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-xs text-blue-600 underline whitespace-nowrap"
               onClick={(e) => e.stopPropagation()}
             >
@@ -181,10 +178,10 @@ export const HorseTableRow = ({ horse, onRowClick }: HorseTableRowProps) => {
             </a>
           )}
           {getDetailUrl(horse) && (
-            <a 
-              href={getDetailUrl(horse)} 
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <a
+              href={getDetailUrl(horse)}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-xs text-blue-600 underline whitespace-nowrap"
               onClick={(e) => e.stopPropagation()}
             >

@@ -112,7 +112,7 @@ export default function AnalysisContent() {
   const router = useRouter();
   const [filters, setFilters] = useState<Filters>({ ...DEFAULT_FILTERS });
   const [page, setPage] = useState<number>(1);
-  const [limit, setLimit] = useState<number>(50);
+  const displayLimit = 50; // 1ページあたりの表示件数
   const [total, setTotal] = useState<number>(0);
   // 入力ボックス用と送信用の状態を分離
   const [searchInput, setSearchInput] = useState<string>('');
@@ -124,11 +124,12 @@ export default function AnalysisContent() {
         setLoading(true);
         setError(null);
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8001';
-        const skip = (page - 1) * limit;
-        const sortParam = sortKey === 'sold_price' ? (sortOrder === 'asc' ? 'price_asc' : 'price_desc')
-          : sortKey === 'name' ? (sortOrder === 'asc' ? 'name_asc' : 'name_desc')
-            : 'price_desc';
-        // 馬データを取得（ページネーション）
+
+        // 全件取得のための設定 (一度に取得する最大数)
+        const fetchLimit = 100000;
+
+        // ソートパラメータ (初期取得時は価格順などのデフォルト)
+        const sortParam = 'price_desc';
         console.log('馬データの取得を開始します...');
         // 検索パラメータ（数値のみの場合は id、文字列は q）
         const trimmed = search.trim();
@@ -160,7 +161,7 @@ export default function AnalysisContent() {
         // sireが入力されている場合は q にも反映（既にsearchが文字列のときはsearch優先）
         const qParamFromSire = (!trimmed && filters.sire) ? `&q=${encodeURIComponent(filters.sire)}` : '';
 
-        const url = `${apiBaseUrl}/api/horses?skip=${skip}&limit=${limit}&sort=${encodeURIComponent(sortParam)}${idParam}${qParamFromSearch}${sexParam}${minAgeParam}${maxAgeParam}${minPriceParam}${maxPriceParam}${minWeightParam}${maxWeightParam}${minRoiParam}${maxRoiParam}${qParamFromSire}`;
+        const url = `${apiBaseUrl}/api/horses?skip=0&limit=${fetchLimit}&sort=${encodeURIComponent(sortParam)}${idParam}${qParamFromSearch}${sexParam}${minAgeParam}${maxAgeParam}${minPriceParam}${maxPriceParam}${minWeightParam}${maxWeightParam}${minRoiParam}${maxRoiParam}${qParamFromSire}`;
         const response = await fetch(url, {
           cache: 'no-store',
           headers: {
@@ -274,9 +275,8 @@ export default function AnalysisContent() {
     };
 
     fetchData();
-  }, [page, limit, sortKey, sortOrder, search, filters]);
+  }, [search, filters]); // page と limit を依存関係から削除
 
-  // フックは早期returnの前に呼び出す必要がある
   const sireSuggestions = useMemo(() => {
     return horses.map(h => h.sire).filter(Boolean) as string[];
   }, [horses]);
@@ -284,6 +284,182 @@ export default function AnalysisContent() {
   const isFiltered = useMemo(() => {
     return JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS);
   }, [filters]);
+
+  // --- ヘルパー関数 ---
+  const hasDisease = (tags: any): boolean => {
+    if (tags === undefined || tags === null || tags === '') return false;
+    if (Array.isArray(tags)) {
+      if (tags.length === 0) return false;
+      return !tags.every(tag => {
+        const strTag = String(tag).trim();
+        return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
+      });
+    }
+    const strTag = String(tags).trim();
+    return !(strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。');
+  };
+
+  const calcROIValue = (h: HorseWithCalculations): number => {
+    const rawSold = h.sold_price as any;
+    let sold = 0;
+    if (typeof rawSold === 'number') {
+      sold = rawSold;
+    } else if (typeof rawSold === 'string') {
+      if (rawSold.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(rawSold);
+          sold = Array.isArray(parsed) ? Number(parsed[0]) : Number(parsed);
+        } catch (e) {
+          sold = parseFloat(rawSold.replace(/[^0-9.-]+/g, ''));
+        }
+      } else {
+        sold = parseFloat(rawSold.replace(/[^0-9.-]+/g, ''));
+      }
+    }
+
+    if (isNaN(sold)) sold = 0;
+
+    const start = h.total_prize_start || 0;
+    const latest = h.total_prize_latest || 0;
+    const earned = latest - start;
+    if (!sold || sold <= 0) return 0;
+    return (earned * 10000) / sold;
+  };
+
+  const inSex = (h: HorseWithCalculations): boolean => {
+    const s = String(h.sex || '');
+    const isBroodmare = !!h.is_broodmare;
+
+    const okMale = filters.sex.male && s.includes('牡');
+    const okGelding = filters.sex.gelding && s.includes('セ');
+
+    // 牝馬の判定（繁殖牝馬でないもの）
+    const okFemale = filters.sex.female && s.includes('牝') && !isBroodmare;
+
+    // 繁殖牝馬の判定
+    const okBroodmare = filters.sex.broodmare && isBroodmare;
+
+    return okMale || okFemale || okGelding || okBroodmare;
+  };
+
+  const inAge = (h: HorseWithCalculations): boolean => {
+    const a = typeof h.age === 'number' ? h.age : (h.age ? parseFloat(String(h.age)) : NaN);
+    if (Number.isNaN(a)) return true;
+    return a >= filters.minAge && a <= filters.maxAge;
+  };
+
+  const inSire = (h: HorseWithCalculations): boolean => {
+    if (!filters.sire) return true;
+    const lhs = String(h.sire || '').normalize('NFC').toLowerCase();
+    const rhs = String(filters.sire).normalize('NFC').toLowerCase();
+    return lhs.includes(rhs);
+  };
+
+  const inPrice = (h: HorseWithCalculations): boolean => {
+    const rawSold = h.sold_price as any;
+    let p = 0;
+    if (typeof rawSold === 'number') {
+      p = rawSold;
+    } else if (typeof rawSold === 'string') {
+      if (rawSold.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(rawSold);
+          p = Array.isArray(parsed) ? Number(parsed[0]) : Number(parsed);
+        } catch (e) {
+          p = parseFloat(rawSold.replace(/[^0-9.-]+/g, ''));
+        }
+      } else {
+        p = parseFloat(rawSold.replace(/[^0-9.-]+/g, ''));
+      }
+    }
+    if (isNaN(p)) p = 0;
+
+    if (filters.minPrice && p < filters.minPrice) return false;
+    if (filters.maxPrice && filters.maxPrice > 0 && p > filters.maxPrice) return false;
+    return true;
+  };
+
+  const inROI = (h: HorseWithCalculations): boolean => {
+    const r = calcROIValue(h);
+    if (filters.minROI && r < filters.minROI) return false;
+    if (filters.maxROI && filters.maxROI > 0 && r > filters.maxROI) return false;
+    return true;
+  };
+
+  const inDisease = (h: HorseWithCalculations): boolean => {
+    if (filters.disease === 'any') return true;
+    const has = hasDisease((h as any).disease_tags);
+    return filters.disease === 'yes' ? has : !has;
+  };
+
+  const inWeight = (h: HorseWithCalculations): boolean => {
+    const w = h.weight == null ? NaN : (typeof h.weight === 'number' ? h.weight : parseFloat(String(h.weight)));
+    if (Number.isNaN(w)) return true;
+    if (filters.minWeight && w < filters.minWeight) return false;
+    if (filters.maxWeight && filters.maxWeight > 0 && w > filters.maxWeight) return false;
+    return true;
+  };
+
+  // ソート関数の型定義
+  type SortFunction = (a: HorseWithCalculations, b: HorseWithCalculations) => number;
+  const sortFunctions: Record<string, SortFunction> = {
+    name: (a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'ja'),
+    sex: (a, b) => (a?.sex ?? '').localeCompare(b?.sex ?? '', 'ja'),
+    weight: (a, b) => {
+      const getNumericWeight = (weight: any): number => {
+        if (weight === null || weight === undefined) return 0;
+        if (typeof weight === 'number') return weight;
+        const parsed = parseFloat(weight);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+      return getNumericWeight(a?.weight) - getNumericWeight(b?.weight);
+    },
+    age: (a, b) => {
+      const ageA = typeof a?.age === 'number' ? a.age :
+        (a?.age ? parseFloat(String(a.age)) : 0);
+      const ageB = typeof b?.age === 'number' ? b.age :
+        (b?.age ? parseFloat(String(b.age)) : 0);
+      return ageA - ageB;
+    },
+    sire: (a, b) => (a?.sire ?? '').localeCompare(b?.sire ?? '', 'ja'),
+    sold_price: (a, b) => {
+      const getNumericPrice = (p: any): number => {
+        if (p === null || p === undefined) return 0;
+        if (typeof p === 'number') return p;
+        const numStr = String(p).replace(/[^0-9]/g, '');
+        return parseInt(numStr, 10) || 0;
+      };
+      return getNumericPrice(a.sold_price) - getNumericPrice(b.sold_price);
+    },
+    total_prize_start: (a, b) => (a.total_prize_start || 0) - (b.total_prize_start || 0),
+    total_prize_latest: (a, b) => (a.total_prize_latest || 0) - (b.total_prize_latest || 0),
+    roi: (a, b) => {
+      const getNumericPrice = (p: any): number => {
+        if (p === null || p === undefined) return 0;
+        if (typeof p === 'number') return p;
+        const numStr = String(p).replace(/[^0-9]/g, '');
+        return parseInt(numStr, 10) || 0;
+      };
+
+      const aSoldPrice = getNumericPrice(a.sold_price);
+      const bSoldPrice = getNumericPrice(b.sold_price);
+
+      // 落札後に稼いだ賞金総額 = 現在の総賞金 - オークション時の総賞金
+      const aEarnedPrize = (a.total_prize_latest || 0) - (a.total_prize_start || 0);
+      const bEarnedPrize = (b.total_prize_latest || 0) - (b.total_prize_start || 0);
+
+      // RIO = 落札後に稼いだ賞金総額 / 落札価格
+      const aROI = aSoldPrice > 0 ? aEarnedPrize / aSoldPrice : 0;
+      const bROI = bSoldPrice > 0 ? bEarnedPrize / bSoldPrice : 0;
+
+      return aROI - bROI;
+    },
+    disease_tags: (a, b) => {
+      const aHasDisease = hasDisease((a as any).disease_tags) ? 1 : 0;
+      const bHasDisease = hasDisease((b as any).disease_tags) ? 1 : 0;
+      return aHasDisease - bHasDisease;
+    },
+  };
 
   // CSVエクスポートユーティリティ
   const toCsv = (rows: any[]) => {
@@ -348,6 +524,42 @@ export default function AnalysisContent() {
     downloadCsv('horses_filtered.csv', csv);
   };
 
+  // ROI計算済みのリストを作成しておく（ソートや統計で使用）
+  const horsesWithROI = useMemo(() => {
+    return horses.map(h => ({
+      ...h,
+      roi: calcROIValue(h)
+    }));
+  }, [horses]);
+
+  const filteredHorsesList = useMemo(() => {
+    return horsesWithROI
+      .filter(inSex)
+      .filter(inAge)
+      .filter(inSire)
+      .filter(inPrice)
+      .filter(inROI)
+      .filter(inDisease)
+      .filter(inWeight);
+  }, [horsesWithROI, filters]);
+
+  // ソート済みのリストを作成
+  const sortedHorsesList = useMemo(() => {
+    let list = [...filteredHorsesList];
+    if (sortKey && sortFunctions[sortKey]) {
+      list.sort((a, b) => {
+        const res = sortFunctions[sortKey](a, b);
+        return sortOrder === 'asc' ? res : -res;
+      });
+    }
+    return list;
+  }, [filteredHorsesList, sortKey, sortOrder]);
+
+  // 表示用の馬データ（ページネーション適用後）
+  const displayedHorses = useMemo(() => {
+    return sortedHorsesList.slice((page - 1) * displayLimit, page * displayLimit);
+  }, [sortedHorsesList, page, displayLimit]);
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -355,130 +567,6 @@ export default function AnalysisContent() {
     return <div className="min-h-screen flex items-center justify-center text-red-600">{error || 'データがありません'}</div>;
   }
 
-  const hasDisease = (tags: any): boolean => {
-    if (tags === undefined || tags === null || tags === '') return false;
-    if (Array.isArray(tags)) {
-      if (tags.length === 0) return false;
-      return !tags.every(tag => {
-        const strTag = String(tag).trim();
-        return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
-      });
-    }
-    const strTag = String(tags).trim();
-    return !(strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。');
-  };
-
-  const calcROIValue = (h: HorseWithCalculations): number => {
-    const sold = typeof h.sold_price === 'number' ? h.sold_price : 0;
-    const start = h.total_prize_start || 0;
-    const latest = h.total_prize_latest || 0;
-    const earned = latest - start;
-    if (!sold || sold <= 0) return 0;
-    return (earned * 10000) / sold;
-  };
-
-  const inSex = (h: HorseWithCalculations): boolean => {
-    const s = String(h.sex || '');
-    const isBroodmare = !!h.is_broodmare;
-    const okMale = filters.sex.male && s.includes('牡');
-    const okGelding = filters.sex.gelding && s.includes('セ');
-
-    // 牝馬の判定（繁殖牝馬でないもの）
-    const okFemale = filters.sex.female && s.includes('牝') && !isBroodmare;
-
-    // 繁殖牝馬の判定
-    const okBroodmare = filters.sex.broodmare && isBroodmare;
-
-    return okMale || okFemale || okGelding || okBroodmare;
-  };
-
-  const inAge = (h: HorseWithCalculations): boolean => {
-    const a = typeof h.age === 'number' ? h.age : (h.age ? parseFloat(String(h.age)) : NaN);
-    if (Number.isNaN(a)) return true;
-    return a >= filters.minAge && a <= filters.maxAge;
-  };
-
-  const inSire = (h: HorseWithCalculations): boolean => {
-    if (!filters.sire) return true;
-    const lhs = String(h.sire || '').normalize('NFC').toLowerCase();
-    const rhs = String(filters.sire).normalize('NFC').toLowerCase();
-    return lhs.includes(rhs);
-  };
-
-  const inPrice = (h: HorseWithCalculations): boolean => {
-    const p = typeof h.sold_price === 'number' ? h.sold_price : 0;
-    if (filters.minPrice && p < filters.minPrice) return false;
-    if (filters.maxPrice && filters.maxPrice > 0 && p > filters.maxPrice) return false;
-    return true;
-  };
-
-  const inROI = (h: HorseWithCalculations): boolean => {
-    const r = calcROIValue(h);
-    if (filters.minROI && r < filters.minROI) return false;
-    if (filters.maxROI && filters.maxROI > 0 && r > filters.maxROI) return false;
-    return true;
-  };
-
-  const inDisease = (h: HorseWithCalculations): boolean => {
-    if (filters.disease === 'any') return true;
-    const has = hasDisease((h as any).disease_tags);
-    return filters.disease === 'yes' ? has : !has;
-  };
-
-  const inWeight = (h: HorseWithCalculations): boolean => {
-    const w = h.weight == null ? NaN : (typeof h.weight === 'number' ? h.weight : parseFloat(String(h.weight)));
-    if (Number.isNaN(w)) return true;
-    if (filters.minWeight && w < filters.minWeight) return false;
-    if (filters.maxWeight && filters.maxWeight > 0 && w > filters.maxWeight) return false;
-    return true;
-  };
-
-  const filteredHorsesList = horses
-    .filter(inSex)
-    .filter(inAge)
-    .filter(inSire)
-    .filter(inPrice)
-    .filter(inROI)
-    .filter(inDisease)
-    .filter(inWeight);
-
-  // ソート
-  if (sortKey) {
-    filteredHorsesList.sort((a: HorseWithCalculations, b: HorseWithCalculations) => {
-      let aValue = (a as any)[sortKey];
-      let bValue = (b as any)[sortKey];
-
-      // 価格の特別な処理
-      if (sortKey === 'sold_price') {
-        // 文字列の場合はカンマを削除して数値に変換
-        const parsePrice = (price: any): number => {
-          if (price === null || price === undefined) return 0;
-          if (typeof price === 'number') return price;
-          if (typeof price === 'string') {
-            // カンマを削除して数値に変換
-            const cleanPrice = price.replace(/[^0-9.-]+/g, '');
-            return parseFloat(cleanPrice) || 0;
-          }
-          return 0;
-        };
-
-        aValue = parsePrice(aValue);
-        bValue = parsePrice(bValue);
-      } else {
-        // その他のフィールドの処理
-        aValue = aValue || 0;
-        bValue = bValue || 0;
-
-        // 数値に変換
-        if (typeof aValue === 'string') aValue = parseFloat(aValue) || 0;
-        if (typeof bValue === 'string') bValue = parseFloat(bValue) || 0;
-      }
-
-      return sortOrder === 'asc'
-        ? (aValue as number) - (bValue as number)
-        : (bValue as number) - (aValue as number);
-    });
-  }
 
   // サマリー - RIO計算を詳細ページと合わせる
   const avgRIO = horses.length > 0 ? (
@@ -603,8 +691,6 @@ export default function AnalysisContent() {
 
   // 旧: 指標ボタン用データ（不要のため削除）
 
-  // 表示切替
-  let tableHorses: HorseWithCalculations[] = [...filteredHorsesList];
 
   // 年齢を表示するヘルパー関数（null/undefined/空文字の場合は'-'を表示）
   const displayAge = (age: string | number | null | undefined): string => {
@@ -644,83 +730,12 @@ export default function AnalysisContent() {
     return (rio * 100).toFixed(1) + '%';
   };
 
-  // ソート関数の型定義
-  type SortFunction = (a: HorseWithCalculations, b: HorseWithCalculations) => number;
-  const sortFunctions: Record<string, SortFunction> = {
-    name: (a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'ja'),
-    sex: (a, b) => (a?.sex ?? '').localeCompare(b?.sex ?? '', 'ja'),
-    weight: (a, b) => {
-      const getNumericWeight = (weight: any): number => {
-        if (weight === null || weight === undefined) return 0;
-        if (typeof weight === 'number') return weight;
-        const parsed = parseFloat(weight);
-        return isNaN(parsed) ? 0 : parsed;
-      };
-      return getNumericWeight(a?.weight) - getNumericWeight(b?.weight);
-    },
-    age: (a, b) => {
-      const ageA = typeof a?.age === 'number' ? a.age :
-        (a?.age ? parseFloat(String(a.age)) : 0);
-      const ageB = typeof b?.age === 'number' ? b.age :
-        (b?.age ? parseFloat(String(b.age)) : 0);
-      return ageA - ageB;
-    },
-    sire: (a, b) => (a?.sire ?? '').localeCompare(b?.sire ?? '', 'ja'),
-    sold_price: (a, b) => {
-      const aPrice = a?.sold_price !== null && a?.sold_price !== undefined ?
-        (typeof a.sold_price === 'number' ? a.sold_price : 0) : 0;
-      const bPrice = b.sold_price !== null && b.sold_price !== undefined ?
-        (typeof b.sold_price === 'number' ? b.sold_price : 0) : 0;
-      return aPrice - bPrice;
-    },
-    total_prize_start: (a, b) => (a.total_prize_start || 0) - (b.total_prize_start || 0),
-    total_prize_latest: (a, b) => (a.total_prize_latest || 0) - (b.total_prize_latest || 0),
-    roi: (a, b) => {
-      const aSoldPrice = typeof a.sold_price === 'number' ? a.sold_price : 0;
-      const bSoldPrice = typeof b.sold_price === 'number' ? b.sold_price : 0;
 
-      // 落札後に稼いだ賞金総額 = 現在の総賞金 - オークション時の総賞金
-      const aEarnedPrize = (a.total_prize_latest || 0) - (a.total_prize_start || 0);
-      const bEarnedPrize = (b.total_prize_latest || 0) - (b.total_prize_start || 0);
-
-      // RIO = 落札後に稼いだ賞金総額 / 落札価格
-      const aROI = aSoldPrice > 0 ? aEarnedPrize / aSoldPrice : 0;
-      const bROI = bSoldPrice > 0 ? bEarnedPrize / bSoldPrice : 0;
-
-      return aROI - bROI;
-    },
-    disease_tags: (a, b) => {
-      // 病歴の有無を判定する関数
-      const hasDisease = (horse: HorseWithCalculations) => {
-        const tags = (horse as any).disease_tags;
-        if (tags === undefined || tags === null || tags === '') return false;
-        if (Array.isArray(tags)) {
-          if (tags.length === 0) return false;
-          return !tags.every(tag => {
-            const strTag = String(tag).trim();
-            return strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。';
-          });
-        }
-        const strTag = String(tags).trim();
-        return !(strTag === '' || strTag === '-' || strTag === 'なし' || strTag === 'なし。' || strTag === '特になし' || strTag === '特になし。');
-      };
-
-      const aHasDisease = hasDisease(a) ? 1 : 0;
-      const bHasDisease = hasDisease(b) ? 1 : 0;
-
-      return aHasDisease - bHasDisease;
-    },
-  };
-
-  if (sortKey && sortFunctions[sortKey]) {
-    tableHorses = [...tableHorses].sort((a, b) => {
-      const res = sortFunctions[sortKey](a, b);
-      return sortOrder === 'asc' ? res : -res;
-    });
-  }
+  // ソートハンドラー（ヘッダークリック時に呼び出し）
 
   // ソートハンドラー
   const handleSort = (key: string) => {
+    setPage(1);
     if (sortKey === key) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
@@ -750,7 +765,7 @@ export default function AnalysisContent() {
 
         <div className="flex items-center justify-between mb-3 gap-3">
           <div className="text-sm text-gray-600">
-            一覧: {total}頭中 {(page - 1) * limit + 1} - {Math.min(page * limit, total)} 件を表示
+            一覧: {sortedHorsesList.length}頭中 {(page - 1) * displayLimit + 1} - {Math.min(page * displayLimit, sortedHorsesList.length)} 件を表示
           </div>
           <div className="flex items-center gap-2">
             {/* クイック検索（IDまたは名前/血統） */}
@@ -784,8 +799,8 @@ export default function AnalysisContent() {
             >前へ</Button>
             <Button
               variant="outline"
-              onClick={() => setPage(p => (p * limit < total ? p + 1 : p))}
-              disabled={page * limit >= total || loading}
+              onClick={() => setPage(p => ((p * displayLimit < sortedHorsesList.length) ? p + 1 : p))}
+              disabled={page * displayLimit >= sortedHorsesList.length || loading}
             >次へ</Button>
           </div>
         </div>
@@ -794,8 +809,11 @@ export default function AnalysisContent() {
           <div className="min-w-0">
             {/* 旧: 表示切替ボタン（削除） */}
             <HorseTable
-              horses={filteredHorsesList}
+              horses={displayedHorses}
               onRowClick={handleRowClick}
+              sortKey={sortKey}
+              sortOrder={sortOrder}
+              onSort={handleSort}
             />
           </div>
           <aside className="col-start-2 w-[240px]">
