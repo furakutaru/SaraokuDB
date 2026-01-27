@@ -932,7 +932,8 @@ class ScraperConfig:
         max_delay: float = 3.0,
         use_mobile: bool = True,  # デフォルトでモバイル版を使用
         log_level: str = 'INFO',
-        log_file: Optional[Union[str, Path]] = None
+        log_file: Optional[Union[str, Path]] = None,
+        broodmare_only: bool = False
     ):
         """
         初期化メソッド
@@ -961,6 +962,7 @@ class ScraperConfig:
         self.use_mobile = use_mobile
         self.log_level = log_level
         self.log_file = Path(log_file) if log_file else None
+        self.broodmare_only = broodmare_only
         self._current_ua_index = 0
         
         # ロギングの初期化
@@ -1018,7 +1020,7 @@ class ImprovedRakutenScraper:
     def __init__(
         self,
         config: Optional[ScraperConfig] = None,
-        save_html: bool = False,  # HTML保存をデフォルトで無効化
+        save_html: bool = False,
         debug_mode: bool = False,
         **kwargs
     ):
@@ -1028,51 +1030,68 @@ class ImprovedRakutenScraper:
         Args:
             config: スクレイパー設定（Noneの場合はデフォルト設定を使用）
             save_html: HTMLを保存するかどうか
-            debug_mode: デバッグモード（追加のログ出力など）
-            **kwargs: 設定オプション（ScraperConfigのパラメータ）
+            debug_mode: デバッグモード
+            **kwargs: 後方互換性のための引数（非推奨）
         """
-        # 設定の初期化
-        kwargs.setdefault('max_retries', 0)  # リトライを無効化
-        self.config = config or ScraperConfig(**kwargs)
-        self.save_html = save_html
+        # 後方互換性のための処理
+        if config is None:
+            if any(k in kwargs for k in ['test_mode', 'max_workers', 'use_cache', 'cache_dir']):
+                self.logger = setup_logging()
+                self.logger.warning("古い引数形式は非推奨です。ScraperConfigクラスを使用してください。")
+                if kwargs.get('test_mode', False):
+                    config = TestConfig(
+                        use_cache=kwargs.get('use_cache', True),
+                        cache_dir=kwargs.get('cache_dir', 'test_cache')
+                    )
+                else:
+                    config = ScraperConfig(
+                        max_workers=kwargs.get('max_workers', 5),
+                        use_cache=kwargs.get('use_cache', True),
+                        cache_dir=kwargs.get('cache_dir', 'cache')
+                    )
+            else:
+                config = ScraperConfig()
+        
+        self.config = config
+        self.base_url = "https://auction.keiba.rakuten.co.jp/"
+        self.test_mode = isinstance(config, TestConfig)
         self.debug_mode = debug_mode
-        self.logger = self.config.logger
-        self.broodmare_only = getattr(self.config, 'broodmare_only', False)
+        self.save_html = save_html
         
-        # リクエストセッションの初期化
-        self.session = requests.Session()
+        # ロガーを設定
+        self.logger = self._setup_logger()
+        self.failed_horses = []
+        self.processed_count = 0
+        self.max_workers = config.max_workers
         
-        # リトライ設定
-        retry_strategy = Retry(
-            total=self.config.max_retries,
-            backoff_factor=self.config.backoff_factor,
-            status_forcelist=[408, 429, 500, 502, 503, 504],
-            allowed_methods=["GET", "POST"]
-        )
+        # broodmare_only設定
+        self.broodmare_only = getattr(config, 'broodmare_only', False)
         
-        # アダプターの設定
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
-        
-        # ユーザーエージェントの設定
-        self.session.headers.update({
-            'User-Agent': self.config.get_random_user_agent(),
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
-            'Connection': 'keep-alive',
-        })
-        
-        # キャッシュの初期化
-        self._setup_cache()
-        
-        # その他の初期化
-        self.failed_horses = []  # 失敗した馬の記録用
-        self.processed_count = 0  # 処理済みカウンタ
-        
-        self.logger.info("スクレイパーを初期化しました")
+        self.logger.info(f"スクレイパーを初期化します (max_workers={self.max_workers})")
         if self.broodmare_only:
             self.logger.info("繁殖牝馬モード: 繁殖牝馬以外のデータ更新をスキップします")
+
+        # キャッシュの設定
+        self._setup_cache()
+            
+        # 抽出コンポーネントの初期化
+        self.horse_info_extractor = HorseInfoExtractor(logger=self.logger.getChild('horse_info_extractor'))
+        
+        # セッションの初期化
+        self.timeout = config.timeout
+        self.session = self._create_session(
+            timeout=config.timeout,
+            max_retries=config.max_retries,
+            backoff_factor=config.backoff_factor
+        )
+        
+        # 抽出コンポーネントの初期化
+        self._initialize_extractors()
+        
+        # HTML保存用の初期化
+        self.html_saver = None
+        if self.save_html:
+            self.enable_html_saving(Path('html_dump'))
     
     def _handle_error(self, error: Exception, context: str = "", log_level: str = "error", 
                     reraise: bool = False, **kwargs) -> Optional[Dict]:
@@ -1366,76 +1385,6 @@ class ImprovedRakutenScraper:
         
         return logger
         
-    def __init__(self, config: Optional[ScraperConfig] = None, **kwargs):
-        """
-        初期化メソッド
-        
-        Args:
-            config: スクレイパーの設定（Noneの場合はデフォルト設定を使用）
-            **kwargs: 後方互換性のための引数（非推奨）
-        """
-        # 後方互換性のための処理
-        if config is None:
-            # 古い引数形式で渡された場合は警告を出して新しい形式に変換
-            if any(k in kwargs for k in ['test_mode', 'max_workers', 'use_cache', 'cache_dir']):
-                logger.warning("古い引数形式は非推奨です。ScraperConfigクラスを使用してください。")
-                
-                # テストモードの設定
-                if kwargs.get('test_mode', False):
-                    config = TestConfig(
-                        use_cache=kwargs.get('use_cache', True),
-                        cache_dir=kwargs.get('cache_dir', 'test_cache')
-                    )
-                else:
-                    config = ScraperConfig(
-                        max_workers=kwargs.get('max_workers', 5),
-                        use_cache=kwargs.get('use_cache', True),
-                        cache_dir=kwargs.get('cache_dir', 'cache')
-                    )
-            else:
-                # 引数が指定されていない場合はデフォルト設定を使用
-                config = ScraperConfig()
-        
-        # 設定を適用
-        self.config = config
-        self.base_url = "https://auction.keiba.rakuten.co.jp/"
-        
-        # テストモードの設定
-        self.test_mode = isinstance(config, TestConfig)
-        
-        # ロガーを設定
-        self.logger = self._setup_logger()
-        
-        # 失敗した馬を記録するためのリスト
-        self.failed_horses = []
-        
-        # 並列処理の最大ワーカー数を設定
-        self.max_workers = config.max_workers
-        
-        self.logger.info(f"スクレイパーを初期化します (max_workers={self.max_workers})")
-        
-        # キャッシュの設定
-        self._setup_cache()
-            
-        # 抽出コンポーネントの初期化
-        self.horse_info_extractor = HorseInfoExtractor(logger=self.logger.getChild('horse_info_extractor'))
-        
-        # セッションの初期化
-        self.timeout = config.timeout  # timeoutをインスタンス変数として設定
-        self.session = self._create_session(
-            timeout=config.timeout,
-            max_retries=config.max_retries,
-            backoff_factor=config.backoff_factor
-        )
-        
-        # 抽出コンポーネントの初期化
-        self._initialize_extractors()
-        
-        # HTML保存用の初期化
-        self.html_saver = None
-        # デフォルトでHTML保存を有効化
-        self.enable_html_saving(Path('html_dump'))
-    
     def enable_html_saving(self, base_dir: Union[str, Path]) -> None:
         """HTML保存機能を有効化する
         
@@ -1815,6 +1764,11 @@ class ImprovedRakutenScraper:
                 except Exception as e:
                     failed_count += 1
                     self.logger.error(f"馬情報の抽出中にエラーが発生しました (馬 {i}/{total_horses}): {e}", exc_info=True)
+                    self.failed_horses.append({
+                        'index': i,
+                        'error': str(e),
+                        'timestamp': datetime.now().isoformat()
+                    })
             
             # 結果をログに出力
             self.logger.info(f"完了: 成功 {success_count}頭, 失敗 {failed_count}頭")

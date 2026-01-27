@@ -443,17 +443,7 @@ async def get_horses(
 
         # ページネーション
         total = final_query.count()
-        fetch_limit = limit
-        if needs_prize_update_flag:
-            fetch_limit = max(limit * PRIZE_UPDATE_FETCH_MULTIPLIER, limit)
-        horses = final_query.offset(skip).limit(fetch_limit).all()
-
-        if needs_prize_update_flag:
-            horses = [
-                horse for horse in horses
-                if _should_include_in_prize_batch(horse, now_utc)
-            ][:limit]
-            total = len(horses)
+        horses = final_query.offset(skip).limit(limit).all()
 
         # 7. 結果をシリアライズ
         horses_data = []
@@ -544,8 +534,8 @@ async def get_horses(
                 "id": horse.id,
                 "raw_name": getattr(horse, "raw_name", None),
                 "name": horse.name,
-                "sex": horse.sex,
-                "age": horse.age,
+                "sex": _extract_latest_history_value(horse.sex),
+                "age": _extract_latest_history_value(horse.age),
                 "sire": horse.sire,
                 "dam": horse.dam,
                 "dam_sire": horse.dam_sire,
@@ -560,11 +550,11 @@ async def get_horses(
                 "update_interval_months": getattr(horse, "update_interval_months", None),
                 "is_retired": getattr(horse, "is_retired", None),
                 "is_broodmare": getattr(horse, "is_broodmare", None),
-                "sold_price": horse.sold_price,
-                "auction_date": horse.auction_date,
-                "seller": horse.seller,
+                "sold_price": _extract_latest_history_value(horse.sold_price),
+                "auction_date": _extract_latest_history_value(horse.auction_date),
+                "seller": _extract_latest_history_value(horse.seller),
                 "disease_tags": horse.disease_tags,
-                "comment": horse.comment,
+                "comment": _extract_latest_history_value(horse.comment),
                 "image_url": horse.image_url,
                 # 画像のフォールバック: primary_image が未設定なら image_url を使用
                 "primary_image": getattr(horse, 'primary_image', None) or horse.image_url,
@@ -843,6 +833,9 @@ async def get_horse_by_id(
         siblings = candidate_query.all()
         sibling_ids = [h.id for h in siblings] if siblings else [horse_id]
 
+        # 兄弟馬をIDでマップ化（高速参照用）
+        siblings_map = {h.id: h for h in siblings} if siblings else {horse_id: horse}
+
         # 同名だが別horse_idに紐づく履歴も拾う（名前の揺れで結合できないケースを補完）
         normalized_ah_name = func.replace(func.replace(func.replace(AuctionHistory.horse_name, ' ', ''), '　', ''), '・', '')
         auction_histories = db.query(AuctionHistory).filter(
@@ -864,6 +857,10 @@ async def get_horse_by_id(
                 if hasattr(dt, 'isoformat'):
                     return dt.isoformat()
                 return str(dt) if dt else None
+            
+            # 対応する馬の情報を取得してtotal_prize_startを取得
+            related_horse = siblings_map.get(ah.horse_id)
+            total_prize_start = getattr(related_horse, 'total_prize_start', None) if related_horse else None
                 
             return {
                 'id': getattr(ah, 'id', None),
@@ -874,6 +871,8 @@ async def get_horse_by_id(
                 'damsire_name': getattr(ah, 'damsire_name', None),
                 'auction_date': safe_isoformat(getattr(ah, 'auction_date', None)),
                 'price': getattr(ah, 'price', None),
+                'total_prize_start': total_prize_start, # 追加
+                'race_record': getattr(related_horse, 'race_record', None) if related_horse else None, # 追加: 戦績情報
                 'seller': getattr(ah, 'seller', None),
                 'buyer': getattr(ah, 'buyer', None),
                 'auction_house': getattr(ah, 'auction_house', None),
@@ -913,7 +912,7 @@ async def get_horse_by_id(
                     return value
                 except Exception:
                     return value
-
+ 
             for sib in siblings:
                 try:
                     item = {
@@ -925,6 +924,8 @@ async def get_horse_by_id(
                         'damsire_name': getattr(sib, 'dam_sire', None),
                         'auction_date': parse_first_date(getattr(sib, 'auction_date', None)),
                         'price': None,
+                        'total_prize_start': getattr(sib, 'total_prize_start', None), # 追加
+                        'race_record': getattr(sib, 'race_record', None), # 追加: 戦績情報
                         'seller': getattr(sib, 'seller', None),
                         'buyer': None,
                         'auction_house': None,
@@ -941,11 +942,21 @@ async def get_horse_by_id(
                     sp = getattr(sib, 'sold_price', None)
                     try:
                         if isinstance(sp, str):
-                            parsed_sp = json.loads(sp)
-                            if isinstance(parsed_sp, list) and parsed_sp:
-                                item['price'] = parsed_sp[-1]
+                            # 先頭と末尾の空白を除去
+                            sp_stripped = sp.strip()
+                            if sp_stripped.startswith('[') and sp_stripped.endswith(']'):
+                                # 配列形式の場合
+                                parsed_sp = json.loads(sp_stripped)
+                                if isinstance(parsed_sp, list) and parsed_sp:
+                                    item['price'] = parsed_sp[-1]
+                                else:
+                                    item['price'] = None
                             else:
-                                item['price'] = None
+                                # 単一の数値形式の場合
+                                try:
+                                    item['price'] = int(float(sp_stripped))
+                                except ValueError:
+                                    item['price'] = None
                         else:
                             item['price'] = sp
                     except Exception:
@@ -964,6 +975,7 @@ async def get_horse_by_id(
                     return str(d)
             auction_histories_list.sort(key=_key_date, reverse=True)
             latest_auction_dict = auction_histories_list[0] if auction_histories_list else latest_auction_dict
+
         
         # auction_date をパース
         auction_date = None
@@ -1124,7 +1136,7 @@ async def get_horse_by_id(
             "race_records": race_records,  # 後方互換性のため残す
             "unified_race_records": unified_race_records,  # 新しい統合形式
             "auction_histories": auction_histories_list,
-            "latestAuction": latest_auction_dict
+            "latest_auction": latest_auction_dict,
         }
         
         return response_data

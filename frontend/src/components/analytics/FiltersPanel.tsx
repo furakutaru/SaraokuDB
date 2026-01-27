@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 
-export type SexFilter = { male: boolean; female: boolean; gelding: boolean };
+export type SexFilter = { male: boolean; female: boolean; gelding: boolean; broodmare: boolean };
 
 export type Filters = {
   sex: SexFilter;
@@ -40,6 +40,7 @@ export const FiltersPanel: React.FC<Props> = ({ filters, onChange, onReset, sire
             <label className="flex items-center gap-1 text-xs"><input type="checkbox" className="h-3.5 w-3.5" checked={filters.sex.male} onChange={(e) => onChange({ sex: { ...filters.sex, male: e.target.checked } })} />牡</label>
             <label className="flex items-center gap-1 text-xs"><input type="checkbox" className="h-3.5 w-3.5" checked={filters.sex.female} onChange={(e) => onChange({ sex: { ...filters.sex, female: e.target.checked } })} />牝</label>
             <label className="flex items-center gap-1 text-xs"><input type="checkbox" className="h-3.5 w-3.5" checked={filters.sex.gelding} onChange={(e) => onChange({ sex: { ...filters.sex, gelding: e.target.checked } })} />セ</label>
+            <label className="flex items-center gap-1 text-xs"><input type="checkbox" className="h-3.5 w-3.5" checked={filters.sex.broodmare} onChange={(e) => onChange({ sex: { ...filters.sex, broodmare: e.target.checked } })} />繁殖牝馬</label>
           </div>
         </div>
 

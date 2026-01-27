@@ -510,12 +510,17 @@ def main():
         horses = scraper.scrape_horse_list(max_pages=0)  # 0は全ページ取得
         
         if not horses:
+            # 抽出失敗があったか確認
+            if hasattr(scraper, 'failed_horses') and scraper.failed_horses:
+                logger.error(f"抽出失敗が発生しました。失敗件数: {len(scraper.failed_horses)}")
+                logger.error("スクレイピング対象のページ構造が変更されている可能性があります。")
+                sys.exit(1)
+
             logger.warning("スクレイピング結果が0件です。以下のいずれかの可能性があります：")
             logger.warning("1. オークションが開催されていない")
             logger.warning("2. オークション準備中でデータが公開されていない")
             logger.warning("3. スクレイピング対象のページ構造が変更されている")
             logger.info("警告は出していますが、処理は正常終了とします。")
-            # 0件でもエラー終了せずに正常終了する
             return
             
         logger.info(f"合計 {len(horses)} 件の馬データを取得しました")
@@ -537,6 +542,7 @@ def main():
         # 更新・追加処理
         updated_count = 0
         added_count = 0
+        failed_count = 0
         
         for i, horse in enumerate(horses, 1):
             try:
@@ -562,9 +568,29 @@ def main():
                         logger.info(f"[{i}/{len(horses)}] 新しい馬データを追加しました: {horse.get('name')}")
                 else:
                     logger.warning(f"[{i}/{len(horses)}] 馬データの保存に失敗しました: {horse.get('name')}")
+                    failed_count += 1 # Increment failed_count even if save_horse returns None
+                    # Populate scraper.failed_horses for API save failures
+                    if not hasattr(scraper, 'failed_horses'):
+                        scraper.failed_horses = []
+                    scraper.failed_horses.append({
+                        'index': i,
+                        'horse_name': horse.get('name'),
+                        'error': "API保存失敗",
+                        'timestamp': datetime.now().isoformat()
+                    })
                     
             except Exception as e:
-                logger.error(f"馬データの処理中にエラーが発生しました: {str(e)}", exc_info=True)
+                failed_count += 1
+                logger.error(f"馬データの処理中にエラーが発生しました (馬 {i}/{len(horses)}): {str(e)}", exc_info=True)
+                # Populate scraper.failed_horses for unexpected errors during processing
+                if not hasattr(scraper, 'failed_horses'):
+                    scraper.failed_horses = []
+                scraper.failed_horses.append({
+                    'index': i,
+                    'horse_name': horse.get('name'),
+                    'error': str(e),
+                    'timestamp': datetime.now().isoformat()
+                })
                 continue
         
         # 更新・追加後のデータをリストに変換

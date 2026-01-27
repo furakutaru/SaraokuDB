@@ -252,7 +252,28 @@ def _extract_jbis_url(soup: BeautifulSoup) -> Optional[str]:
 
 
 def _extract_bid_count(html: str) -> Optional[int]:
-    match = re.search(r"入札数\s*:?\s*(\d+)", html)
+    # 入札数 : 1 や 入札数:1 、あるいは改行を含むケースに対応
+    # "入札情報" のような他の単語にマッチしないように注意
+    match = re.search(r"入札数\s*[:：]?\s*(\d+)", html)
+    if not match:
+        # 具体的なHTML構造: <div class="topBidder__textLabel">入札数</div> ... <a ...>1</a>
+        # テキストベースで "入札数" の後に来る最初の数字を探す（少し乱暴だがフォールバックとして）
+        soup = BeautifulSoup(html, "html.parser")
+        # 特定のクラスを探す
+        label = soup.find(string=re.compile(r"入札数"))
+        if label:
+            # 親要素や隣接要素から数字を探す
+            parent = label.find_parent()
+            if parent:
+                parent_container = parent.parent
+                if parent_container:
+                     bid_num_elem = parent_container.find("a", href=lambda h: h and "bidInfo" in h)
+                     if bid_num_elem:
+                         try:
+                             return int(bid_num_elem.get_text(strip=True))
+                         except:
+                             pass
+    
     if match:
         return int(match.group(1))
     return None
@@ -302,9 +323,32 @@ def _extract_prize_info(html: str) -> Dict[str, Optional[int]]:
                     return None
             return None
 
+        # 1. <pre>タグ内のテキストを優先的に取得（詳細情報は pre 内に書かれることが多い）
+        pre_text = ""
+        pre_tag = soup.find("pre")
+        if pre_tag:
+            pre_text = pre_tag.get_text(" ")
+        
+        # 検索対象テキストのリスト（優先度順: pre内 -> body全体）
+        target_texts = [pre_text, text]
+
         # ラベルに基づき中央/地方/総を探す
         # キーワードは柔軟に: 「中央」「JRA」「地方」「NAR」「総」「合計」
         def extract_by_label(patterns: list[str]) -> Optional[int]:
+            for tgt_text in target_texts:
+                if not tgt_text:
+                    continue
+                # 全角スペース等を半角に寄せてから検索
+                normalized = tgt_text.replace('\u3000', ' ').replace('\xa0', ' ')
+                for pat in patterns:
+                    # 改行をまたぐ可能性も考慮して re.DOTALL は使わないが、
+                    # 前後の文脈を含めて検索
+                    m = re.search(pat + r"\s*[:：]?\s*([0-9,.]+\s*(?:万|円)?)", normalized)
+                    if m:
+                        yen = to_yen(m.group(1))
+                        if yen is not None:
+                            return yen
+            return None
             for pat in patterns:
                 m = re.search(pat + r"\s*[:：]?\s*([^\n\r<]+)", text, re.IGNORECASE)
                 if m:
@@ -468,8 +512,12 @@ def parse_detail_html(
         result.is_unsold = price_info.get("is_unsold", False)
 
     result.bid_count = _extract_bid_count(html)
+    result.bid_count = _extract_bid_count(html)
     if result.bid_count == 0:
         result.is_unsold = True
+    elif result.bid_count is not None and result.bid_count > 0:
+        # 入札があれば落札されている（主取りではない）とみなす
+        result.is_unsold = False
 
     try:
         comment_data, ok = _comment_extractor.extract(soup)
@@ -500,34 +548,43 @@ def parse_detail_html(
     # 賞金情報（中央/地方/総）を詳細ページから抽出し、合算を total_prize_start（オークション時点）として反映
     prize_info = _extract_prize_info(html)
     total_prize_money = prize_info.get("total_prize_money")
-    if total_prize_money is not None:
+    
+    # 賞金が見つからない場合は0円として扱う（未出走・未勝利など）
+    result.total_prize_start = int(total_prize_money) if total_prize_money is not None else 0
+    
+    # 既存の race_record (JSON文字列) をロード、無ければ初期化
+    race_record_payload: Dict[str, Any] = {}
+    if result.race_record:
         try:
-            # dataclass のフィールドに直接設定（サラオクページは更新されないため開始賞金として保持）
-            result.total_prize_start = int(total_prize_money)
-            # 既存の race_record があれば統合、無ければ賞金情報を持つ簡易レコードを作成
-            race_record_payload: Dict[str, Any] = {}
-            if result.race_record:
-                try:
-                    rr = json.loads(result.race_record) if isinstance(result.race_record, str) else result.race_record
-                    if isinstance(rr, dict):
-                        race_record_payload = rr
-                except Exception:
-                    race_record_payload = {}
-            # 埋め込み
-            race_record_payload.setdefault("record_format", "simple")
-            if prize_info.get("total_prize_money") is not None:
-                race_record_payload["total_prize_money"] = int(prize_info["total_prize_money"])  # 円
-            if prize_info.get("central_prize_money") is not None:
-                race_record_payload["central_prize_money"] = int(prize_info["central_prize_money"])  # 円
-            if prize_info.get("local_prize_money") is not None:
-                race_record_payload["local_prize_money"] = int(prize_info["local_prize_money"])  # 円
-            if prize_info.get("last_prize_update") is not None:
-                race_record_payload["last_prize_update"] = prize_info["last_prize_update"]
-
-            # 反映
-            result.race_record = json.dumps(race_record_payload, ensure_ascii=False)
+            rr = json.loads(result.race_record) if isinstance(result.race_record, str) else result.race_record
+            if isinstance(rr, dict):
+                race_record_payload = rr
         except Exception:
-            logger.exception("Prize info integration failed")
+            race_record_payload = {}
+    
+    # 戦績情報がない場合は「未出走」として初期化
+    if not race_record_payload and result.total_prize_start == 0:
+        race_record_payload = {
+            "total_races": 0,
+            "wins": 0,
+            "record_format": "simple",
+            "formatted_record": "未出走"
+        }
+            
+    # 埋め込み（賞金情報を戦績データにも反映）
+    race_record_payload.setdefault("record_format", "simple")
+    
+    # 賞金情報があれば上書き、なければ0で埋める
+    race_record_payload["total_prize_money"] = int(prize_info.get("total_prize_money") or 0)
+    if prize_info.get("central_prize_money") is not None:
+        race_record_payload["central_prize_money"] = int(prize_info["central_prize_money"])
+    if prize_info.get("local_prize_money") is not None:
+        race_record_payload["local_prize_money"] = int(prize_info["local_prize_money"])
+    if prize_info.get("last_prize_update") is not None:
+        race_record_payload["last_prize_update"] = prize_info["last_prize_update"]
+
+    # 反映
+    result.race_record = json.dumps(race_record_payload, ensure_ascii=False)
 
     if not result.auction_date:
         start_time = soup.select_one(".subData__startTime .subData__value")
