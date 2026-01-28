@@ -113,6 +113,9 @@ class HorseService:
         horse = db.query(Horse).filter(Horse.id == horse_id).first()
         if horse:
             for key, value in horse_data.items():
+                # total_prize_latest が None または空文字列の場合は更新をスキップ
+                if key == 'total_prize_latest' and (value is None or value == ''):
+                    continue
                 setattr(horse, key, value)
             horse.updated_at = datetime.utcnow()
             db.commit()
@@ -238,6 +241,9 @@ class HorseService:
                     for key, value in horse_data.items():
                         if key not in ['auction_date', 'age', 'sex', 'seller', 'sold_price', 'comment']:
                             # is_unsoldが存在する場合は必ず更新する
+                            # total_prize_latest はスキップ（楽天からは更新しない）
+                            if key == 'total_prize_latest':
+                                continue
                             if key == 'is_unsold' or not hasattr(existing_horse, key) or getattr(existing_horse, key) != value:
                                 setattr(existing_horse, key, value)
                                 print(f"[デバッグ] フィールドを更新: {key} = {value}")

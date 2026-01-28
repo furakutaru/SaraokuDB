@@ -234,6 +234,9 @@ def main():
             finally:
                 db.close()
 
+            # 保存前に total_prize_latest を削除（Keibabookデータを保護）
+            horse.pop("total_prize_latest", None)
+            
             # 保存
             ok = save_horse_via_service(service, horse)
             if ok:

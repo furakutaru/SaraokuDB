@@ -49,7 +49,6 @@ class DetailParseResult:
     race_record: Optional[str] = None
     scraped_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     # 最新賞金（円）。詳細ページから推定抽出した合算値を格納
-    total_prize_latest: Optional[int] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return self.__dict__.copy()

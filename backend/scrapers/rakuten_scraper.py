@@ -88,8 +88,7 @@ class RakutenAuctionScraper:
             'seller': '不明',
             'auction_date': auction_date or datetime.now().strftime('%Y-%m-%d'),
             'sold_price': None,
-            'total_prize_start': '',
-            'total_prize_latest': '',
+            'total_prize_start': 0,
             'bid_num': '',
             'unsold': False,
             'comment': ''
@@ -281,7 +280,6 @@ class RakutenAuctionScraper:
                 print(f"  {i}/{len(horses)}: {horse.get('name', '未確認馬')}")
                 # 賞金情報を初期化
                 horse['total_prize_start'] = 0.0
-                horse['total_prize_latest'] = 0.0
 
                 # 詳細データを取得（auction_dateを渡す）
                 if 'detail_url' in horse and horse['detail_url']:
