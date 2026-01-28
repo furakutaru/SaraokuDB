@@ -28,7 +28,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 # backend 依存の読み込み
-from backend.database.models import SessionLocal  # DATABASE_URL 必須
+from backend.database.models import SessionLocal, Horse, AuctionHistory  # DATABASE_URL 必須
 from backend.services.horse_service import HorseService
 
 from scripts.rakuten.detail_parser import parse_detail_html
@@ -224,11 +224,31 @@ def main():
                 ]:
                     if k in horse:
                         horse.pop(k, None)
+            # 比較用: 既存データの取得
+            db = SessionLocal()
+            existing_prize = None
+            try:
+                h_obj = db.query(Horse).filter(Horse.auction_id == str(item_id)).first()
+                if h_obj:
+                    existing_prize = h_obj.total_prize_start
+            finally:
+                db.close()
+
             # 保存
             ok = save_horse_via_service(service, horse)
             if ok:
                 saved += 1
-                print(f"[OK]  {saved}/{found} name={horse['name']} auction_id={horse['auction_id']}")
+                new_prize = horse.get("total_prize_latest") or horse.get("total_prize_start")
+                
+                try:
+                    is_diff = int(float(existing_prize)) != int(float(new_prize)) if existing_prize is not None and new_prize is not None else existing_prize != new_prize
+                except Exception:
+                    is_diff = str(existing_prize) != str(new_prize)
+
+                msg = f"[OK]  {saved}/{found} name={horse['name']} auction_id={horse['auction_id']}"
+                if existing_prize is not None and is_diff:
+                    msg += f" [DISCREPANCY!!!] OldPrize={existing_prize} -> NewPrize={new_prize}"
+                print(msg)
             else:
                 print(f"[NG]  name={horse['name']} auction_id={horse['auction_id']}")
 
