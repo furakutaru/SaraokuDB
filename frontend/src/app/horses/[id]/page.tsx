@@ -148,7 +148,7 @@ const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
       try {
         setIsLoading(true);
         // APIエンドポイントからデータを取得（末尾のスラッシュを追加）
-        const response = await fetch(`/api/horses/${params.id}/`, {
+        const response = await fetch(`/api/horses/${params.id}`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',

@@ -4,8 +4,8 @@ const path = require('path');
 const nextConfig = {
   // VercelではSSRを使用するため、standaloneモードを使用
   output: 'standalone',
-  trailingSlash: true,
-  
+  trailingSlash: false,
+
   // 環境変数の設定
   env: {
     // クライアントサイドで利用可能な環境変数
@@ -13,10 +13,10 @@ const nextConfig = {
     // サーバーサイドで利用可能な環境変数
     API_BASE_URL: process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001',
   },
-  
+
   // ビルド対象のページ拡張子を制限
   pageExtensions: ['tsx', 'ts', 'jsx', 'js', 'mdx'],
-  
+
   // ビルドから除外するパスの設定
   webpack: (config, { isServer }) => {
     // 環境変数をクライアントサイドで利用可能にする
@@ -32,11 +32,11 @@ const nextConfig = {
       test: /([/\\])(app_backup\\.disabled|_backup|backup_|_backup_|app_backup_|__horses_backup_|\\.bak|\\.backup)([/\\]|$)/,
       use: 'null-loader'
     });
-    
+
     // ビルドから除外するパスを明示的に指定
     config.plugins.push(
       new (require('webpack')).IgnorePlugin({
-        checkResource: function(resource) {
+        checkResource: function (resource) {
           // バックアップ関連のファイルを除外
           const isBackupFile = /(^|[\\/])(app_backup\\.disabled|_backup|backup_|_backup_|app_backup_|__horses_backup_|\\.bak|\\.backup)([\\/]|$)/.test(resource);
           if (isBackupFile) {
@@ -47,7 +47,7 @@ const nextConfig = {
         }
       })
     );
-    
+
     // ビルドから除外するパスを明示的に指定（Next.js 13+用）
     if (config.resolve) {
       config.resolve.alias = {
@@ -63,16 +63,17 @@ const nextConfig = {
         '@': require('path').resolve(__dirname, 'src')
       };
     }
-    
+
     return config;
   },
-  
+
   images: {
     unoptimized: true,
     domains: ['vercel.app', 'localhost'],
   },
-  
-  // リライト設定
+
+  // リライト設定 (ローカルAPIルートを使用するため、一旦コメントアウト)
+  /*
   async rewrites() {
     const apiUrl = 'http://localhost:8001';  // ポートを8001に固定
     console.log('Setting up rewrites with API URL:', apiUrl);
@@ -85,7 +86,8 @@ const nextConfig = {
       },
     ];
   },
-  
+  */
+
   // 開発環境でのみ詳細なログを出力
   logging: {
     fetches: {
