@@ -27,22 +27,25 @@ export interface UnifiedHorse {
     data_source: string;
   };
   disease_tags?: string[];
-  
+
   /** @deprecated 代わりに unified_race_records を使用してください */
   race_record?: {
     total_races: number;
     wins: number;
     record_format: string;
     formatted_record: string;
+    total_prize_money?: number;
+    last_race_date?: string;
+    last_prize_update?: string;
   };
-  
+
   /** @deprecated 代わりに unified_race_records を使用してください */
   race_records?: {
     total_prize_money: number;
     last_race_date?: string;
     last_prize_update?: string;
   };
-  
+
   /** 統合されたレース記録 */
   unified_race_records?: {
     total_races: number;

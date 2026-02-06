@@ -13,21 +13,21 @@ export type MissingField = {
 
 export const checkMissingData = (horse: HorseWithWeight): MissingField[] => {
   const missingFields: MissingField[] = [];
-  
+
   // Required fields that should always be present
   const requiredFields: Array<{
     key: keyof HorseWithWeight;
     label: string;
     severity: 'error' | 'warning' | 'info';
   }> = [
-    { key: 'name', label: '馬名', severity: 'error' },
-    { key: 'sex', label: '性別', severity: 'error' },
-    { key: 'age', label: '年齢', severity: 'error' },
-    { key: 'sire', label: '父', severity: 'warning' },
-    { key: 'dam', label: '母', severity: 'warning' },
-    { key: 'damsire', label: '母父', severity: 'warning' },
-    { key: 'weight', label: '馬体重', severity: 'info' }
-  ];
+      { key: 'name', label: '馬名', severity: 'error' },
+      { key: 'sex', label: '性別', severity: 'error' },
+      { key: 'age', label: '年齢', severity: 'error' },
+      { key: 'sire', label: '父', severity: 'warning' },
+      { key: 'dam', label: '母', severity: 'warning' },
+      { key: 'dam_sire', label: '母父', severity: 'warning' },
+      { key: 'weight', label: '馬体重', severity: 'info' }
+    ];
 
   // Check each required field
   requiredFields.forEach(({ key, label, severity }) => {
