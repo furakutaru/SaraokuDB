@@ -14,6 +14,7 @@ export async function GET(
   try {
     console.log(`[API] 馬詳細データ取得開始: ID=${params.id}`);
     console.log(`[API] API_BASE_URL: ${API_BASE_URL}`);
+    console.log(`[API] API_URL: ${API_URL}`);
     console.log(`[API] NODE_ENV: ${process.env.NODE_ENV}`);
     console.log(`[API] 環境変数一覧:`, {
       API_BASE_URL: process.env.API_BASE_URL,
@@ -25,37 +26,60 @@ export async function GET(
     // バックエンドAPIから馬詳細データを取得
     const backendUrl = `${API_URL}/horses/${encodeURIComponent(params.id)}`;
     console.log(`[API] バックエンドリクエスト: ${backendUrl}`);
+    console.log(`[API] 完全なURL: ${backendUrl}`);
     
-    const response = await fetch(backendUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(10000), // 10秒タイムアウト
-    });
+    let response;
+    try {
+      response = await fetch(backendUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000), // 10秒タイムアウト
+      });
+      console.log(`[API] fetch成功: レスポンスオブジェクト取得`);
+    } catch (fetchError) {
+      console.error(`[API] fetchエラー:`, fetchError);
+      throw fetchError;
+    }
 
     console.log(`[API] バックエンドレスポンス: ${response.status} ${response.statusText}`);
+    console.log(`[API] レスポンスヘッダー:`, Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[API] バックエンドエラー: ${response.status} - ${errorText}`);
+      let errorText;
+      try {
+        errorText = await response.text();
+        console.error(`[API] バックエンドエラーレスポンス: ${errorText}`);
+      } catch (textError) {
+        errorText = 'レスポンステキストの読み取りに失敗';
+        console.error(`[API] レスポンステキスト読み取りエラー:`, textError);
+      }
       
       if (response.status === 404) {
         return NextResponse.json(
-          { error: '馬が見つかりません' },
+          { error: '馬が見つかりません', details: errorText },
           { status: 404 }
         );
       }
       
       return NextResponse.json(
-        { error: `データの取得に失敗しました (${response.status})` },
+        { error: `データの取得に失敗しました (${response.status})`, details: errorText },
         { status: response.status }
       );
     }
 
-    const horseData = await response.json();
+    let horseData;
+    try {
+      horseData = await response.json();
+      console.log(`[API] JSONパース成功: ${horseData.name || '不明'}`);
+    } catch (jsonError) {
+      console.error(`[API] JSONパースエラー:`, jsonError);
+      throw new Error('レスポンスのJSONパースに失敗しました');
+    }
+
     console.log(`[API] バックエンドから取得成功: ${horseData.name || '不明'}`);
 
     // フロントエンドが期待する形式でデータを整形
@@ -78,25 +102,30 @@ export async function GET(
       }
     };
 
+    console.log(`[API] レスポンスデータ整形完了`);
     return NextResponse.json(responseData);
   } catch (error) {
     console.error('[API] 馬データの取得中にエラーが発生しました:', error);
     console.error('[API] エラー詳細:', {
       name: error instanceof Error ? error.name : 'Unknown',
       message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
+      cause: error instanceof Error ? error.cause : undefined
     });
     
     // タイムアウトエラーの場合
     if (error instanceof Error && error.name === 'TimeoutError') {
       return NextResponse.json(
-        { error: 'バックエンドAPIへの接続がタイムアウトしました' },
+        { error: 'バックエンドAPIへの接続がタイムアウトしました', details: '10秒以内に応答がありませんでした' },
         { status: 504 }
       );
     }
     
     return NextResponse.json(
-      { error: `サーバーエラーが発生しました: ${error instanceof Error ? error.message : String(error)}` },
+      { 
+        error: `サーバーエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`,
+        details: error instanceof Error ? error.stack : String(error)
+      },
       { status: 500 }
     );
   }
