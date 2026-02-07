@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import path from 'path';
+import fs from 'fs/promises';
 
 // 環境変数からAPIのベースURLを取得
 const API_BASE_URL = process.env.API_BASE_URL || 
@@ -10,12 +12,26 @@ const API_URL = `${API_BASE_URL}/api`;  // /api パスを追加
 // 動的ルートとして明示的に指定
 export const dynamic = 'force-dynamic';
 
-// デバッグログ
-console.log('API Configuration:', {
-  API_BASE_URL,
-  API_URL,
-  NODE_ENV: process.env.NODE_ENV
-});
+// 静的ファイルから馬データを取得（フォールバック用）
+async function getHorsesFromStatic(): Promise<any | null> {
+  try {
+    const projectRoot = process.cwd();
+    const dataPath = path.join(projectRoot, 'public', 'data', 'horses_combined.json');
+    
+    const fileContent = await fs.readFile(dataPath, 'utf-8');
+    const data = JSON.parse(fileContent);
+    
+    if (!data?.horses || !Array.isArray(data.horses)) {
+      console.error('無効なデータ形式です');
+      return null;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('静的ファイルからの馬データ読み込み中にエラーが発生しました:', error);
+    return null;
+  }
+}
 
 // デバッグログ
 console.log('API Configuration:', {
@@ -30,122 +46,111 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url || `http://${process.env.VERCEL_URL || 'localhost:3000'}`);
     const sort = searchParams.get('sort') || 'price_desc';
     
-    const requestUrl = `${API_URL}/horses?sort=${sort}`;
-    console.log('Fetching horses from backend...', { 
-      apiUrl: requestUrl,
-      sortParam: sort
+    console.log(`[API] 馬一覧データ取得開始: sort=${sort}`);
+    console.log(`[API] API_BASE_URL: ${API_BASE_URL}`);
+    console.log(`[API] API_URL: ${API_URL}`);
+    console.log(`[API] NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`[API] 環境変数一覧:`, {
+      API_BASE_URL: process.env.API_BASE_URL,
+      PROD_API_BASE_URL: process.env.PROD_API_BASE_URL,
+      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+      VERCEL_URL: process.env.VERCEL_URL,
+      VERCEL_ENV: process.env.VERCEL_ENV
     });
     
-    // バックエンドAPIからデータを取得
-    const response = await fetch(requestUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      cache: 'no-store', // キャッシュを無効化
-    })
+    let data = null;
+    let dataSource = 'unknown';
+    let lastError = null;
 
-    console.log('Backend response status:', response.status, response.statusText)
-    
-    // レスポンスのテキストを取得（デバッグ用）
-    const responseText = await response.text()
-    console.log('Raw response text:', responseText)
-    
-    // レスポンスが空でないことを確認
-    if (!response.ok) {
-      console.error('Error response status:', response.status, response.statusText);
-      console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+    // 1. バックエンドAPIから馬データを取得
+    if (!API_BASE_URL.includes('localhost')) {
+      const requestUrl = `${API_URL}/horses?sort=${sort}`;
+      console.log(`[API] バックエンドリクエスト: ${requestUrl}`);
       
-      let errorText = '';
       try {
-        errorText = await response.text();
-        console.error('Error response body:', errorText);
-        // JSONとしてパースを試みる
-        try {
-          const errorJson = JSON.parse(errorText);
-          console.error('Parsed error response:', errorJson);
-        } catch (e) {
-          // JSONパースに失敗した場合は無視
+        const response = await fetch(requestUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          cache: 'no-store', // キャッシュを無効化
+          signal: AbortSignal.timeout(10000), // 10秒タイムアウト
+        });
+
+        console.log(`[API] バックエンドレスポンス: ${response.status} ${response.statusText}`);
+
+        if (response.ok) {
+          const responseText = await response.text();
+          console.log(`[API] レスポンステキスト長: ${responseText.length}`);
+          
+          try {
+            data = JSON.parse(responseText);
+            console.log(`[API] JSONパース成功: ${data.horses?.length || 0}件`);
+            dataSource = 'backend';
+          } catch (parseError) {
+            console.error(`[API] JSONパースエラー:`, parseError);
+            throw new Error('レスポンスのJSONパースに失敗しました');
+          }
+        } else {
+          const errorText = await response.text();
+          console.error(`[API] バックエンドエラー: ${response.status} - ${errorText}`);
+          lastError = new Error(`バックエンドエラー: ${response.status} - ${errorText}`);
         }
-      } catch (e) {
-        console.error('Failed to read error response:', e);
+      } catch (fetchError) {
+        console.error(`[API] バックエンド接続エラー:`, fetchError);
+        lastError = fetchError;
       }
+    } else {
+      console.log(`[API] localhostのためバックエンドAPIをスキップします`);
+      lastError = new Error('バックエンドAPIがlocalhostに設定されています');
+    }
+
+    // 2. バックエンドから取得できなかった場合は静的ファイルから取得
+    if (!data) {
+      console.log(`[API] 静的ファイルから取得を試みます`);
+      data = await getHorsesFromStatic();
       
-      throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}\n${errorText}`);
+      if (data) {
+        dataSource = 'static';
+        console.log(`[API] 静的ファイルから取得成功: ${data.horses?.length || 0}件`);
+        lastError = null; // 静的ファイルから取得できた場合はエラーをクリア
+      }
     }
-    
-    // レスポンスボディをJSONとしてパース
-    let data;
-    try {
-      data = JSON.parse(responseText);
-      console.log('Successfully parsed response data');
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Failed to parse response as JSON:', error);
-      console.error('Response text:', responseText);
-      throw new Error(`Failed to parse response as JSON: ${errorMessage}`, { cause: error });
+
+    if (!data) {
+      return NextResponse.json(
+        { 
+          error: '馬データが見つかりません', 
+          details: lastError instanceof Error ? lastError.message : String(lastError),
+          dataSource: dataSource
+        },
+        { status: 404 }
+      );
     }
-    
+
+    console.log(`[API] 馬一覧取得成功: ${data.horses?.length || 0}件 (ソース: ${dataSource})`);
+
     // 成功レスポンスを返す
     return new NextResponse(JSON.stringify(data), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     })
   } catch (error) {
-    console.error('Error in API route:', error);
-    
-    // より詳細なエラー情報を収集
-    let errorDetails = 'Unknown error';
-    let errorMessage = 'Failed to fetch horses';
-    let statusCode = 500;
-    
-    if (error instanceof Error) {
-      errorMessage = error.message;
-      errorDetails = error.stack || error.message;
-      
-      // ECONNREFUSED エラーの場合
-      if (errorMessage.includes('ECONNREFUSED')) {
-        errorMessage = 'バックエンドサーバーに接続できません。サーバーが起動しているか確認してください。';
-        statusCode = 503; // Service Unavailable
-      }
-      
-      // ネットワークエラーの場合
-      if (errorMessage.includes('fetch failed') || errorMessage.includes('Failed to fetch')) {
-        errorMessage = 'バックエンドサーバーとの通信に失敗しました。ネットワーク接続を確認してください。';
-        statusCode = 503; // Service Unavailable
-      }
-    } else if (typeof error === 'string') {
-      errorDetails = error;
-      errorMessage = error;
-    } else if (error && typeof error === 'object') {
-      errorDetails = JSON.stringify(error, null, 2);
-      errorMessage = 'Unknown error occurred';
-    }
-    
-    console.error('Error details:', {
-      error,
-      errorMessage,
-      errorDetails,
-      timestamp: new Date().toISOString(),
-      apiUrl: API_BASE_URL
+    console.error('[API] 馬一覧データの取得中にエラーが発生しました:', error);
+    console.error('[API] エラー詳細:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
     });
-
-    // エラーレスポンスを返す
-    return new NextResponse(
-      JSON.stringify({
-        error: statusCode === 503 ? 'Service Unavailable' : 'Internal Server Error',
-        message: errorMessage,
-        details: errorDetails,
-        timestamp: new Date().toISOString(),
-        apiUrl: API_BASE_URL
-      }, null, 2),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    
+    return NextResponse.json(
+      { 
+        error: 'Service Unavailable',
+        message: 'バックエンドサーバーとの通信に失敗しました。ネットワーク接続を確認してください。',
+        details: error instanceof Error ? error.message : String(error)
+      },
+      { status: 500 }
+    )
   }
 }
