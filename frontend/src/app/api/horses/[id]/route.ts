@@ -14,6 +14,13 @@ export async function GET(
   try {
     console.log(`[API] 馬詳細データ取得開始: ID=${params.id}`);
     console.log(`[API] API_BASE_URL: ${API_BASE_URL}`);
+    console.log(`[API] NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`[API] 環境変数一覧:`, {
+      API_BASE_URL: process.env.API_BASE_URL,
+      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+      VERCEL_URL: process.env.VERCEL_URL,
+      VERCEL_ENV: process.env.VERCEL_ENV
+    });
     
     // バックエンドAPIから馬詳細データを取得
     const backendUrl = `${API_URL}/horses/${encodeURIComponent(params.id)}`;
@@ -43,7 +50,7 @@ export async function GET(
       }
       
       return NextResponse.json(
-        { error: 'データの取得に失敗しました' },
+        { error: `データの取得に失敗しました (${response.status})` },
         { status: response.status }
       );
     }
@@ -74,6 +81,11 @@ export async function GET(
     return NextResponse.json(responseData);
   } catch (error) {
     console.error('[API] 馬データの取得中にエラーが発生しました:', error);
+    console.error('[API] エラー詳細:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     
     // タイムアウトエラーの場合
     if (error instanceof Error && error.name === 'TimeoutError') {
@@ -84,7 +96,7 @@ export async function GET(
     }
     
     return NextResponse.json(
-      { error: 'サーバーエラーが発生しました' },
+      { error: `サーバーエラーが発生しました: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     );
   }
