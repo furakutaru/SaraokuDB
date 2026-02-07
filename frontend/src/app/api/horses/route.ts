@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 
 // 環境変数からAPIのベースURLを取得
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+const API_BASE_URL = process.env.API_BASE_URL || 
+                    process.env.PROD_API_BASE_URL || 
+                    process.env.NEXT_PUBLIC_API_URL || 
+                    'http://localhost:8001';
 const API_URL = `${API_BASE_URL}/api`;  // /api パスを追加
 
 // 動的ルートとして明示的に指定

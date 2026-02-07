@@ -1,11 +1,44 @@
 import { NextResponse } from 'next/server';
+import path from 'path';
+import fs from 'fs/promises';
 
 // 動的ルートとして明示的に指定
 export const dynamic = 'force-dynamic';
 
 // 環境変数からAPIのベースURLを取得
-const API_BASE_URL = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+const API_BASE_URL = process.env.API_BASE_URL || 
+                    process.env.PROD_API_BASE_URL || 
+                    process.env.NEXT_PUBLIC_API_URL || 
+                    'http://localhost:8001';
 const API_URL = `${API_BASE_URL}/api`;
+
+// 静的ファイルから馬データを取得（フォールバック用）
+async function getHorseDataFromStatic(horseId: string): Promise<any | null> {
+  try {
+    const projectRoot = process.cwd();
+    const dataPath = path.join(projectRoot, 'public', 'data', 'horses_combined.json');
+    
+    const fileContent = await fs.readFile(dataPath, 'utf-8');
+    const data = JSON.parse(fileContent);
+    
+    if (!data?.horses || !Array.isArray(data.horses)) {
+      console.error('無効なデータ形式です');
+      return null;
+    }
+    
+    const horse = data.horses.find((h: any) => h.id === horseId || String(h.id) === horseId);
+    
+    if (!horse) {
+      console.error(`馬が見つかりません (ID: ${horseId})`);
+      return null;
+    }
+    
+    return horse;
+  } catch (error) {
+    console.error('静的ファイルからの馬データ読み込み中にエラーが発生しました:', error);
+    return null;
+  }
+}
 
 export async function GET(
   request: Request,
@@ -18,69 +51,98 @@ export async function GET(
     console.log(`[API] NODE_ENV: ${process.env.NODE_ENV}`);
     console.log(`[API] 環境変数一覧:`, {
       API_BASE_URL: process.env.API_BASE_URL,
+      PROD_API_BASE_URL: process.env.PROD_API_BASE_URL,
       NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
       VERCEL_URL: process.env.VERCEL_URL,
       VERCEL_ENV: process.env.VERCEL_ENV
     });
     
-    // バックエンドAPIから馬詳細データを取得
-    const backendUrl = `${API_URL}/horses/${encodeURIComponent(params.id)}`;
-    console.log(`[API] バックエンドリクエスト: ${backendUrl}`);
-    console.log(`[API] 完全なURL: ${backendUrl}`);
-    
-    let response;
-    try {
-      response = await fetch(backendUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(10000), // 10秒タイムアウト
-      });
-      console.log(`[API] fetch成功: レスポンスオブジェクト取得`);
-    } catch (fetchError) {
-      console.error(`[API] fetchエラー:`, fetchError);
-      throw fetchError;
+    let horseData = null;
+    let dataSource = 'unknown';
+    let lastError = null;
+
+    // 1. バックエンドAPIから馬詳細データを取得
+    if (!API_BASE_URL.includes('localhost')) {
+      const backendUrl = `${API_URL}/horses/${encodeURIComponent(params.id)}`;
+      console.log(`[API] バックエンドリクエスト: ${backendUrl}`);
+      console.log(`[API] 完全なURL: ${backendUrl}`);
+      
+      try {
+        let response;
+        try {
+          response = await fetch(backendUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            cache: 'no-store',
+            signal: AbortSignal.timeout(10000), // 10秒タイムアウト
+          });
+          console.log(`[API] fetch成功: レスポンスオブジェクト取得`);
+        } catch (fetchError) {
+          console.error(`[API] fetchエラー:`, fetchError);
+          throw fetchError;
+        }
+
+        console.log(`[API] バックエンドレスポンス: ${response.status} ${response.statusText}`);
+        console.log(`[API] レスポンスヘッダー:`, Object.fromEntries(response.headers.entries()));
+
+        if (response.ok) {
+          let horseData;
+          try {
+            horseData = await response.json();
+            console.log(`[API] JSONパース成功: ${horseData.name || '不明'}`);
+            dataSource = 'backend';
+          } catch (jsonError) {
+            console.error(`[API] JSONパースエラー:`, jsonError);
+            throw new Error('レスポンスのJSONパースに失敗しました');
+          }
+        } else {
+          let errorText;
+          try {
+            errorText = await response.text();
+            console.error(`[API] バックエンドエラーレスポンス: ${errorText}`);
+          } catch (textError) {
+            errorText = 'レスポンステキストの読み取りに失敗';
+            console.error(`[API] レスポンステキスト読み取りエラー:`, textError);
+          }
+          
+          lastError = new Error(`バックエンドエラー: ${response.status} - ${errorText}`);
+        }
+      } catch (error) {
+        console.error(`[API] バックエンド接続エラー:`, error);
+        lastError = error;
+      }
+    } else {
+      console.log(`[API] localhostのためバックエンドAPIをスキップします`);
+      lastError = new Error('バックエンドAPIがlocalhostに設定されています');
     }
 
-    console.log(`[API] バックエンドレスポンス: ${response.status} ${response.statusText}`);
-    console.log(`[API] レスポンスヘッダー:`, Object.fromEntries(response.headers.entries()));
+    // 2. バックエンドから取得できなかった場合は静的ファイルから取得
+    if (!horseData) {
+      console.log(`[API] 静的ファイルから取得を試みます`);
+      horseData = await getHorseDataFromStatic(params.id);
+      
+      if (horseData) {
+        dataSource = 'static';
+        console.log(`[API] 静的ファイルから取得成功: ${horseData.name || '不明'}`);
+        lastError = null; // 静的ファイルから取得できた場合はエラーをクリア
+      }
+    }
 
-    if (!response.ok) {
-      let errorText;
-      try {
-        errorText = await response.text();
-        console.error(`[API] バックエンドエラーレスポンス: ${errorText}`);
-      } catch (textError) {
-        errorText = 'レスポンステキストの読み取りに失敗';
-        console.error(`[API] レスポンステキスト読み取りエラー:`, textError);
-      }
-      
-      if (response.status === 404) {
-        return NextResponse.json(
-          { error: '馬が見つかりません', details: errorText },
-          { status: 404 }
-        );
-      }
-      
+    if (!horseData) {
       return NextResponse.json(
-        { error: `データの取得に失敗しました (${response.status})`, details: errorText },
-        { status: response.status }
+        { 
+          error: '馬が見つかりません', 
+          details: lastError instanceof Error ? lastError.message : String(lastError),
+          dataSource: dataSource
+        },
+        { status: 404 }
       );
     }
 
-    let horseData;
-    try {
-      horseData = await response.json();
-      console.log(`[API] JSONパース成功: ${horseData.name || '不明'}`);
-    } catch (jsonError) {
-      console.error(`[API] JSONパースエラー:`, jsonError);
-      throw new Error('レスポンスのJSONパースに失敗しました');
-    }
-
-    console.log(`[API] バックエンドから取得成功: ${horseData.name || '不明'}`);
+    console.log(`[API] バックエンドから取得成功: ${horseData.name || '不明'} (ソース: ${dataSource})`);
 
     // フロントエンドが期待する形式でデータを整形
     const responseData = {
@@ -98,11 +160,11 @@ export async function GET(
         ...horseData.metadata,
         created_at: horseData.metadata?.created_at || new Date().toISOString(),
         updated_at: horseData.metadata?.updated_at || new Date().toISOString(),
-        data_source: 'backend'
+        data_source: dataSource
       }
     };
 
-    console.log(`[API] レスポンスデータ整形完了`);
+    console.log(`[API] レスポンスデータ整形完了 (ソース: ${dataSource})`);
     return NextResponse.json(responseData);
   } catch (error) {
     console.error('[API] 馬データの取得中にエラーが発生しました:', error);
