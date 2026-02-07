@@ -16,17 +16,39 @@ export const dynamic = 'force-dynamic';
 async function getHorsesFromStatic(): Promise<any | null> {
   try {
     const projectRoot = process.cwd();
-    const dataPath = path.join(projectRoot, 'public', 'data', 'horses_combined.json');
+    const dataPath = path.join(projectRoot, 'public', 'data', 'horses.json');
     
     const fileContent = await fs.readFile(dataPath, 'utf-8');
-    const data = JSON.parse(fileContent);
+    const horses = JSON.parse(fileContent);
     
-    if (!data?.horses || !Array.isArray(data.horses)) {
+    if (!Array.isArray(horses)) {
       console.error('無効なデータ形式です');
       return null;
     }
     
-    return data;
+    // static-frontendのデータ構造をfrontendが期待する形式に変換
+    const transformedData = {
+      metadata: {
+        version: "1.1",
+        last_updated: new Date().toISOString(),
+        total_horses: horses.length,
+        data_source: "static"
+      },
+      horses: horses.map((horse: any) => ({
+        ...horse,
+        // 必要なフィールドを追加・変換
+        auction_history: horse.auction_history || [],
+        race_records: horse.race_records || {},
+        latest_auction: horse.latest_auction || null,
+        metadata: {
+          created_at: horse.created_at || new Date().toISOString(),
+          updated_at: horse.updated_at || new Date().toISOString(),
+          data_source: "static"
+        }
+      }))
+    };
+    
+    return transformedData;
   } catch (error) {
     console.error('静的ファイルからの馬データ読み込み中にエラーが発生しました:', error);
     return null;
