@@ -123,6 +123,13 @@ export interface Horse extends BaseHorse {
   roi?: number;
   price_per_kg?: number;
   effectiveWeight?: Weight;
+  weight?: Weight;
+  
+  // オークション履歴
+  auction_histories?: AuctionHistory[];
+  
+  // 病歴タグ
+  disease_tags?: string[] | null;
   
   // 互換性のためのフィールド (非推奨)
   /** @deprecated 代わりに detail_url を使用してください */
@@ -190,6 +197,45 @@ export interface HorseData {
   metadata: Metadata;
   horses: HorseWithCalculations[];
   auction_history?: AuctionHistory[];
+}
+
+// ==================== APIメタデータ ====================
+
+/** APIメタデータ */
+export interface ApiMetadata {
+  last_updated: string;
+  total_horses: number;
+  average_price: number;
+  average_growth_rate: number;
+  horses_with_growth_data: number;
+  // 互換性のためのフィールド
+  total?: number;
+  count?: number;
+  total_auctions?: number;
+}
+
+/** ページネーション情報 */
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+/** フィルターオプション */
+export interface FilterOptions {
+  search?: string;
+  auctionDate?: string;
+  page?: number;
+  perPage?: number;
+}
+
+/** テーブルカラム設定 */
+export interface TableColumn {
+  key: keyof HorseWithCalculations;
+  label: string;
+  sortable?: boolean;
+  width?: string;
 }
 
 // ==================== メタデータ ====================

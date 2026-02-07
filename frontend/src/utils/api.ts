@@ -9,7 +9,7 @@ import {
   FilterOptions,
   SortOption,
   TableColumn
-} from '../../app/horses/types';
+} from '../types/horse';
 
 // レスポンス型を定義
 interface BaseResponse<T> {

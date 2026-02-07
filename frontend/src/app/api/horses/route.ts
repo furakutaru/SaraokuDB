@@ -4,6 +4,9 @@ import { NextResponse } from 'next/server'
 const API_BASE_URL = 'http://localhost:8001';  // ポートを8001に固定
 const API_URL = `${API_BASE_URL}/api`;  // /api パスを追加
 
+// 動的ルートとして明示的に指定
+export const dynamic = 'force-dynamic';
+
 // デバッグログ
 console.log('API Configuration:', {
   API_BASE_URL,
@@ -20,8 +23,8 @@ console.log('API Configuration:', {
 
 export async function GET(request: Request) {
   try {
-    // クエリパラメータを取得
-    const { searchParams } = new URL(request.url);
+    // クエリパラメータを取得 - Next.js 13+の方法で安全に処理
+    const { searchParams } = new URL(request.url || `http://${process.env.VERCEL_URL || 'localhost:3000'}`);
     const sort = searchParams.get('sort') || 'price_desc';
     
     const requestUrl = `${API_URL}/horses?sort=${sort}`;

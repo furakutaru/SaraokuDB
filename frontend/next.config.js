@@ -23,7 +23,7 @@ const nextConfig = {
     config.plugins.push(
       new (require('webpack')).DefinePlugin({
         'process.env.STATIC_FILES_DIR': JSON.stringify(path.resolve(__dirname, '../static-frontend/public')),
-        'process.env.NEXT_PUBLIC_API_URL': JSON.stringify(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+        'process.env.NEXT_PUBLIC_API_URL': JSON.stringify(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001')
       })
     );
 

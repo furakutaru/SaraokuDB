@@ -1,4 +1,4 @@
-import { Horse, AuctionHistory } from '../horses/types';
+import { Horse, AuctionHistory } from '../types/horse';
 
 // seller が配列JSON文字列や配列のことがあるため、先頭の文字列を日本語テキストとして返す
 function parseSeller(value: any): string {

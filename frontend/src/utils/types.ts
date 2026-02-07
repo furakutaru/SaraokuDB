@@ -1,7 +1,7 @@
 // 必要な型を直接インポート
-import type { Horse } from '../horses/types';
-import type { ApiMetadata } from '../horses/types';
-import type { Pagination } from '../horses/types';
+import type { Horse } from '../types/horse';
+import type { ApiMetadata } from '../types/horse';
+import type { Pagination } from '../types/horse';
 
 /**
  * 基本的なAPIレスポンスの型
