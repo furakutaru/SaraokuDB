@@ -10,8 +10,8 @@ const nextConfig = {
   env: {
     // クライアントサイドで利用可能な環境変数
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001',
-    // サーバーサイドで利用可能な環境変数
-    API_BASE_URL: process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001',
+    // サーバーサイドで利用可能な環境変数 - Vercel環境変数のみ使用
+    API_BASE_URL: process.env.PROD_API_BASE_URL || process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL,
   },
 
   // ビルド対象のページ拡張子を制限

@@ -6,8 +6,8 @@ import fs from 'fs/promises';
 export const dynamic = 'force-dynamic';
 
 // 環境変数からAPIのベースURLを取得
-const API_BASE_URL = process.env.API_BASE_URL || 
-                    process.env.PROD_API_BASE_URL || 
+const API_BASE_URL = process.env.PROD_API_BASE_URL || 
+                    process.env.API_BASE_URL || 
                     process.env.NEXT_PUBLIC_API_URL || 
                     'http://localhost:8001';
 const API_URL = `${API_BASE_URL}/api`;
@@ -74,7 +74,7 @@ export async function GET(
     let lastError = null;
 
     // 1. バックエンドAPIから馬詳細データを取得
-    if (!API_BASE_URL.includes('localhost')) {
+    if (process.env.PROD_API_BASE_URL || !API_BASE_URL.includes('localhost')) {
       const backendUrl = `${API_URL}/horses/${encodeURIComponent(params.id)}`;
       console.log(`[API] バックエンドリクエスト: ${backendUrl}`);
       console.log(`[API] 完全なURL: ${backendUrl}`);

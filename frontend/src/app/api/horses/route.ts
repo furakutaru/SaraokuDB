@@ -3,8 +3,8 @@ import path from 'path';
 import fs from 'fs/promises';
 
 // 環境変数からAPIのベースURLを取得
-const API_BASE_URL = process.env.API_BASE_URL || 
-                    process.env.PROD_API_BASE_URL || 
+const API_BASE_URL = process.env.PROD_API_BASE_URL || 
+                    process.env.API_BASE_URL || 
                     process.env.NEXT_PUBLIC_API_URL || 
                     'http://localhost:8001';
 const API_URL = `${API_BASE_URL}/api`;  // /api パスを追加
@@ -85,7 +85,7 @@ export async function GET(request: Request) {
     let lastError = null;
 
     // 1. バックエンドAPIから馬データを取得
-    if (!API_BASE_URL.includes('localhost')) {
+    if (process.env.PROD_API_BASE_URL || !API_BASE_URL.includes('localhost')) {
       const requestUrl = `${API_URL}/horses?sort=${sort}`;
       console.log(`[API] バックエンドリクエスト: ${requestUrl}`);
       
