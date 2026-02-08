@@ -2,5 +2,6 @@
   "framework": "nextjs",
   "buildCommand": "rm -rf .next node_modules/.cache && npm ci && npm run build",
   "cleanUrls": true,
-  "cache": false, "buildCommand": "rm -rf .next node_modules/.cache "cache": false"cache": false npm ci "cache": false"cache": false npm run build", "version": 2
+  "cache": false,
+  "version": 2
 }
