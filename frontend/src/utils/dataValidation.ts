@@ -25,7 +25,7 @@ export const checkMissingData = (horse: HorseWithWeight): MissingField[] => {
       { key: 'age', label: '年齢', severity: 'error' },
       { key: 'sire', label: '父', severity: 'warning' },
       { key: 'dam', label: '母', severity: 'warning' },
-      { key: 'dam_sire', label: '母父', severity: 'warning' },
+      { key: 'damsire', label: '母父', severity: 'warning' },
       { key: 'weight', label: '馬体重', severity: 'info' }
     ];
 

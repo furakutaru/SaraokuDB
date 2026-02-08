@@ -58,7 +58,7 @@ export default function DataTable({ horses, sortKey, sortOrder, onSort, renderSo
               </td>
               <td className="px-3 py-2">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSexColor(horse.sex)} text-white`}>
-                  {formatSex(horse.sex)}
+                  {formatSex(horse.sex).text}
                 </span>
               </td>
               <td className="px-3 py-2">{displayAge(horse.age)}</td>

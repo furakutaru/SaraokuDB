@@ -1,192 +1,334 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import HorseImage from '@/components/HorseImage';
+import HorseCard from '@/components/HorseCard';
+import { useRouter } from 'next/navigation';
+import { Horse as BaseHorse, AuctionHistory, HorseData } from '@/types/horse';
 
-interface Horse {
-  id: number
-  name: string
-  sex?: string
-  age?: number
-  latest_auction?: {
-    price?: number
-    auction_date?: string
-    // 他の必要なフィールドを追加
-  }
+// コンポーネントで使用する馬の型を定義
+export interface Horse {
+  id: string | number;
+  name?: string;
+  auction_id?: string;
+  sex: string;
+  sire: string;
+  dam: string;
+  damsire: string;
+  image_url: any; // ImageUrl | string の代わりに any を使用
+  jbis_url?: string;
+  detail_url?: string;
+  created_at?: string;
+  updated_at?: string;
+  birth_year?: number;
+  age?: number;
+  color?: string;
+  breeder?: string;
+  owner?: string;
+  trainer?: string;
+  location?: string;
+  auction_date?: string;
+  sold_price?: number | null;
+  is_unsold?: boolean;
+  seller?: string;
+  total_prize_start?: number;
+  total_prize_latest?: number;
+  prize_money?: { total_prize: string };
+  display_prize?: string;
+  display_roi?: string;
+  display_weight?: string;
+  display_price?: string;
+  sort_price?: number;
+  sort_prize?: number;
+  sort_roi?: number;
+  roi?: number;
+  price_per_kg?: number;
+  effectiveWeight?: number | null;
+  auction_url?: string;
+  unsold?: boolean;
+  price?: number | null;
+  race_records: {
+    total_prize_money: number;
+    last_race_date?: string;
+    last_prize_update?: string;
+  };
+  auction_history?: AuctionHistory[];
+  latest_auction?: AuctionHistory | null;
 }
 
-// 並べ替えオプションの型
-type SortOption = 'price_desc' | 'price_asc' | 'name_asc' | 'name_desc'
+type HorseType = Horse;
+import { Header } from '@/components/Header';
 
 export default function HorsesPage() {
-  const [horses, setHorses] = useState<Horse[]>([])
-  const [sortBy, setSortBy] = useState<SortOption>('price_desc') // デフォルトは価格の降順
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [refreshKey, setRefreshKey] = useState(0) // リロード用のキー
+  const router = useRouter();
+  const [horses, setHorses] = useState<HorseType[]>([]);
+  const [auctionHistory, setAuctionHistory] = useState<AuctionHistory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'age'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [showOnlyLatestAuction, setShowOnlyLatestAuction] = useState(true);
+  const [latestAuctionDate, setLatestAuctionDate] = useState<string | null>(null);
+  const [page, setPage] = useState<number>(1);
+  const [limit, setLimit] = useState<number>(24);
+  const [total, setTotal] = useState<number>(0);
 
+  // 馬データを取得（バックエンドAPI + ページネーション）
   useEffect(() => {
-    const fetchHorses = async () => {
-      setIsLoading(true)
-      setError(null)
+    const fetchData = async () => {
       try {
-        console.log(`Fetching horses with sort: ${sortBy}`);
-        const response = await fetch(`/api/horses?sort=${sortBy}`, {
-          cache: 'no-store', // キャッシュを無効化
-          next: { revalidate: 0 } // 必ず最新のデータを取得
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.text();
-          console.error('Error response:', errorData);
-          throw new Error(`データの取得に失敗しました (${response.status})`);
+        setLoading(true);
+
+        const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8001';
+
+        // 並び順のマッピング（価格と名前はサーバ側、年齢はクライアント側で実施）
+        let sortParam = 'price_desc';
+        if (sortBy === 'name') {
+          sortParam = sortOrder === 'asc' ? 'name_asc' : 'name_desc';
+        } else if (sortBy === 'price') {
+          sortParam = sortOrder === 'asc' ? 'price_asc' : 'price_desc';
         }
-        
+
+        const skip = (page - 1) * limit;
+        const latestParam = showOnlyLatestAuction ? 'true' : 'false';
+
+        const url = `${API_BASE}/api/horses?skip=${skip}&limit=${limit}&sort=${encodeURIComponent(sortParam)}&latest_auction=${latestParam}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('データの取得に失敗しました');
+        }
+
         const data = await response.json();
-        console.log('Received data:', data);
-        
-        // バックエンドのレスポンス形式に合わせて調整
-        setHorses(Array.isArray(data) ? data : (data.horses || []));
-      } catch (err: unknown) {
-        console.error('Error fetching horses:', err);
-        const errorMessage = err instanceof Error ? err.message : '不明なエラーが発生しました';
-        setError(`データの読み込み中にエラーが発生しました: ${errorMessage}`);
+
+        // メタデータから合計件数などを取得
+        if (data?.metadata) {
+          setTotal(Number(data.metadata.total || 0));
+          // latestAuctionDate はAPIからは取得できないため表示は抑制
+          setLatestAuctionDate(null);
+        }
+
+        let items: HorseType[] = data?.horses || [];
+
+        // 年齢ソートのみクライアント側で適用
+        if (sortBy === 'age') {
+          items = [...items].sort((a: any, b: any) => {
+            const va = a.age || 0;
+            const vb = b.age || 0;
+            if (va === vb) return 0;
+            return sortOrder === 'asc' ? va - vb : vb - va;
+          });
+        }
+
+        setHorses(items);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('データの読み込み中にエラーが発生しました');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
+
+    fetchData();
+  }, [page, limit, sortBy, sortOrder, showOnlyLatestAuction]);
+
+  // フィルタリングとソートを適用した馬のリストを取得
+  const filteredHorses = horses.filter(horse => {
+    // 検索条件に一致するか確認
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = !searchTerm || 
+      (horse.name && horse.name.toLowerCase().includes(searchLower)) ||
+      (horse.sire && horse.sire.toLowerCase().includes(searchLower)) ||
+      (horse.dam && horse.dam.toLowerCase().includes(searchLower)) ||
+      (horse.damsire && horse.damsire.toLowerCase().includes(searchLower));
+    return matchesSearch;
+  });
+
+  const sortedHorses = [...filteredHorses].sort((a, b) => {
+    let valueA: any, valueB: any;
     
-    fetchHorses();
-  }, [sortBy, refreshKey]); // refreshKeyが変更されたときも再取得
-
-  // 価格をフォーマットするヘルパー関数
-  const formatPrice = (price?: number) => {
-    if (price === undefined || price === null || price === 0) return '非公開';
-    return new Intl.NumberFormat('ja-JP').format(price) + '円';
-  };
-  
-  // デバッグ用: 馬のデータをログに出力
-  useEffect(() => {
-    if (horses.length > 0) {
-      console.log('Horses data with auction info:', horses.map(horse => ({
-        id: horse.id,
-        name: horse.name,
-        latest_auction: horse.latest_auction
-      })));
+    switch (sortBy) {
+      case 'name':
+        valueA = a.name;
+        valueB = b.name;
+        break;
+      case 'price':
+        valueA = a.sold_price || 0;
+        valueB = b.sold_price || 0;
+        break;
+      case 'age':
+        valueA = a.age;
+        valueB = b.age;
+        break;
+      default:
+        return 0;
     }
-  }, [horses]);
+    
+    if (valueA < valueB) {
+      return sortOrder === 'asc' ? -1 : 1;
+    }
+    if (valueA > valueB) {
+      return sortOrder === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
 
-  // 日付をフォーマットするヘルパー関数
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '不明'
-    const date = new Date(dateString)
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen bg-gray-50">
+        <Header pageTitle="読み込み中..." />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center py-12">
+            <p className="text-gray-600">データを読み込んでいます...</p>
+          </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
-      <div className="container mx-auto p-4">
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
-          <p className="font-bold">エラーが発生しました</p>
-          <p>{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="mt-2 bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-4 rounded"
-          >
-            再読み込み
-          </button>
+      <div className="min-h-screen bg-gray-50">
+        <Header pageTitle="エラー" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-red-50 border-l-4 border-red-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">馬一覧</h1>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-          <label htmlFor="sort" className="text-sm font-medium text-gray-700 whitespace-nowrap">
-            並べ替え:
-          </label>
-          <select
-            id="sort"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="block w-full md:w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-          >
-            <option value="price_desc">価格の高い順</option>
-            <option value="price_asc">価格の安い順</option>
-            <option value="name_asc">名前順 (A-Z)</option>
-            <option value="name_desc">名前順 (Z-A)</option>
-          </select>
+    <div className="min-h-screen bg-gray-50">
+      <Header pageTitle="直近追加の馬" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <p className="text-sm text-gray-600">
+            一覧: {total}頭中 {(page - 1) * limit + 1} - {Math.min(page * limit, total)}件を表示
+          </p>
+        </div>
+        
+        {/* 検索とフィルター */}
+        <div className="mb-6">
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <input
+              type="text"
+              placeholder="馬名・血統で検索..."
+              className="flex-1 p-2 border rounded"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <select 
+                className="p-2 border rounded"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'name' | 'price' | 'age')}
+              >
+                <option value="name">名前順</option>
+                <option value="price">価格順</option>
+                <option value="age">年齢順</option>
+              </select>
+              <button 
+                className="p-2 border rounded"
+                onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              >
+                {sortOrder === 'asc' ? '↑' : '↓'}
+              </button>
+            </div>
+          </div>
+          
+          {latestAuctionDate && (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">
+                {showOnlyLatestAuction 
+                  ? `最新オークション: ${new Date(latestAuctionDate).toLocaleDateString()}`
+                  : '全オークションを表示中'}
+              </span>
+              <button
+                onClick={() => setShowOnlyLatestAuction(!showOnlyLatestAuction)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                  showOnlyLatestAuction ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`${
+                    showOnlyLatestAuction ? 'translate-x-6' : 'translate-x-1'
+                  } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                />
+              </button>
+              <span className="text-sm text-gray-600">
+                {showOnlyLatestAuction ? '最新のみ' : '全期間'}
+              </span>
+            </div>
+          )}
+        </div>
+        
+        {/* 馬のグリッド表示 */}
+        <div className="mt-8">
+          {sortedHorses.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600">条件に一致する馬が見つかりませんでした</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {sortedHorses.map((horse: HorseType) => (
+                <div key={horse.id} onClick={() => router.push(`/horses/${horse.id}`)}>
+                  <HorseCard 
+                    horse={horse} 
+                    auctionHistory={horse.auction_history || []}
+                    onClick={() => router.push(`/horses/${horse.id}`)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ページネーション */}
+        <div className="mt-8 flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            ページ {page} / {Math.max(1, Math.ceil(total / limit))}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || loading}
+            >
+              前へ
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setPage((p) => (p * limit < total ? p + 1 : p))}
+              disabled={page * limit >= total || loading}
+            >
+              次へ
+            </Button>
+          </div>
         </div>
       </div>
-      
-      {horses.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500">表示する馬の情報がありません</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {horses.map((horse) => (
-            <div 
-              key={horse.id} 
-              className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200"
-            >
-              <div className="p-4">
-                <h2 className="text-xl font-semibold text-gray-800 mb-2">{horse.name || '名前不明'}</h2>
-                
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center">
-                    <span className="w-20 text-gray-500">性別:</span>
-                    <span>{horse.sex || '不明'}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="w-20 text-gray-500">年齢:</span>
-                    <span>{horse.age !== undefined ? `${horse.age}歳` : '不明'}</span>
-                  </div>
-                  {horse.latest_auction && (
-                    <>
-                      <div className="flex items-center">
-                        <span className="w-20 text-gray-500">落札価格:</span>
-                        <span className={`font-medium ${horse.latest_auction?.price ? 'text-blue-600' : 'text-gray-500'}`}>
-                          {formatPrice(horse.latest_auction?.price)}
-                        </span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="w-20 text-gray-500">落札日:</span>
-                        <span>{formatDate(horse.latest_auction.auction_date)}</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-                
-                <div className="mt-4 pt-3 border-t border-gray-100">
-                  <a 
-                    href={`/horses/${horse.id}`}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    詳細を見る →
-                  </a>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
-  )
+  );
 }

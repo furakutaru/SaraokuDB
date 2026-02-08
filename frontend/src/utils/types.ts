@@ -1,7 +1,6 @@
 // 必要な型を直接インポート
 import type { Horse } from '../types/horse';
-import type { ApiMetadata } from '../types/horse';
-import type { Pagination } from '../types/horse';
+import type { Metadata } from '../types/horse';
 
 /**
  * 基本的なAPIレスポンスの型
@@ -17,16 +16,13 @@ interface ApiResponse<T> {
  */
 interface PaginatedResponse<T> {
   data: T[];
-  pagination: Pagination;
-  metadata?: ApiMetadata;
+  metadata?: Metadata;
 }
 
 /**
  * 馬一覧のレスポンス型
  */
-interface HorsesResponse extends ApiResponse<Horse[]> {
-  pagination?: Pagination;
-}
+interface HorsesResponse extends ApiResponse<Horse[]> {}
 
 /**
  * 馬1件のレスポンス型
@@ -40,7 +36,7 @@ interface StatisticsResponse extends ApiResponse<{
   totalHorses: number;
   totalAuctions: number;
   averagePrice: number;
-  metadata: ApiMetadata;
+  metadata: Metadata;
 }> {}
 
 /**

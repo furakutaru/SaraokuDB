@@ -3,12 +3,8 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 // 型定義を直接インポート
 import { 
   Horse, 
-  ApiMetadata,
-  AuctionHistory,
-  Pagination,
-  FilterOptions,
-  SortOption,
-  TableColumn
+  Metadata,
+  AuctionHistory
 } from '../types/horse';
 
 // レスポンス型を定義
@@ -16,18 +12,15 @@ interface BaseResponse<T> {
   success: boolean;
   data: T;
   error?: string;
-  metadata?: ApiMetadata;
+  metadata?: Metadata;
 }
 
 interface PaginatedResponse<T> {
   data: T[];
-  pagination: Pagination;
-  metadata?: ApiMetadata;
+  metadata?: Metadata;
 }
 
-interface HorsesResponse extends BaseResponse<Horse[]> {
-  pagination?: Pagination;
-}
+interface HorsesResponse extends BaseResponse<Horse[]> {}
 
 interface HorseResponse extends BaseResponse<Horse> {}
 

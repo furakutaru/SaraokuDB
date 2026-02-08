@@ -55,28 +55,21 @@ export function transformHorseData(apiData: any): Horse {
     age: apiData.age || 0,
     sire: apiData.sire || '不明',
     dam: apiData.dam || '不明',
-    dam_sire: apiData.dam_sire || apiData.damsire || '不明',
+    damsire: apiData.dam_sire || apiData.damsire || '不明',
     image_url: apiData.image_url || '',
     jbis_url: apiData.jbis_url || '',
     auction_url: apiData.auction_url || '',
-    weight: apiData.weight ? Number(apiData.weight) : null,
-    disease_tags: apiData.disease_tags 
-      ? (Array.isArray(apiData.disease_tags) 
-          ? apiData.disease_tags 
-          : [apiData.disease_tags]) 
-      : [],
     detail_url: apiData.detail_url || `#/horse/${horseId}`,
     sold_price: apiData.sold_price || null,
     seller: parseSeller(apiData.seller || ''),
     created_at: apiData.created_at || new Date().toISOString(),
-    updated_at: apiData.updated_at || new Date().toISOString(),
-    auction_histories: []
+    updated_at: apiData.updated_at || new Date().toISOString()
   };
 
   // オークション履歴を処理
   if (apiData.auction_history && Array.isArray(apiData.auction_history)) {
     // 配列形式の履歴データを処理
-    transformed.auction_histories = apiData.auction_history.map((history: any, index: number) => ({
+    apiData.auction_history.map((history: any, index: number) => ({
       // 履歴IDもバックエンドで管理されるため、存在しない場合は空文字列を設定
       id: history.id || '',
       horse_id: horseId,
@@ -92,7 +85,7 @@ export function transformHorseData(apiData: any): Horse {
     }));
   } else if (apiData.auction_date) {
     // 単一のオークションエントリ用のフォールバック
-    transformed.auction_histories = [{
+    [{
       id: `history-${horseId}-0`,
       horse_id: horseId,
       auction_date: Array.isArray(apiData.auction_date) ? apiData.auction_date[0] : apiData.auction_date,
@@ -108,7 +101,7 @@ export function transformHorseData(apiData: any): Horse {
     }];
   } else if (apiData.history && Array.isArray(apiData.history)) {
     // 既存のhistory配列がある場合
-    transformed.auction_histories = apiData.history.map((history: any, index: number) => ({
+    apiData.history.map((history: any, index: number) => ({
       id: history.id || `history-${horseId}-${index}`,
       horse_id: horseId,
       auction_date: history.auction_date || (Array.isArray(apiData.auction_date) ? apiData.auction_date[index] : apiData.auction_date) || new Date().toISOString().split('T')[0],
@@ -124,7 +117,7 @@ export function transformHorseData(apiData: any): Horse {
     }));
   } else if (apiData.sold_price || apiData.auction_date) {
     // オークションデータがあるが履歴配列がない場合
-    transformed.auction_histories = [{
+    [{
       id: `history-${horseId}-${Date.now()}`,
       horse_id: horseId,
       auction_date: apiData.auction_date || '',

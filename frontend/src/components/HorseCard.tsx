@@ -1,14 +1,9 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Horse, AuctionHistory, HorseWithCalculations } from '@/types/horse';
-import { formatSex, getSexColor } from '@/utils/normalize';
-import { formatPrize, formatPrice } from '@/utils/format';
-import { BroodmareBadge } from '@/components/BroodmareBadge';
-
-// HorseWithCalculations 型を使用
+import { Horse, AuctionHistory } from '@/types/horse';
 
 // 血統情報から指定された種類の馬名を抽出する関数
-const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'dam_sire'): string => {
+const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsire'): string => {
   if (!text) return '';
   
   // 各タイプに応じた正規表現パターンを定義
@@ -18,7 +13,7 @@ const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'dam_s
     // 母：の直後の空白以外の文字列（全角スペースを含む）を取得
     dam: /母[：:]([^\s　]+(?:[ 　][^\s　]+)*)/,
     // 母の父：の直後の空白以外の文字列（全角スペースを含む）を取得
-    dam_sire: /(?:母の?父|母父)[：:]([^\s　]+(?:[ 　][^\s　]+)*)/
+    damsire: /(?:母の?父|母父)[：:]([^\s　]+(?:[ 　][^\s　]+)*)/
   };
   
   // 指定されたタイプのパターンで検索
@@ -34,7 +29,7 @@ const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'dam_s
   if (type === 'dam' && text.includes('母：')) {
     return text.split('母：')[1].split(/[\s　]/)[0];
   }
-  if (type === 'dam_sire' && (text.includes('母の父：') || text.includes('母父：'))) {
+  if (type === 'damsire' && (text.includes('母の父：') || text.includes('母父：'))) {
     const delimiter = text.includes('母の父：') ? '母の父：' : '母父：';
     return text.split(delimiter)[1].split(/[\s　]/)[0];
   }
@@ -44,19 +39,24 @@ const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'dam_s
 };
 
 interface HorseCardProps {
-  horse: HorseWithCalculations;
+  horse: Horse;
   auctionHistory?: AuctionHistory[];
   onClick: () => void;
 }
 
 export default function HorseCard({ horse, auctionHistory = [], onClick }: HorseCardProps) {
-  const isBroodmare = Boolean(horse.is_broodmare);
-  // 最新のオークション履歴を取得
-  const latestAuction = horse.latestAuction || null;
+  // この馬に関連するオークション履歴を取得
+  const getHorseAuctionHistory = (): AuctionHistory[] => {
+    if (!auctionHistory || auctionHistory.length === 0) return [];
+    return auctionHistory
+      .filter(history => history.horse_id === horse.id)
+      .sort((a, b) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime());
+  };
 
   // 最新のオークション情報を取得
   const getLatestAuction = (): AuctionHistory | null => {
-    return latestAuction;
+    const history = getHorseAuctionHistory();
+    return history.length > 0 ? history[0] : null;
   };
 
   // 最新の落札価格を取得
@@ -71,55 +71,56 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
     return isNaN(priceNum) ? null : priceNum;
   };
 
-  // 落札価格を表示用にフォーマット
+  // 価格を表示用にフォーマット
   const displayPrice = (price: number | null | undefined, isUnsold: boolean = false) => {
-    return formatPrice(price, isUnsold);
+    console.log(`Displaying price for ${horse.name}:`, { 
+      price, 
+      isUnsold,
+      latestAuction: getLatestAuction()
+    });
+    
+    // 主取りの場合は即座に返す
+    if (isUnsold === true) {
+      console.log('  Marked as unsold, showing 主取り');
+      return '主取り';
+    }
+    
+    // 価格を表示
+    if (price !== null && price !== undefined) {
+      const priceNum = typeof price === 'number' ? price : Number(price);
+      if (!isNaN(priceNum) && priceNum > 0) {
+        console.log(`  Using provided price: ${priceNum}`);
+        return '¥' + priceNum.toLocaleString();
+      }
+    }
+    
+    // 最新の価格を取得
+    const latestPrice = getLatestSoldPrice();
+    if (latestPrice !== null) {
+      console.log(`  Using latest price: ${latestPrice}`);
+      return '¥' + latestPrice.toLocaleString();
+    }
+    
+    // 価格が見つからない場合はハイフンを表示
+    return '-';
   };
 
   // 最新のオークション情報を取得（propsから受け取る）
-  const latestAuctionInfo = getLatestAuction();
+  const latestAuction = getLatestAuction();
+  const price = latestAuction?.sold_price ?? null;
+  const isUnsold = latestAuction?.is_unsold ?? false;
   
-  // 落札価格を取得（sold_price のみを使用）
-  const price = latestAuctionInfo?.sold_price ?? 
-               horse.sold_price ?? 
-               null;
-  
-  // 未落札フラグを取得
-  const isUnsold = latestAuctionInfo?.is_unsold ?? horse.is_unsold ?? false;
-  
-  // デバッグ用ログ
-  console.log('HorseCard debug:', {
-    horseName: horse.name,
-    latestAuctionInfo: latestAuctionInfo,
-    horseSoldPrice: horse.sold_price,
-    horsePrice: horse.price,
-    finalPrice: price,
-    isUnsold: isUnsold
-  });
-  
-  // 血統情報を抽出（直接のプロパティを使用）
-  const sire = horse.sire || '';
-  const dam = horse.dam || '';
-  const dam_sire = horse.dam_sire || '';
-
   // 病気タグの有無をチェック
-  const hasDiseaseTags = Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0;
+  const hasDiseaseTags = 'disease_tags' in horse && Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0;
 
   return (
     <div className="relative group cursor-pointer" onClick={onClick}>
-      <div className="aspect-w-3 aspect-h-2 w-full overflow-hidden rounded-lg bg-gray-200 relative">
+      <div className="aspect-w-3 aspect-h-2 w-full overflow-hidden rounded-lg bg-gray-200">
         <img
-          src={
-            typeof horse.image_url === 'string' 
-              ? horse.image_url 
-              : (horse.image_url as any)?.image_url || '/placeholder-horse.jpg'
-          }
+          src={typeof horse.image_url === 'string' ? horse.image_url : horse.image_url?.image_url || '/placeholder-horse.jpg'}
           alt={horse.name || 'Unknown Horse'}
           className="h-48 w-full object-cover object-center group-hover:opacity-75"
         />
-        {horse.is_broodmare && (
-          <BroodmareBadge variant="tag" className="absolute top-2 left-2 shadow-md" ariaLabel="繁殖牝馬" />
-        )}
         {isUnsold && (
           <div className="absolute top-2 right-2 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded">
             主取り
@@ -129,14 +130,11 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
       <div className="mt-4 space-y-3">
         {/* 1行目: 馬名、年齢、性別、落札価格 */}
         <div className="flex items-center justify-between">
-          <h3 className="text-sm text-gray-700 flex items-center gap-2">
-            {horse.is_broodmare && <BroodmareBadge variant="circle" className="shrink-0" />}
+          <h3 className="text-sm text-gray-700">
             <span className="font-semibold">{horse.name}</span>
             <span className="ml-2 text-gray-500">{horse.age}歳</span>
             <span className="ml-2">
-              <Badge variant="outline" className={getSexColor(horse.sex)}>
-                {formatSex(horse.sex)}
-              </Badge>
+              <Badge variant="outline">{horse.sex}</Badge>
             </span>
           </h3>
           <p className="text-sm font-medium text-gray-900">
@@ -148,32 +146,34 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
         <div className="grid grid-cols-2 gap-4">
           {/* 左カラム: 血統情報 */}
           <div className="text-sm text-gray-600 space-y-1 overflow-hidden">
-            <div className="grid grid-cols-2 gap-1">
-              <div>父: {sire || '不明'}</div>
-              <div>母: {dam || '不明'}</div>
-              <div>母父: {dam_sire || '不明'}</div>
-            </div>
+            <p className="whitespace-nowrap overflow-hidden text-ellipsis">父：{horse.sire || '不明'}</p>
+            <p className="whitespace-nowrap overflow-hidden text-ellipsis">母：{horse.dam || '不明'}</p>
+            {(horse.damsire && horse.damsire !== '不明') && (
+              <p className="whitespace-nowrap overflow-hidden text-ellipsis">母父：{horse.damsire}</p>
+            )}
           </div>
           
           {/* 右カラム: 総賞金と馬体重 */}
           <div className="text-sm text-gray-500 space-y-1">
-            {latestAuctionInfo?.total_prize_latest !== undefined && (
-              <p>総賞金: {formatPrize(latestAuctionInfo.total_prize_latest)}</p>
+            {latestAuction?.total_prize_latest !== undefined && (
+              <p>総賞金: {latestAuction.total_prize_latest.toLocaleString()}万円</p>
             )}
-            {latestAuctionInfo?.weight && Number(latestAuctionInfo.weight) > 0 && (
-              <p>{latestAuctionInfo.weight}kg</p>
+            {latestAuction?.weight && latestAuction.weight > 0 && (
+              <p>{latestAuction.weight}kg</p>
             )}
           </div>
         </div>
         
         {/* 3行目: 疾病情報 */}
-        {hasDiseaseTags && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {horse.disease_tags?.map((tag: string, index: number) => (
-              <Badge key={index} variant="secondary" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
+        {('disease_tags' in horse) && Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0 && (
+          <div className="pt-1">
+            <div className="flex flex-wrap gap-1">
+              {(horse.disease_tags as string[]).map((tag: string, index: number) => (
+                <Badge key={index} variant="secondary" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
           </div>
         )}
       </div>

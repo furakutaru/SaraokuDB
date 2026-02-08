@@ -39,6 +39,43 @@ export const formatCurrency = (value: number | string | null | undefined): strin
 };
 
 /**
+ * 性別に応じた色を取得する関数
+ * @param sex - 性別
+ * @returns 色のクラス名
+ */
+export const getSexColor = (sex: string): string => {
+  switch (sex) {
+    case '牡':
+      return 'text-blue-600 bg-blue-50';
+    case '牝':
+      return 'text-pink-600 bg-pink-50';
+    case 'セン':
+      return 'text-purple-600 bg-purple-50';
+    default:
+      return 'text-gray-600 bg-gray-50';
+  }
+};
+
+/**
+ * 性別をフォーマットする関数
+ * @param sex - 性別文字列 (例: "牡", "牝", "セ")
+ * @returns フォーマットされた性別情報
+ */
+export const formatSex = (sex: string | null | undefined): { text: string; color: string; icon: string } => {
+  if (!sex) return { text: '-', color: 'bg-gray-200', icon: '' };
+  
+  const sexMap: Record<string, { text: string; color: string; icon: string }> = {
+    '牡': { text: '牡', color: 'bg-blue-600', icon: '' },
+    '牝': { text: '牝', color: 'bg-pink-500', icon: '' },
+    'セ': { text: 'セ', color: 'bg-green-600', icon: '' },
+    'せん': { text: 'セ', color: 'bg-green-600', icon: '' },
+    'セン': { text: 'セ', color: 'bg-green-600', icon: '' },
+  };
+  
+  return sexMap[sex] || { text: sex, color: 'bg-gray-200', icon: '' };
+};
+
+/**
  * 賞金を万円単位でフォーマットする関数
  * @param value - 万円単位の数値
  * @returns フォーマットされた賞金文字列 (例: "1,234.5万円")
@@ -51,54 +88,6 @@ export const formatPrize = (value: number | string | null | undefined): string =
   if (isNaN(num)) return '-';
   
   return num === 0 ? '0万円' : `${num.toLocaleString('ja-JP')}万円`;
-};
-
-/**
- * 性別を表示用にフォーマットする関数
- * @param sex - 性別文字列 (例: "牡", "牝", "セ")
- * @returns フォーマットされた性別情報
- */
-export const formatSex = (sex: string | null | undefined): string => {
-  if (!sex) return '-';
-  
-  // 性別の正規化（前後の空白を削除し、全角に統一）
-  const normalizedSex = sex.toString().trim()
-    .replace(/[ \t\n\r\f\v]/g, '') // 空白文字を削除
-    .replace(/♂/g, '牡')  // ♂ を 牡 に変換
-    .replace(/♀/g, '牝')  // ♀ を 牝 に変換
-    .replace(/セイ|せい|せん|セン/g, 'セ'); // セイ, せい, せん, セン を セ に変換
-  
-  // 性別に応じたスタイルを返す
-  const sexMap: Record<string, string> = {
-    '牡': '牡',
-    '牝': '牝',
-    'セ': 'セ',
-  };
-  
-  return sexMap[normalizedSex] || normalizedSex || '-';
-};
-
-/**
- * 性別に応じた背景色を取得する関数
- * @param sex - 性別文字列 (例: "牡", "牝", "セ")
- * @returns 背景色のクラス名
- */
-export const getSexColor = (sex: string | null | undefined): string => {
-  if (!sex) return 'bg-gray-200';
-  
-  const normalizedSex = sex.toString().trim()
-    .replace(/[ \t\n\r\f\v]/g, '')
-    .replace(/♂/g, '牡')
-    .replace(/♀/g, '牝')
-    .replace(/セイ|せい|せん|セン/g, 'セ');
-  
-  const colorMap: Record<string, string> = {
-    '牡': 'bg-blue-600',
-    '牝': 'bg-pink-500',
-    'セ': 'bg-green-600',
-  };
-  
-  return colorMap[normalizedSex] || 'bg-gray-200';
 };
 
 /**

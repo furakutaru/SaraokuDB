@@ -9,23 +9,25 @@ interface HorseImageProps {
   height?: number;
 }
 
-export default function HorseImage({
-  src,
-  alt,
+export default function HorseImage({ 
+  src, 
+  alt, 
   className = '',
   width = 300,
-  height = 300
+  height = 300 
 }: HorseImageProps) {
   const [imgSrc, setImgSrc] = useState(src);
   const [isLoading, setIsLoading] = useState(true);
 
   return (
-    <div className={`relative overflow-hidden ${className}`} style={{ width: '100%', height: '100%' }}>
+    <div className={`relative ${className}`} style={{ width: '100%', height: '100%' }}>
       <Image
         src={imgSrc}
         alt={alt}
-        fill
-        className={`transition-opacity duration-300 object-contain ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+        width={width}
+        height={height}
+        className={`w-full h-auto transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+        style={{ width: '100%', height: 'auto' }}
         onLoadingComplete={() => setIsLoading(false)}
         onError={() => {
           setImgSrc('/placeholder-horse.jpg');

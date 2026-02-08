@@ -2,60 +2,28 @@ import React from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, X } from 'lucide-react';
-import { useDataIntegrityCheck, type DataIssue } from '@/hooks/useDataIntegrityCheck';
+import { useDataIntegrityCheck } from '@/hooks/useDataIntegrityCheck';
 
 export function DataIntegrityAlert() {
   const { hasIssues, isLoading, error, totalHorses, horsesWithIssues, totalIssues, issues } = useDataIntegrityCheck();
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = React.useState(true);
   const [showDetails, setShowDetails] = React.useState(false);
 
-  // エラーまたは問題がある場合にのみアラートを表示
-  React.useEffect(() => {
-    if (error || hasIssues) {
-      setIsOpen(true);
-    } else {
-      setIsOpen(false);
-    }
-  }, [error, hasIssues]);
-
-  // ローディング中はスピナーを表示
+  // ローディング中は何も表示しない
   if (isLoading) {
-    return (
-      <div className="p-4 bg-blue-50 text-blue-800 text-sm flex items-center">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-800 mr-2"></div>
-        <span>データ整合性を確認中...</span>
-      </div>
-    );
+    return null;
   }
 
   // エラーが発生した場合はエラーメッセージを表示
   if (error) {
-    console.error('データ整合性チェックでエラーが発生しました:', error);
-    return (
-      <div className="p-4 bg-yellow-50 text-yellow-800 text-sm">
-        <div className="flex items-center">
-          <AlertCircle className="h-4 w-4 mr-2" />
-          <span>データ整合性チェックでエラーが発生しました。詳細はコンソールを確認してください。</span>
-        </div>
-      </div>
-    );
-  }
-
-  // エラーも問題もない場合は何も表示しない
-  if (!isLoading && !error && !hasIssues) {
-    return null;
-  }
-
-  // 問題がある場合のアラートを表示
-  if (hasIssues && isOpen) {
     return (
       <Alert variant="destructive" className="mb-4">
         <AlertCircle className="h-4 w-4" />
         <div className="flex justify-between items-start">
           <div>
-            <AlertTitle>データの整合性に問題が見つかりました</AlertTitle>
+            <AlertTitle>データの読み込み中にエラーが発生しました</AlertTitle>
             <AlertDescription className="mt-2">
-              <p>{totalIssues}件の問題が検出されました。</p>
+              <p>{error}</p>
             </AlertDescription>
           </div>
           <Button
@@ -72,44 +40,9 @@ export function DataIntegrityAlert() {
     );
   }
 
-  // 問題がない場合でもデータを表示する（デバッグ用）
-  if (!hasIssues) {
-    return (
-      <Alert className="mb-4">
-        <AlertCircle className="h-4 w-4" />
-        <div className="flex justify-between items-start">
-          <div>
-            <AlertTitle>データの読み込みに成功しました</AlertTitle>
-            <AlertDescription className="mt-2">
-              <p>馬のデータ: {totalHorses}件</p>
-              <p>オークション履歴: 0件</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() => setShowDetails(!showDetails)}
-              >
-                {showDetails ? '詳細を隠す' : '詳細を表示'}
-              </Button>
-              {showDetails && (
-                <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-auto max-h-60">
-                  {JSON.stringify(issues, null, 2)}
-                </pre>
-              )}
-            </AlertDescription>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 p-0 text-foreground hover:bg-foreground/10"
-            onClick={() => setIsOpen(false)}
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">閉じる</span>
-          </Button>
-        </div>
-      </Alert>
-    );
+  // 問題がないか、アラートが閉じられている場合は何も表示しない
+  if (!hasIssues || !isOpen) {
+    return null;
   }
 
   return (
@@ -146,11 +79,11 @@ export function DataIntegrityAlert() {
         
         {showDetails && (
           <div className="mt-2 text-sm border-t pt-2">
-            {issues.slice(0, 10).map((issue: DataIssue) => (
+            {issues.slice(0, 10).map((issue) => (
               <div key={issue.id} className="mb-2 p-2 bg-destructive/5 rounded">
                 <div className="font-medium">{issue.name} (ID: {issue.id})</div>
                 <ul className="list-disc list-inside mt-1 space-y-1">
-                  {issue.issues.map((item: { field: string; issue: string; expected?: string }, idx: number) => (
+                  {issue.issues.map((item, idx) => (
                     <li key={idx} className="text-xs">
                       <span className="font-medium">{item.field}:</span> {item.issue}
                       {item.expected && ` (期待値: ${item.expected})`}
