@@ -2,6 +2,20 @@
  * 共有の馬関連の型定義
  */
 
+// 統合されたレース記録型
+export interface UnifiedRaceRecords {
+  // 基本情報
+  total_races: number;      // 総出走回数
+  wins: number;             // 勝利数
+  record_format?: string;    // レコード形式（オプショナル）
+  formatted_record?: string; // フォーマット済み戦績（オプショナル）
+  
+  // 賞金関連
+  total_prize_money: number;  // 総獲得賞金
+  last_race_date?: string;    // 最終出走日
+  last_prize_update?: string; // 最終賞金更新日
+}
+
 // オークション履歴の基本インターフェース
 export interface BaseAuctionHistory {
   id: string | number;
@@ -93,6 +107,23 @@ export interface Horse extends BaseHorse {
   roi?: number;
   price_per_kg?: number;
   effectiveWeight?: number | null;
+  
+  // レース記録関連（旧形式 - 互換性のため残す）
+  race_record?: {
+    total_races: number;
+    wins: number;
+    record_format: string;
+    formatted_record: string;
+  };
+  race_records?: {
+    total_prize_money: number;
+    last_race_date?: string;
+    last_prize_update?: string;
+    [key: string]: any; // その他のプロパティも許容
+  };
+  
+  // 統合されたレース記録
+  unified_race_records?: UnifiedRaceRecords;
   
   // 互換性のためのフィールド
   /** @deprecated 代わりに detail_url を使用してください */
