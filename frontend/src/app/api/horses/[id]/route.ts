@@ -10,7 +10,10 @@ const API_BASE_URL = process.env.PROD_API_BASE_URL ||
                     process.env.API_BASE_URL || 
                     process.env.NEXT_PUBLIC_API_URL || 
                     'http://localhost:8001';
-const API_URL = `${API_BASE_URL}/api`;
+
+// API_BASE_URLを上書きしてPROD_API_BASE_URLを最優先に
+const FINAL_API_BASE_URL = process.env.PROD_API_BASE_URL || API_BASE_URL;
+const API_URL = `${FINAL_API_BASE_URL}/api`;
 
 // 静的ファイルから馬データを取得（フォールバック用）
 async function getHorseDataFromStatic(horseId: string): Promise<any | null> {
@@ -59,6 +62,7 @@ export async function GET(
   try {
     console.log(`[API] 馬詳細データ取得開始: ID=${params.id}`);
     console.log(`[API] API_BASE_URL: ${API_BASE_URL}`);
+    console.log(`[API] FINAL_API_BASE_URL: ${FINAL_API_BASE_URL}`);
     console.log(`[API] API_URL: ${API_URL}`);
     console.log(`[API] NODE_ENV: ${process.env.NODE_ENV}`);
     console.log(`[API] 環境変数一覧:`, {
