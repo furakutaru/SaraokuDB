@@ -108,7 +108,7 @@ const formatPrice = (price: number | string | null | undefined): string => {
 // 落札価格を表示する関数
 const displayPrice = (horse: Horse, auctionHistory: AuctionHistory | null | undefined) => {
   // 未出走の場合は「未出走」を返す
-  if (horse.race_record?.total_races === 0) {
+  if (horse.race_records?.total_races === 0) {
     return '未出走';
   }
 
@@ -427,13 +427,13 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                   {/* レース戦績と血統情報 - 横並び表示 */}
                   <div className="space-y-4">
                     {/* レース戦績 */}
-                    {horse.race_record && (
+                    {horse.race_records && (
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <span className="text-gray-600 font-medium whitespace-nowrap">獲得賞金：</span>
-                        <span>{formatPrize(horse.race_record.total_prize_money, horse.race_record)}</span>
-                        {horse.race_record.last_race_date && (
+                        <span>{formatPrize(horse.race_records.total_prize_money, horse.race_records)}</span>
+                        {horse.race_records.last_race_date && (
                           <span className="ml-2 text-xs text-gray-500">
-                            (最終出走: {formatDate(horse.race_record.last_race_date)})
+                            (最終出走: {formatDate(horse.race_records.last_race_date)})
                           </span>
                         )}
                       </div>
@@ -529,7 +529,7 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                   </div>
                   {auctionHistory?.price && (
                     <div className="mt-2 text-sm text-gray-600">
-                      {formatPrize(horse.race_record?.total_prize_money || 0, horse.race_record)}
+                      {formatPrize(horse.race_records?.total_prize_money || 0, horse.race_records)}
                     </div>
                   )}
                 </div>
@@ -561,22 +561,22 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                 <CardTitle className="text-lg">戦績</CardTitle>
               </CardHeader>
               <CardContent>
-                {horse.unified_race_records ? (
+                {horse.race_records ? (
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500">獲得賞金</p>
                         <p className="font-medium">
-                          {horse.unified_race_records?.total_races === 0 ?
+                          {horse.race_records?.total_races === 0 ?
                             '未出走' :
-                            formatPrize(horse.unified_race_records?.total_prize_money, horse.unified_race_records)}
+                            formatPrize(horse.race_records?.total_prize_money, horse.race_records)}
                         </p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">最終出走日</p>
                         <p className="font-medium">
-                          {horse.unified_race_records.last_race_date ?
-                            formatDate(horse.unified_race_records.last_race_date) : '未出走'}
+                          {horse.race_records.last_race_date ?
+                            formatDate(horse.race_records.last_race_date) : '未出走'}
                         </p>
                       </div>
                     </div>
@@ -668,24 +668,24 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                   </div>
 
                   {/* 賞金情報 */}
-                  {horse.unified_race_records?.total_prize_money !== undefined && (
+                  {horse.race_records?.total_prize_money !== undefined && (
                     <div className="space-y-2">
                       <div className="font-medium text-sm text-gray-600">レース成績</div>
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-gray-600">獲得賞金：</span>
                         <span className="font-medium">
-                          {formatPrize(horse.unified_race_records.total_prize_money, horse.unified_race_records)}
+                          {formatPrize(horse.race_records.total_prize_money, horse.race_records)}
                         </span>
                       </div>
-                      {horse.unified_race_records.last_race_date && (
+                      {horse.race_records.last_race_date && (
                         <div className="text-sm">
                           <span className="text-gray-600">最終出走：</span>
-                          <span>{formatDate(horse.unified_race_records.last_race_date)}</span>
+                          <span>{formatDate(horse.race_records.last_race_date)}</span>
                         </div>
                       )}
-                      {horse.unified_race_records.last_prize_update && (
+                      {horse.race_records.last_prize_update && (
                         <div className="text-xs text-gray-500 mt-1">
-                          賞金更新: {formatDate(horse.unified_race_records.last_prize_update)}
+                          賞金更新: {formatDate(horse.race_records.last_prize_update)}
                         </div>
                       )}
                     </div>
