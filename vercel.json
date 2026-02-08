@@ -1,5 +1,4 @@
 {
-  "buildCommand": "cd static-frontend && npm run build",
-  "outputDirectory": "static-frontend/.next",
+  "rootDirectory": "static-frontend",
   "framework": "nextjs"
 }
