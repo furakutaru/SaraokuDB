@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Turbopackのルートディレクトリを明示的に指定
+  turbopack: {
+    root: __dirname,
+  },
   // 静的エクスポート(output: 'export')はVercel運用では不要なので削除
   trailingSlash: true,
   images: {
