@@ -9,6 +9,7 @@ import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UnifiedHorse, AuctionHistory } from '@/types/unifiedHorse';
 import { Header } from '@/components/Header';
 
@@ -337,9 +338,18 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
       
       <div className="container mx-auto px-4 py-6">
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* メインコンテンツ */}
-          <div className="lg:col-span-2 space-y-6">
+        <Tabs defaultValue="basic" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="basic">基本情報</TabsTrigger>
+            <TabsTrigger value="auction">オークション</TabsTrigger>
+            <TabsTrigger value="race">レース成績</TabsTrigger>
+          </TabsList>
+
+          {/* 基本情報タブ */}
+          <TabsContent value="basic" className="space-y-6 mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* メインコンテンツ */}
+              <div className="lg:col-span-2 space-y-6">
             {/* 基本情報カード */}
             <Card>
               <CardHeader>
@@ -590,103 +600,6 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                         <div className="text-sm text-gray-500">開催日</div>
                         <div className="font-medium">{formatDate(auctionInfo.date)}</div>
                       </div>
-                      <div>
-                        <div className="text-sm text-gray-500">落札価格</div>
-                        <div className="font-medium">
-                          {auctionInfo.is_unsold 
-                            ? '主取り' 
-                            : auctionInfo.price 
-                              ? `¥${auctionInfo.price.toLocaleString()}` 
-                              : '不明'}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <div className="text-sm text-gray-500">売主</div>
-                        <div className="font-medium">{auctionInfo.seller || '不明'}</div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-500">馬体重</div>
-                        <div className="font-medium">
-                          {auctionInfo.weight ? `${auctionInfo.weight}kg` : '計測なし'}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {comment && (
-                      <div className="mt-2">
-                        <div className="text-sm text-gray-500 mb-1">コメント</div>
-                        <div className="text-sm whitespace-pre-line bg-gray-50 p-3 rounded">
-                          {comment}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-gray-500">
-                    オークション情報がありません
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* 賞金情報 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">賞金情報</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* メタ情報 */}
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <div className="font-medium">登録情報</div>
-                    <div>登録日: {formatDate(horse.metadata?.created_at) || '不明'}</div>
-                    {horse.metadata?.updated_at && (
-                      <div>更新日: {formatDate(horse.metadata.updated_at)}</div>
-                    )}
-                    <div>ID: {horse.id}</div>
-                  </div>
-                  
-                  {/* 賞金情報 */}
-                  <div className="space-y-2">
-                    <div className="font-medium text-sm text-gray-600">レース成績</div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-600">獲得賞金：</span>
-                      <p className="text-2xl font-bold">
-                        {(() => {
-                          const result = displayPrize(horse as Horse);
-                          console.log('Display Prize Result (large):', result, 'for horse:', horse?.name);
-                          return result;
-                        })()}
-                      </p>
-                    </div>
-                    {horse.race_records?.last_prize_update && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        賞金更新: {formatDate(horse.race_records.last_prize_update)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* データ更新日 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">データ情報</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                {auctionHistory?.auction_date && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">オークション日:</span>
-                    <span>{formatDate(auctionHistory.auction_date)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-gray-600">作成日:</span>
-                  <span>{horse.metadata?.created_at ? formatDate(horse.metadata.created_at) : '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">更新日:</span>
