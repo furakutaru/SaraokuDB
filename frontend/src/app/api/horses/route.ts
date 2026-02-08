@@ -85,7 +85,7 @@ export async function GET(request: Request) {
     let lastError = null;
 
     // 1. バックエンドAPIから馬データを取得
-    if (process.env.PROD_API_BASE_URL || !API_BASE_URL.includes('localhost')) {
+    if (process.env.PROD_API_BASE_URL) {
       const requestUrl = `${API_URL}/horses?sort=${sort}`;
       console.log(`[API] バックエンドリクエスト: ${requestUrl}`);
       

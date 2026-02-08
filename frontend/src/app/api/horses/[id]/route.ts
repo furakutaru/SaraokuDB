@@ -74,7 +74,7 @@ export async function GET(
     let lastError = null;
 
     // 1. バックエンドAPIから馬詳細データを取得
-    if (process.env.PROD_API_BASE_URL || !API_BASE_URL.includes('localhost')) {
+    if (process.env.PROD_API_BASE_URL) {
       const backendUrl = `${API_URL}/horses/${encodeURIComponent(params.id)}`;
       console.log(`[API] バックエンドリクエスト: ${backendUrl}`);
       console.log(`[API] 完全なURL: ${backendUrl}`);
