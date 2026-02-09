@@ -44,7 +44,7 @@ from database.schemas import HorseResponse
 # Import routers
 from routers import horses
 from routers.auction_histories import router as auction_histories_router
-from api.health import router as health_router
+from health import router as health_router
 
 # 認証コンポーネントを取得
 auth_components = {}
