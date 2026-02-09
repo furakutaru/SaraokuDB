@@ -3,7 +3,7 @@ import sys
 import json
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from backend.database.models import Horse, Base
+from database.models import Horse, Base
 from sqlalchemy.inspection import inspect
 
 # プロジェクトルートの絶対パスを取得

@@ -48,7 +48,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 
 if not SECRET_KEY:
     try:
         # 本番環境用
-        from backend.config import SECRET_KEY as BK_SECRET_KEY, \
+        from config import SECRET_KEY as BK_SECRET_KEY, \
                                  ALGORITHM as BK_ALGORITHM, \
                                  ACCESS_TOKEN_EXPIRE_MINUTES as BK_ACCESS_TOKEN_EXPIRE_MINUTES
         SECRET_KEY = BK_SECRET_KEY

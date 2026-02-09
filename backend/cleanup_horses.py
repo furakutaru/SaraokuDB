@@ -7,8 +7,8 @@ from datetime import datetime
 # プロジェクトのルートディレクトリをパスに追加
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.database import Base, get_db
-from backend.models.horse import Horse  # 馬のモデルをインポート
+from database import Base, get_db
+from models.horse import Horse  # 馬のモデルをインポート
 
 def cleanup_old_horses():
     # データベース接続の設定

@@ -1,5 +1,5 @@
 from sqlalchemy import text
-from backend.database.models import engine
+from database.models import engine
 from datetime import datetime
 
 def upgrade():

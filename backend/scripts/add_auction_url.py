@@ -9,7 +9,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from backend.database.models import engine
+from database.models import engine
 
 def backup_database():
     """データベースのバックアップを作成"""

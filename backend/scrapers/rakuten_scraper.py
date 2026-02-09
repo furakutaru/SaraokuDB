@@ -16,7 +16,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 try:
-    from backend.scrapers.data_helpers import (
+    from scrapers.data_helpers import (
         save_horse,
         save_auction_history,
         load_json_file

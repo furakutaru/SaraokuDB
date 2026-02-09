@@ -3,7 +3,7 @@ import sys
 import json
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from backend.database.models import Horse, Base
+from database.models import Horse, Base
 
 # プロジェクトルートの絶対パスを取得
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

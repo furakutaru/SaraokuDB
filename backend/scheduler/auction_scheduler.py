@@ -10,8 +10,8 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from backend.database.models import get_db, SessionLocal
-from backend.services.horse_service import HorseService
+from database.models import get_db, SessionLocal
+from services.horse_service import HorseService
 import logging
 
 # ログ設定

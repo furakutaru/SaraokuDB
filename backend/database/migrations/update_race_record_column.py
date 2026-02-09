@@ -1,5 +1,5 @@
 from sqlalchemy import text
-from backend.database.models import engine
+from database.models import engine
 
 def upgrade():
     """Update race_record column to store JSON data"""
