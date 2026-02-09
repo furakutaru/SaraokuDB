@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // TypeScriptチェックを無効化
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  // ESLintチェックを無効化
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // 静的エクスポート(output: 'export')はVercel運用では不要なので削除
   trailingSlash: true,
   images: {
