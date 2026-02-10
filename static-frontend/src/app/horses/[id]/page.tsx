@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ExternalLink } from 'lucide-react';
@@ -50,13 +50,6 @@ type Horse = Omit<UnifiedHorse, 'basic_info' | 'auction_history'> & {
   // オークション情報
   latest_auction?: AuctionHistory | null;
   auction_history?: AuctionHistory[];
-}
-
-// 馬詳細ページのプロパティ型
-interface HorseDetailPageProps {
-  params: {
-    id: string;
-  };
 }
 
 // 馬詳細コンテンツのプロパティ型
@@ -135,8 +128,10 @@ const displayPrice = (horse: Horse, auctionHistory: AuctionHistory | null | unde
 };
 
 // --- コンポーネント ---
-const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
+const HorseDetailPage = () => {
   const router = useRouter();
+  const params = useParams();
+  const id = params?.id as string | undefined;
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [horse, setHorse] = useState<Horse | null>(null);
@@ -144,11 +139,16 @@ const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
 
 
   useEffect(() => {
+    if (!id) {
+      setIsLoading(false);
+      setError('馬IDが指定されていません');
+      return;
+    }
     const fetchHorseData = async () => {
       try {
         setIsLoading(true);
-        // APIエンドポイントからデータを取得（末尾のスラッシュを追加）
-        const response = await fetch(`/api/horses/${params.id}`, {
+        const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8001';
+        const response = await fetch(`${API_BASE}/api/horses/${id}`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
@@ -206,7 +206,7 @@ const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
     };
 
     fetchHorseData();
-  }, [params.id]);
+  }, [id]);
 
   if (isLoading) {
     return (
