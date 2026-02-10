@@ -1,16 +1,5 @@
 import os
 import sys
-from pathlib import Path
-
-# Add the project root and backend directory to the Python path
-project_root = Path(__file__).parent.parent
-backend_dir = Path(__file__).parent
-
-# Add both project root and backend directory to path
-for path in [str(project_root), str(backend_dir)]:
-    if path not in sys.path:
-        sys.path.insert(0, path)
-
 import uvicorn
 import logging
 from fastapi import FastAPI, Depends, HTTPException, status, Request
