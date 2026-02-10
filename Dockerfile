@@ -2,15 +2,19 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# backendディレクトリに移動
+# 依存関係をインストール
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# backendディレクトリからすべてのコードをコピー
+# アプリケーションコードをコピー
 COPY backend/ .
 
-# Railwayは自動的にPORT環境変数を設定
+# RailwayはPORT環境変数を自動設定
+# ヘルスチェックエンドポイントを追加
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8000/ || exit 1
+
 EXPOSE 8000
 
-# 直接Pythonを実行
+# 直接実行
 CMD ["python", "main.py"]
