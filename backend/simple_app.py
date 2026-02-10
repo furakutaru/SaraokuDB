@@ -28,6 +28,10 @@ async def health_check():
 async def get_horses():
     return {"horses": [], "total": 0}
 
+@app.options("/api/horses")
+async def options_horses():
+    return {"status": "ok"}
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8080))
