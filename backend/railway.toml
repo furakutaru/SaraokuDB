@@ -1,7 +1,2 @@
 [build]
 builder = "dockerfile"
-
-[deploy]
-startCommand = "python -u main.py"
-PORT = 8000
-RESTART_POLICY = "always"
