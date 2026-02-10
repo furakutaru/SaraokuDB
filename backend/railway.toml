@@ -3,3 +3,4 @@ builder = "dockerfile"
 
 [deploy]
 startCommand = "python main.py"
+PORT = 8080
