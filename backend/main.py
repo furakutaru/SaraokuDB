@@ -103,16 +103,18 @@ _cors_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://saraoku-db.vercel.app",
+    "https://saraokudb-production.up.railway.app",
+    "https://saraokudb-staging.up.railway.app",
 ]
 _cors_env = os.environ.get("CORS_ORIGINS", "")
 if _cors_env:
     _cors_origins.extend(origin.strip() for origin in _cors_env.split(",") if origin.strip())
 
-# Vercel の全サブドメインを許可（プレビューURL対応）
+# Vercel と Railway の全サブドメインを許可（プレビューURL対応）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r"https://.*\.(vercel|railway)\.app",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[
