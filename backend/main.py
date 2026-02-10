@@ -4,8 +4,14 @@ import uvicorn
 import logging
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
+from typing import Dict, Any, List, Optional, Union, Callable
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 
-# ロギングの設定（Railway では stdout に出力）
+# ロギングの設定
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -15,40 +21,56 @@ logging.basicConfig(
 # SQLAlchemyのログレベルを設定
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
-import logging
-from typing import Dict, Any, List, Optional, Union, Callable
-from sqlalchemy.orm import Session
-from sqlalchemy import text
 
 # Import database and models
-from database.models import Base, get_db, engine
-from database.schemas import HorseResponse
+try:
+    from database.models import Base, get_db, engine
+    from database.schemas import HorseResponse
+    logger.info("Database imports successful")
+except ImportError as e:
+    logger.error(f"Database import error: {e}")
+    sys.exit(1)
 
 # Import routers
-from routers import horses
-from routers.auction_histories import router as auction_histories_router
-from health import router as health_router
+try:
+    from routers import horses
+    from routers.auction_histories import router as auction_histories_router
+    from health import router as health_router
+    logger.info("Router imports successful")
+except ImportError as e:
+    logger.error(f"Router import error: {e}")
+    sys.exit(1)
 
 # 認証コンポーネントを取得
 auth_components = {}
 
 def get_auth_components() -> Dict[str, Any]:
-    """認証コンポーネントを遅延読み込み
-    
-    Returns:
-        Dict[str, Any]: 認証に必要なコンポーネントの辞書
-    """
-    global auth_components
+    """認証コンポーネントを遅延読み込み"""
     if not auth_components:
-        from auth import get_auth_components as _get_auth_components
-        auth_components = _get_auth_components()
+        try:
+            from auth.jwt_auth import get_current_user, get_password_hash
+            from auth.auth import authenticate_user, create_access_token
+            auth_components.update({
+                'get_current_user': get_current_user,
+                'get_password_hash': get_password_hash,
+                'authenticate_user': authenticate_user,
+                'create_access_token': create_access_token
+            })
+            logger.info("認証コンポーネントの読み込みに成功しました")
+        except ImportError as e:
+            logger.warning(f"認証コンポーネントの読み込みに失敗しました: {e}")
     return auth_components
 
-# 認証ルーターをインポート
-from auth import auth_router, debug_router
+def check_db_connection() -> bool:
+    """データベース接続をチェック"""
+    try:
+        db = next(get_db())
+        db.execute(text("SELECT 1"))
+        print("データベースに接続されました")
+        return True
+    except Exception as e:
+        print(f"データベース接続エラー: {str(e)}")
+        return False
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -106,58 +128,41 @@ from routers.auction_histories import router as auction_histories_router
 app.include_router(horses_router, prefix="/api/horses")
 app.include_router(auction_histories_router, prefix="/api/auction_histories")
 
-# その他のルーター
+# ヘルスチェックエンドポイント
 app.include_router(health_router)
-app.include_router(auth_router)
-app.include_router(debug_router)
 
-# Root endpoint
+# 静的ファイルの配信
+try:
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+except RuntimeError:
+    logger.warning("Static files directory not found, skipping static file serving")
+
 @app.get("/")
 async def root():
-    return {"message": "サラブレッドオークションデータベースAPIへようこそ！"}
+    """ルートエンドポイント"""
+    return {
+        "message": "サラブレッドオークション データベース API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "status": "running"
+    }
 
-# ヘルスチェックエンドポイント
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "message": "Service is running"}
+# エラーハンドラ
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=404,
+        content={"detail": "エンドポイントが見つかりません"}
+    )
 
-# テスト用のシンプルなエンドポイント
-@app.get("/test")
-async def test_endpoint():
-    return {"message": "Test endpoint is working"}
-
-# データベース接続テスト用エンドポイント
-@app.get("/test-db")
-async def test_db():
-    from database.models import SessionLocal
-    
-    db = SessionLocal()
-    try:
-        # シンプルなクエリを実行
-        result = db.execute(text("SELECT 1"))
-        return {
-            "message": "Database connection successful", 
-            "result": result.scalar()
-        }
-    except Exception as e:
-        return {
-            "message": "Database connection failed", 
-            "error": str(e)
-        }
-    finally:
-        db.close()
-
-# データベース接続を確認する関数
-def check_db_connection():
-    try:
-        db = next(get_db())
-        db.execute(text("SELECT 1"))
-        print("データベースに接続されました")
-        return True
-    except Exception as e:
-        print(f"データベース接続エラー: {str(e)}")
-        return False
+@app.exception_handler(500)
+async def internal_error_handler(request: Request, exc: HTTPException):
+    logger.error(f"Internal server error: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "内部サーバーエラーが発生しました"}
+    )
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))  # Railwayのデフォルトポートに戻す
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
