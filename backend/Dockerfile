@@ -2,14 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# FastAPIとuvicornをインストール
-RUN pip install fastapi uvicorn
+COPY requirements.txt .
 
-# アプリケーションファイルをコピー
-COPY simple_app.py main.py
+RUN pip install --no-cache-dir -r requirements.txt
 
-# ポートを公開
+COPY . .
+
 EXPOSE 8080
 
-# アプリケーションを起動
 CMD ["python", "-u", "main.py"]
