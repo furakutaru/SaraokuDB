@@ -14,16 +14,13 @@ for path in [str(project_root), str(backend_dir)]:
 import uvicorn
 import logging
 from fastapi import FastAPI, Depends, HTTPException, status, Request
+from contextlib import asynccontextmanager
 
-# ロギングの設定
-# ルートロガーの設定
+# ロギングの設定（Railway では stdout に出力）
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('/tmp/uvicorn.log')
-    ]
+    handlers=[logging.StreamHandler()]
 )
 
 # SQLAlchemyのログレベルを設定
@@ -64,12 +61,40 @@ def get_auth_components() -> Dict[str, Any]:
 # 認証ルーターをインポート
 from auth import auth_router, debug_router
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # アプリケーション起動時の処理
+    if not check_db_connection():
+        print("警告: データベースに接続できませんでした")
+    else:
+        print("データベース接続が正常に確立されました")
+    
+    print("\n=== アプリケーション起動中 ===")
+    try:
+        # テーブルが存在しない場合は作成を試みる
+        Base.metadata.create_all(bind=engine)
+        print("テーブルの確認が完了しました")
+    except Exception as e:
+        print(f"テーブル作成中にエラーが発生しました: {str(e)}")
+    
+    yield
+    
+    # アプリケーション終了時の処理
+    print("\n=== アプリケーション終了中 ===")
+    try:
+        # データベース接続をクリーンアップ
+        engine.dispose()
+        print("データベース接続をクリーンアップしました")
+    except Exception as e:
+        print(f"シャットダウン中のエラー: {e}")
+
 # Create FastAPI app
 app = FastAPI(
     title="サラブレッドオークション データベース",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url=None
+    redoc_url=None,
+    lifespan=lifespan
 )
 
 # CORSミドルウェアの設定
@@ -83,9 +108,11 @@ _cors_env = os.environ.get("CORS_ORIGINS", "")
 if _cors_env:
     _cors_origins.extend(origin.strip() for origin in _cors_env.split(",") if origin.strip())
 
+# Vercel の全サブドメインを許可（プレビューURL対応）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[
@@ -165,33 +192,6 @@ def check_db_connection():
     except Exception as e:
         print(f"データベース接続エラー: {str(e)}")
         return False
-
-# アプリケーション起動時にデータベース接続を確認
-@app.on_event("startup")
-async def startup_event():
-    if not check_db_connection():
-        print("警告: データベースに接続できませんでした")
-    else:
-        print("データベース接続が正常に確立されました")
-    
-    print("\n=== アプリケーション起動中 ===")
-    try:
-        # テーブルが存在しない場合は作成を試みる
-        Base.metadata.create_all(bind=engine)
-        print("テーブルの確認が完了しました")
-    except Exception as e:
-        print(f"テーブル作成中にエラーが発生しました: {str(e)}")
-
-# アプリケーション終了時に実行
-@app.on_event("shutdown")
-async def shutdown_event():
-    print("アプリケーションを終了します")
-    try:
-        # データベース接続を閉じるなどのクリーンアップ処理
-        if 'engine' in globals():
-            engine.dispose()
-    except Exception as e:
-        print(f"シャットダウン中のエラー: {e}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8001))
