@@ -54,7 +54,7 @@ if not SECRET_KEY:
         SECRET_KEY = BK_SECRET_KEY
         ALGORITHM = BK_ALGORITHM
         ACCESS_TOKEN_EXPIRE_MINUTES = BK_ACCESS_TOKEN_EXPIRE_MINUTES
-        logger.info("Using backend.config for configuration")
+        logger.info("Using config for configuration")
     except ImportError:
         try:
             # ローカル開発環境用
