@@ -73,12 +73,19 @@ app = FastAPI(
 )
 
 # CORSミドルウェアの設定
+# 環境変数 CORS_ORIGINS があれば追加（カンマ区切り）、なければデフォルト
+_cors_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://saraoku-db.vercel.app",
+]
+_cors_env = os.environ.get("CORS_ORIGINS", "")
+if _cors_env:
+    _cors_origins.extend(origin.strip() for origin in _cors_env.split(",") if origin.strip())
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-    ],  # フロントエンドのURLを許可
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[

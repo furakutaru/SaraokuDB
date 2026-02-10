@@ -6,6 +6,7 @@ import { format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ExternalLink } from 'lucide-react';
 import { formatPrize } from '@/utils/format';
+import { getApiBase } from '@/lib/utils';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -147,7 +148,7 @@ const HorseDetailPage = () => {
     const fetchHorseData = async () => {
       try {
         setIsLoading(true);
-        const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8001';
+        const API_BASE = getApiBase();
         const response = await fetch(`${API_BASE}/api/horses/${id}`, {
           method: 'GET',
           headers: {

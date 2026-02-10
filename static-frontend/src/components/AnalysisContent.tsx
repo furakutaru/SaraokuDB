@@ -126,7 +126,7 @@ export default function AnalysisContent() {
       try {
         setLoading(true);
 
-        const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8001';
+        const API_BASE = getApiBase();
         const skip = (page - 1) * limit;
         const url = `${API_BASE}/api/horses/with_auction_histories?skip=${skip}&limit=${limit}`;
         const response = await fetch(url, {

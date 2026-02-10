@@ -9,6 +9,7 @@ import HorseImage from '@/components/HorseImage';
 import HorseCard from '@/components/HorseCard';
 import { useRouter } from 'next/navigation';
 import { Horse as BaseHorse, AuctionHistory, HorseData } from '@/types/horse';
+import { getApiBase } from '@/lib/utils';
 
 // コンポーネントで使用する馬の型を定義
 export interface Horse {
@@ -84,7 +85,7 @@ export default function HorsesPage() {
       try {
         setLoading(true);
 
-        const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8001';
+        const API_BASE = getApiBase();
 
         // 並び順のマッピング（価格と名前はサーバ側、年齢はクライアント側で実施）
         let sortParam = 'price_desc';
