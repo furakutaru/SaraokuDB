@@ -9,7 +9,7 @@ const nextConfig = {
   // 環境変数の設定
   env: {
     // クライアントサイドで利用可能な環境変数
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://saraokudb-production-fa57.up.railway.app',
     // サーバーサイドで利用可能な環境変数 - Vercel環境変数のみ使用
     API_BASE_URL: process.env.PROD_API_BASE_URL || process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL,
   },
@@ -19,7 +19,7 @@ const nextConfig = {
 
   images: {
     unoptimized: true,
-    domains: ['vercel.app', 'localhost'],
+    domains: ['vercel.app', 'localhost', 'railway.app', 'up.railway.app'],
   },
 
   // 開発環境でのみ詳細なログを出力

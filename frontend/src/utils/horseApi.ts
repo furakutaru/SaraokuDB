@@ -36,7 +36,7 @@ export interface HorsesListResponse {
 }
 
 function apiBase(): string {
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+  return process.env.NEXT_PUBLIC_API_URL || 'https://saraokudb-production-fa57.up.railway.app';
 }
 
 export async function fetchHorsesList(): Promise<HorsesListResponse> {
