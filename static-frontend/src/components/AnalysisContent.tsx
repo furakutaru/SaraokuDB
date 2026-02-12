@@ -64,6 +64,7 @@ import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Horse, AuctionHistory, HorseWithCalculations } from '@/types/horse';
+import { getApiBase } from '@/lib/utils';
 
 // フロントエンドで使用する馬の型（Horse型を拡張）
 interface HorseWithAuction extends Horse {
