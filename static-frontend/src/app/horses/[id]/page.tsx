@@ -147,126 +147,68 @@ const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
     const fetchHorseData = async () => {
       try {
         setIsLoading(true);
-        // 環境変数に基づいてAPI URLを決定
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-        const FINAL_API_BASE_URL = process.env.PROD_API_BASE_URL || API_BASE_URL;
-        const API_URL = `${FINAL_API_BASE_URL}/api`;
+        // getApiBase関数を使用してAPI URLを取得
+        const API_BASE = getApiBase();
+        const API_URL = `${API_BASE}/api`;
         
         // デバッグログ
-        console.log(`[HorseDetail] API_BASE_URL: ${API_BASE_URL}`);
-        console.log(`[HorseDetail] FINAL_API_BASE_URL: ${FINAL_API_BASE_URL}`);
+        console.log(`[HorseDetail] API_BASE: ${API_BASE}`);
         console.log(`[HorseDetail] API_URL: ${API_URL}`);
-        console.log(`[HorseDetail] NODE_ENV: ${process.env.NODE_ENV}`);
         
         // バックエンドAPIからデータを取得
-        if (process.env.PROD_API_BASE_URL) {
-          const backendUrl = `${API_URL}/horses/${params.id}`;
-          console.log(`[HorseDetail] Fetching from backend: ${backendUrl}`);
+        const backendUrl = `${API_URL}/horses/${params.id}`;
+        console.log(`[HorseDetail] Fetching from backend: ${backendUrl}`);
           
           const response = await fetch(backendUrl, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            redirect: 'follow'
-          });
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          redirect: 'follow'
+        });
 
           if (!response.ok) {
-            throw new Error(`バックエンドAPIエラー: ${response.status}`);
-          }
+          throw new Error(`バックエンドAPIエラー: ${response.status}`);
+        }
 
-          const horseData = await response.json();
-          
-          if (!horseData) {
-            throw new Error('バックエンドAPIからデータが取得できませんでした');
-          }
+        const horseData = await response.json();
+        
+        if (!horseData) {
+          throw new Error('バックエンドAPIからデータが取得できませんでした');
+        }
 
           // APIデータをフロントエンド形式に変換
-          const processedHorse: Horse = {
-            ...horseData,
-            // 基本情報をトップレベルに展開
-            name: horseData.name || '',
+        const processedHorse: Horse = {
+          ...horseData,
+          // 基本情報をトップレベルに展開
+          name: horseData.name || '',
             sex: horseData.sex || '',
-            age: horseData.age || 0,
-            sire: horseData.sire || '',
-            dam: horseData.dam || '',
+          age: horseData.age || 0,
+          sire: horseData.sire || '',
+          dam: horseData.dam || '',
             damsire: horseData.dam_sire || horseData.damsire || '',
-            // メタデータ
-            metadata: {
-              created_at: horseData.created_at || new Date().toISOString(),
-              updated_at: horseData.updated_at || new Date().toISOString(),
-              data_source: horseData.data_source || 'api'
-            },
+          // メタデータ
+          metadata: {
+            created_at: horseData.created_at || new Date().toISOString(),
+            updated_at: horseData.updated_at || new Date().toISOString(),
+            data_source: horseData.data_source || 'api'
+          },
             // レコード情報
-            race_record: horseData.race_record || horseData.race_records || {
-              total_races: 0,
-              wins: 0,
-              total_prize_money: 0
-            },
-            // オークション情報
-            latest_auction: horseData.latest_auction || null,
-            auction_history: horseData.auction_history || [],
-            // 履歴データをhistory形式に変換
-            history: horseData.auction_history || []
-          };
+          race_record: horseData.race_record || horseData.race_records || {
+            total_races: 0,
+            wins: 0,
+            total_prize_money: 0
+          },
+          // オークション情報
+          latest_auction: horseData.latest_auction || null,
+          auction_history: horseData.auction_history || []
+        };
 
-          setHorse(processedHorse);
-          setError(null);
-        } else {
-          // ローカルAPIルートを使用（開発環境用）
-          console.log(`[HorseDetail] PROD_API_BASE_URL not set, using local API`);
-          const response = await fetch(`/api/horses/${params.id}`, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            redirect: 'follow'
-          });
-
-          if (!response.ok) {
-            throw new Error('データの取得に失敗しました');
-          }
-
-          const horseData = await response.json();
-
-          if (!horseData) {
-            throw new Error('データが空です');
-          }
-
-          // 馬の基本情報を整形
-          const processedHorse: Horse = {
-            ...horseData,
-            // 基本情報をトップレベルに展開
-            name: horseData.name || '',
-            sex: horseData.sex || '',
-            age: horseData.age || 0,
-            sire: horseData.sire || '',
-            dam: horseData.dam || '',
-            damsire: horseData.damsire || '',
-            // メタデータ
-            metadata: {
-              created_at: horseData.metadata?.created_at || new Date().toISOString(),
-              updated_at: horseData.metadata?.updated_at || new Date().toISOString(),
-              data_source: horseData.metadata?.data_source || 'jbis'
-            },
-            // レコード情報
-            race_record: horseData.race_record || {
-              total_races: 0,
-              wins: 0,
-              total_prize_money: 0
-            },
-            // オークション情報
-            latest_auction: horseData.latest_auction || null,
-            auction_history: horseData.auction_history || []
-          };
-
-          setHorse(processedHorse);
-          setError(null);
-        }
-      } catch (err) {
-        console.error('馬データの取得中にエラーが発生しました:', err);
+        setHorse(processedHorse);
+        setError(null);
+      } catch (error) {
+        console.error('馬データの取得中にエラーが発生しました:', error);
         setError('馬データの取得中にエラーが発生しました');
       } finally {
         setIsLoading(false);
