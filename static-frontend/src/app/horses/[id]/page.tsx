@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ExternalLink } from 'lucide-react';
 import { formatPrize } from '@/utils/format';
-import { getApiBase } from '@/lib/utils';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -51,6 +50,13 @@ type Horse = Omit<UnifiedHorse, 'basic_info' | 'auction_history'> & {
   // オークション情報
   latest_auction?: AuctionHistory | null;
   auction_history?: AuctionHistory[];
+}
+
+// 馬詳細ページのプロパティ型
+interface HorseDetailPageProps {
+  params: {
+    id: string;
+  };
 }
 
 // 馬詳細コンテンツのプロパティ型
@@ -102,7 +108,7 @@ const formatPrice = (price: number | string | null | undefined): string => {
 // 落札価格を表示する関数
 const displayPrice = (horse: Horse, auctionHistory: AuctionHistory | null | undefined) => {
   // 未出走の場合は「未出走」を返す
-  if (horse.race_record?.total_races === 0) {
+  if (horse.race_records?.total_races === 0) {
     return '未出走';
   }
 
@@ -129,10 +135,8 @@ const displayPrice = (horse: Horse, auctionHistory: AuctionHistory | null | unde
 };
 
 // --- コンポーネント ---
-const HorseDetailPage = () => {
+const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
   const router = useRouter();
-  const params = useParams();
-  const id = params?.id as string | undefined;
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [horse, setHorse] = useState<Horse | null>(null);
@@ -140,64 +144,127 @@ const HorseDetailPage = () => {
 
 
   useEffect(() => {
-    if (!id) {
-      setIsLoading(false);
-      setError('馬IDが指定されていません');
-      return;
-    }
     const fetchHorseData = async () => {
       try {
         setIsLoading(true);
-        const API_BASE = getApiBase();
-        const response = await fetch(`${API_BASE}/api/horses/${id}`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          // リダイレクトを自動で処理
-          redirect: 'follow'
-        });
+        // 環境変数に基づいてAPI URLを決定
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+        const FINAL_API_BASE_URL = process.env.PROD_API_BASE_URL || API_BASE_URL;
+        const API_URL = `${FINAL_API_BASE_URL}/api`;
+        
+        // デバッグログ
+        console.log(`[HorseDetail] API_BASE_URL: ${API_BASE_URL}`);
+        console.log(`[HorseDetail] FINAL_API_BASE_URL: ${FINAL_API_BASE_URL}`);
+        console.log(`[HorseDetail] API_URL: ${API_URL}`);
+        console.log(`[HorseDetail] NODE_ENV: ${process.env.NODE_ENV}`);
+        
+        // バックエンドAPIからデータを取得
+        if (process.env.PROD_API_BASE_URL) {
+          const backendUrl = `${API_URL}/horses/${params.id}`;
+          console.log(`[HorseDetail] Fetching from backend: ${backendUrl}`);
+          
+          const response = await fetch(backendUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            redirect: 'follow'
+          });
 
-        if (!response.ok) {
-          throw new Error('データの取得に失敗しました');
+          if (!response.ok) {
+            throw new Error(`バックエンドAPIエラー: ${response.status}`);
+          }
+
+          const horseData = await response.json();
+          
+          if (!horseData) {
+            throw new Error('バックエンドAPIからデータが取得できませんでした');
+          }
+
+          // APIデータをフロントエンド形式に変換
+          const processedHorse: Horse = {
+            ...horseData,
+            // 基本情報をトップレベルに展開
+            name: horseData.name || '',
+            sex: horseData.sex || '',
+            age: horseData.age || 0,
+            sire: horseData.sire || '',
+            dam: horseData.dam || '',
+            damsire: horseData.dam_sire || horseData.damsire || '',
+            // メタデータ
+            metadata: {
+              created_at: horseData.created_at || new Date().toISOString(),
+              updated_at: horseData.updated_at || new Date().toISOString(),
+              data_source: horseData.data_source || 'api'
+            },
+            // レコード情報
+            race_record: horseData.race_record || horseData.race_records || {
+              total_races: 0,
+              wins: 0,
+              total_prize_money: 0
+            },
+            // オークション情報
+            latest_auction: horseData.latest_auction || null,
+            auction_history: horseData.auction_history || [],
+            // 履歴データをhistory形式に変換
+            history: horseData.auction_history || []
+          };
+
+          setHorse(processedHorse);
+          setError(null);
+        } else {
+          // ローカルAPIルートを使用（開発環境用）
+          console.log(`[HorseDetail] PROD_API_BASE_URL not set, using local API`);
+          const response = await fetch(`/api/horses/${params.id}`, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            redirect: 'follow'
+          });
+
+          if (!response.ok) {
+            throw new Error('データの取得に失敗しました');
+          }
+
+          const horseData = await response.json();
+
+          if (!horseData) {
+            throw new Error('データが空です');
+          }
+
+          // 馬の基本情報を整形
+          const processedHorse: Horse = {
+            ...horseData,
+            // 基本情報をトップレベルに展開
+            name: horseData.name || '',
+            sex: horseData.sex || '',
+            age: horseData.age || 0,
+            sire: horseData.sire || '',
+            dam: horseData.dam || '',
+            damsire: horseData.damsire || '',
+            // メタデータ
+            metadata: {
+              created_at: horseData.metadata?.created_at || new Date().toISOString(),
+              updated_at: horseData.metadata?.updated_at || new Date().toISOString(),
+              data_source: horseData.metadata?.data_source || 'jbis'
+            },
+            // レコード情報
+            race_record: horseData.race_record || {
+              total_races: 0,
+              wins: 0,
+              total_prize_money: 0
+            },
+            // オークション情報
+            latest_auction: horseData.latest_auction || null,
+            auction_history: horseData.auction_history || []
+          };
+
+          setHorse(processedHorse);
+          setError(null);
         }
-
-        const horseData = await response.json();
-
-        if (!horseData) {
-          throw new Error('データが空です');
-        }
-
-        // 馬の基本情報を整形
-        const processedHorse: Horse = {
-          ...horseData,
-          // 基本情報をトップレベルに展開
-          name: horseData.name || '',
-          sex: horseData.sex || '',
-          age: horseData.age || 0,
-          sire: horseData.sire || '',
-          dam: horseData.dam || '',
-          damsire: horseData.damsire || '',
-          // メタデータ
-          metadata: {
-            created_at: horseData.metadata?.created_at || new Date().toISOString(),
-            updated_at: horseData.metadata?.updated_at || new Date().toISOString(),
-            data_source: horseData.metadata?.data_source || 'jbis'
-          },
-          // レコード情報
-          race_record: horseData.race_record || {
-            total_races: 0,
-            wins: 0,
-            total_prize_money: 0
-          },
-          // オークション情報
-          latest_auction: horseData.latest_auction || null,
-          auction_history: horseData.auction_history || []
-        };
-
-        setHorse(processedHorse);
-        setError(null);
       } catch (err) {
         console.error('馬データの取得中にエラーが発生しました:', err);
         setError('馬データの取得中にエラーが発生しました');
@@ -207,7 +274,7 @@ const HorseDetailPage = () => {
     };
 
     fetchHorseData();
-  }, [id]);
+  }, [params.id]);
 
   if (isLoading) {
     return (
@@ -360,13 +427,13 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                   {/* レース戦績と血統情報 - 横並び表示 */}
                   <div className="space-y-4">
                     {/* レース戦績 */}
-                    {horse.race_record && (
+                    {horse.race_records && (
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <span className="text-gray-600 font-medium whitespace-nowrap">獲得賞金：</span>
-                        <span>{formatPrize(horse.race_record.total_prize_money, horse.race_record)}</span>
-                        {horse.race_record.last_race_date && (
+                        <span>{formatPrize(horse.race_records.total_prize_money, horse.race_records)}</span>
+                        {horse.race_records.last_race_date && (
                           <span className="ml-2 text-xs text-gray-500">
-                            (最終出走: {formatDate(horse.race_record.last_race_date)})
+                            (最終出走: {formatDate(horse.race_records.last_race_date)})
                           </span>
                         )}
                       </div>
@@ -462,7 +529,7 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                   </div>
                   {auctionHistory?.price && (
                     <div className="mt-2 text-sm text-gray-600">
-                      {formatPrize(horse.race_record?.total_prize_money || 0, horse.race_record)}
+                      {formatPrize(horse.race_records?.total_prize_money || 0, horse.race_records)}
                     </div>
                   )}
                 </div>
@@ -494,22 +561,22 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                 <CardTitle className="text-lg">戦績</CardTitle>
               </CardHeader>
               <CardContent>
-                {horse.unified_race_records ? (
+                {horse.race_records ? (
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500">獲得賞金</p>
                         <p className="font-medium">
-                          {horse.unified_race_records?.total_races === 0 ?
+                          {horse.race_records?.total_races === 0 ?
                             '未出走' :
-                            formatPrize(horse.unified_race_records?.total_prize_money, horse.unified_race_records)}
+                            formatPrize(horse.race_records?.total_prize_money, horse.race_records)}
                         </p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">最終出走日</p>
                         <p className="font-medium">
-                          {horse.unified_race_records.last_race_date ?
-                            formatDate(horse.unified_race_records.last_race_date) : '未出走'}
+                          {horse.race_records.last_race_date ?
+                            formatDate(horse.race_records.last_race_date) : '未出走'}
                         </p>
                       </div>
                     </div>
@@ -601,24 +668,24 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                   </div>
 
                   {/* 賞金情報 */}
-                  {horse.unified_race_records?.total_prize_money !== undefined && (
+                  {horse.race_records?.total_prize_money !== undefined && (
                     <div className="space-y-2">
                       <div className="font-medium text-sm text-gray-600">レース成績</div>
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-gray-600">獲得賞金：</span>
                         <span className="font-medium">
-                          {formatPrize(horse.unified_race_records.total_prize_money, horse.unified_race_records)}
+                          {formatPrize(horse.race_records.total_prize_money, horse.race_records)}
                         </span>
                       </div>
-                      {horse.unified_race_records.last_race_date && (
+                      {horse.race_records.last_race_date && (
                         <div className="text-sm">
                           <span className="text-gray-600">最終出走：</span>
-                          <span>{formatDate(horse.unified_race_records.last_race_date)}</span>
+                          <span>{formatDate(horse.race_records.last_race_date)}</span>
                         </div>
                       )}
-                      {horse.unified_race_records.last_prize_update && (
+                      {horse.race_records.last_prize_update && (
                         <div className="text-xs text-gray-500 mt-1">
-                          賞金更新: {formatDate(horse.unified_race_records.last_prize_update)}
+                          賞金更新: {formatDate(horse.race_records.last_prize_update)}
                         </div>
                       )}
                     </div>
