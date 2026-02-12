@@ -15,5 +15,5 @@ COPY backend/ .
 
 EXPOSE 8000
 
-# デバッグ情報を表示してから起動
-CMD ["sh", "-c", "echo 'Starting app...' && echo 'PORT:' $PORT && python main.py"]
+# シンプルなアプリでテスト
+CMD ["sh", "-c", "echo 'Starting simple app...' && echo 'PORT:' $PORT && python simple_main.py"]
