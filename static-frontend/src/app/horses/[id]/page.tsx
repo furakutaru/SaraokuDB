@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { ExternalLink } from 'lucide-react';
@@ -136,8 +136,9 @@ const displayPrice = (horse: Horse, auctionHistory: AuctionHistory | null | unde
 };
 
 // --- コンポーネント ---
-const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
+const HorseDetailPage = () => {
   const router = useRouter();
+  const params = useParams();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [horse, setHorse] = useState<Horse | null>(null);
@@ -157,7 +158,8 @@ const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
         console.log(`[HorseDetail] API_URL: ${API_URL}`);
         
         // バックエンドAPIからデータを取得
-        const backendUrl = `${API_URL}/horses/${params.id}`;
+        const horseId = params.id as string;
+        const backendUrl = `${API_URL}/horses/${horseId}`;
         console.log(`[HorseDetail] Fetching from backend: ${backendUrl}`);
           
           const response = await fetch(backendUrl, {
@@ -217,7 +219,7 @@ const HorseDetailPage = ({ params }: HorseDetailPageProps) => {
     };
 
     fetchHorseData();
-  }, [params.id]);
+  }, [params.id as string]);
 
   if (isLoading) {
     return (
