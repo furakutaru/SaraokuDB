@@ -129,7 +129,7 @@ export default function AnalysisContent() {
 
         const API_BASE = getApiBase();
         const skip = (page - 1) * limit;
-        const url = `${API_BASE}/api/horses/with_auction_histories?skip=${skip}&limit=${limit}`;
+        const url = `${API_BASE}/api/horses?skip=${skip}&limit=${limit}&latest_auction=true`;
         const response = await fetch(url, {
           method: 'GET',
           headers: {
@@ -145,26 +145,23 @@ export default function AnalysisContent() {
         const payload = await response.json();
 
         const horsesData = payload?.horses || [];
+        
+        // APIレスポンスからオークション履歴を取得（馬データに含まれている場合）
         const auctionHistory = payload?.auction_histories || [];
 
-        // オークション履歴を馬IDでグループ化
-        const auctionHistoryByHorseId = groupAuctionHistory(auctionHistory);
-
-        // 馬データにオークション履歴をマージ
-        const horsesWithHistory = (horsesData as HorseWithAuction[]).map(horse => {
-          const history = auctionHistoryByHorseId[String(horse.id)] || [];
-          const latestAuction = history[0];
+        // 馬データを直接使用（オークション履歴は馬データに含まれている）
+        const horsesWithHistory = horsesData.map((horse: any) => {
           return {
             ...horse,
-            latest_auction: latestAuction || null,
-            sold_price: latestAuction?.sold_price ?? horse.sold_price ?? null,
-            is_unsold: latestAuction?.is_unsold ?? horse.is_unsold ?? false,
-            auction_date: latestAuction?.auction_date ?? horse.auction_date,
-            seller: latestAuction?.seller ?? horse.seller,
-            weight: latestAuction?.weight ?? (horse as any).weight ?? null,
-            total_prize_start: latestAuction?.total_prize_start ?? horse.total_prize_start,
-            total_prize_latest: latestAuction?.total_prize_latest ?? horse.total_prize_latest,
-            comment: latestAuction?.comment ?? horse.comment
+            latest_auction: null, // APIから取得した最新情報を使用
+            sold_price: horse.sold_price || null,
+            is_unsold: horse.is_unsold || false,
+            auction_date: horse.auction_date,
+            seller: horse.seller,
+            weight: horse.weight || null,
+            total_prize_start: horse.total_prize_start || 0,
+            total_prize_latest: horse.total_prize_latest || 0,
+            comment: horse.comment
           } as HorseWithAuction;
         });
 
