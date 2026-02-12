@@ -197,8 +197,14 @@ const HorseDetailPage = () => {
             updated_at: horseData.updated_at || new Date().toISOString(),
             data_source: horseData.data_source || 'api'
           },
-            // レコード情報
-          race_record: horseData.race_record || horseData.race_records || {
+            // レコード情報（race_recordを使用）
+          race_record: horseData.race_record || {
+            total_races: 0,
+            wins: 0,
+            total_prize_money: 0
+          },
+          // race_recordsも互換性のため保持
+          race_records: horseData.race_record || {
             total_races: 0,
             wins: 0,
             total_prize_money: 0
@@ -268,23 +274,23 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
   // オークション情報を取得（互換性のため）
   const auctionInfo = horse.latest_auction || auctionHistory;
 
-  // 基本情報を取得
-  const basicInfo = horse.basic_info || {
+  // 基本情報を取得（APIデータはトップレベルに展開されている）
+  const basicInfo = {
     name: horse.name || '',
-    sex: '牡',
-    age: 0,
-    sire: '',
-    dam: '',
-    damsire: '',
-    color: '',
-    birthday: '',
-    image_url: '',
-    jbis_url: '',
-    auction_url: '',
-    is_retired: false,
+    sex: horse.sex || '牡',
+    age: horse.age || 0,
+    sire: horse.sire || '',
+    dam: horse.dam || '',
+    damsire: horse.damsire || '',
+    color: '', // APIにcolorフィールドがない
+    birthday: '', // APIにbirthdayフィールドがない
+    image_url: horse.image_url || '',
+    jbis_url: horse.jbis_url || '',
+    auction_url: horse.detail_url || '', // detail_urlを使用
+    is_retired: horse.is_broodmare || false,
     retirement_date: '',
-    disease_tags: [],
-    comment: ''
+    disease_tags: horse.disease_tags || [],
+    comment: horse.comment || ''
   };
 
   // 最新オークション情報を取得
