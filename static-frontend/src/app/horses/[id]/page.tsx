@@ -310,8 +310,8 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
   const diseaseTags = horse.disease_tags || [];
   const healthIssues: string[] = [];
 
-  // コメントを取得（互換性のため）
-  const comment = auctionInfo?.comment;
+  // コメントを取得（トップレベルのcommentを使用）
+  const comment = horse.comment || latestAuction?.comment;
 
   return (
     <div>
@@ -488,16 +488,16 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
             </Card>
 
             {/* 馬体重情報 */}
-            {latestAuction?.weight && (
+            {(horse.weight || latestAuction?.weight) && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">馬体重</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {latestAuction.weight} kg
+                    {horse.weight || latestAuction?.weight} kg
                   </div>
-                  {latestAuction.date && (
+                  {latestAuction?.date && (
                     <div className="text-sm text-gray-600 mt-1">
                       計測日: {formatDate(latestAuction.date)}
                     </div>
@@ -548,10 +548,10 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                 {auctionInfo ? (
                   <div className="space-y-4">
                     {/* コメント表示 */}
-                    {latestAuction?.comment && (
+                    {comment && (
                       <div className="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
                         <h4 className="font-medium text-yellow-700 mb-1">コメント</h4>
-                        <p className="text-yellow-800 text-sm whitespace-pre-wrap">{latestAuction.comment}</p>
+                        <p className="text-yellow-800 text-sm whitespace-pre-wrap">{comment}</p>
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-4">
@@ -579,19 +579,10 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                       <div>
                         <div className="text-sm text-gray-500">馬体重</div>
                         <div className="font-medium">
-                          {auctionInfo.weight ? `${auctionInfo.weight}kg` : '計測なし'}
+                          {horse.weight || auctionInfo.weight ? `${horse.weight || auctionInfo.weight}kg` : '計測なし'}
                         </div>
                       </div>
                     </div>
-
-                    {comment && (
-                      <div className="mt-2">
-                        <div className="text-sm text-gray-500 mb-1">コメント</div>
-                        <div className="text-sm whitespace-pre-line bg-gray-50 p-3 rounded">
-                          {comment}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="text-center py-4 text-gray-500">
