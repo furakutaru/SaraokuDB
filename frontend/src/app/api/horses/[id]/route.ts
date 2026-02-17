@@ -1,209 +1,198 @@
 import { NextResponse } from 'next/server';
-import path from 'path';
-import fs from 'fs/promises';
+import { neon } from '@neondatabase/serverless';
 
-// 動的ルートとして明示的に指定
-export const dynamic = 'force-dynamic';
+// データベース接続を設定
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is not defined');
+}
 
-// 環境変数からAPIのベースURLを取得
-const API_BASE_URL = process.env.PROD_API_BASE_URL || 
-                    process.env.API_BASE_URL || 
-                    process.env.NEXT_PUBLIC_API_URL || 
-                    'http://localhost:8001';
+const sql = neon(process.env.DATABASE_URL);
 
-// API_BASE_URLを上書きしてPROD_API_BASE_URLを最優先に
-const FINAL_API_BASE_URL = process.env.PROD_API_BASE_URL || API_BASE_URL;
-const API_URL = `${FINAL_API_BASE_URL}/api`;
-
-// 静的ファイルから馬データを取得（フォールバック用）
-async function getHorseDataFromStatic(horseId: string): Promise<any | null> {
+// DBから馬データを取得
+async function getHorseData(horseId: string): Promise<any | null> {
   try {
-    const projectRoot = process.cwd();
-    const dataPath = path.join(projectRoot, 'public', 'data', 'horses.json');
-    
-    const fileContent = await fs.readFile(dataPath, 'utf-8');
-    const horses = JSON.parse(fileContent);
-    
-    if (!Array.isArray(horses)) {
-      console.error('無効なデータ形式です');
-      return null;
-    }
-    
-    const horse = horses.find((h: any) => h.id === horseId || String(h.id) === horseId);
-    
-    if (!horse) {
+    const idNum = parseInt(horseId, 10);
+    console.log(`Fetching horse data for ID: ${horseId} (parsed as: ${idNum})`);
+
+    // 馬の基本情報を取得
+    const horseResult = await sql`SELECT 
+        id,
+        name,
+        raw_name,
+        sex,
+        age,
+        sire,
+        dam,
+        dam_sire,
+        weight,
+        is_broodmare,
+        total_prize_start,
+        total_prize_latest,
+        sold_price,
+        auction_date,
+        seller,
+        disease_tags,
+        comment,
+        image_url,
+        detail_url,
+        jbis_url,
+        is_unsold,
+        created_at,
+        updated_at,
+        race_records,
+        unified_race_records
+      FROM horses 
+      WHERE id = ${idNum}`;
+
+    console.log(`Query result for ID ${idNum}:`, horseResult?.length || 0, 'rows found');
+
+    if (!horseResult || horseResult.length === 0) {
       console.error(`馬が見つかりません (ID: ${horseId})`);
       return null;
     }
-    
-    // static-frontendのデータ構造をfrontendが期待する形式に変換
+
+    const horse = horseResult[0];
+    const horseName = horse.name;
+
+    console.log(`[API] Searching history for horse name: "${horseName}"`);
+
+    // 同名の馬をすべて取得して履歴としてマージする
+    const allSameNamedHorses = await sql`SELECT 
+        id,
+        auction_date,
+        sold_price as price,
+        is_unsold,
+        seller,
+        detail_url,
+        comment,
+        weight
+      FROM horses 
+      WHERE name = ${horseName}
+      ORDER BY auction_date DESC`;
+
+    console.log(`[API] allSameNamedHorses for "${horse.name}":`, allSameNamedHorses.length);
+
+    // オークション履歴テーブル (auction_histories) からも取得
+    const horseIds = allSameNamedHorses.map(h => h.id);
+    const auctionHistoryResult = await sql`SELECT 
+        auction_date,
+        price,
+        is_unsold,
+        seller,
+        auction_url as detail_url
+      FROM auction_histories 
+      WHERE horse_id = ANY(${horseIds})
+      ORDER BY auction_date DESC`;
+
+    console.log(`[API] auctionHistoryResult for horseIds [${horseIds.join(',')}]:`, auctionHistoryResult.length);
+
+    // 全データを統合してマージ
+    const mergedHistoryMap = new Map();
+
+    // 1. horses テーブルからのデータを投入（数値変換含む）
+    allSameNamedHorses.forEach(h => {
+      const priceVal = h.price ? Number(h.price) : 0;
+      const weightVal = h.weight ? Number(h.weight) : null;
+      const key = `${h.auction_date}_${h.seller}_${priceVal}`;
+
+      mergedHistoryMap.set(key, {
+        auction_date: h.auction_date,
+        price: priceVal,
+        is_unsold: h.is_unsold,
+        seller: h.seller,
+        detail_url: h.detail_url,
+        comment: h.comment || null,
+        weight: weightVal
+      });
+    });
+
+    // 2. auction_histories テーブルからのデータを投入（上書きまたは情報補完）
+    auctionHistoryResult.forEach(h => {
+      const priceVal = h.price ? Number(h.price) : 0;
+      const weightVal = h.weight ? Number(h.weight) : null;
+      const key = `${h.auction_date}_${h.seller}_${priceVal}`;
+
+      const existing = mergedHistoryMap.get(key);
+      mergedHistoryMap.set(key, {
+        auction_date: h.auction_date,
+        price: priceVal,
+        is_unsold: h.is_unsold,
+        seller: h.seller,
+        detail_url: h.detail_url,
+        // すでに horses から取得している場合は、足りない情報を保持
+        comment: existing?.comment || h.comment || null,
+        weight: existing?.weight || weightVal
+      });
+    });
+
+    // 日付順にソートした配列に変換
+    const finalAuctionHistoryArray = Array.from(mergedHistoryMap.values())
+      .sort((a, b) => {
+        const dateA = a.auction_date ? new Date(a.auction_date).getTime() : 0;
+        const dateB = b.auction_date ? new Date(b.auction_date).getTime() : 0;
+        return dateB - dateA;
+      });
+
+    // 最新のオークション情報を取得
+    const latestAuction = finalAuctionHistoryArray.length > 0 ? finalAuctionHistoryArray[0] : null;
+
     return {
       ...horse,
-      // 必要なフィールドを追加・変換
-      auction_history: horse.auction_history || [],
-      race_records: horse.race_records || {},
-      latest_auction: horse.latest_auction || null,
-      metadata: {
-        created_at: horse.created_at || new Date().toISOString(),
-        updated_at: horse.updated_at || new Date().toISOString(),
-        data_source: "static"
-      }
+      auction_histories: finalAuctionHistoryArray,
+      latest_auction: latestAuction
     };
   } catch (error) {
-    console.error('静的ファイルからの馬データ読み込み中にエラーが発生しました:', error);
+    console.error('馬データの読み込み中にエラーが発生しました:', error);
     return null;
   }
 }
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log(`[API] 馬詳細データ取得開始: ID=${params.id}`);
-    console.log(`[API] API_BASE_URL: ${API_BASE_URL}`);
-    console.log(`[API] FINAL_API_BASE_URL: ${FINAL_API_BASE_URL}`);
-    console.log(`[API] API_URL: ${API_URL}`);
-    console.log(`[API] NODE_ENV: ${process.env.NODE_ENV}`);
-    console.log(`[API] 環境変数一覧:`, {
-      API_BASE_URL: process.env.API_BASE_URL,
-      PROD_API_BASE_URL: process.env.PROD_API_BASE_URL,
-      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-      VERCEL_URL: process.env.VERCEL_URL,
-      VERCEL_ENV: process.env.VERCEL_ENV
-    });
-    
-    let horseData = null;
-    let dataSource = 'unknown';
-    let lastError = null;
+    const { id } = await params;
+    const horse = await getHorseData(id);
 
-    // 1. バックエンドAPIから馬詳細データを取得
-    if (process.env.PROD_API_BASE_URL) {
-      const backendUrl = `${API_URL}/horses/${encodeURIComponent(params.id)}`;
-      console.log(`[API] バックエンドリクエスト: ${backendUrl}`);
-      console.log(`[API] 完全なURL: ${backendUrl}`);
-      
-      try {
-        let response;
-        try {
-          response = await fetch(backendUrl, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            cache: 'no-store',
-            signal: AbortSignal.timeout(10000), // 10秒タイムアウト
-          });
-          console.log(`[API] fetch成功: レスポンスオブジェクト取得`);
-        } catch (fetchError) {
-          console.error(`[API] fetchエラー:`, fetchError);
-          throw fetchError;
-        }
-
-        console.log(`[API] バックエンドレスポンス: ${response.status} ${response.statusText}`);
-        console.log(`[API] レスポンスヘッダー:`, Object.fromEntries(response.headers.entries()));
-
-        if (response.ok) {
-          let horseData;
-          try {
-            horseData = await response.json();
-            console.log(`[API] JSONパース成功: ${horseData.name || '不明'}`);
-            dataSource = 'backend';
-          } catch (jsonError) {
-            console.error(`[API] JSONパースエラー:`, jsonError);
-            throw new Error('レスポンスのJSONパースに失敗しました');
-          }
-        } else {
-          let errorText;
-          try {
-            errorText = await response.text();
-            console.error(`[API] バックエンドエラーレスポンス: ${errorText}`);
-          } catch (textError) {
-            errorText = 'レスポンステキストの読み取りに失敗';
-            console.error(`[API] レスポンステキスト読み取りエラー:`, textError);
-          }
-          
-          lastError = new Error(`バックエンドエラー: ${response.status} - ${errorText}`);
-        }
-      } catch (error) {
-        console.error(`[API] バックエンド接続エラー:`, error);
-        lastError = error;
-      }
-    } else {
-      console.log(`[API] localhostのためバックエンドAPIをスキップします`);
-      lastError = new Error('バックエンドAPIがlocalhostに設定されています');
-    }
-
-    // 2. バックエンドから取得できなかった場合は静的ファイルから取得
-    if (!horseData) {
-      console.log(`[API] 静的ファイルから取得を試みます`);
-      horseData = await getHorseDataFromStatic(params.id);
-      
-      if (horseData) {
-        dataSource = 'static';
-        console.log(`[API] 静的ファイルから取得成功: ${horseData.name || '不明'}`);
-        lastError = null; // 静的ファイルから取得できた場合はエラーをクリア
-      }
-    }
-
-    if (!horseData) {
+    if (!horse) {
       return NextResponse.json(
-        { 
-          error: '馬が見つかりません', 
-          details: lastError instanceof Error ? lastError.message : String(lastError),
-          dataSource: dataSource
-        },
+        { error: '馬が見つかりません' },
         { status: 404 }
       );
     }
 
-    console.log(`[API] バックエンドから取得成功: ${horseData.name || '不明'} (ソース: ${dataSource})`);
-
     // フロントエンドが期待する形式でデータを整形
     const responseData = {
-      ...horseData,
-      name: horseData.name || '',
-      sex: horseData.sex || '',
-      age: horseData.age || 0,
-      sire: horseData.sire || '',
-      dam: horseData.dam || '',
-      damsire: horseData.damsire || horseData.dam_sire || '',
-      auction_history: horseData.auction_history || horseData.auction_histories || [],
-      race_records: horseData.race_records || { total_prize_money: 0 },
-      latest_auction: horseData.latest_auction || null,
+      ...horse,
+      name: horse.name || '',
+      sex: horse.sex || '',
+      age: horse.age || 0,
+      sire: horse.sire || '',
+      dam: horse.dam || '',
+      damsire: horse.dam_sire || horse.damsire || '',
+
+      // auction_history フィールドとして返す
+      auction_history: horse.auction_histories || [],
+
+      // race_records は JSONB カラムから取得 (page.tsxが race_records を期待している)
+      race_records: horse.race_records || { total_races: 0, wins: 0, total_prize_money: 0 },
+
+      // 互換性のため
+      race_record: horse.race_records || { total_races: 0, wins: 0, total_prize_money: 0 },
+
       metadata: {
-        ...horseData.metadata,
-        created_at: horseData.metadata?.created_at || new Date().toISOString(),
-        updated_at: horseData.metadata?.updated_at || new Date().toISOString(),
-        data_source: dataSource
+        created_at: horse.created_at || new Date().toISOString(),
+        updated_at: horse.updated_at || new Date().toISOString(),
+        data_source: 'db'
       }
     };
 
-    console.log(`[API] レスポンスデータ整形完了 (ソース: ${dataSource})`);
     return NextResponse.json(responseData);
   } catch (error) {
-    console.error('[API] 馬データの取得中にエラーが発生しました:', error);
-    console.error('[API] エラー詳細:', {
-      name: error instanceof Error ? error.name : 'Unknown',
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      cause: error instanceof Error ? error.cause : undefined
-    });
-    
-    // タイムアウトエラーの場合
-    if (error instanceof Error && error.name === 'TimeoutError') {
-      return NextResponse.json(
-        { error: 'バックエンドAPIへの接続がタイムアウトしました', details: '10秒以内に応答がありませんでした' },
-        { status: 504 }
-      );
-    }
-    
+    console.error('馬データの取得中にエラーが発生しました:', error);
     return NextResponse.json(
-      { 
-        error: `サーバーエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`,
-        details: error instanceof Error ? error.stack : String(error)
-      },
+      { error: 'サーバーエラーが発生しました' },
       { status: 500 }
     );
   }

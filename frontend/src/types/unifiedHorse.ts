@@ -12,6 +12,20 @@ export interface UnifiedHorse {
   auction_date?: string;
   total_prize_latest: number;
   seller?: string;
+  // APIからの追加フィールド
+  image_url?: string;
+  jbis_url?: string;
+  detail_url?: string;
+  is_broodmare?: boolean;
+  comment?: string;
+  weight?: number;
+  raw_name?: string;
+  primary_image?: string;
+  auction_histories?: any[];
+  race_record?: any;
+  unified_race_records?: any;
+  total_prize_start?: number;
+  //
   basic_info?: BasicInfo;
   race_records?: {
     total_prize_money: number;

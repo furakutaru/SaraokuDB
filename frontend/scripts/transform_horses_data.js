@@ -7,7 +7,10 @@ const inputPath = path.join(dataDir, 'horses_combined.json');
 const outputPath = path.join(dataDir, 'horses_transformed.json');
 
 // データを読み込む
-const data = JSON.parse(fs.readFileSync(inputPath, 'utf-8'));
+const rawData = JSON.parse(fs.readFileSync(inputPath, 'utf-8'));
+
+// horses_combined.json が配列形式でもオブジェクト形式でも対応
+const data = Array.isArray(rawData) ? { horses: rawData } : (rawData.horses ? rawData : { horses: [] });
 
 // データを変換
 const transformedHorses = data.horses.map(horse => {

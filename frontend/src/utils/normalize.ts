@@ -39,25 +39,22 @@ export const formatCurrency = (value: number | string | null | undefined): strin
 };
 
 /**
- * 性別に応じた色を取得する関数
- * @param sex - 性別
- * @returns 色のクラス名
+ * 賞金を万円単位でフォーマットする関数
+ * @param value - 万円単位の数値
+ * @returns フォーマットされた賞金文字列 (例: "1,234.5万円")
  */
-export const getSexColor = (sex: string): string => {
-  switch (sex) {
-    case '牡':
-      return 'text-blue-600 bg-blue-50';
-    case '牝':
-      return 'text-pink-600 bg-pink-50';
-    case 'セン':
-      return 'text-purple-600 bg-purple-50';
-    default:
-      return 'text-gray-600 bg-gray-50';
-  }
+export const formatPrize = (value: number | string | null | undefined): string => {
+  if (value === null || value === undefined || value === '') return '-';
+  
+  const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+  
+  if (isNaN(num)) return '-';
+  
+  return num === 0 ? '0万円' : `${num.toLocaleString('ja-JP')}万円`;
 };
 
 /**
- * 性別をフォーマットする関数
+ * 性別を表示用にフォーマットする関数
  * @param sex - 性別文字列 (例: "牡", "牝", "セ")
  * @returns フォーマットされた性別情報
  */
@@ -73,21 +70,6 @@ export const formatSex = (sex: string | null | undefined): { text: string; color
   };
   
   return sexMap[sex] || { text: sex, color: 'bg-gray-200', icon: '' };
-};
-
-/**
- * 賞金を万円単位でフォーマットする関数
- * @param value - 万円単位の数値
- * @returns フォーマットされた賞金文字列 (例: "1,234.5万円")
- */
-export const formatPrize = (value: number | string | null | undefined): string => {
-  if (value === null || value === undefined || value === '') return '-';
-  
-  const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
-  
-  if (isNaN(num)) return '-';
-  
-  return num === 0 ? '0万円' : `${num.toLocaleString('ja-JP')}万円`;
 };
 
 /**

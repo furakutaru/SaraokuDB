@@ -64,14 +64,17 @@ const FIELD_VALIDATIONS: ValidationRules = {
 
 export async function POST(request: Request) {
   try {
-    // データファイルのパス
-    const horsesPath = path.join(process.cwd(), 'data', 'horses.json');
+    // データを直接ファイルから読み込む
+    const projectRoot = process.cwd();
+    const horsesPath = path.join(projectRoot, 'public', 'data', 'horses.json');
+    const auctionHistoryPath = path.join(projectRoot, 'public', 'data', 'auction_history.json');
     
-    // ファイルを非同期で読み込む
-    const horsesData = await fs.readFile(horsesPath, 'utf-8').then(JSON.parse);
-    // オークションデータは空の配列を使用
-    const auctionHistoryData: any[] = [];
+    const [horsesData, auctionHistoryData] = await Promise.all([
+      fs.readFile(horsesPath, 'utf-8').then(JSON.parse),
+      fs.readFile(auctionHistoryPath, 'utf-8').then(JSON.parse)
+    ]);
     
+    // データの整合性チェックを実行
     const checkResult = await checkDataIntegrity(horsesData, auctionHistoryData);
     
     return NextResponse.json(checkResult);
