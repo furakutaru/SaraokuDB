@@ -5,7 +5,7 @@ import { Horse, AuctionHistory } from '@/types/horse';
 // 血統情報から指定された種類の馬名を抽出する関数
 const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsire'): string => {
   if (!text) return '';
-  
+
   // 各タイプに応じた正規表現パターンを定義
   const patterns = {
     // 父：の直後の空白以外の文字列（全角スペースを含む）を取得
@@ -15,13 +15,13 @@ const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsi
     // 母の父：の直後の空白以外の文字列（全角スペースを含む）を取得
     damsire: /(?:母の?父|母父)[：:]([^\s　]+(?:[ 　][^\s　]+)*)/
   };
-  
+
   // 指定されたタイプのパターンで検索
   const match = text.match(patterns[type]);
   if (match && match[1]) {
     return match[1].trim();
   }
-  
+
   // パターンに一致しない場合は、タイプに応じたデフォルト値を返す
   if (type === 'sire' && text.includes('父：')) {
     return text.split('父：')[1].split(/[\s　]/)[0];
@@ -33,7 +33,7 @@ const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsi
     const delimiter = text.includes('母の父：') ? '母の父：' : '母父：';
     return text.split(delimiter)[1].split(/[\s　]/)[0];
   }
-  
+
   // いずれにも該当しない場合は空文字を返す
   return '';
 };
@@ -63,28 +63,28 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
   const getLatestSoldPrice = (): number | null => {
     const latestAuction = getLatestAuction();
     if (!latestAuction) return null;
-    
+
     const price = latestAuction.sold_price;
     if (price === null || price === undefined) return null;
-    
+
     const priceNum = typeof price === 'number' ? price : Number(price);
     return isNaN(priceNum) ? null : priceNum;
   };
 
   // 価格を表示用にフォーマット
   const displayPrice = (price: number | null | undefined, isUnsold: boolean = false) => {
-    console.log(`Displaying price for ${horse.name}:`, { 
-      price, 
+    console.log(`Displaying price for ${horse.name}:`, {
+      price,
       isUnsold,
       latestAuction: getLatestAuction()
     });
-    
+
     // 主取りの場合は即座に返す
     if (isUnsold === true) {
       console.log('  Marked as unsold, showing 主取り');
       return '主取り';
     }
-    
+
     // 価格を表示
     if (price !== null && price !== undefined) {
       const priceNum = typeof price === 'number' ? price : Number(price);
@@ -93,14 +93,14 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
         return '¥' + priceNum.toLocaleString();
       }
     }
-    
+
     // 最新の価格を取得
     const latestPrice = getLatestSoldPrice();
     if (latestPrice !== null) {
       console.log(`  Using latest price: ${latestPrice}`);
       return '¥' + latestPrice.toLocaleString();
     }
-    
+
     // 価格が見つからない場合はハイフンを表示
     return '-';
   };
@@ -109,7 +109,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
   const latestAuction = getLatestAuction();
   const price = latestAuction?.sold_price ?? null;
   const isUnsold = latestAuction?.is_unsold ?? false;
-  
+
   // 病気タグの有無をチェック
   const hasDiseaseTags = 'disease_tags' in horse && Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0;
 
@@ -132,16 +132,28 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
         <div className="flex items-center justify-between">
           <h3 className="text-sm text-gray-700">
             <span className="font-semibold">{horse.name}</span>
-            <span className="ml-2 text-gray-500">{horse.age}歳</span>
+            <span className="ml-2 text-gray-500 text-xs">{horse.age}歳</span>
             <span className="ml-2">
-              <Badge variant="outline">{horse.sex}</Badge>
+              {(() => {
+                const sex = horse.sex?.toLowerCase() || '';
+                let colorClass = 'border-gray-200 text-gray-400';
+                if (sex === '牡') colorClass = 'border-blue-200 text-blue-500';
+                else if (sex === '牝') colorClass = 'border-pink-200 text-pink-500';
+                else if (sex === 'セ') colorClass = 'border-green-200 text-green-600';
+
+                return (
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${colorClass}`}>
+                    {horse.sex}
+                  </span>
+                );
+              })()}
             </span>
           </h3>
           <p className="text-sm font-medium text-gray-900">
             {displayPrice(price, isUnsold)}
           </p>
         </div>
-        
+
         {/* 2行目: 2カラムレイアウト */}
         <div className="grid grid-cols-2 gap-4">
           {/* 左カラム: 血統情報 */}
@@ -152,7 +164,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
               <p className="whitespace-nowrap overflow-hidden text-ellipsis">母父：{horse.damsire}</p>
             )}
           </div>
-          
+
           {/* 右カラム: 総賞金と馬体重 */}
           <div className="text-sm text-gray-500 space-y-1">
             {latestAuction?.total_prize_latest !== undefined && (
@@ -163,7 +175,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
             )}
           </div>
         </div>
-        
+
         {/* 3行目: 疾病情報 */}
         {('disease_tags' in horse) && Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0 && (
           <div className="pt-1">

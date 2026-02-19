@@ -9,7 +9,7 @@ export interface UnifiedRaceRecords {
   wins: number;             // 勝利数
   record_format?: string;    // レコード形式（オプショナル）
   formatted_record?: string; // フォーマット済み戦績（オプショナル）
-  
+
   // 賞金関連
   total_prize_money: number;  // 総獲得賞金
   last_race_date?: string;    // 最終出走日
@@ -40,7 +40,7 @@ export interface BaseAuctionHistory {
  * オークション履歴のインターフェース
  * BaseAuctionHistory を拡張
  */
-export interface AuctionHistory extends BaseAuctionHistory {}
+export interface AuctionHistory extends BaseAuctionHistory { }
 
 // 賞金情報のインターフェース
 export interface PrizeMoney {
@@ -80,34 +80,34 @@ export interface Horse extends BaseHorse {
   owner?: string;
   trainer?: string;
   location?: string;
-  
+
   // オークション関連
   auction_date?: string;
   sold_price?: number | null;
   is_unsold?: boolean;
   seller?: string;
-  
+
   // 賞金関連
   total_prize_start?: number;
   total_prize_latest?: number;
   prize_money?: PrizeMoney;
-  
+
   // 表示用のフォーマット済み文字列
   display_prize?: string;
   display_roi?: string;
   display_weight?: string;
   display_price?: string;
-  
+
   // ソート用の数値
   sort_price?: number;
   sort_prize?: number;
   sort_roi?: number;
-  
+
   // 計算済みの値
   roi?: number;
   price_per_kg?: number;
   effectiveWeight?: number | null;
-  
+
   // レース記録関連（旧形式 - 互換性のため残す）
   race_record?: {
     total_races: number;
@@ -121,10 +121,10 @@ export interface Horse extends BaseHorse {
     last_prize_update?: string;
     [key: string]: any; // その他のプロパティも許容
   };
-  
+
   // 統合されたレース記録
   unified_race_records?: UnifiedRaceRecords;
-  
+
   // 互換性のためのフィールド
   /** @deprecated 代わりに detail_url を使用してください */
   auction_url?: string;
@@ -132,6 +132,7 @@ export interface Horse extends BaseHorse {
   unsold?: boolean;
   /** @deprecated 代わりに sold_price を使用してください */
   price?: number | null;
+  is_broodmare?: boolean;
 }
 
 // メタデータのインターフェース
@@ -159,7 +160,7 @@ export interface HorseWithCalculations extends Horse {
   sort_prize: number;
   sort_roi: number;
   primary_image: string;
-  
+
   // オークション関連のプロパティ
   auction_history?: AuctionHistory[];
   weight?: number | null;
@@ -170,7 +171,8 @@ export interface HorseWithCalculations extends Horse {
   seller?: string;
   auction_date?: string;
   comment?: string;
-  
+  is_broodmare?: boolean;
+
   // その他のプロパティ
   [key: string]: any; // 動的なプロパティに対応
 }

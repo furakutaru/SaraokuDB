@@ -38,31 +38,34 @@ export const useDataIntegrityCheck = () => {
       try {
         setIsLoading(true);
         setError(null);
-        
+
         // データを取得
         const response = await fetch('/data/horses.json');
-        
+
         if (!response.ok) {
           throw new Error('馬データの取得に失敗しました');
         }
-        
+
         const data = await response.json();
-        
-        if (!data || typeof data !== 'object' || !Array.isArray(data.horses)) {
+
+        let horsesData: any[] = [];
+        if (Array.isArray(data)) {
+          horsesData = data;
+        } else if (data && typeof data === 'object' && Array.isArray(data.horses)) {
+          horsesData = data.horses;
+        } else {
           throw new Error('無効なデータ形式です: horses配列が見つかりません');
         }
-        
-        const horsesData = data.horses;
-        
+
         // 整合性チェックを実行
         const issues: DataIssue[] = [];
-        
+
         // 必須フィールドのチェック
         const requiredFields = ['id', 'name', 'sex', 'age', 'sire', 'dam', 'damsire'];
-        
+
         horsesData.forEach((horse: any) => {
           const horseIssues: DataIssue['issues'] = [];
-          
+
           // 必須フィールドのチェック（historyはオプショナル）
           requiredFields.forEach(field => {
             if (!(field in horse) || horse[field] === '' || horse[field] === null || horse[field] === undefined) {
@@ -74,7 +77,7 @@ export const useDataIntegrityCheck = () => {
               });
             }
           });
-          
+
           // オークション履歴はオプショナルなため、存在チェックは行わない
           // 履歴が存在する場合のみ、その整合性をチェック
           if (horse.history && Array.isArray(horse.history) && horse.history.length > 0) {
@@ -87,7 +90,7 @@ export const useDataIntegrityCheck = () => {
                   expected: '有効な日付が設定されていること'
                 });
               }
-              
+
               if (auction.sold_price === undefined || auction.sold_price === null) {
                 horseIssues.push({
                   field: `history[${index}].sold_price`,
@@ -98,7 +101,7 @@ export const useDataIntegrityCheck = () => {
               }
             });
           }
-          
+
           if (horseIssues.length > 0) {
             issues.push({
               id: horse.id,
@@ -107,12 +110,12 @@ export const useDataIntegrityCheck = () => {
             });
           }
         });
-        
+
         // 結果をセット
         const totalHorses = horsesData.length;
         const horsesWithIssues = new Set(issues.map(issue => issue.id)).size;
         const totalIssues = issues.reduce((sum, issue) => sum + issue.issues.length, 0);
-        
+
         setResult({
           hasIssues: totalIssues > 0,
           totalHorses,
@@ -120,7 +123,7 @@ export const useDataIntegrityCheck = () => {
           totalIssues,
           issues,
         });
-        
+
         setLastChecked(new Date().toISOString());
       } catch (err) {
         console.error('データ整合性チェックエラー:', err);

@@ -371,9 +371,23 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                 <div className="flex items-center space-x-4">
                   <h1 className="text-2xl font-bold">{horse.name}</h1>
                   <div className="flex items-center space-x-2">
-                    {horse.sex && <span className="text-gray-600">{horse.sex}</span>}
+                    {horse.sex && (
+                      (() => {
+                        const sex = horse.sex.toLowerCase();
+                        let colorClass = 'border-gray-200 text-gray-400';
+                        if (sex === '牡') colorClass = 'border-blue-200 text-blue-500';
+                        else if (sex === '牝') colorClass = 'border-pink-200 text-pink-500';
+                        else if (sex === 'セ') colorClass = 'border-green-200 text-green-600';
+
+                        return (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${colorClass}`}>
+                            {horse.sex}
+                          </span>
+                        );
+                      })()
+                    )}
                     {horse.age && (
-                      <span className="text-gray-600">{horse.age}歳</span>
+                      <span className="text-gray-600 text-sm font-medium">{horse.age}歳</span>
                     )}
                   </div>
                 </div>
