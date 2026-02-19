@@ -297,9 +297,11 @@ export default function AnalysisContent() {
 
   const stats = useMemo(() => {
     if (filteredHorsesList.length === 0) {
-      return { count: 0, avgPrice: 0, medianPrice: 0, avgROI: 0, medianROI: 0, avgWeight: 0, medianWeight: 0, avgAge: 0, diseaseCount: 0, sexGroups: {} };
+      return { count: 0, avgPrice: 0, medianPrice: 0, avgROI: 0, medianROI: 0, avgWeight: 0, medianWeight: 0, avgAge: 0, avgPrizeStart: 0, medianPrizeStart: 0, avgPrizeLatest: 0, medianPrizeLatest: 0, diseaseCount: 0, sexGroups: {} };
     }
     const prices = filteredHorsesList.filter((h: HorseWithAuction) => !h.is_unsold).map((h: HorseWithAuction) => Number(h.sold_price || 0));
+    const prizeStarts = filteredHorsesList.map((h: HorseWithAuction) => Number(h.total_prize_start || 0));
+    const prizeLatests = filteredHorsesList.map((h: HorseWithAuction) => Number(h.total_prize_latest || 0));
     const rois = filteredHorsesList.map((h: HorseWithAuction) => {
       const earnedPrize = (h.total_prize_latest || 0) - (h.total_prize_start || 0);
       const soldPrice = Number(h.sold_price || 0);
@@ -321,6 +323,10 @@ export default function AnalysisContent() {
       avgWeight: avg(weights),
       medianWeight: median(weights),
       avgAge: avg(filteredHorsesList.map((h: HorseWithAuction) => Number(h.age || 0))),
+      avgPrizeStart: avg(prizeStarts),
+      medianPrizeStart: median(prizeStarts),
+      avgPrizeLatest: avg(prizeLatests),
+      medianPrizeLatest: median(prizeLatests),
       diseaseCount: filteredHorsesList.filter((h: HorseWithAuction) => h.disease_tags && h.disease_tags.length > 0).length,
       sexGroups,
     };
@@ -623,6 +629,28 @@ export default function AnalysisContent() {
                   <div>
                     <div className="text-[10px] text-gray-400 uppercase font-bold mb-1">中央値</div>
                     <div className="text-sm font-bold text-green-600">{stats.medianROI.toFixed(1)}%</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase font-bold mb-1">平均落札時賞金</div>
+                    <div className="text-sm font-bold text-gray-700">{(stats.avgPrizeStart / 10000).toFixed(2)}<span className="text-[10px] font-normal ml-0.5">万</span></div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase font-bold mb-1">中央値</div>
+                    <div className="text-sm font-bold text-gray-700">{(stats.medianPrizeStart / 10000).toFixed(2)}<span className="text-[10px] font-normal ml-0.5">万</span></div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase font-bold mb-1">平均現在賞金</div>
+                    <div className="text-sm font-bold text-gray-700">{(stats.avgPrizeLatest / 10000).toFixed(2)}<span className="text-[10px] font-normal ml-0.5">万</span></div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-gray-400 uppercase font-bold mb-1">中央値</div>
+                    <div className="text-sm font-bold text-gray-700">{(stats.medianPrizeLatest / 10000).toFixed(2)}<span className="text-[10px] font-normal ml-0.5">万</span></div>
                   </div>
                 </div>
 
