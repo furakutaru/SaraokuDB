@@ -65,7 +65,7 @@ class APIClient:
     
     async def authenticate(self):
         """API認証を行い、アクセストークンを取得"""
-        auth_url = f"{self.api_base_url}/auth/token"
+        auth_url = f"{self.api_base_url}/api/auth/token"
         auth_data = {
             'username': self.api_username,
             'password': self.api_password
@@ -578,9 +578,13 @@ async def process_horse(scraper, db: APIClient, horse: Dict) -> bool:
             gender=gender
         )
 
-        if not horse_info or horse_info.get('prize') in (None, 0):
+        if not horse_info or horse_info.get('prize') is None:
             logger.warning(f"馬ID {horse_id} の賞金情報を取得できませんでした（name={horse_name}, father={father}, mother={mother}）")
             return False
+        
+        # 賞金が0円の場合は未出走・未入着として正常扱いし更新する
+        if horse_info.get('prize') == 0:
+            logger.info(f"馬ID {horse_id} の賞金は0円（未出走または未入着）。0円として更新します。")
 
         prize = int(horse_info.get('prize') or 0)
             

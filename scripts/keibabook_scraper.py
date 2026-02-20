@@ -453,7 +453,21 @@ class KeibaBookScraper:
         results = await self.search_horse(name, father, mother, age, gender)
         
         if not results:
-            logger.warning("該当する馬が見つかりませんでした")
+            logger.info("フォールバック: 父名のみで再検索します")
+            results = await self.search_horse(name, father, "", age, gender)
+            
+        # フォールバック2: 父名なし・母名あり
+        if not results and mother:
+            logger.info("フォールバック: 母名のみで再検索します")
+            results = await self.search_horse(name, "", mother, age, gender)
+            
+        # フォールバック3: 馬名のみ
+        if not results:
+            logger.info("フォールバック: 馬名のみで再検索します")
+            results = await self.search_horse(name, "", "", age, gender)
+        
+        if not results:
+            logger.warning("すべての検索パターンで該当する馬が見つかりませんでした")
             return None
 
         # 最もマッチする馬を選択
@@ -594,9 +608,9 @@ class KeibaBookScraper:
             elif name in horse['name']:
                 score += 1
                 
-            # 父名が一致
+            # 父名が一致（優先度を高く設定）
             if horse['father'] == father:
-                score += 2
+                score += 3
                 
             # 母名が一致
             if horse['mother'] == mother:
