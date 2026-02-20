@@ -134,10 +134,17 @@ jobs:
           echo "=========================================="
 
       - name: Run update_horse_prizes.py
+        if: always()  # 常に実行
         run: |
           set -e
           echo "Updating horse prizes..."
           echo "更新間隔: ${UPDATE_HORSE_PRIZES_INTERVAL_DAYS}日"
+          
+          # 実行前にファイル内容を確認
+          echo "=== 実行前の最終確認 ==="
+          grep -A 2 -B 2 "auth_url.*api/auth/token" scripts/update_horse_prizes.py || echo "パターンが見つかりません"
+          echo "========================"
+          
           python scripts/update_horse_prizes.py
         env:
           PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
