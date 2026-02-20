@@ -66,8 +66,8 @@ jobs:
           AUTH_URL="$PROD_API_BASE_URL/api/auth/token"
           echo "::notice:: 認証を試行します: $AUTH_URL"
           
-          # 認証リクエストを送信
-          RESPONSE=$(curl -s -X POST "$AUTH_URL" \
+          # 認証リクエストを送信（-L でリダイレクトを自動追跡）
+          RESPONSE=$(curl -s -L -X POST "$AUTH_URL" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             -d "username=$PROD_API_USERNAME" \
             -d "password=$PROD_API_PASSWORD" \
