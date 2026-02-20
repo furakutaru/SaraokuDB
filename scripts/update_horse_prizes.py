@@ -79,10 +79,30 @@ class APIClient:
             async with self._session.post(
                 auth_url,
                 data=auth_data,
-                headers={'Content-Type': 'application/x-www-form-urlencoded'}
+                headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                allow_redirects=False  # リダイレクトを無効化
             ) as response:
-                response.raise_for_status()
-                token_data = await response.json()
+                logger.info(f"認証リクエストURL: {auth_url}")
+                logger.info(f"レスポンスステータス: {response.status}")
+                logger.info(f"レスポンスヘッダー: {dict(response.headers)}")
+                
+                # 302リダイレクトの場合は手動でフォロー
+                if response.status in (301, 302, 303, 307, 308):
+                    redirect_url = response.headers.get('Location', auth_url)
+                    logger.info(f"リダイレクト先: {redirect_url}")
+                    
+                    # リダイレクト先にPOSTリクエスト
+                    async with self._session.post(
+                        redirect_url,
+                        data=auth_data,
+                        headers={'Content-Type': 'application/x-www-form-urlencoded'}
+                    ) as redirect_response:
+                        redirect_response.raise_for_status()
+                        token_data = await redirect_response.json()
+                else:
+                    response.raise_for_status()
+                    token_data = await response.json()
+                
                 self.access_token = token_data.get('access_token')
                 
                 if not self.access_token:
