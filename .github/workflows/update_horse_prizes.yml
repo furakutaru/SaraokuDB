@@ -109,17 +109,29 @@ jobs:
       - name: Debug - Show current code
         run: |
           echo "=== 現在のupdate_horse_prizes.pyの認証URL部分 ==="
-          grep -A 3 -B 3 "auth_url.*api/auth/token" scripts/update_horse_prizes.py || echo "パターンが見つかりません"
-          echo "=== ファイルの先頭20行 ==="
-          head -20 scripts/update_horse_prizes.py
+          if [ -f "scripts/update_horse_prizes.py" ]; then
+            grep -A 3 -B 3 "auth_url.*api/auth/token" scripts/update_horse_prizes.py || echo "パターンが見つかりません"
+            echo "=== ファイルの先頭20行 ==="
+            head -20 scripts/update_horse_prizes.py
+          else
+            echo "ファイルが見つかりません"
+            ls -la scripts/
+          fi
           echo "=========================================="
 
       - name: Force clean checkout
         run: |
           git clean -fd
           git reset --hard HEAD
+          git status
           echo "=== リセット後の認証URL部分 ==="
           grep -A 3 -B 3 "auth_url.*api/auth/token" scripts/update_horse_prizes.py || echo "パターンが見つかりません"
+
+      - name: Verify file content
+        run: |
+          echo "=== 実際のファイル内容を確認 ==="
+          python3 -c "import re; content = open('scripts/update_horse_prizes.py').read(); matches = re.findall(r'auth_url.*api/auth/token', content); [print('Found: ' + match.strip()) for match in matches]"
+          echo "=========================================="
 
       - name: Run update_horse_prizes.py
         run: |
