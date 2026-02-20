@@ -91,6 +91,12 @@ class APIClient:
                     redirect_url = response.headers.get('Location', auth_url)
                     logger.info(f"リダイレクト先: {redirect_url}")
                     
+                    # 相対URLの場合は絶対URLに変換
+                    if redirect_url.startswith('/'):
+                        from urllib.parse import urljoin
+                        redirect_url = urljoin(self.api_base_url, redirect_url)
+                        logger.info(f"変換後の絶対URL: {redirect_url}")
+                    
                     # リダイレクト先にPOSTリクエスト
                     async with self._session.post(
                         redirect_url,
