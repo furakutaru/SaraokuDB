@@ -65,7 +65,7 @@ class APIClient:
     
     async def authenticate(self):
         """API認証を行い、アクセストークンを取得"""
-        auth_url = f"{self.api_base_url}/api/auth/token"
+        auth_url = f"{self.api_base_url}/api/auth/token"  
         auth_data = {
             'username': self.api_username,
             'password': self.api_password
