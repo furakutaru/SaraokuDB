@@ -1,4 +1,4 @@
-name: Update Horse Prizes v2
+name: Update Horse Prizes v3
 
 on:
   schedule:
@@ -25,6 +25,15 @@ jobs:
         with:
           fetch-depth: 0
           ref: main  # 明示的にmainブランチを指定
+          clean: true  # クリーンチェックアウト
+          
+      - name: Verify latest code
+        run: |
+          echo "=== 最新コミットの確認 ==="
+          git log --oneline -3
+          echo "=== ファイルの確認 ==="
+          grep -A 5 "urljoin" scripts/update_horse_prizes.py || echo "urljoinが見つかりません"
+          echo "========================"
           
       - name: Set up Python
         uses: actions/setup-python@v5
