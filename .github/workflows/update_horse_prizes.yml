@@ -61,40 +61,27 @@ jobs:
           echo "PROD_API_PASSWORD: ${PROD_API_PASSWORD:0:3}..."
           echo "::endgroup::"
           
-          echo "::group::🔐 認証処理を開始します"
+          echo "::group::🔐 必要な環境変数の存在確認"
           
-          AUTH_URL="$PROD_API_BASE_URL/api/auth/token"
-          echo "::notice:: 認証を試行します: $AUTH_URL"
-          
-          # 認証リクエストを送信（-L でリダイレクトを自動追跡）
-          RESPONSE=$(curl -s -L -X POST "$AUTH_URL" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "username=$PROD_API_USERNAME" \
-            -d "password=$PROD_API_PASSWORD" \
-            -w "\n%{http_code}")
-            
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-          RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          if [ "$HTTP_STATUS" != "200" ]; then
-            echo "::error::認証に失敗しました。ステータスコード: $HTTP_STATUS"
-            echo "::error::レスポンス: $RESPONSE_BODY"
+          if [ -z "$PROD_API_BASE_URL" ]; then
+            echo "::error::PROD_API_BASE_URL が設定されていません"
+            exit 1
+          fi
+          if [ -z "$PROD_API_USERNAME" ]; then
+            echo "::error::PROD_API_USERNAME が設定されていません"
+            exit 1
+          fi
+          if [ -z "$PROD_API_PASSWORD" ]; then
+            echo "::error::PROD_API_PASSWORD が設定されていません"
             exit 1
           fi
           
-          # トークンを取得
-          TOKEN=$(echo "$RESPONSE_BODY" | jq -r '.access_token')
-          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-            echo "::error::トークンの取得に失敗しました"
-            echo "::error::レスポンス: $RESPONSE_BODY"
-            exit 1
-          fi
+          echo "::notice::必要な環境変数が全て設定されています"
+          echo "::endgroup::"
           
-          # トークンを出力に設定
-          echo "token=$TOKEN" >> $GITHUB_OUTPUT
-          echo "auth_header=Bearer $TOKEN" >> $GITHUB_OUTPUT
-          
-          echo "::notice::認証に成功しました"
+          # Pythonスクリプト側で認証を行うためトークン取得はスキップ
+          echo "token=skipped" >> $GITHUB_OUTPUT
+          echo "auth_header=skipped" >> $GITHUB_OUTPUT
 
       - name: Set environment variables
         run: |
