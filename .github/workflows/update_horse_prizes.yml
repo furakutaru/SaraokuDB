@@ -63,7 +63,7 @@ jobs:
           
           echo "::group::🔐 認証処理を開始します"
           
-          AUTH_URL="$PROD_API_BASE_URL/auth/token"
+          AUTH_URL="$PROD_API_BASE_URL/api/auth/token"
           echo "::notice:: 認証を試行します: $AUTH_URL"
           
           # 認証リクエストを送信
