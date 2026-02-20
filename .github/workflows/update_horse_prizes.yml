@@ -105,6 +105,12 @@ jobs:
           echo "UPDATE_HORSE_PRIZES_INTERVAL_DAYS: ${UPDATE_HORSE_PRIZES_INTERVAL_DAYS}"
           echo "::endgroup::"
 
+      - name: Debug - Show current code
+        run: |
+          echo "=== 現在のupdate_horse_prizes.pyの認証URL部分 ==="
+          grep -A 3 -B 3 "auth_url.*api/auth/token" scripts/update_horse_prizes.py
+          echo "=========================================="
+
       - name: Run update_horse_prizes.py
         run: |
           set -e
