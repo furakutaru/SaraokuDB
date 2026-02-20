@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main  # 明示的にmainブランチを指定
           
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -108,8 +109,17 @@ jobs:
       - name: Debug - Show current code
         run: |
           echo "=== 現在のupdate_horse_prizes.pyの認証URL部分 ==="
-          grep -A 3 -B 3 "auth_url.*api/auth/token" scripts/update_horse_prizes.py
+          grep -A 3 -B 3 "auth_url.*api/auth/token" scripts/update_horse_prizes.py || echo "パターンが見つかりません"
+          echo "=== ファイルの先頭20行 ==="
+          head -20 scripts/update_horse_prizes.py
           echo "=========================================="
+
+      - name: Force clean checkout
+        run: |
+          git clean -fd
+          git reset --hard HEAD
+          echo "=== リセット後の認証URL部分 ==="
+          grep -A 3 -B 3 "auth_url.*api/auth/token" scripts/update_horse_prizes.py || echo "パターンが見つかりません"
 
       - name: Run update_horse_prizes.py
         run: |
