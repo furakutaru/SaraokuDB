@@ -193,7 +193,7 @@ async def process_horse(scraper, db, horse) -> bool:
             name=search_name,
             father='',
             mother='',
-            auction_date=horse.auction_date,
+            auction_date=None,  # Horseオブジェクトにはauction_dateがないためNoneを設定
             gender=None
         )
 
