@@ -103,8 +103,17 @@ def update_horse_prize(db, horse, prize: int) -> bool:
         # current_prize属性がない場合はtotal_prize_latestを利用する
         last_prize = int(getattr(horse, 'current_prize', horse.total_prize_latest) or 0)
         
-        # 賞金履歴を記録
-        HorsePrizeHistory.create(db, horse_id, prize)
+        # 賞金履歴を記録（created_atを明示的に設定）
+        from datetime import datetime, timezone
+        now_utc = datetime.now(timezone.utc)
+        prize_history = HorsePrizeHistory(
+            horse_id=horse_id,
+            prize=prize,
+            created_at=now_utc,  # 明示的にcreated_atを設定
+            updated_at=now_utc
+        )
+        db.add(prize_history)
+        db.commit()
         
         # 更新間隔の調整
         update_interval_months = horse.update_interval_months or 3
