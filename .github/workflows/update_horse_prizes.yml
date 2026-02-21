@@ -140,6 +140,14 @@ jobs:
           python3 -c "import re; content = open('scripts/update_horse_prizes.py').read(); matches = re.findall(r'auth_url.*api/auth/token', content); [print('Found: ' + match.strip()) for match in matches]"
           echo "=========================================="
 
+      - name: Initialize database
+        run: |
+          echo "=== データベースを初期化 ==="
+          cd backend
+          python init_db.py
+          echo "データベースの初期化が完了しました"
+          cd ..
+          
       - name: Run update_horse_prizes.py
         if: always()  # 常に実行
         run: |
