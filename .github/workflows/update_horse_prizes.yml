@@ -102,6 +102,9 @@ jobs:
           # データベースURLを設定
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
           
+          # デバッグ用にDATABASE_URLの先頭を確認
+          echo "DEBUG: DATABASE_URL starts with: ${{ secrets.DATABASE_URL:0:20 }}..."
+          
           # 更新間隔を設定
           echo "UPDATE_HORSE_PRIZES_INTERVAL_DAYS=${{ github.event.inputs.update_interval_days || '1' }}" >> $GITHUB_ENV
           
