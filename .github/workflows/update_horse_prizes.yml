@@ -100,9 +100,7 @@ jobs:
           echo "AUTH_HEADER=${{ steps.auth.outputs.auth_header }}" >> $GITHUB_ENV
           
           # データベースURLを設定
-          # PROD_API_BASE_URL から直接DATABASE_URLを構築
-          DB_HOST=$(echo "${{ secrets.PROD_API_BASE_URL }}" | sed 's|^https\?://||')
-          echo "DATABASE_URL=postgresql://$DB_HOST" >> $GITHUB_ENV
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
           
           # 更新間隔を設定
           echo "UPDATE_HORSE_PRIZES_INTERVAL_DAYS=${{ github.event.inputs.update_interval_days || '1' }}" >> $GITHUB_ENV
