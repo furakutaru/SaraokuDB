@@ -38,6 +38,8 @@ from backend.models.horse import Horse
 from backend.models.horse_prize_history import HorsePrizeHistory
 
 DATABASE_URL = os.getenv('DATABASE_URL')
+print(f"DEBUG: DATABASE_URL = {DATABASE_URL}")
+print(f"DEBUG: GITHUB_ACTIONS = {os.getenv('GITHUB_ACTIONS')}")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL が設定されていません。環境変数を確認してください。")
 
