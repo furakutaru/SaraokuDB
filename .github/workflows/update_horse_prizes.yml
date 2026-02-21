@@ -109,7 +109,7 @@ jobs:
           echo "::group::🔑 設定された環境変数"
           echo "TOKEN: ${TOKEN:0:5}..."
           echo "AUTH_HEADER: Bearer ${TOKEN:0:5}..."
-          echo "DATABASE_URL: ${DATABASE_URL:0:20}..."
+          echo "DATABASE_URL: ${DATABASE_URL}"
           echo "UPDATE_HORSE_PRIZES_INTERVAL_DAYS: ${UPDATE_HORSE_PRIZES_INTERVAL_DAYS}"
           echo "::endgroup::"
 
