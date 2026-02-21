@@ -40,7 +40,11 @@ if not DATABASE_URL:
     raise ValueError("DATABASE_URL が設定されていません。環境変数を確認してください。")
 
 # 同期エンジン・セッション作成
-engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=3600)
+# PostgreSQLドライバーを明示的に指定
+if DATABASE_URL.startswith('postgresql://'):
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=3600, echo=True)
+else:
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=3600)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_horses_to_update(db, batch_size: int = 10):
