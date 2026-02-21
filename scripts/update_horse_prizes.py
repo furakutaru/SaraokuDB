@@ -189,11 +189,16 @@ async def process_horse(scraper, db, horse) -> bool:
         except Exception:
             pass
         
+        # オークション日を取得（latest_auctionリレーションから）
+        auction_date = None
+        if horse.latest_auction:
+            auction_date = horse.latest_auction.auction_date
+        
         horse_info = await scraper.get_horse_info(
             name=search_name,
             father='',
             mother='',
-            auction_date=None,  # Horseオブジェクトにはauction_dateがないためNoneを設定
+            auction_date=auction_date,  # オークション日を設定
             gender=None
         )
 
