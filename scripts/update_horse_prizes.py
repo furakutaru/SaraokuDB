@@ -74,7 +74,7 @@ def get_horses_to_update(db, batch_size: int = 10):
     try:
         now_utc = datetime.now(timezone.utc)
         
-        # is_broodmare == False かつ (next_update_due_date が null または 過去)
+        # auction_historiesのJOINを避けてシンプルに取得
         stmt = select(Horse).where(
             Horse.is_broodmare == False,
             Horse.is_retired == False,

@@ -28,3 +28,4 @@ class Horse(Base):
     
     # リレーションシップ
     prize_histories = relationship("HorsePrizeHistory", back_populates="horse", cascade="all, delete-orphan")
+    latest_auction = relationship("AuctionHistory", foreign_keys=[latest_auction_id], post_update=True)

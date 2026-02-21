@@ -10,3 +10,5 @@ services:
         value: 10000
       - key: DATABASE_URL
         sync: false
+        # 注意: この値はRenderダッシュボードで設定してください
+        # ここに直接書くとセキュリティリスクがあります
