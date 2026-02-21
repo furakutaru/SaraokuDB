@@ -17,6 +17,7 @@ class Horse(Base):
     sire = Column(String, nullable=True, comment='父馬名')
     dam = Column(String, nullable=True, comment='母馬名')
     sex = Column(String, nullable=True, comment='性別')
+    is_broodmare = Column(Boolean, default=False, comment='繁殖牝馬フラグ')
     
     # 賞金管理関連のフィールド
     last_prize_update = Column(DateTime(timezone=True), comment='最終賞金更新日時')
