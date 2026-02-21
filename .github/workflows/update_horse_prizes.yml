@@ -145,7 +145,9 @@ jobs:
           echo "=== データベース接続のデバッグ ==="
           echo "DATABASE_URL: ${DATABASE_URL:0:50}..."
           echo "DATABASE_URLの完全な内容: ${DATABASE_URL}"
-          echo "GITHUB_ACTIONS: ${GITHUB_ACTIONS}"
+          echo "GITHUB_ACTIONS: ${GITHUB_ACTIONS} (自動設定される組み込み変数)"
+          echo "GitHub Actionsの組み込み変数一覧:"
+          env | grep "^GITHUB_" | head -5
           python3 -c "import os; print('GITHUB_ACTIONS環境変数:', os.getenv('GITHUB_ACTIONS', 'Not Set')); db_url = os.getenv('DATABASE_URL', 'Not Set'); print('DATABASE_URL:', db_url[:50] + '...'); print('URLのスキーム:', db_url.split('://')[0] if '://' in db_url else 'Unknown'); print('DATABASE_URLの長さ:', len(db_url))"
           echo "=========================================="
           
