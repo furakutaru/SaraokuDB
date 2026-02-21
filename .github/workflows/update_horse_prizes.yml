@@ -142,11 +142,10 @@ jobs:
 
       - name: Initialize database
         run: |
-          echo "=== データベースを初期化 ==="
-          cd backend
-          python init_db.py
-          echo "データベースの初期化が完了しました"
-          cd ..
+          echo "=== データベース接続を確認 ==="
+          echo "DATABASE_URL: ${DATABASE_URL:0:20}..."
+          echo "Neonデータベースを使用するため、SQLiteの初期化は不要です"
+          echo "=========================================="
           
       - name: Run update_horse_prizes.py
         if: always()  # 常に実行
