@@ -39,9 +39,21 @@ from backend.models.horse_prize_history import HorsePrizeHistory
 
 DATABASE_URL = os.getenv('DATABASE_URL')
 print(f"DEBUG: DATABASE_URL = {DATABASE_URL}")
+print(f"DEBUG: DATABASE_URL type = {type(DATABASE_URL)}")
+print(f"DEBUG: DATABASE_URL length = {len(DATABASE_URL) if DATABASE_URL else 'None'}")
 print(f"DEBUG: GITHUB_ACTIONS = {os.getenv('GITHUB_ACTIONS')}")
+
+# DATABASE_URLが空の場合はエラー
 if not DATABASE_URL:
+    print("DEBUG: DATABASE_URL is None or empty!")
     raise ValueError("DATABASE_URL が設定されていません。環境変数を確認してください。")
+
+# DATABASE_URLがSQLiteの場合はエラー
+if DATABASE_URL.startswith('sqlite'):
+    print(f"DEBUG: DATABASE_URL is SQLite: {DATABASE_URL}")
+    raise ValueError(f"SQLiteは使用できません。DATABASE_URLをPostgreSQLに設定してください: {DATABASE_URL}")
+
+print(f"DEBUG: DATABASE_URL starts with postgresql: {DATABASE_URL.startswith('postgresql://')}")
 
 # 同期エンジン・セッション作成
 # PostgreSQLドライバーを明示的に指定
