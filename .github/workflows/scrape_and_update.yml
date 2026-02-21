@@ -163,7 +163,7 @@ jobs:
           echo "AUTH_HEADER=Bearer $TOKEN" | tee -a $GITHUB_ENV
           echo "AUTH_HEADER を設定しました" >&2
           
-          echo "DATABASE_URL=sqlite:///$(pwd)/backend/data/horses.db" | tee -a $GITHUB_ENV
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" | tee -a $GITHUB_ENV
           echo "LOG_LEVEL=DEBUG" | tee -a $GITHUB_ENV
           echo "GITHUB_ACTIONS=true" | tee -a $GITHUB_ENV
           echo "SECRET_KEY=$SECRET_KEY" | tee -a $GITHUB_ENV
@@ -183,7 +183,7 @@ jobs:
           echo "::group::🔄 環境変数の確認"
           echo "TOKEN: ${TOKEN:0:10}..."
           echo "AUTH_HEADER: Bearer ${TOKEN:0:10}..."
-          echo "DATABASE_URL: sqlite:///$(pwd)/backend/data/horses.db"
+          echo "DATABASE_URL: ${DATABASE_URL:0:30}..."
           echo "LOG_LEVEL: DEBUG"
           echo "GITHUB_ACTIONS: true"
           echo "PROD_API_BASE_URL: $PROD_API_BASE_URL"
@@ -244,10 +244,6 @@ jobs:
           GITHUB_ACTIONS: "true"
           PYTHONUNBUFFERED: 1
           PYTHONPATH: ${{ github.workspace }}
-          # データベース設定
-          SQLITE_DB_DIR: ${{ github.workspace }}/backend/data
-          SQLITE_TIMEOUT: 30
-          SQLITE_JOURNAL_MODE: WAL  # Write-Ahead Logging モードを使用
         run: |
           set -e  # エラーが発生したらスクリプトを終了
           
@@ -268,32 +264,8 @@ jobs:
           echo "Environment variables:" | tee -a "$LOG_FILE"
           env | sort | tee -a "$LOG_FILE"
           echo "==================================" | tee -a "$LOG_FILE"
-          
-          # データベースディレクトリの確認
-          echo "Checking database directory..." | tee -a "$LOG_FILE"
-          ls -la "$SQLITE_DB_DIR" 2>&1 | tee -a "$LOG_FILE" || true
-          
-          # データベースファイルの確認
-          DB_FILE="$SQLITE_DB_DIR/horses.db"
-          if [ -f "$DB_FILE" ]; then
-            echo "Database file exists: $DB_FILE" | tee -a "$LOG_FILE"
-            echo "Database file size: $(du -h "$DB_FILE" | cut -f1)" | tee -a "$LOG_FILE"
-            echo "Database file permissions: $(stat -c "%a %n" "$DB_FILE" 2>&1)" | tee -a "$LOG_FILE"
-            
-            # データベースの整合性チェック
-            echo "Checking database integrity..." | tee -a "$LOG_FILE"
-            sqlite3 "$DB_FILE" "PRAGMA integrity_check;" 2>&1 | tee -a "$LOG_FILE" || true
-            
-            # データベースの統計情報を表示
-            echo "Database statistics:" | tee -a "$LOG_FILE"
-            sqlite3 "$DB_FILE" ".tables" 2>&1 | tee -a "$LOG_FILE"
-            sqlite3 "$DB_FILE" "SELECT name FROM sqlite_master WHERE type='table';" 2>&1 | tee -a "$LOG_FILE"
-          else
-            echo "Database file does not exist: $DB_FILE" | tee -a "$LOG_FILE"
-          fi
-          
-          # データベースの初期化
-          echo "::group::💾 データベースを初期化しています..."
+          # スクリプトの実行準備
+          echo "::group::💾 データベース接続の確認..."
           cd backend
           python -c "
           from database.models import Base, engine
@@ -450,14 +422,6 @@ jobs:
           fi
           
           echo "✅ データの検証が完了しました (サイズ: ${FILESIZE}バイト)"
-          
-          # データベースのバックアップ
-          echo "::group::💾 データベースをバックアップしています..."
-          cd ..
-          if [ -f "backend/data/horses.db" ]; then
-            cp "backend/data/horses.db" "backend/data/horses_${TIMESTAMP}.db"
-            echo "✅ データベースをバックアップしました: backend/data/horses_${TIMESTAMP}.db"
-          fi
           
           # ログをアップロード用に保存
           echo "::notice::📝 ログファイル: $LOG_FILE"
