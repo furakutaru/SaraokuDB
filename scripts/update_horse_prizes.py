@@ -15,9 +15,11 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 # 環境変数の読み込み
-env_path = Path(__file__).parent.parent / 'backend' / '.env'
-if env_path.exists():
-    load_dotenv(env_path, override=True)
+# GitHub Actionsでは.envファイルを読み込まない
+if not os.getenv('GITHUB_ACTIONS'):
+    env_path = Path(__file__).parent.parent / 'backend' / '.env'
+    if env_path.exists():
+        load_dotenv(env_path, override=True)
 
 # ロギング設定
 logging.basicConfig(
