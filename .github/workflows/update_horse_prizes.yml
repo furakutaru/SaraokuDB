@@ -140,11 +140,12 @@ jobs:
           python3 -c "import re; content = open('scripts/update_horse_prizes.py').read(); matches = re.findall(r'auth_url.*api/auth/token', content); [print('Found: ' + match.strip()) for match in matches]"
           echo "=========================================="
 
-      - name: Initialize database
+      - name: Debug database connection
         run: |
-          echo "=== データベース接続を確認 ==="
-          echo "DATABASE_URL: ${DATABASE_URL:0:20}..."
-          echo "Neonデータベースを使用するため、SQLiteの初期化は不要です"
+          echo "=== データベース接続のデバッグ ==="
+          echo "DATABASE_URL: ${DATABASE_URL:0:50}..."
+          echo "DATABASE_URLの完全な内容: ${DATABASE_URL}"
+          python3 -c "import os; db_url = os.getenv('DATABASE_URL', 'Not Set'); print('PythonでのDATABASE_URL: ' + db_url[:50] + '...'); print('URLのスキーム: ' + (db_url.split('://')[0] if '://' in db_url else 'Unknown'))"
           echo "=========================================="
           
       - name: Run update_horse_prizes.py
