@@ -53,6 +53,11 @@ if DATABASE_URL.startswith('sqlite'):
     print(f"DEBUG: DATABASE_URL is SQLite: {DATABASE_URL}")
     raise ValueError(f"SQLiteは使用できません。DATABASE_URLをPostgreSQLに設定してください: {DATABASE_URL}")
 
+# DATABASE_URLが短すぎる場合はエラー（***など）
+if len(DATABASE_URL) < 50:
+    print(f"DEBUG: DATABASE_URL is too short: {DATABASE_URL}")
+    raise ValueError(f"DATABASE_URLが正しく設定されていません。GitHub SecretsのDATABASE_URLを確認してください: {DATABASE_URL}")
+
 print(f"DEBUG: DATABASE_URL starts with postgresql: {DATABASE_URL.startswith('postgresql://')}")
 
 # 同期エンジン・セッション作成
