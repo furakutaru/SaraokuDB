@@ -2147,13 +2147,13 @@ class ImprovedRakutenScraper:
                 if horse_info['bid_count'] == 0:
                     horse_info['is_unsold'] = True
                     horse_info['sold_price'] = None
-                    self.logger.info(f"入札数が0のため主取りと判定: {name}")
+                    self.logger.info(f"入札数が0のため主取りと判定: {name_for_price}")
                 
                 # デバッグログを追加
                 self.logger.info(f"価格情報を設定: sold_price={horse_info['sold_price']}, is_unsold={horse_info['is_unsold']}, bid_count={horse_info['bid_count']}")
                 
                 if horse_info['is_unsold']:
-                    self.logger.info(f"主取りと判定: {name}, 入札数: {horse_info['bid_count']}")
+                    self.logger.info(f"主取りと判定: {name_for_price}, 入札数: {horse_info['bid_count']}")
                 else:
                     self.logger.info(f'落札価格を抽出しました: {price_info["sold_price"]}円, 入札数: {horse_info["bid_count"]}')
             else:
@@ -2161,7 +2161,7 @@ class ImprovedRakutenScraper:
                 horse_info['sold_price'] = None
                 horse_info['is_unsold'] = True
                 horse_info['bid_count'] = 0
-                self.logger.warning(f'落札価格の抽出に失敗したため主取りとみなします: {name}')
+                self.logger.warning(f'落札価格の抽出に失敗したため主取りとみなします: {name_for_price}')
             
             # 古いフィールドを削除
             for field in ['total_prize', 'original_text', 'pattern_used']:
@@ -2204,13 +2204,13 @@ class ImprovedRakutenScraper:
                     weight_kg = self.horse_info_extractor._extract_weight(weight_element)
                     if weight_kg is not None:
                         horse_info['weight'] = weight_kg
-                        self.logger.info(f'馬体重を抽出: {weight_kg}kg (馬名: {name})')
+                        self.logger.info(f'馬体重を抽出: {weight_kg}kg (馬名: {name_for_price})')
                     else:
-                        self.logger.debug(f'馬体重の抽出に失敗しました (馬名: {name})')
+                        self.logger.debug(f'馬体重の抽出に失敗しました (馬名: {name_for_price})')
                 else:
-                    self.logger.debug(f'馬体重要素が見つかりませんでした (馬名: {name})')
+                    self.logger.debug(f'馬体重要素が見つかりませんでした (馬名: {name_for_price})')
             except Exception as e:
-                self.logger.warning(f'馬体重の抽出中にエラーが発生しました: {str(e)} (馬名: {name})', exc_info=True)
+                self.logger.warning(f'馬体重の抽出中にエラーが発生しました: {str(e)} (馬名: {name_for_price})', exc_info=True)
             
             # 必須フィールドの確認
             required_fields = ['name', 'age', 'sex']
