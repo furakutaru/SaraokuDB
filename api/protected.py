@@ -10,7 +10,8 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/token")
+# Use absolute path for OpenAPI/security scheme to match deployed routes
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 # 環境変数から設定を取得
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key")

@@ -464,3 +464,22 @@ jobs:
           else
             echo "No changes to commit"
           fi
+      - name: Preflight API health check
+        env:
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+        run: |
+          set -e
+          if [ -z "$PROD_API_BASE_URL" ]; then
+            echo "::error::PROD_API_BASE_URL is not set"; exit 1
+          fi
+          HEALTH_URL="$PROD_API_BASE_URL/api/health"
+          echo "Probing: $HEALTH_URL"
+          for i in $(seq 1 15); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)
+            echo "Attempt $i: HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "::notice::API is healthy"; exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::API health check failed"; exit 1

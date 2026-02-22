@@ -4,7 +4,8 @@ services:
     env: python
     plan: free
     buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "python api/api.py"
+    # FastAPI を uvicorn で起動（Render の $PORT を使用）
+    startCommand: "uvicorn api.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: PORT
         value: 10000
