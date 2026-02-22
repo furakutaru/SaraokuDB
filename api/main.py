@@ -55,10 +55,26 @@ from api.health import router as health_router
 from api.auth.login import router as auth_router
 from api.protected import router as protected_router
 
+# Expose backend domain routers on the public API
+# Note: Production has been serving api.main:app, which did not include the
+# horses endpoints. This brings the backend horses and auction routes under /api.
+try:
+    from backend.routers.horses import router as horses_router
+    from backend.routers.auction_histories import router as auction_histories_router
+    _include_backend_routers = True
+except Exception as e:
+    logger.warning("Failed to import backend routers: " + str(e))
+    _include_backend_routers = False
+
 # ルーターをマウント
 app.include_router(health_router, prefix="/api")
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(protected_router, prefix="/api", tags=["protected"])
+
+if _include_backend_routers:
+    # Keep the same prefixes expected by the scraper: /api/horses and /api/auction_histories
+    app.include_router(horses_router, prefix="/api/horses", tags=["horses"])
+    app.include_router(auction_histories_router, prefix="/api/auction_histories", tags=["auction_histories"])
 
 # ルートエンドポイント
 @app.get("/")
