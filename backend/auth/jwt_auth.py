@@ -209,7 +209,8 @@ def get_user(db, username: str) -> Optional[User]:
     """データベースからユーザーを取得する"""
     logger.debug(f"[DEBUG] ユーザー取得開始: username={username}")
     from sqlalchemy.orm import Session
-    from database.models import User as DBUser, SessionLocal
+    # Use absolute import path for Docker/Render
+    from backend.database.models import User as DBUser, SessionLocal    
     
     try:
         db_session = SessionLocal()
@@ -235,11 +236,21 @@ def get_user(db, username: str) -> Optional[User]:
             logger.debug("[DEBUG] データベースセッションをクローズしました")
 
 def authenticate_user(fake_db, username: str, password: str):
-    """ユーザーを認証する"""
+    """ユーザーを認証する
+
+    優先度:
+      1) データベースのユーザー
+      2) 環境変数から生成した fake_users_db（DB未整備時のフォールバック）
+    """
     user = get_user(fake_db, username)
     if not user:
-        logger.error(f"ユーザーが見つかりません: {username}")
-        return False
+        # Fallback to in-memory user
+        user_data = fake_users_db.get(username)
+        if user_data and user_data.get("hashed_password"):
+            user = User(username=user_data["username"], hashed_password=user_data["hashed_password"])
+        else:
+            logger.error(f"ユーザーが見つかりません: {username}")
+            return False
     if not verify_password(password, user.hashed_password):
         logger.error(f"パスワードが一致しません: {username}")
         return False
