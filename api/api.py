@@ -200,6 +200,30 @@ async def get_horses(skip: int = 0, limit: int = 100, db: Session = Depends(get_
             detail=f"馬データの取得中にエラーが発生しました: {str(e)}"
         )
 
+# 馬データを新規作成するエンドポイント
+@app.post("/api/horses")
+@app.post("/api/horses/")
+async def create_horse_endpoint(
+    payload: dict,
+    db: Session = Depends(get_db_session),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        service = HorseService()
+        created = service.create_horse(db, payload)
+        return {
+            "id": created.id,
+            "auction_id": getattr(created, "auction_id", None),
+            "name": getattr(created, "name", None),
+            "is_unsold": getattr(created, "is_unsold", None),
+            "sold_price": getattr(created, "sold_price", None),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating horse: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
 # 単一の馬データを取得するエンドポイント
 @app.get("/api/horses/{horse_id}")
 async def get_horse_by_id(horse_id: int, db: Session = Depends(get_db_session)):
