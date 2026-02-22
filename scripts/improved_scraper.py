@@ -2124,16 +2124,18 @@ class ImprovedRakutenScraper:
             
             # 落札価格を抽出（PriceExtractorを使用）
             price_extractor = PriceExtractor()
-            price_info = price_extractor.extract_price(detail_html, name)  # 引数に馬名を追加
+            # 馬名変数は cleaned_name に格納されているため、未定義変数 name の代わりに使用
+            name_for_price = cleaned_name
+            price_info = price_extractor.extract_price(detail_html, name_for_price)
             
             # デバッグ用ログ
-            self.logger.info(f"馬名: {name}, 価格抽出結果: {price_info}")
+            self.logger.info(f"馬名: {name_for_price}, 価格抽出結果: {price_info}")
             
             # 入札数が0の場合は主取りと判定
             if price_info.get('bid_count', 0) == 0:
                 price_info['is_unsold'] = True
                 price_info['sold_price'] = None
-                self.logger.info(f"入札数が0のため主取りと判定: {name}")
+                self.logger.info(f"入札数が0のため主取りと判定: {name_for_price}")
             
             # 価格情報を設定
             if price_info and 'sold_price' in price_info:

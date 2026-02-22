@@ -310,7 +310,7 @@ jobs:
           SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
           SCRIPT_NAME="$(basename "$SCRIPT_PATH")"
           
-          # 出力ディレクトリを絶対パスで設定
+          # 出力ディレクトリを絶対パスで設定（JSONは既定では出力しない）
           OUTPUT_DIR="$GITHUB_WORKSPACE/static-frontend/public/data"
           mkdir -p "$OUTPUT_DIR"
           
@@ -342,37 +342,14 @@ jobs:
             mkdir -p "$OUTPUT_DIR"
             
             # スクリプトを実行
+            # 全馬保存が成功条件。JSONは出力しない（--write-json を付ければ保存）
             python -u "$SCRIPT_NAME" --output-dir "$OUTPUT_DIR" 2>&1 | tee -a "$GITHUB_WORKSPACE/$LOG_FILE"
             EXIT_CODE=${PIPESTATUS[0]}
             
             if [ $EXIT_CODE -eq 0 ]; then
-              # 出力ファイルを確認
-              OUTPUT_FILE="$OUTPUT_DIR/horses.json"
-              
-              # 出力ファイルが存在するか確認
-              if [ -f "$OUTPUT_FILE" ]; then
-                FILESIZE=$(wc -c <"$OUTPUT_FILE")
-                if [ "$FILESIZE" -gt 100 ]; then
-                  # 互換性のため、古いパスにもコピーを作成（パスが異なる場合のみ）
-                  LEGACY_DIR="/home/runner/work/SaraokuDB/SaraokuDB/static-frontend/public/data"
-                  if [ "$OUTPUT_FILE" != "$LEGACY_DIR/horses.json" ]; then
-                    mkdir -p "$LEGACY_DIR"
-                    cp "$OUTPUT_FILE" "$LEGACY_DIR/horses.json"
-                    echo "::notice::✅ 互換性のためファイルをコピーしました: $LEGACY_DIR/horses.json"
-                  else
-                    echo "::notice::ℹ️ コピーは不要です（ソースと宛先が同じです）"
-                  fi
-                  
-                  SUCCESS=true
-                  echo "::notice::✅ スクレイピングが正常に完了しました (出力ファイル: $OUTPUT_FILE, サイズ: ${FILESIZE}バイト)"
-                  echo "::notice::✅ 互換性のため、ファイルを $LEGACY_DIR/horses.json にもコピーしました"
-                  break
-                else
-                  echo "::warning::⚠️ 出力ファイルのサイズが小さすぎます (${FILESIZE}バイト)"
-                fi
-              else
-                echo "::warning::⚠️ 出力ファイルが見つかりません: $OUTPUT_FILE"
-              fi
+              echo "::notice::✅ 全馬保存に成功しました"
+              SUCCESS=true
+              break
             elif [ $EXIT_CODE -eq 124 ]; then
               echo "::warning::⚠️ スクレイピングがタイムアウトしました (30分経過)"
             else
@@ -407,22 +384,9 @@ jobs:
             exit 1
           fi
           
-          # データのバリデーション
-          echo "::group::🔍 データを検証しています..."
-          if ! jq empty output.json 2>/dev/null; then
-            echo "::error::❌ 出力ファイルが有効なJSON形式ではありません"
-            exit 1
-          fi
-          
-          # データのサイズをチェック
-          FILESIZE=$(wc -c <"output.json")
-          if [ "$FILESIZE" -lt 100 ]; then
-            echo "::error::❌ 出力ファイルのサイズが小さすぎます (${FILESIZE}バイト)"
-            exit 1
-          fi
-          
-          echo "✅ データの検証が完了しました (サイズ: ${FILESIZE}バイト)"
-          
+          # JSON検証は不要（API保存に一本化）
+          echo "::notice::Skipping JSON validation (API-first)"
+
           # ログをアップロード用に保存
           echo "::notice::📝 ログファイル: $LOG_FILE"
           

@@ -476,6 +476,8 @@ def main():
     parser = argparse.ArgumentParser(description='楽天競馬オークションのスクレイピングを実行します')
     parser.add_argument('--output-dir', type=str, default=None,
                       help='出力ディレクトリのパス')
+    parser.add_argument('--write-json', action='store_true', default=False,
+                      help='JSONファイルを書き出す（デフォルトは書き出さない）')
     args = parser.parse_args()
     
     # クライアントの初期化
@@ -513,14 +515,10 @@ def main():
             if hasattr(scraper, 'failed_horses') and scraper.failed_horses:
                 logger.error(f"抽出失敗が発生しました。失敗件数: {len(scraper.failed_horses)}")
                 logger.error("スクレイピング対象のページ構造が変更されている可能性があります。")
-                sys.exit(1)
-
-            logger.warning("スクレイピング結果が0件です。以下のいずれかの可能性があります：")
-            logger.warning("1. オークションが開催されていない")
-            logger.warning("2. オークション準備中でデータが公開されていない")
-            logger.warning("3. スクレイピング対象のページ構造が変更されている")
-            logger.info("警告は出していますが、処理は正常終了とします。")
-            return
+            else:
+                logger.error("スクレイピング結果が0件です（全馬保存方針により失敗扱い）。")
+                logger.error("1. オークションが開催されていない / 2. 準備中 / 3. ページ構造変更 の可能性")
+            sys.exit(1)
             
         logger.info(f"合計 {len(horses)} 件の馬データを取得しました")
         
@@ -595,15 +593,24 @@ def main():
         # 更新・追加後のデータをリストに変換
         all_horses = list(existing_horses_dict.values())
         
-        # データを保存
-        if all_horses:
+        # 成否判定（全馬保存が前提）
+        total = len(horses)
+        success = added_count + updated_count
+        failed = failed_count + max(0, total - (added_count + updated_count))
+
+        logger.info(f"SUMMARY: total={total} success={success} failed={failed}")
+
+        # JSON出力はオプション
+        if args.write_json and all_horses:
             with open(output_file, 'w', encoding='utf-8') as f:
                 json.dump(all_horses, f, ensure_ascii=False, indent=2, default=str)
-            logger.info(f"馬データを保存しました - 合計: {len(all_horses)}件 (新規: {added_count}件, 更新: {updated_count}件)")
-        else:
-            logger.warning("保存する馬データがありませんでした")
-                
-        logger.info("すべての処理が完了しました")
+            logger.info(f"horses.json を出力しました: {output_file}")
+
+        if total == 0 or failed > 0 or success != total:
+            logger.error("全馬保存に失敗しました（失敗あり／件数不一致）")
+            sys.exit(1)
+
+        logger.info("全馬保存に成功しました")
         
     except Exception as e:
         logger.error(f"スクレイピング中にエラーが発生しました: {str(e)}", exc_info=True)
