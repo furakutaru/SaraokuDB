@@ -90,7 +90,7 @@ jobs:
           echo "::debug::一時ファイルを作成しました: $TEMP_FILE"
           echo "TEMP_FILE: $TEMP_FILE" >&2
           
-          # 認証URLを設定（正しいAPIプレフィックスを追加）
+          # RenderのAPI URLを使用
           AUTH_URL="$PROD_API_BASE_URL/api/auth/token/"
           echo "::notice:: 認証を試みます: $AUTH_URL"
           
