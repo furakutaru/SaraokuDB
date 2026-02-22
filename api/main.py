@@ -50,6 +50,11 @@ project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
+# Ensure backend package-relative imports like `from database ...` resolve
+backend_root = project_root / "backend"
+if backend_root.exists() and str(backend_root) not in sys.path:
+    sys.path.insert(0, str(backend_root))
+
 # ルーターをインポート
 from api.health import router as health_router
 from api.auth.login import router as auth_router
