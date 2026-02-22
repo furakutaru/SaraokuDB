@@ -12,7 +12,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from backend.database.models import Horse, get_db
-from scrapers.rakuten_scraper import RakutenAuctionScraper
+from backend.scrapers.rakuten_scraper import RakutenAuctionScraper
 
 class HorseService:
     def __init__(self):
