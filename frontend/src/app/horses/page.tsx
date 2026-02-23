@@ -78,6 +78,8 @@ export default function HorsesPage() {
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(24);
   const [total, setTotal] = useState<number>(0);
+  const [debugInfo, setDebugInfo] = useState<{ url?: string; ran: boolean; received?: number; total?: number; apiBase?: string; err?: string }>({ ran: false });
+  const isDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
 
   // 馬データを取得（バックエンドAPI + ページネーション）
   useEffect(() => {
@@ -99,6 +101,8 @@ export default function HorsesPage() {
         const latestParam = showOnlyLatestAuction ? 'true' : 'false';
 
         const url = `${API_BASE}/api/horses?skip=${skip}&limit=${limit}&sort=${encodeURIComponent(sortParam)}&latest_auction=${latestParam}`;
+        if (isDebug) { console.log('[HorsesPage] API_BASE:', API_BASE, 'URL:', url); }
+        setDebugInfo({ ran: true, url, apiBase: API_BASE });
         const response = await fetch(url, {
           method: 'GET',
           headers: {
@@ -121,6 +125,7 @@ export default function HorsesPage() {
         }
 
         let items: HorseType[] = data?.horses || [];
+        setDebugInfo(prev => ({ ...prev, received: (data?.horses || []).length, total: Number(data?.metadata?.total || 0) }));
 
         // 年齢ソートのみクライアント側で適用
         if (sortBy === 'age') {
@@ -136,6 +141,7 @@ export default function HorsesPage() {
         setError(null);
       } catch (err) {
         console.error('Error fetching data:', err);
+        setDebugInfo(prev => ({ ...prev, err: String((err as any)?.message || err) }));
         setError('データの読み込み中にエラーが発生しました');
       } finally {
         setLoading(false);
@@ -144,6 +150,20 @@ export default function HorsesPage() {
 
     fetchData();
   }, [page, limit, sortBy, sortOrder, showOnlyLatestAuction]);
+
+  const DebugOverlay = () => !isDebug ? null : (
+    <div style={{ position: 'fixed', top: 8, right: 8, zIndex: 9999 }}>
+      <div style={{ background: '#111827', color: '#e5e7eb', padding: '8px 10px', borderRadius: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', maxWidth: 360 }}>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>Debug</div>
+        <div style={{ fontSize: 12, lineHeight: 1.4 }}>
+          <div>API_BASE: <code>{debugInfo.apiBase || '(empty)'}</code></div>
+          <div>URL: <code style={{ wordBreak: 'break-all' }}>{debugInfo.url}</code></div>
+          <div>ran: {String(debugInfo.ran)} / received: {debugInfo.received ?? '-'} / total: {debugInfo.total ?? '-'}</div>
+          {debugInfo.err && <div style={{ color: '#fca5a5' }}>error: {debugInfo.err}</div>}
+        </div>
+      </div>
+    </div>
+  );
 
   // フィルタリングとソートを適用した馬のリストを取得
   const filteredHorses = horses.filter(horse => {
@@ -223,6 +243,7 @@ export default function HorsesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DebugOverlay />
       <Header pageTitle="直近追加の馬" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">

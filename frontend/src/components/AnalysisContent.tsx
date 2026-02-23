@@ -155,6 +155,8 @@ export default function AnalysisContent() {
   const [limit, setLimit] = useState<number>(5000);
   const [total, setTotal] = useState<number>(0);
   const [filters, setFilters] = useState<Filters>(initialFilters);
+  const [debugInfo, setDebugInfo] = useState<{ url?: string; ran: boolean; received?: number; total?: number; apiBase?: string; err?: string }>({ ran: false });
+  const isDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
 
   const handleFilterChange = (next: Partial<Filters>) => setFilters(prev => ({ ...prev, ...next }));
   const handleResetFilters = () => setFilters(initialFilters);
@@ -165,6 +167,8 @@ export default function AnalysisContent() {
       const API_BASE = getApiBase();
       const skip = (page - 1) * limit;
       const url = `${API_BASE}/api/horses?skip=${skip}&limit=${limit}`;
+      if (isDebug) { console.log('[AnalysisContent] API_BASE:', API_BASE, 'URL:', url); }
+      setDebugInfo({ ran: true, url, apiBase: API_BASE });
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -202,8 +206,10 @@ export default function AnalysisContent() {
         }
       });
       setTotal(Number(payload?.metadata?.total || 0));
+      setDebugInfo(prev => ({ ...prev, received: horsesWithHistory.length, total: Number(payload?.metadata?.total || 0) }));
     } catch (e: any) {
       console.error('データ取得エラー:', e);
+      setDebugInfo(prev => ({ ...prev, err: String(e?.message || e) }));
       setError('データの読み込みに失敗しました: ' + e.message);
     } finally {
       setLoading(false);
@@ -376,6 +382,20 @@ export default function AnalysisContent() {
   const handleExportAll = () => downloadCsv('horses_all.csv', toCsv(horses));
   const handleExportFiltered = () => downloadCsv('horses_filtered.csv', toCsv(filteredHorsesList));
 
+  const DebugOverlay = () => !isDebug ? null : (
+    <div style={{ position: 'fixed', top: 8, right: 8, zIndex: 9999 }}>
+      <div style={{ background: '#111827', color: '#e5e7eb', padding: '8px 10px', borderRadius: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', maxWidth: 360 }}>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>Debug</div>
+        <div style={{ fontSize: 12, lineHeight: 1.4 }}>
+          <div>API_BASE: <code>{debugInfo.apiBase || '(empty)'}</code></div>
+          <div>URL: <code style={{ wordBreak: 'break-all' }}>{debugInfo.url}</code></div>
+          <div>ran: {String(debugInfo.ran)} / received: {debugInfo.received ?? '-'} / total: {debugInfo.total ?? '-'}</div>
+          {debugInfo.err && <div style={{ color: '#fca5a5' }}>error: {debugInfo.err}</div>}
+        </div>
+      </div>
+    </div>
+  );
+
   // 表示リスト
   let tableHorses: HorseWithAuction[] = [...filteredHorsesList];
 
@@ -480,6 +500,7 @@ export default function AnalysisContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
+      <DebugOverlay />
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 min-w-0">
