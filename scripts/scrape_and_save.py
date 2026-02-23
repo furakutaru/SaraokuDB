@@ -69,6 +69,23 @@ logger.info(f"PROD_API_PASSWORD: {'***' if os.getenv('PROD_API_PASSWORD') else '
 logger.info(f"GITHUB_ACTIONS: {os.getenv('GITHUB_ACTIONS')}")
 logger.info("=====================")
 
+def _normalize_horse_name(name: str) -> str:
+    """末尾の年齢/性別+年齢を除去し、空白を畳んだ正規化馬名を返す"""
+    try:
+        import re, unicodedata
+        if not name:
+            return ""
+        s = unicodedata.normalize("NFKC", str(name))
+        s = s.replace("　", " ")
+        # 末尾の [性別(任意)] 年齢『歳』 を除去（例: " リケア 牝３歳" / " ４歳"）
+        s = re.sub(r"\s*(?:牡|牝|セ)?\s*\d+\s*歳\s*$", "", s)
+        # 連続空白を1つに
+        s = re.sub(r"\s+", " ", s).strip()
+        return s
+    except Exception:
+        return name or ""
+
+
 class ScraperClient:
     def __init__(self):
         # 本番環境の認証情報を優先的に使用
@@ -136,7 +153,7 @@ class ScraperClient:
                 logger.error(f"レスポンス: {e.response.text}")
             raise
     
-    def save_horse(self, horse_data):
+    def save_horse(self, horse_data, *, update_only: bool = False):
         """馬データをAPIに保存し、必要に応じてオークション履歴も保存する"""
         try:
             # URLを正規化（末尾のスラッシュを削除）
@@ -150,6 +167,12 @@ class ScraperClient:
             
             # データのコピーを作成（元データを変更しないため）
             data_to_send = horse_data.copy()
+
+            # 馬名を正規化（末尾の「 ４歳」等を除去）
+            if 'name' in data_to_send and data_to_send['name']:
+                data_to_send['name'] = _normalize_horse_name(data_to_send['name'])
+            elif 'raw_name' in data_to_send and data_to_send['raw_name']:
+                data_to_send['name'] = _normalize_horse_name(data_to_send['raw_name'])
             
             # race_records を race_record に変換
             if 'race_records' in data_to_send:
@@ -253,6 +276,21 @@ class ScraperClient:
                     data_to_send['prize_money'] = 0  # デフォルト値
                     logger.debug("prize_money が None のため 0 を設定")
             
+            # update-only 指定時は履歴を汚し得るフィールドを送らない
+            if update_only:
+                for k in [
+                    "auction_date",  # 履歴扱い
+                    "sold_price",    # 価格履歴
+                    "is_unsold",     # 主取り判定履歴
+                    "unsold_count",
+                    "seller",        # 出品者履歴
+                    "comment",       # コメント履歴
+                    "sex",           # 性別履歴
+                    "age",           # 年齢履歴
+                ]:
+                    if k in data_to_send:
+                        data_to_send.pop(k, None)
+
             # デバッグ用に送信データをログに出力
             logger.debug(f"送信データ: {json.dumps(data_to_send, ensure_ascii=False, indent=2)}")
             
@@ -367,8 +405,8 @@ class ScraperClient:
                     horse_id = result.get('id')
                     logger.info(f"馬データを保存しました: {data_to_send.get('name')} (ID: {horse_id})")
                     
-                    # オークション履歴を保存
-                    if 'auction_info' in data_to_send:
+                    # オークション履歴を保存（update-only時はスキップ）
+                    if (not update_only) and ('auction_info' in data_to_send):
                         self._save_auction_history(horse_id, data_to_send)
                     
                     return result
@@ -478,6 +516,8 @@ def main():
                       help='出力ディレクトリのパス')
     parser.add_argument('--write-json', action='store_true', default=False,
                       help='JSONファイルを書き出す（デフォルトは書き出さない）')
+    parser.add_argument('--update-only', action='store_true', default=False,
+                      help='履歴カラム（auction_date/price/seller/sex/age/comment）を更新せず、通常項目のみ更新する')
     args = parser.parse_args()
     
     # クライアントの初期化
@@ -549,7 +589,7 @@ def main():
                     continue
                 
                 # APIで保存
-                response = client.save_horse(horse)
+                response = client.save_horse(horse, update_only=args.update_only)
                 
                 if response:
                     # 既存の馬データを更新または追加
