@@ -457,8 +457,8 @@ export default function AnalysisContent() {
     const horse = tableHorses[index];
     return (
       <div style={style} className="flex items-center border-b border-gray-200 hover:bg-blue-50/50 transition-colors">
-        <div className="flex-1 flex items-center px-3 py-2 text-sm">
-          <div className="flex-1">{horse.name ? (
+        <div className="flex items-center px-3 py-2 text-sm" style={{ width: '1200px' }}>
+          <div className="w-48">{horse.name ? (
             <Link href={`/horses/${horse.id}`} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">
               {horse.name}
             </Link>
@@ -638,11 +638,11 @@ export default function AnalysisContent() {
 
 
             {/* 馬テーブル - 仮想化 */}
-            <div className="bg-white rounded-lg shadow border">
+            <div className="bg-white rounded-lg shadow border overflow-x-auto">
               {/* テーブルヘッダー */}
-              <div className="bg-gray-50 border-b border-gray-200">
-                <div className="flex items-center px-3 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  <div className="flex-1 cursor-pointer" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</div>
+              <div className="bg-gray-50 border-b border-gray-200 min-w-max">
+                <div className="flex items-center px-3 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{ width: '1200px' }}>
+                  <div className="w-48 cursor-pointer" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</div>
                   <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</div>
                   <div className="w-12 text-center cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</div>
                   <div className="w-24 text-center cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</div>
@@ -667,7 +667,7 @@ export default function AnalysisContent() {
                   該当する馬が見つかりませんでした。フィルター設定を見直してください。
                 </div>
               ) : (
-                <div style={{ height: Math.min(tableHorses.length * 50, 600) }}>
+                <div style={{ height: Math.min(tableHorses.length * 50, 600), width: '1200px' }}>
                   <List
                     width="100%"
                     height={Math.min(tableHorses.length * 50, 600)}
