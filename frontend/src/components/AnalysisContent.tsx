@@ -292,13 +292,29 @@ export default function AnalysisContent() {
         if (!tags) return [];
         if (Array.isArray(tags)) return tags;
         if (typeof tags === 'string') {
-          try {
-            const parsed = JSON.parse(tags);
-            if (Array.isArray(parsed)) return parsed;
-          } catch (e) {
-            return tags.split(/[;,]/).map(t => t.trim()).filter(t => t !== '');
+          const trimmed = tags.trim();
+          
+          // 空文字や「なし」「特になし」は空配列を返す
+          if (!trimmed || trimmed === 'なし' || trimmed === '特になし') {
+            return [];
           }
-          return [tags];
+          
+          // JSON配列形式の場合
+          if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+            try {
+              const parsed = JSON.parse(trimmed);
+              if (Array.isArray(parsed)) {
+                return parsed.filter(t => typeof t === 'string' && t.trim() !== '');
+              }
+            } catch (e) {
+              // JSONパース失敗時は次の処理へ
+            }
+          }
+          
+          // 文字列分割で処理（複数の区切り文字に対応）
+          return trimmed.split(/[,;、・]/)
+            .map(t => t.trim())
+            .filter(t => t !== '' && t !== 'なし' && t !== '特になし');
         }
         return [];
       };
