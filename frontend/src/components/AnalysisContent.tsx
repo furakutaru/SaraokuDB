@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -145,7 +146,7 @@ const groupAuctionHistory = (auctionHistory: AuctionHistory[]): Record<string, A
   }, {} as Record<string, AuctionHistory[]>);
 };
 
-export default function AnalysisContent() {
+function AnalysisContent() {
   const [data, setData] = useState<HorseData | null>(null);
   const [allData, setAllData] = useState<HorseData | null>(null); // 分析サマリー用の全データ
   const [loading, setLoading] = useState(true);
@@ -898,3 +899,5 @@ export default function AnalysisContent() {
     </div>
   );
 }
+
+export default React.memo(AnalysisContent);
