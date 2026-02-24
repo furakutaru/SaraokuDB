@@ -289,6 +289,7 @@ export default function AnalysisContent() {
       const effectiveWeight = latestAuction?.weight ?? horseWithAuction.weight ?? null;
 
       const parseDiseaseTags = (tags: any): string[] => {
+        console.log('parseDiseaseTags input:', tags, 'type:', typeof tags);
         if (!tags) return [];
         if (Array.isArray(tags)) return tags;
         if (typeof tags === 'string') {
@@ -296,6 +297,7 @@ export default function AnalysisContent() {
           
           // 空文字や「なし」「特になし」は空配列を返す
           if (!trimmed || trimmed === 'なし' || trimmed === '特になし') {
+            console.log('empty or no disease tags');
             return [];
           }
           
@@ -304,17 +306,21 @@ export default function AnalysisContent() {
             try {
               const parsed = JSON.parse(trimmed);
               if (Array.isArray(parsed)) {
-                return parsed.filter(t => typeof t === 'string' && t.trim() !== '');
+                const result = parsed.filter(t => typeof t === 'string' && t.trim() !== '');
+                console.log('JSON parsed result:', result);
+                return result;
               }
             } catch (e) {
-              // JSONパース失敗時は次の処理へ
+              console.log('JSON parse failed:', e);
             }
           }
           
           // 文字列分割で処理（複数の区切り文字に対応）
-          return trimmed.split(/[,;、・]/)
+          const result = trimmed.split(/[,;、・]/)
             .map(t => t.trim())
             .filter(t => t !== '' && t !== 'なし' && t !== '特になし');
+          console.log('string split result:', result);
+          return result;
         }
         return [];
       };
