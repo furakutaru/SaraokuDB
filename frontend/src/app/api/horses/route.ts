@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
         console.log(`[API/Horses] Cache miss, fetching from DB: skip=${skip}, limit=${limit}, sort=${sort}, latest=${latestAuctionOnly}`);
 
-        // 2. 重複（同名）を除去するための代表的なIDを取得（最新の updated_at を優先）
+        // 2. 重複（同名）を除去するための代表的なIDを取得（DISTINCT ONで最適化）
         let repIdsResult: any[];
         if (latestAuctionOnly) {
             // 最新のオークション日を取得
@@ -48,24 +48,18 @@ export async function GET(request: Request) {
                 repIdsResult = [];
             } else {
                 repIdsResult = await sql`
-                    WITH RankedHorses AS (
-                        SELECT id, name, updated_at,
-                               ROW_NUMBER() OVER(PARTITION BY name ORDER BY updated_at DESC) as rn
-                        FROM horses
-                        WHERE name IS NOT NULL AND auction_date = ${latestDate}
-                    )
-                    SELECT id FROM RankedHorses WHERE rn = 1
+                    SELECT DISTINCT ON (name) id, name, updated_at
+                    FROM horses
+                    WHERE name IS NOT NULL AND auction_date = ${latestDate}
+                    ORDER BY name, updated_at DESC
                 `;
             }
         } else {
             repIdsResult = await sql`
-                WITH RankedHorses AS (
-                    SELECT id, name, updated_at,
-                           ROW_NUMBER() OVER(PARTITION BY name ORDER BY updated_at DESC) as rn
-                    FROM horses
-                    WHERE name IS NOT NULL
-                )
-                SELECT id FROM RankedHorses WHERE rn = 1
+                SELECT DISTINCT ON (name) id, name, updated_at
+                FROM horses
+                WHERE name IS NOT NULL
+                ORDER BY name, updated_at DESC
             `;
         }
 
@@ -79,7 +73,7 @@ export async function GET(request: Request) {
             });
         }
 
-        // 3. ページネーション適用
+        // 3. ページネーション適用（メモリ内でスライス）
         const paginatedIds = repIds.slice(skip, skip + limit);
 
         if (paginatedIds.length === 0) {
@@ -93,15 +87,16 @@ export async function GET(request: Request) {
         let horsesResult;
         const selectFields = sql`id, name, sex, age, sire, dam, dam_sire, sold_price, auction_date, seller, weight, image_url, is_unsold, race_records, total_prize_start, total_prize_latest, disease_tags, detail_url, jbis_url, is_broodmare`;
 
+        // インデックスを活用したソート
         if (sort === 'price_asc') {
-            horsesResult = await sql`SELECT ${selectFields} FROM horses WHERE id = ANY(${paginatedIds}) ORDER BY sold_price ASC`;
+            horsesResult = await sql`SELECT ${selectFields} FROM horses WHERE id = ANY(${paginatedIds}) ORDER BY sold_price ASC NULLS LAST`;
         } else if (sort === 'name_asc') {
-            horsesResult = await sql`SELECT ${selectFields} FROM horses WHERE id = ANY(${paginatedIds}) ORDER BY name ASC`;
+            horsesResult = await sql`SELECT ${selectFields} FROM horses WHERE id = ANY(${paginatedIds}) ORDER BY name ASC NULLS LAST`;
         } else if (sort === 'name_desc') {
-            horsesResult = await sql`SELECT ${selectFields} FROM horses WHERE id = ANY(${paginatedIds}) ORDER BY name DESC`;
+            horsesResult = await sql`SELECT ${selectFields} FROM horses WHERE id = ANY(${paginatedIds}) ORDER BY name DESC NULLS LAST`;
         } else {
             // Default: price_desc
-            horsesResult = await sql`SELECT ${selectFields} FROM horses WHERE id = ANY(${paginatedIds}) ORDER BY sold_price DESC`;
+            horsesResult = await sql`SELECT ${selectFields} FROM horses WHERE id = ANY(${paginatedIds}) ORDER BY sold_price DESC NULLS LAST`;
         }
 
         // 5. フロントエンド形式に整形
