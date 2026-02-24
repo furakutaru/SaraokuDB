@@ -367,7 +367,7 @@ export default function AnalysisContent() {
       if (filters.minPrice !== null && soldPrice < filters.minPrice) return false;
       if (filters.maxPrice !== null && soldPrice > filters.maxPrice) return false;
       const hasDisease = Array.isArray(h.disease_tags) && h.disease_tags.length > 0;
-      console.log(`馬名: ${h.name}, disease_tags:`, h.disease_tags, 'hasDisease:', hasDisease);
+      console.log(`馬名: ${h.name}, disease_tags:`, h.disease_tags, 'hasDisease:', hasDisease, 'filters.disease:', filters.disease);
       if (filters.disease === 'yes' && !hasDisease) return false;
       if (filters.disease === 'no' && hasDisease) return false;
       const w = h.weight ?? 0;
