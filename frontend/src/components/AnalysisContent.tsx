@@ -787,9 +787,9 @@ function AnalysisContent() {
                     <Button variant="outline" size="sm" onClick={() => setPage(p => (p * limit < (total || 0) ? p + 1 : p))} disabled={page * limit >= (total || 0) || loading}>次へ</Button>
                   </div>
                 </div>
-              </div>
-          </>
-        )}
+              </>
+            )}
+          </div>
 
           <aside className="w-80 space-y-4">
             <Card>
