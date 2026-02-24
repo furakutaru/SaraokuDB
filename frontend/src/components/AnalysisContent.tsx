@@ -492,14 +492,6 @@ function AnalysisContent() {
     };
   }, [filteredHorsesList]);
 
-
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  }
-  if (error || !data) {
-    return <div className="min-h-screen flex items-center justify-center text-red-600">{error || 'データがありません'}</div>;
-  }
-
   // CSVエクスポートユーティリティ
   const toCsv = (rows: any[]) => {
     const headers = ['ID', '馬名', '性別', '年齢', '父', '馬体重', '落札価格', '落札時賞金', '現在賞金', 'ROI', 'リンク', '病歴', '繁殖'];
@@ -723,8 +715,14 @@ function AnalysisContent() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 min-w-0">
-            {/* フィルターパネル */}
-            <FiltersPanel
+            {loading ? (
+              <div className="flex items-center justify-center h-64">Loading...</div>
+            ) : error || !data ? (
+              <div className="flex items-center justify-center h-64 text-red-600">{error || 'データがありません'}</div>
+            ) : (
+              <>
+                {/* フィルターパネル */}
+                <FiltersPanel
               filters={filters}
               onChange={handleFilterChange}
               onReset={handleResetFilters}
@@ -789,6 +787,8 @@ function AnalysisContent() {
                 <Button variant="outline" size="sm" onClick={() => setPage(p => (p * limit < (total || 0) ? p + 1 : p))} disabled={page * limit >= (total || 0) || loading}>次へ</Button>
               </div>
             </div>
+          </div>
+        </>
           </div>
 
           {/* 統計サイドバー */}
@@ -897,6 +897,7 @@ function AnalysisContent() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
