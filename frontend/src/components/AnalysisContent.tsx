@@ -325,11 +325,14 @@ export default function AnalysisContent() {
         return [];
       };
 
+      const parsedDiseaseTags = parseDiseaseTags(horseWithAuction.disease_tags);
+      console.log('final parsedDiseaseTags for', horseWithAuction.name, ':', parsedDiseaseTags);
+
       return {
         ...horseWithAuction,
         dam_sire: horseWithAuction.dam_sire || horseWithAuction.damsire || '',
         detail_url: horseWithAuction.detail_url || horseWithAuction.auction_url || '',
-        disease_tags: parseDiseaseTags(horseWithAuction.disease_tags),
+        disease_tags: parsedDiseaseTags,
         latestAuction: latestAuction || undefined,
         total_prize_start: latestAuction?.total_prize_start || horseWithAuction.total_prize_start || 0,
         total_prize_latest: latestAuction?.total_prize_latest || horseWithAuction.total_prize_latest || 0,
