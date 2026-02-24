@@ -342,10 +342,6 @@ export default function AnalysisContent() {
       if (filters.minPrice !== null && soldPrice < filters.minPrice) return false;
       if (filters.maxPrice !== null && soldPrice > filters.maxPrice) return false;
       const hasDisease = Array.isArray(h.disease_tags) && h.disease_tags.length > 0;
-      // デバッグ: 病歴データを確認
-      if (h.disease_tags) {
-        console.log(`馬名: ${h.name}, disease_tags:`, h.disease_tags, 'type:', typeof h.disease_tags, 'isArray:', Array.isArray(h.disease_tags));
-      }
       if (filters.disease === 'yes' && !hasDisease) return false;
       if (filters.disease === 'no' && hasDisease) return false;
       const w = h.weight ?? 0;
