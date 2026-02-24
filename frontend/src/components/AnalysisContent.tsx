@@ -457,8 +457,8 @@ export default function AnalysisContent() {
     const horse = tableHorses[index];
     return (
       <div style={style} className="flex items-center border-b border-gray-200 hover:bg-blue-50/50 transition-colors">
-        <div className="flex items-center px-3 py-2 text-sm" style={{ width: '1200px' }}>
-          <div className="w-48">{horse.name ? (
+        <div className="flex items-center px-3 py-2 text-sm" style={{ width: '1100px' }}>
+          <div className="w-48 pr-2">{horse.name ? (
             <Link href={`/horses/${horse.id}`} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">
               {horse.name}
             </Link>
@@ -474,18 +474,18 @@ export default function AnalysisContent() {
             })()}
           </div>
           <div className="w-12 text-center text-gray-600">{displayAge(horse.age)}</div>
-          <div className="w-24 text-center text-gray-600">{horse.sire || '-'}</div>
-          <div className="w-16 text-right text-gray-600">{horse.weight || '-'}</div>
-          <div className="w-20 text-right text-gray-700 font-medium">
+          <div className="w-32 text-center text-gray-600 truncate">{horse.sire || '-'}</div>
+          <div className="w-20 text-right text-gray-600 pr-2">{horse.weight || '-'}</div>
+          <div className="w-24 text-right text-gray-700 font-medium pr-2">
             {displayPrice(horse.sold_price, horse.is_unsold)}
           </div>
-          <div className="w-20 text-right text-gray-600">
+          <div className="w-20 text-right text-gray-600 pr-2">
             {formatPrize(horse.total_prize_start)}
           </div>
-          <div className="w-20 text-right text-gray-600">
+          <div className="w-20 text-right text-gray-600 pr-2">
             {formatPrize(horse.total_prize_latest)}
           </div>
-          <div className="w-16 text-left font-semibold text-gray-700">
+          <div className="w-20 text-left font-semibold text-gray-700 pr-2">
             {calcROI(horse.total_prize_latest, horse.total_prize_start, horse.sold_price)}
           </div>
           <div className="w-16 text-center">
@@ -641,16 +641,16 @@ export default function AnalysisContent() {
             <div className="bg-white rounded-lg shadow border overflow-x-auto">
               {/* テーブルヘッダー */}
               <div className="bg-gray-50 border-b border-gray-200 min-w-max">
-                <div className="flex items-center px-3 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{ width: '1200px' }}>
-                  <div className="w-48 cursor-pointer" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</div>
+                <div className="flex items-center px-3 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{ width: '1100px' }}>
+                  <div className="w-48 cursor-pointer pr-2" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</div>
                   <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</div>
                   <div className="w-12 text-center cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</div>
-                  <div className="w-24 text-center cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</div>
-                  <div className="w-16 text-right cursor-pointer" onClick={() => handleSort('weight')}>馬体重{renderSortIcon('weight')}</div>
-                  <div className="w-20 text-left cursor-pointer" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</div>
-                  <div className="w-20 text-right">落札時</div>
-                  <div className="w-20 text-right">現在</div>
-                  <div className="w-16 text-left">ROI</div>
+                  <div className="w-32 text-center cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</div>
+                  <div className="w-20 text-right cursor-pointer pr-2" onClick={() => handleSort('weight')}>馬体重{renderSortIcon('weight')}</div>
+                  <div className="w-24 text-left cursor-pointer pr-2" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</div>
+                  <div className="w-20 text-right pr-2">落札時</div>
+                  <div className="w-20 text-right pr-2">現在</div>
+                  <div className="w-20 text-left pr-2">ROI</div>
                   <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('disease')}>病歴{renderSortIcon('disease')}</div>
                   <div className="w-20 text-center">リンク</div>
                 </div>
@@ -667,7 +667,7 @@ export default function AnalysisContent() {
                   該当する馬が見つかりませんでした。フィルター設定を見直してください。
                 </div>
               ) : (
-                <div style={{ height: Math.min(tableHorses.length * 50, 600), width: '1200px' }}>
+                <div style={{ height: Math.min(tableHorses.length * 50, 600), width: '1100px' }}>
                   <List
                     width="100%"
                     height={Math.min(tableHorses.length * 50, 600)}
