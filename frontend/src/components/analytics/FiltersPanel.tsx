@@ -34,7 +34,7 @@ export const FiltersPanel: React.FC<Props> = ({ filters, onChange, onReset, sire
 
     return (
         <div className={`bg-white rounded-md border p-3 ${className || ''}`}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="flex flex-wrap gap-4">
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-gray-700 whitespace-nowrap">性別</span>
                     <div className="flex items-center gap-3">
@@ -64,7 +64,7 @@ export const FiltersPanel: React.FC<Props> = ({ filters, onChange, onReset, sire
 
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-gray-700 whitespace-nowrap">父</span>
-                    <input list={dataListId} className="w-full border rounded px-2 py-1 h-7 text-xs" placeholder="アグネスタキオン" value={filters.sire} onChange={(e) => onChange({ sire: e.target.value })} />
+                    <input list={dataListId} className="w-32 border rounded px-2 py-1 h-7 text-xs" placeholder="アグネスタキオン" value={filters.sire} onChange={(e) => onChange({ sire: e.target.value })} />
                     <datalist id={dataListId}>
                         {dedupedSires.map((s) => (
                             <option key={s} value={s} />
@@ -81,28 +81,26 @@ export const FiltersPanel: React.FC<Props> = ({ filters, onChange, onReset, sire
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4 col-span-1">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">価格(万)</span>
-                        <div className="flex items-center gap-1.5">
-                            <input type="number" className="w-20 border rounded px-2 py-0.5 h-7 text-xs" value={filters.minPrice === null ? '' : Math.floor(filters.minPrice / 10000)} onChange={(e) => onChange({ minPrice: e.target.value === '' ? null : parseInt(e.target.value, 10) * 10000 })} />
-                            <span>〜</span>
-                            <input type="number" className="w-20 border rounded px-2 py-0.5 h-7 text-xs" value={filters.maxPrice === null ? '' : Math.floor(filters.maxPrice / 10000)} onChange={(e) => onChange({ maxPrice: e.target.value === '' ? null : parseInt(e.target.value, 10) * 10000 })} />
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">病歴</span>
-                        <select className="w-20 border rounded px-2 py-1 h-7 text-xs" value={filters.disease} onChange={(e) => onChange({ disease: e.target.value as Filters['disease'] })}>
-                            <option value="any">指定なし</option>
-                            <option value="yes">あり</option>
-                            <option value="no">なし</option>
-                        </select>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-700 whitespace-nowrap">価格(万)</span>
+                    <div className="flex items-center gap-1.5">
+                        <input type="number" className="w-20 border rounded px-2 py-0.5 h-7 text-xs" value={filters.minPrice === null ? '' : Math.floor(filters.minPrice / 10000)} onChange={(e) => onChange({ minPrice: e.target.value === '' ? null : parseInt(e.target.value, 10) * 10000 })} />
+                        <span>〜</span>
+                        <input type="number" className="w-20 border rounded px-2 py-0.5 h-7 text-xs" value={filters.maxPrice === null ? '' : Math.floor(filters.maxPrice / 10000)} onChange={(e) => onChange({ maxPrice: e.target.value === '' ? null : parseInt(e.target.value, 10) * 10000 })} />
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 whitespace-nowrap">
-                    <span className="text-xs font-medium text-gray-700">馬体重</span>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-700 whitespace-nowrap">病歴</span>
+                    <select className="w-20 border rounded px-2 py-1 h-7 text-xs" value={filters.disease} onChange={(e) => onChange({ disease: e.target.value as Filters['disease'] })}>
+                        <option value="any">指定なし</option>
+                        <option value="yes">あり</option>
+                        <option value="no">なし</option>
+                    </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-700 whitespace-nowrap">馬体重</span>
                     <div className="flex items-center gap-1.5">
                         <input type="number" className="w-16 border rounded px-2 py-0.5 h-7 text-xs" value={filters.minWeight ?? ''} onChange={(e) => onChange({ minWeight: e.target.value === '' ? null : parseInt(e.target.value, 10) })} />
                         <span>〜</span>
@@ -112,7 +110,7 @@ export const FiltersPanel: React.FC<Props> = ({ filters, onChange, onReset, sire
 
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-gray-700 whitespace-nowrap">繁殖</span>
-                    <select className="w-full border rounded px-2 py-1 h-7 text-xs" value={filters.isBroodmare} onChange={(e) => onChange({ isBroodmare: e.target.value as Filters['isBroodmare'] })}>
+                    <select className="w-24 border rounded px-2 py-1 h-7 text-xs" value={filters.isBroodmare} onChange={(e) => onChange({ isBroodmare: e.target.value as Filters['isBroodmare'] })}>
                         <option value="any">指定なし</option>
                         <option value="yes">繁殖牝馬</option>
                         <option value="no">それ以外</option>
