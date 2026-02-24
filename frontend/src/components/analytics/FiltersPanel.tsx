@@ -92,7 +92,7 @@ export const FiltersPanel: React.FC<Props> = ({ filters, onChange, onReset, sire
 
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-gray-700 whitespace-nowrap">病歴</span>
-                    <select className="w-full border rounded px-2 py-1 h-7 text-xs" value={filters.disease} onChange={(e) => onChange({ disease: e.target.value as Filters['disease'] })}>
+                    <select className="w-24 border rounded px-2 py-1 h-7 text-xs" value={filters.disease} onChange={(e) => onChange({ disease: e.target.value as Filters['disease'] })}>
                         <option value="any">指定なし</option>
                         <option value="yes">あり</option>
                         <option value="no">なし</option>
