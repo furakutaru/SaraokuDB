@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { apiCache, generateCacheKey } from '@/lib/cache';
 
 // データベース接続を設定
 if (!process.env.DATABASE_URL) {
@@ -153,6 +154,19 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    
+    // キャッシュキーの生成
+    const cacheKey = generateCacheKey(`/api/horses/${id}`, {});
+    
+    // キャッシュチェック
+    const cachedResponse = apiCache.get(cacheKey);
+    if (cachedResponse) {
+      console.log(`[API/Horses/${id}] Cache hit for ${cacheKey}`);
+      return NextResponse.json(cachedResponse);
+    }
+
+    console.log(`[API/Horses/${id}] Cache miss, fetching from DB: ${id}`);
+    
     const horse = await getHorseData(id);
 
     if (!horse) {
@@ -187,6 +201,10 @@ export async function GET(
         data_source: 'db'
       }
     };
+
+    // キャッシュに保存（TTL: 10分 - 個別データは少し長め）
+    apiCache.set(cacheKey, responseData, 10 * 60 * 1000);
+    console.log(`[API/Horses/${id}] Cached response for ${cacheKey}`);
 
     return NextResponse.json(responseData);
   } catch (error) {

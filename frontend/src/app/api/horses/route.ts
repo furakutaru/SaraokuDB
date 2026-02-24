@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { apiCache, generateCacheKey } from '@/lib/cache';
 
 // データベース接続を設定
 if (!process.env.DATABASE_URL) {
@@ -19,7 +20,22 @@ export async function GET(request: Request) {
         const sort = searchParams.get('sort') || 'price_desc';
         const latestAuctionOnly = searchParams.get('latest_auction') === 'true';
 
-        console.log(`[API/Horses] Fetching horses: skip=${skip}, limit=${limit}, sort=${sort}, latest=${latestAuctionOnly}`);
+        // キャッシュキーの生成
+        const cacheKey = generateCacheKey('/api/horses', {
+            skip,
+            limit,
+            sort,
+            latestAuctionOnly
+        });
+
+        // キャッシュチェック
+        const cachedResponse = apiCache.get(cacheKey);
+        if (cachedResponse) {
+            console.log(`[API/Horses] Cache hit for ${cacheKey}`);
+            return NextResponse.json(cachedResponse);
+        }
+
+        console.log(`[API/Horses] Cache miss, fetching from DB: skip=${skip}, limit=${limit}, sort=${sort}, latest=${latestAuctionOnly}`);
 
         // 2. 重複（同名）を除去するための代表的なIDを取得（最新の updated_at を優先）
         let repIdsResult: any[];
@@ -99,7 +115,7 @@ export async function GET(request: Request) {
             auction_history: [],
         }));
 
-        return NextResponse.json({
+        const responseData = {
             horses: horsesData,
             metadata: {
                 total: totalCount,
@@ -107,7 +123,13 @@ export async function GET(request: Request) {
                 limit,
                 last_updated: new Date().toISOString()
             }
-        });
+        };
+
+        // キャッシュに保存（TTL: 5分）
+        apiCache.set(cacheKey, responseData, 5 * 60 * 1000);
+        console.log(`[API/Horses] Cached response for ${cacheKey}`);
+
+        return NextResponse.json(responseData);
 
     } catch (error) {
         console.error('[API/Horses] Error:', error);
