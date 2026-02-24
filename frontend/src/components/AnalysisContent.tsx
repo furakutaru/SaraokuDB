@@ -789,10 +789,10 @@ function AnalysisContent() {
             </div>
           </div>
         </>
-          </div>
+        </div>
 
-          {/* 統計サイドバー */}
-          <aside className="w-full lg:w-72 flex flex-col gap-6">
+        {/* 統計サイドバー */}
+        <aside className="w-full lg:w-72 flex flex-col gap-6">
             <Card className="shadow-sm border-gray-200">
               <CardHeader className="py-4 border-b bg-gray-50/50">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -896,7 +896,6 @@ function AnalysisContent() {
           </aside>
         </div>
       </div>
-    </div>
     </>
   );
 }
