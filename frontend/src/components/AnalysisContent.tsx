@@ -87,6 +87,17 @@ const median = (arr: any[]) => {
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 };
 
+// ROIを計算する共通ユーティリティ (単位: %)
+const calculateROI = (prizeLatest: number | undefined, prizeStart: number | undefined, soldPrice: number | string | null | undefined): number => {
+  if (prizeLatest === undefined || prizeStart === undefined || !soldPrice) return 0;
+  const numPrice = typeof soldPrice === 'string' ? parseFloat(soldPrice.replace(/[^0-9.]/g, '')) : soldPrice;
+  if (isNaN(numPrice) || numPrice <= 0) return 0;
+
+  // 賞金(円) - 落札時賞金(円) / 落札価格(円) * 100
+  const earnedPrize = prizeLatest - prizeStart;
+  return (earnedPrize / numPrice) * 100;
+};
+
 const initialFilters: Filters = {
   sex: { male: true, female: true, gelding: true },
   minAge: null,
@@ -408,7 +419,7 @@ function AnalysisContent() {
       if (filters.sire && !h.sire?.toLowerCase().includes(filters.sire.toLowerCase())) return false;
       const earnedPrize = (h.total_prize_latest || 0) - (h.total_prize_start || 0);
       const soldPrice = Number(h.sold_price || 0);
-      const roi = soldPrice > 0 ? (earnedPrize * 10000) / soldPrice : 0;
+      const roi = calculateROI(h.total_prize_latest, h.total_prize_start, h.sold_price);
       if (filters.minROI !== null && roi < filters.minROI) return false;
       if (filters.maxROI !== null && roi > filters.maxROI) return false;
       if (filters.minPrice !== null && soldPrice < filters.minPrice) return false;
@@ -436,11 +447,7 @@ function AnalysisContent() {
     const prices = filteredHorsesList.filter((h: HorseWithAuction) => !h.is_unsold).map((h: HorseWithAuction) => Number(h.sold_price || 0));
     const prizeStarts = filteredHorsesList.map((h: HorseWithAuction) => Number(h.total_prize_start || 0));
     const prizeLatests = filteredHorsesList.map((h: HorseWithAuction) => Number(h.total_prize_latest || 0));
-    const rois = filteredHorsesList.map((h: HorseWithAuction) => {
-      const earnedPrize = (h.total_prize_latest || 0) - (h.total_prize_start || 0);
-      const soldPrice = Number(h.sold_price || 0);
-      return soldPrice > 0 ? (earnedPrize * 10000) / soldPrice : 0;
-    });
+    const rois = filteredHorsesList.map((h: HorseWithAuction) => calculateROI(h.total_prize_latest, h.total_prize_start, h.sold_price));
     const weights = filteredHorsesList.map((h: HorseWithAuction) => Number(h.weight || 0)).filter((w: number) => w > 0);
     const sexGroups = filteredHorsesList.reduce((acc: any, h: HorseWithAuction) => {
       const sex = h.sex || '不明';
@@ -478,10 +485,9 @@ function AnalysisContent() {
     const lines = [headers.join(',')];
     for (const h of rows) {
       const disease = Array.isArray(h.disease_tags) ? h.disease_tags.join(' / ') : (h.disease_tags ?? '');
-      const earnedPrize = (h.total_prize_latest || 0) - (h.total_prize_start || 0);
       const soldPrice = Number(h.sold_price || 0);
-      const roi = soldPrice > 0 ? (earnedPrize * 10000) / soldPrice : 0;
-      const row = [String(h.id), h.name ?? '', h.sex ?? '', h.age ?? '', h.sire ?? '', h.weight ?? '', soldPrice, h.total_prize_start ?? '', h.total_prize_latest ?? '', roi.toFixed(2), h.detail_url || h.auction_url || '', disease, h.is_broodmare ? '○' : ''].map(escape).join(',');
+      const roi = calculateROI(h.total_prize_latest, h.total_prize_start, h.sold_price);
+      const row = [String(h.id), h.name ?? '', h.sex ?? '', h.age ?? '', h.sire ?? '', h.weight ?? '', soldPrice, h.total_prize_start ?? '', h.total_prize_latest ?? '', roi.toFixed(1), h.detail_url || h.auction_url || '', disease, h.is_broodmare ? '○' : ''].map(escape).join(',');
       lines.push(row);
     }
     return '\uFEFF' + lines.join('\n');
@@ -592,12 +598,8 @@ function AnalysisContent() {
 
   // ROIを計算するヘルパー関数
   const calcROI = (prizeLatest: number | undefined, prizeStart: number | undefined, price: number | string | null | undefined): string => {
-    if (prizeLatest === undefined || prizeStart === undefined || !price) return '-';
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    if (isNaN(numPrice) || numPrice <= 0) return '-';
-    const earnedPrize = prizeLatest - prizeStart;
-    const rio = (earnedPrize * 10000) / numPrice;
-    return (rio * 100).toFixed(1) + '%';
+    const roi = calculateROI(prizeLatest, prizeStart, price);
+    return roi === 0 && (!prizeLatest || !price) ? '-' : roi.toFixed(1) + '%';
   };
 
   // ソート関数の型定義
@@ -624,18 +626,8 @@ function AnalysisContent() {
     total_prize_start: (a, b) => (a.total_prize_start || 0) - (b.total_prize_start || 0),
     total_prize_latest: (a, b) => (a.total_prize_latest || 0) - (b.total_prize_latest || 0),
     roi: (a, b) => {
-      const getPrice = (p: any, isUnsold: boolean = false) => {
-        if (isUnsold) return 0;
-        if (p === null || p === undefined) return 0;
-        if (typeof p === 'number') return p;
-        return parseFloat(String(p).replace(/[^0-9.]/g, '')) || 0;
-      };
-      const aPrice = getPrice(a.sold_price, a.is_unsold);
-      const bPrice = getPrice(b.sold_price, b.is_unsold);
-      const aEarnedPrize = (a.total_prize_latest || 0) - (a.total_prize_start || 0);
-      const bEarnedPrize = (b.total_prize_latest || 0) - (b.total_prize_start || 0);
-      const aROI = aPrice > 0 ? (aEarnedPrize * 10000) / aPrice : 0;
-      const bROI = bPrice > 0 ? (bEarnedPrize * 10000) / bPrice : 0;
+      const aROI = calculateROI(a.total_prize_latest, a.total_prize_start, a.sold_price);
+      const bROI = calculateROI(b.total_prize_latest, b.total_prize_start, b.sold_price);
       return aROI - bROI;
     },
     disease: (a, b) => {
