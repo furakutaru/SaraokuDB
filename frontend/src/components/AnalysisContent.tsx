@@ -715,9 +715,9 @@ function AnalysisContent() {
                       <div className="w-32 text-center cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</div>
                       <div className="w-20 text-center cursor-pointer pr-2" onClick={() => handleSort('weight')}>馬体重{renderSortIcon('weight')}</div>
                       <div className="w-24 text-center cursor-pointer pr-2" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</div>
-                      <div className="w-24 text-center pr-4">落札時</div>
-                      <div className="w-24 text-center pr-4">現在</div>
-                      <div className="w-20 text-center pr-2">ROI</div>
+                      <div className="w-24 text-center cursor-pointer pr-4" onClick={() => handleSort('total_prize_start')}>落札時{renderSortIcon('total_prize_start')}</div>
+                      <div className="w-24 text-center cursor-pointer pr-4" onClick={() => handleSort('total_prize_latest')}>現在{renderSortIcon('total_prize_latest')}</div>
+                      <div className="w-20 text-center cursor-pointer pr-2" onClick={() => handleSort('roi')}>ROI{renderSortIcon('roi')}</div>
                       <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('disease')}>病歴{renderSortIcon('disease')}</div>
                       <div className="w-20 text-center">リンク</div>
                     </div>
