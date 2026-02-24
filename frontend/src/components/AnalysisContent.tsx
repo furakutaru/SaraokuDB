@@ -342,6 +342,10 @@ export default function AnalysisContent() {
       if (filters.minPrice !== null && soldPrice < filters.minPrice) return false;
       if (filters.maxPrice !== null && soldPrice > filters.maxPrice) return false;
       const hasDisease = Array.isArray(h.disease_tags) && h.disease_tags.length > 0;
+      // デバッグ: 病歴データを確認
+      if (h.disease_tags) {
+        console.log(`馬名: ${h.name}, disease_tags:`, h.disease_tags, 'type:', typeof h.disease_tags, 'isArray:', Array.isArray(h.disease_tags));
+      }
       if (filters.disease === 'yes' && !hasDisease) return false;
       if (filters.disease === 'no' && hasDisease) return false;
       const w = h.weight ?? 0;
@@ -479,10 +483,10 @@ export default function AnalysisContent() {
           <div className="w-24 text-center text-gray-700 font-medium pr-2">
             {displayPrice(horse.sold_price, horse.is_unsold)}
           </div>
-          <div className="w-20 text-center text-gray-600 pr-4">
+          <div className="w-24 text-center text-gray-600 pr-4">
             {formatPrize(horse.total_prize_start)}
           </div>
-          <div className="w-20 text-center text-gray-600 pr-4">
+          <div className="w-24 text-center text-gray-600 pr-4">
             {formatPrize(horse.total_prize_latest)}
           </div>
           <div className="w-20 text-center font-semibold text-gray-700 pr-2">
@@ -648,8 +652,8 @@ export default function AnalysisContent() {
                   <div className="w-32 text-center cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</div>
                   <div className="w-20 text-center cursor-pointer pr-2" onClick={() => handleSort('weight')}>馬体重{renderSortIcon('weight')}</div>
                   <div className="w-24 text-center cursor-pointer pr-2" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</div>
-                  <div className="w-20 text-center pr-4">落札時</div>
-                  <div className="w-20 text-center pr-4">現在</div>
+                  <div className="w-24 text-center pr-4">落札時</div>
+                  <div className="w-24 text-center pr-4">現在</div>
                   <div className="w-20 text-center pr-2">ROI</div>
                   <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('disease')}>病歴{renderSortIcon('disease')}</div>
                   <div className="w-20 text-center">リンク</div>
