@@ -475,17 +475,17 @@ export default function AnalysisContent() {
           </div>
           <div className="w-12 text-center text-gray-600">{displayAge(horse.age)}</div>
           <div className="w-32 text-center text-gray-600 truncate">{horse.sire || '-'}</div>
-          <div className="w-20 text-center text-gray-600 pr-2">{horse.weight || '-'}</div>
-          <div className="w-24 text-center text-gray-700 font-medium pr-2">
+          <div className="w-20 text-right text-gray-600 pr-2">{horse.weight || '-'}</div>
+          <div className="w-24 text-left text-gray-700 font-medium pr-2">
             {displayPrice(horse.sold_price, horse.is_unsold)}
           </div>
-          <div className="w-20 text-center text-gray-600 pr-4">
+          <div className="w-20 text-right text-gray-600 pr-4">
             {formatPrize(horse.total_prize_start)}
           </div>
-          <div className="w-20 text-center text-gray-600 pr-4">
+          <div className="w-20 text-right text-gray-600 pr-4">
             {formatPrize(horse.total_prize_latest)}
           </div>
-          <div className="w-20 text-center font-semibold text-gray-700 pr-2">
+          <div className="w-20 text-left font-semibold text-gray-700 pr-2">
             {calcROI(horse.total_prize_latest, horse.total_prize_start, horse.sold_price)}
           </div>
           <div className="w-16 text-center">
@@ -641,16 +641,16 @@ export default function AnalysisContent() {
             <div className="bg-white rounded-lg shadow border overflow-x-auto">
               {/* テーブルヘッダー */}
               <div className="bg-gray-50 border-b border-gray-200 min-w-max">
-                <div className="flex items-center justify-center px-3 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{ width: '1100px' }}>
+                <div className="flex items-center px-3 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{ width: '1100px' }}>
                   <div className="w-48 cursor-pointer pr-2 text-left" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</div>
                   <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</div>
                   <div className="w-12 text-center cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</div>
                   <div className="w-32 text-center cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</div>
-                  <div className="w-20 text-center cursor-pointer pr-2" onClick={() => handleSort('weight')}>馬体重{renderSortIcon('weight')}</div>
-                  <div className="w-24 text-center cursor-pointer pr-2" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</div>
-                  <div className="w-20 text-center pr-4">落札時</div>
-                  <div className="w-20 text-center pr-4">現在</div>
-                  <div className="w-20 text-center pr-2">ROI</div>
+                  <div className="w-20 text-right cursor-pointer pr-2" onClick={() => handleSort('weight')}>馬体重{renderSortIcon('weight')}</div>
+                  <div className="w-24 text-left cursor-pointer pr-2" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</div>
+                  <div className="w-20 text-right pr-4">落札時</div>
+                  <div className="w-20 text-right pr-4">現在</div>
+                  <div className="w-20 text-left pr-2">ROI</div>
                   <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('disease')}>病歴{renderSortIcon('disease')}</div>
                   <div className="w-20 text-center">リンク</div>
                 </div>
