@@ -149,6 +149,7 @@ export default function AnalysisContent() {
   const [data, setData] = useState<HorseData | null>(null);
   const [allData, setAllData] = useState<HorseData | null>(null); // 分析サマリー用の全データ
   const [loading, setLoading] = useState(true);
+  const [allDataLoading, setAllDataLoading] = useState(true); // 全データローディング状態
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -221,6 +222,7 @@ export default function AnalysisContent() {
   // 分析サマリー用の全データ取得
   const fetchAllData = async () => {
     try {
+      setAllDataLoading(true);
       const API_BASE = getApiBase();
       const url = `${API_BASE}/api/horses?skip=0&limit=5000`;
       const response = await fetch(url, {
@@ -261,6 +263,8 @@ export default function AnalysisContent() {
       });
     } catch (e: any) {
       console.error('全データ取得エラー:', e);
+    } finally {
+      setAllDataLoading(false);
     }
   };
 
@@ -653,7 +657,12 @@ export default function AnalysisContent() {
               </div>
               
               {/* 仮想化されたテーブル本体 */}
-              {tableHorses.length === 0 ? (
+              {loading || allDataLoading ? (
+                <div className="text-center py-10 text-gray-500">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
+                  <div>{loading ? 'データを読み込み中...' : '分析データを準備中...'}</div>
+                </div>
+              ) : tableHorses.length === 0 ? (
                 <div className="text-center py-10 text-gray-500 italic">
                   該当する馬が見つかりませんでした。フィルター設定を見直してください。
                 </div>
