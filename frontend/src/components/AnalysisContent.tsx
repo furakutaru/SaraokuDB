@@ -333,11 +333,11 @@ function AnalysisContent() {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [page, limit]);
 
   useEffect(() => {
     fetchAllData(); // 分析サマリー用の全データは最初に一度だけ取得
-  }, [fetchAllData]);
+  }, []);
 
   // 3. データ処理 (Hooksは早期リターンの前に呼び出す必要がある)
   // parseDiseaseTags関数をキャッシュ化してパフォーマンス向上
