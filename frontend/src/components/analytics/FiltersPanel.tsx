@@ -84,9 +84,9 @@ export const FiltersPanel: React.FC<Props> = ({ filters, onChange, onReset, sire
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-gray-700 whitespace-nowrap">価格(万)</span>
                     <div className="flex items-center gap-1.5">
-                        <input type="number" className="w-20 border rounded px-2 py-0.5 h-7 text-xs" value={filters.minPrice === null ? '' : Math.floor(filters.minPrice / 10000)} onChange={(e) => onChange({ minPrice: e.target.value === '' ? null : parseInt(e.target.value, 10) * 10000 })} />
+                        <input type="number" className="w-16 border rounded px-2 py-0.5 h-7 text-xs" value={filters.minPrice === null ? '' : Math.floor(filters.minPrice / 10000)} onChange={(e) => onChange({ minPrice: e.target.value === '' ? null : parseInt(e.target.value, 10) * 10000 })} />
                         <span>〜</span>
-                        <input type="number" className="w-20 border rounded px-2 py-0.5 h-7 text-xs" value={filters.maxPrice === null ? '' : Math.floor(filters.maxPrice / 10000)} onChange={(e) => onChange({ maxPrice: e.target.value === '' ? null : parseInt(e.target.value, 10) * 10000 })} />
+                        <input type="number" className="w-16 border rounded px-2 py-0.5 h-7 text-xs" value={filters.maxPrice === null ? '' : Math.floor(filters.maxPrice / 10000)} onChange={(e) => onChange({ maxPrice: e.target.value === '' ? null : parseInt(e.target.value, 10) * 10000 })} />
                     </div>
                 </div>
 
