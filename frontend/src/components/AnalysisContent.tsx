@@ -147,6 +147,7 @@ const groupAuctionHistory = (auctionHistory: AuctionHistory[]): Record<string, A
 
 export default function AnalysisContent() {
   const [data, setData] = useState<HorseData | null>(null);
+  const [allData, setAllData] = useState<HorseData | null>(null); // 分析サマリー用の全データ
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<string>('');
@@ -217,8 +218,55 @@ export default function AnalysisContent() {
     }
   };
 
+  // 分析サマリー用の全データ取得
+  const fetchAllData = async () => {
+    try {
+      const API_BASE = getApiBase();
+      const url = `${API_BASE}/api/horses?skip=0&limit=5000`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) throw new Error('全データの取得に失敗しました');
+      const payload = await response.json();
+      const horsesData = payload?.horses || [];
+      const auctionHistory = payload?.auction_histories || [];
+
+      const horsesWithHistory = horsesData.map((horse: any) => ({
+        ...horse,
+        latest_auction: null,
+        sold_price: horse.sold_price || null,
+        is_unsold: horse.is_unsold || false,
+        auction_date: horse.auction_date,
+        seller: horse.seller,
+        weight: horse.weight || null,
+        total_prize_start: horse.total_prize_start || 0,
+        total_prize_latest: horse.total_prize_latest || 0,
+        comment: horse.comment
+      } as HorseWithAuction));
+
+      setAllData({
+        horses: horsesWithHistory,
+        auction_history: auctionHistory,
+        metadata: {
+          total_horses: Number(payload?.metadata?.total || horsesWithHistory.length),
+          total_auctions: auctionHistory.length,
+          average_price: 0,
+          last_updated: new Date().toISOString()
+        }
+      });
+    } catch (e: any) {
+      console.error('全データ取得エラー:', e);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchAllData(); // 分析サマリー用の全データも取得
   }, [page, limit]);
 
   // 3. データ処理 (Hooksは早期リターンの前に呼び出す必要がある)
@@ -267,11 +315,11 @@ export default function AnalysisContent() {
 
   const horses = horsesWithLatest;
 
-  const sireSuggestions = useMemo(() => Array.from(new Set(horses.map(h => h.sire).filter(Boolean))), [horses]);
+  const sireSuggestions = useMemo(() => Array.from(new Set((allData?.horses as HorseWithAuction[] || []).map(h => h.sire).filter(Boolean))), [allData]);
 
   const filteredHorsesList = useMemo(() => {
-    if (horses.length === 0) return [];
-    return horses.filter((h: HorseWithAuction) => {
+    if (!allData || allData.horses.length === 0) return [];
+    return (allData.horses as HorseWithAuction[]).filter((h: HorseWithAuction) => {
       if (h.sex === '牡' && !filters.sex.male) return false;
       if (h.sex === '牝' && !filters.sex.female) return false;
       if (h.sex === 'セ' && !filters.sex.gelding) return false;
@@ -380,7 +428,7 @@ export default function AnalysisContent() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportAll = () => downloadCsv('horses_all.csv', toCsv(horses));
+  const handleExportAll = () => downloadCsv('horses_all.csv', toCsv(allData?.horses as HorseWithAuction[] || []));
   const handleExportFiltered = () => downloadCsv('horses_filtered.csv', toCsv(filteredHorsesList));
 
   const DebugOverlay = () => !isDebug ? null : (
