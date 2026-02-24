@@ -152,7 +152,7 @@ export default function AnalysisContent() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const router = useRouter();
   const [page, setPage] = useState<number>(1);
-  const [limit, setLimit] = useState<number>(5000);
+  const [limit, setLimit] = useState<number>(50);
   const [total, setTotal] = useState<number>(0);
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [debugInfo, setDebugInfo] = useState<{ url?: string; ran: boolean; received?: number; total?: number; apiBase?: string; err?: string }>({ ran: false });
