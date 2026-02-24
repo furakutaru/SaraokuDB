@@ -238,18 +238,63 @@ export default function AnalysisContent() {
       const horsesData = payload?.horses || [];
       const auctionHistory = payload?.auction_histories || [];
 
-      const horsesWithHistory = horsesData.map((horse: any) => ({
-        ...horse,
-        latest_auction: null,
-        sold_price: horse.sold_price || null,
-        is_unsold: horse.is_unsold || false,
-        auction_date: horse.auction_date,
-        seller: horse.seller,
-        weight: horse.weight || null,
-        total_prize_start: horse.total_prize_start || 0,
-        total_prize_latest: horse.total_prize_latest || 0,
-        comment: horse.comment
-      } as HorseWithAuction));
+      const horsesWithHistory = horsesData.map((horse: any) => {
+        // 最新のオークション情報を取得
+        const latestAuction = auctionHistory
+          .filter((ah: any) => ah.horse_id === horse.id)
+          .sort((a: any, b: any) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0];
+
+        const horseWithAuction = horse as HorseWithAuction;
+        const effectiveWeight = latestAuction?.weight ?? horseWithAuction.weight ?? null;
+
+        const parseDiseaseTags = (tags: any): string[] => {
+          if (!tags) return [];
+          if (Array.isArray(tags)) return tags;
+          if (typeof tags === 'string') {
+            const trimmed = tags.trim();
+            
+            // 空文字や「なし」「特になし」は空配列を返す
+            if (!trimmed || trimmed === 'なし' || trimmed === '特になし') {
+              return [];
+            }
+            
+            // JSON配列形式の場合
+            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+              try {
+                const parsed = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) {
+                  return parsed.filter(t => typeof t === 'string' && t.trim() !== '');
+                }
+              } catch (e) {
+                // JSONパース失敗時は次の処理へ
+              }
+            }
+            
+            // 文字列分割で処理（複数の区切り文字に対応）
+            return trimmed.split(/[,;、・]/)
+              .map(t => t.trim())
+              .filter(t => t !== '' && t !== 'なし' && t !== '特になし');
+          }
+          return [];
+        };
+
+        const parsedDiseaseTags = parseDiseaseTags(horseWithAuction.disease_tags);
+
+        return {
+          ...horseWithAuction,
+          dam_sire: horseWithAuction.dam_sire || horseWithAuction.damsire || '',
+          detail_url: horseWithAuction.detail_url || horseWithAuction.auction_url || '',
+          disease_tags: parsedDiseaseTags,
+          latestAuction: latestAuction || undefined,
+          total_prize_start: latestAuction?.total_prize_start || horseWithAuction.total_prize_start || 0,
+          total_prize_latest: latestAuction?.total_prize_latest || horseWithAuction.total_prize_latest || 0,
+          is_unsold: latestAuction?.is_unsold || horseWithAuction.is_unsold || false,
+          auction_date: latestAuction?.auction_date || horseWithAuction.auction_date || '',
+          seller: latestAuction?.seller || horseWithAuction.seller || '',
+          sold_price: latestAuction?.sold_price || horseWithAuction.sold_price || 0,
+          weight: effectiveWeight
+        } as HorseWithAuction;
+      });
 
       setAllData({
         horses: horsesWithHistory,
