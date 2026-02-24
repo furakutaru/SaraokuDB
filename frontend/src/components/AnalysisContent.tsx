@@ -73,7 +73,7 @@ const formatDate = (dateString: string | undefined): string => {
 
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Horse, AuctionHistory, HorseWithCalculations } from '@/types/horse';
 import { getApiBase } from '@/lib/utils';
 import { FiltersPanel, Filters } from './analytics/FiltersPanel';
@@ -179,8 +179,8 @@ function AnalysisContent() {
       setFilters(prev => ({ ...prev, ...next }));
     }, 300), []);
   
-  const handleFilterChange = (next: Partial<Filters>) => debouncedFilterChange(next);
-  const handleResetFilters = () => debouncedFilterChange(initialFilters);
+  const handleFilterChange = useCallback((next: Partial<Filters>) => debouncedFilterChange(next), [debouncedFilterChange]);
+  const handleResetFilters = useCallback(() => debouncedFilterChange(initialFilters), [debouncedFilterChange]);
 
   const fetchData = async () => {
     try {
@@ -694,14 +694,14 @@ function AnalysisContent() {
   };
 
   // ソートハンドラ
-  const handleSort = (key: string) => {
+  const handleSort = useCallback((key: string) => {
     if (sortKey === key) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
       setSortOrder(key === 'name' ? 'asc' : 'desc');
     }
-  };
+  }, [sortKey, sortOrder]);
 
   // ソートアイコン
   const renderSortIcon = (key: string) => {
