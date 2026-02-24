@@ -266,8 +266,11 @@ export default function AnalysisContent() {
 
   useEffect(() => {
     fetchData();
-    fetchAllData(); // 分析サマリー用の全データも取得
   }, [page, limit]);
+
+  useEffect(() => {
+    fetchAllData(); // 分析サマリー用の全データは最初に一度だけ取得
+  }, []);
 
   // 3. データ処理 (Hooksは早期リターンの前に呼び出す必要がある)
   const horsesWithLatest = useMemo(() => {
@@ -348,7 +351,7 @@ export default function AnalysisContent() {
       if (filters.isBroodmare === 'no' && h.is_broodmare) return false;
       return true;
     });
-  }, [horses, filters]);
+  }, [allData, filters]);
 
   const stats = useMemo(() => {
     if (filteredHorsesList.length === 0) {
