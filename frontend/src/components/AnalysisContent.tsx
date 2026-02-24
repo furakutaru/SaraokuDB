@@ -146,6 +146,54 @@ const groupAuctionHistory = (auctionHistory: AuctionHistory[]): Record<string, A
   }, {} as Record<string, AuctionHistory[]>);
 };
 
+// parseDiseaseTags関数をキャッシュ化してパフォーマンス向上
+const diseaseTagsCache = new Map<string, string[]>();
+
+const parseDiseaseTags = (tags: any): string[] => {
+  if (!tags) return [];
+
+  // キャッシュチェック
+  const cacheKey = typeof tags === 'string' ? tags : JSON.stringify(tags);
+  if (diseaseTagsCache.has(cacheKey)) {
+    return diseaseTagsCache.get(cacheKey) || [];
+  }
+
+  let result: string[] = [];
+  if (Array.isArray(tags)) {
+    result = tags;
+  } else if (typeof tags === 'string') {
+    const trimmed = tags.trim();
+
+    // 空文字や「なし」「特になし」は空配列を返す
+    if (!trimmed || trimmed === 'なし' || trimmed === '特になし') {
+      result = [];
+    } else {
+      // JSON配列形式の場合
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            result = parsed.filter(t => typeof t === 'string' && t.trim() !== '');
+          }
+        } catch (e) {
+          // JSONパース失敗時は次の処理へ
+        }
+      }
+
+      // 文字列分割で処理（複数の区切り文字に対応）
+      if (result.length === 0) {
+        result = trimmed.split(/[,;、・]/)
+          .map(t => t.trim())
+          .filter(t => t !== '' && t !== 'なし' && t !== '特になし');
+      }
+    }
+  }
+
+  // キャッシュに保存
+  diseaseTagsCache.set(cacheKey, result);
+  return result;
+};
+
 function AnalysisContent() {
   const [data, setData] = useState<HorseData | null>(null);
   const [allData, setAllData] = useState<HorseData | null>(null); // 分析サマリー用の全データ
@@ -255,46 +303,17 @@ function AnalysisContent() {
       const payload = await response.json();
       const horsesData = payload?.horses || [];
       const auctionHistory = payload?.auction_histories || [];
+      const groupedAuctions = groupAuctionHistory(auctionHistory);
 
       const horsesWithHistory = horsesData.map((horse: any) => {
         // 最新のオークション情報を取得
-        const latestAuction = auctionHistory
-          .filter((ah: any) => ah.horse_id === horse.id)
-          .sort((a: any, b: any) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0];
+        const histories = groupedAuctions[String(horse.id)] || [];
+        const latestAuction = histories.length > 0
+          ? [...histories].sort((a, b) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0]
+          : null;
 
         const horseWithAuction = horse as HorseWithAuction;
         const effectiveWeight = latestAuction?.weight ?? horseWithAuction.weight ?? null;
-
-        const parseDiseaseTags = (tags: any): string[] => {
-          if (!tags) return [];
-          if (Array.isArray(tags)) return tags;
-          if (typeof tags === 'string') {
-            const trimmed = tags.trim();
-
-            // 空文字や「なし」「特になし」は空配列を返す
-            if (!trimmed || trimmed === 'なし' || trimmed === '特になし') {
-              return [];
-            }
-
-            // JSON配列形式の場合
-            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-              try {
-                const parsed = JSON.parse(trimmed);
-                if (Array.isArray(parsed)) {
-                  return parsed.filter(t => typeof t === 'string' && t.trim() !== '');
-                }
-              } catch (e) {
-                // JSONパース失敗時は次の処理へ
-              }
-            }
-
-            // 文字列分割で処理（複数の区切り文字に対応）
-            return trimmed.split(/[,;、・]/)
-              .map(t => t.trim())
-              .filter(t => t !== '' && t !== 'なし' && t !== '特になし');
-          }
-          return [];
-        };
 
         const parsedDiseaseTags = parseDiseaseTags(horseWithAuction.disease_tags);
 
@@ -339,62 +358,17 @@ function AnalysisContent() {
     fetchAllData(); // 分析サマリー用の全データは最初に一度だけ取得
   }, []);
 
-  // 3. データ処理 (Hooksは早期リターンの前に呼び出す必要がある)
-  // parseDiseaseTags関数をキャッシュ化してパフォーマンス向上
-  const diseaseTagsCache = new Map<string, string[]>();
-
-  const parseDiseaseTags = (tags: any): string[] => {
-    if (!tags) return [];
-
-    // キャッシュチェック
-    const cacheKey = typeof tags === 'string' ? tags : JSON.stringify(tags);
-    if (diseaseTagsCache.has(cacheKey)) {
-      return diseaseTagsCache.get(cacheKey) || [];
-    }
-
-    let result: string[] = [];
-    if (Array.isArray(tags)) {
-      result = tags;
-    } else if (typeof tags === 'string') {
-      const trimmed = tags.trim();
-
-      // 空文字や「なし」「特になし」は空配列を返す
-      if (!trimmed || trimmed === 'なし' || trimmed === '特になし') {
-        result = [];
-      } else {
-        // JSON配列形式の場合
-        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-          try {
-            const parsed = JSON.parse(trimmed);
-            if (Array.isArray(parsed)) {
-              result = parsed.filter(t => typeof t === 'string' && t.trim() !== '');
-            }
-          } catch (e) {
-            // JSONパース失敗時は次の処理へ
-          }
-        }
-
-        // 文字列分割で処理（複数の区切り文字に対応）
-        if (result.length === 0) {
-          result = trimmed.split(/[,;、・]/)
-            .map(t => t.trim())
-            .filter(t => t !== '' && t !== 'なし' && t !== '特になし');
-        }
-      }
-    }
-
-    // キャッシュに保存
-    diseaseTagsCache.set(cacheKey, result);
-    return result;
-  };
+  // 3. データ処理
 
   const horsesWithLatest = useMemo(() => {
     if (!data) return [];
+    const groupedAuctions = groupAuctionHistory(data.auction_history);
     return data.horses.map(horse => {
       // 最新のオークション情報を取得
-      const latestAuction = data.auction_history
-        .filter(ah => ah.horse_id === horse.id)
-        .sort((a, b) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0];
+      const histories = groupedAuctions[String(horse.id)] || [];
+      const latestAuction = histories.length > 0
+        ? [...histories].sort((a, b) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0]
+        : null;
 
       const horseWithAuction = horse as HorseWithAuction;
       const effectiveWeight = latestAuction?.weight ?? horseWithAuction.weight ?? null;
@@ -607,9 +581,6 @@ function AnalysisContent() {
     );
   };
 
-  // 表示リスト
-  let tableHorses: HorseWithAuction[] = [...filteredHorsesList];
-
   // 年齢を表示するヘルパー関数
   const displayAge = (age: string | number | null | undefined): string => {
     if (age === null || age === undefined || age === '') return '-';
@@ -619,16 +590,12 @@ function AnalysisContent() {
   // 落札価格を表示するヘルパー関数
   const displayPrice = formatSoldPrice;
 
-  // 賞金を表示するヘルパー関数
-  const displayPrize = formatPrize;
-
   // ROIを計算するヘルパー関数
   const calcROI = (prizeLatest: number | undefined, prizeStart: number | undefined, price: number | string | null | undefined): string => {
     if (prizeLatest === undefined || prizeStart === undefined || !price) return '-';
     const numPrice = typeof price === 'string' ? parseFloat(price) : price;
     if (isNaN(numPrice) || numPrice <= 0) return '-';
     const earnedPrize = prizeLatest - prizeStart;
-    if (numPrice <= 0) return '-';
     const rio = (earnedPrize * 10000) / numPrice;
     return (rio * 100).toFixed(1) + '%';
   };
@@ -701,13 +668,17 @@ function AnalysisContent() {
     return sortOrder === 'asc' ? <FaSortUp className="inline ml-1 text-blue-600" /> : <FaSortDown className="inline ml-1 text-blue-600" />;
   };
 
-  // ソート処理を適用
-  if (sortKey && sortFunctions[sortKey]) {
-    tableHorses = [...tableHorses].sort((a, b) => {
-      const res = sortFunctions[sortKey](a, b);
-      return sortOrder === 'asc' ? res : -res;
-    });
-  }
+  // 表示リスト（ソートを適用）
+  const tableHorses = useMemo(() => {
+    const list = [...filteredHorsesList];
+    if (sortKey && sortFunctions[sortKey]) {
+      list.sort((a, b) => {
+        const res = sortFunctions[sortKey](a, b);
+        return sortOrder === 'asc' ? res : -res;
+      });
+    }
+    return list;
+  }, [filteredHorsesList, sortKey, sortOrder]);
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
