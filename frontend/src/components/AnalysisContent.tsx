@@ -161,8 +161,25 @@ export default function AnalysisContent() {
   const [debugInfo, setDebugInfo] = useState<{ url?: string; ran: boolean; received?: number; total?: number; apiBase?: string; err?: string }>({ ran: false });
   const isDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
 
-  const handleFilterChange = (next: Partial<Filters>) => setFilters(prev => ({ ...prev, ...next }));
-  const handleResetFilters = () => setFilters(initialFilters);
+  // フィルター処理を最適化（debounce実装）
+  const debounce = (fn: (...args: any[]) => void, delay: number) => {
+    let timeoutId: NodeJS.Timeout | null = null;
+    return (...args: any[]) => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        fn(...args);
+        timeoutId = null;
+      }, delay);
+    };
+  };
+
+  const debouncedFilterChange = useMemo(() => 
+    debounce((next: Partial<Filters>) => {
+      setFilters(prev => ({ ...prev, ...next }));
+    }, 300), []);
+  
+  const handleFilterChange = (next: Partial<Filters>) => debouncedFilterChange(next);
+  const handleResetFilters = () => debouncedFilterChange(initialFilters);
 
   const fetchData = async () => {
     try {
@@ -322,6 +339,54 @@ export default function AnalysisContent() {
   }, []);
 
   // 3. データ処理 (Hooksは早期リターンの前に呼び出す必要がある)
+  // parseDiseaseTags関数をキャッシュ化してパフォーマンス向上
+  const diseaseTagsCache = new Map<string, string[]>();
+  
+  const parseDiseaseTags = (tags: any): string[] => {
+    if (!tags) return [];
+    
+    // キャッシュチェック
+    const cacheKey = typeof tags === 'string' ? tags : JSON.stringify(tags);
+    if (diseaseTagsCache.has(cacheKey)) {
+      return diseaseTagsCache.get(cacheKey) || [];
+    }
+    
+    let result: string[] = [];
+    if (Array.isArray(tags)) {
+      result = tags;
+    } else if (typeof tags === 'string') {
+      const trimmed = tags.trim();
+      
+      // 空文字や「なし」「特になし」は空配列を返す
+      if (!trimmed || trimmed === 'なし' || trimmed === '特になし') {
+        result = [];
+      } else {
+        // JSON配列形式の場合
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+              result = parsed.filter(t => typeof t === 'string' && t.trim() !== '');
+            }
+          } catch (e) {
+            // JSONパース失敗時は次の処理へ
+          }
+        }
+        
+        // 文字列分割で処理（複数の区切り文字に対応）
+        if (result.length === 0) {
+          result = trimmed.split(/[,;、・]/)
+            .map(t => t.trim())
+            .filter(t => t !== '' && t !== 'なし' && t !== '特になし');
+        }
+      }
+    }
+    
+    // キャッシュに保存
+    diseaseTagsCache.set(cacheKey, result);
+    return result;
+  };
+
   const horsesWithLatest = useMemo(() => {
     if (!data) return [];
     return data.horses.map(horse => {
@@ -333,45 +398,7 @@ export default function AnalysisContent() {
       const horseWithAuction = horse as HorseWithAuction;
       const effectiveWeight = latestAuction?.weight ?? horseWithAuction.weight ?? null;
 
-      const parseDiseaseTags = (tags: any): string[] => {
-        console.log('parseDiseaseTags input:', tags, 'type:', typeof tags);
-        if (!tags) return [];
-        if (Array.isArray(tags)) return tags;
-        if (typeof tags === 'string') {
-          const trimmed = tags.trim();
-          
-          // 空文字や「なし」「特になし」は空配列を返す
-          if (!trimmed || trimmed === 'なし' || trimmed === '特になし') {
-            console.log('empty or no disease tags');
-            return [];
-          }
-          
-          // JSON配列形式の場合
-          if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-            try {
-              const parsed = JSON.parse(trimmed);
-              if (Array.isArray(parsed)) {
-                const result = parsed.filter(t => typeof t === 'string' && t.trim() !== '');
-                console.log('JSON parsed result:', result);
-                return result;
-              }
-            } catch (e) {
-              console.log('JSON parse failed:', e);
-            }
-          }
-          
-          // 文字列分割で処理（複数の区切り文字に対応）
-          const result = trimmed.split(/[,;、・]/)
-            .map(t => t.trim())
-            .filter(t => t !== '' && t !== 'なし' && t !== '特になし');
-          console.log('string split result:', result);
-          return result;
-        }
-        return [];
-      };
-
       const parsedDiseaseTags = parseDiseaseTags(horseWithAuction.disease_tags);
-      console.log('final parsedDiseaseTags for', horseWithAuction.name, ':', parsedDiseaseTags);
 
       return {
         ...horseWithAuction,
