@@ -182,7 +182,7 @@ function AnalysisContent() {
   const handleFilterChange = useCallback((next: Partial<Filters>) => debouncedFilterChange(next), [debouncedFilterChange]);
   const handleResetFilters = useCallback(() => debouncedFilterChange(initialFilters), [debouncedFilterChange]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const API_BASE = getApiBase();
@@ -235,10 +235,10 @@ function AnalysisContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, isDebug]);
 
   // 分析サマリー用の全データ取得
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     try {
       setAllDataLoading(true);
       const API_BASE = getApiBase();
@@ -329,7 +329,7 @@ function AnalysisContent() {
     } finally {
       setAllDataLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
