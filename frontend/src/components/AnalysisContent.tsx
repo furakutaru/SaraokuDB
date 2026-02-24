@@ -174,11 +174,11 @@ function AnalysisContent() {
     };
   };
 
-  const debouncedFilterChange = useMemo(() => 
+  const debouncedFilterChange = useMemo(() =>
     debounce((next: Partial<Filters>) => {
       setFilters(prev => ({ ...prev, ...next }));
     }, 300), []);
-  
+
   const handleFilterChange = useCallback((next: Partial<Filters>) => debouncedFilterChange(next), [debouncedFilterChange]);
   const handleResetFilters = useCallback(() => debouncedFilterChange(initialFilters), [debouncedFilterChange]);
 
@@ -270,12 +270,12 @@ function AnalysisContent() {
           if (Array.isArray(tags)) return tags;
           if (typeof tags === 'string') {
             const trimmed = tags.trim();
-            
+
             // 空文字や「なし」「特になし」は空配列を返す
             if (!trimmed || trimmed === 'なし' || trimmed === '特になし') {
               return [];
             }
-            
+
             // JSON配列形式の場合
             if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
               try {
@@ -287,7 +287,7 @@ function AnalysisContent() {
                 // JSONパース失敗時は次の処理へ
               }
             }
-            
+
             // 文字列分割で処理（複数の区切り文字に対応）
             return trimmed.split(/[,;、・]/)
               .map(t => t.trim())
@@ -342,22 +342,22 @@ function AnalysisContent() {
   // 3. データ処理 (Hooksは早期リターンの前に呼び出す必要がある)
   // parseDiseaseTags関数をキャッシュ化してパフォーマンス向上
   const diseaseTagsCache = new Map<string, string[]>();
-  
+
   const parseDiseaseTags = (tags: any): string[] => {
     if (!tags) return [];
-    
+
     // キャッシュチェック
     const cacheKey = typeof tags === 'string' ? tags : JSON.stringify(tags);
     if (diseaseTagsCache.has(cacheKey)) {
       return diseaseTagsCache.get(cacheKey) || [];
     }
-    
+
     let result: string[] = [];
     if (Array.isArray(tags)) {
       result = tags;
     } else if (typeof tags === 'string') {
       const trimmed = tags.trim();
-      
+
       // 空文字や「なし」「特になし」は空配列を返す
       if (!trimmed || trimmed === 'なし' || trimmed === '特になし') {
         result = [];
@@ -373,7 +373,7 @@ function AnalysisContent() {
             // JSONパース失敗時は次の処理へ
           }
         }
-        
+
         // 文字列分割で処理（複数の区切り文字に対応）
         if (result.length === 0) {
           result = trimmed.split(/[,;、・]/)
@@ -382,7 +382,7 @@ function AnalysisContent() {
         }
       }
     }
-    
+
     // キャッシュに保存
     diseaseTagsCache.set(cacheKey, result);
     return result;
@@ -723,80 +723,78 @@ function AnalysisContent() {
               <>
                 {/* フィルターパネル */}
                 <FiltersPanel
-              filters={filters}
-              onChange={handleFilterChange}
-              onReset={handleResetFilters}
-              sireSuggestions={sireSuggestions}
-              onExportAll={handleExportAll}
-              onExportFiltered={handleExportFiltered}
-              className="mb-6"
-            />
+                  filters={filters}
+                  onChange={handleFilterChange}
+                  onReset={handleResetFilters}
+                  sireSuggestions={sireSuggestions}
+                  onExportAll={handleExportAll}
+                  onExportFiltered={handleExportFiltered}
+                  className="mb-6"
+                />
 
 
-            {/* 馬テーブル - 仮想化 */}
-            <div className="bg-white rounded-lg shadow border overflow-x-auto">
-              {/* テーブルヘッダー */}
-              <div className="bg-gray-50 border-b border-gray-200 min-w-max">
-                <div className="flex items-center px-3 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{ width: '1100px' }}>
-                  <div className="w-48 cursor-pointer pr-2 text-left" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</div>
-                  <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</div>
-                  <div className="w-12 text-center cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</div>
-                  <div className="w-32 text-center cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</div>
-                  <div className="w-20 text-center cursor-pointer pr-2" onClick={() => handleSort('weight')}>馬体重{renderSortIcon('weight')}</div>
-                  <div className="w-24 text-center cursor-pointer pr-2" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</div>
-                  <div className="w-24 text-center pr-4">落札時</div>
-                  <div className="w-24 text-center pr-4">現在</div>
-                  <div className="w-20 text-center pr-2">ROI</div>
-                  <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('disease')}>病歴{renderSortIcon('disease')}</div>
-                  <div className="w-20 text-center">リンク</div>
+                {/* 馬テーブル - 仮想化 */}
+                <div className="bg-white rounded-lg shadow border overflow-x-auto">
+                  {/* テーブルヘッダー */}
+                  <div className="bg-gray-50 border-b border-gray-200 min-w-max">
+                    <div className="flex items-center px-3 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{ width: '1100px' }}>
+                      <div className="w-48 cursor-pointer pr-2 text-left" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</div>
+                      <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</div>
+                      <div className="w-12 text-center cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</div>
+                      <div className="w-32 text-center cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</div>
+                      <div className="w-20 text-center cursor-pointer pr-2" onClick={() => handleSort('weight')}>馬体重{renderSortIcon('weight')}</div>
+                      <div className="w-24 text-center cursor-pointer pr-2" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</div>
+                      <div className="w-24 text-center pr-4">落札時</div>
+                      <div className="w-24 text-center pr-4">現在</div>
+                      <div className="w-20 text-center pr-2">ROI</div>
+                      <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('disease')}>病歴{renderSortIcon('disease')}</div>
+                      <div className="w-20 text-center">リンク</div>
+                    </div>
+                  </div>
+
+                  {/* 仮想化されたテーブル本体 */}
+                  {loading || allDataLoading ? (
+                    <div className="text-center py-10 text-gray-500">
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
+                      <div>{loading ? 'データを読み込み中...' : '分析データを準備中...'}</div>
+                    </div>
+                  ) : tableHorses.length === 0 ? (
+                    <div className="text-center py-10 text-gray-500 italic">
+                      該当する馬が見つかりませんでした。フィルター設定を見直してください。
+                    </div>
+                  ) : (
+                    <div style={{ height: Math.min(tableHorses.length * 50, 600), width: '1100px' }}>
+                      <List
+                        width="100%"
+                        height={Math.min(tableHorses.length * 50, 600)}
+                        itemCount={tableHorses.length}
+                        itemSize={50}
+                        itemData={tableHorses}
+                      >
+                        {VirtualizedRow}
+                      </List>
+                    </div>
+                  )}
+                </div>
+
+                {/* ページネーション */}
+                <div className="mt-6 flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    ページ {page} / {Math.max(1, Math.ceil((total || 0) / limit))}（{(page - 1) * limit + 1} - {Math.min(page * limit, total || page * limit)} 件 / 全{total}件）
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1 || loading}>前へ</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPage(p => (p * limit < (total || 0) ? p + 1 : p))} disabled={page * limit >= (total || 0) || loading}>次へ</Button>
+                  </div>
                 </div>
               </div>
-              
-              {/* 仮想化されたテーブル本体 */}
-              {loading || allDataLoading ? (
-                <div className="text-center py-10 text-gray-500">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
-                  <div>{loading ? 'データを読み込み中...' : '分析データを準備中...'}</div>
-                </div>
-              ) : tableHorses.length === 0 ? (
-                <div className="text-center py-10 text-gray-500 italic">
-                  該当する馬が見つかりませんでした。フィルター設定を見直してください。
-                </div>
-              ) : (
-                <div style={{ height: Math.min(tableHorses.length * 50, 600), width: '1100px' }}>
-                  <List
-                    width="100%"
-                    height={Math.min(tableHorses.length * 50, 600)}
-                    itemCount={tableHorses.length}
-                    itemSize={50}
-                    itemData={tableHorses}
-                  >
-                    {VirtualizedRow}
-                  </List>
-                </div>
-              )}
-            </div>
+          </>
+        )}
 
-            {/* ページネーション */}
-            <div className="mt-6 flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                ページ {page} / {Math.max(1, Math.ceil((total || 0) / limit))}（{(page - 1) * limit + 1} - {Math.min(page * limit, total || page * limit)} 件 / 全{total}件）
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1 || loading}>前へ</Button>
-                <Button variant="outline" size="sm" onClick={() => setPage(p => (p * limit < (total || 0) ? p + 1 : p))} disabled={page * limit >= (total || 0) || loading}>次へ</Button>
-              </div>
-            </div>
-          </div>
-        </>
-        </div>
-
-        {/* 統計サイドバー */}
-        <aside className="w-full lg:w-72 flex flex-col gap-6">
-            <Card className="shadow-sm border-gray-200">
-              <CardHeader className="py-4 border-b bg-gray-50/50">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+          <aside className="w-80 space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-bold">
                   分析サマリー
                 </CardTitle>
               </CardHeader>
@@ -896,7 +894,7 @@ function AnalysisContent() {
           </aside>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
