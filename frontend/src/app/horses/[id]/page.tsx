@@ -406,7 +406,8 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                           fill
                           className="object-cover"
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                          priority
+                          loading="lazy"
+                          unoptimized={process.env.NODE_ENV !== 'production'}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400">

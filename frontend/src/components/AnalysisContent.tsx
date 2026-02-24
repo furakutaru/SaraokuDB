@@ -76,6 +76,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Horse, AuctionHistory, HorseWithCalculations } from '@/types/horse';
 import { getApiBase } from '@/lib/utils';
 import { FiltersPanel, Filters } from './analytics/FiltersPanel';
+import { FixedSizeList as List } from 'react-window';
 
 const avg = (arr: any[]) => (arr.length ? arr.reduce((a, b) => Number(a) + Number(b), 0) / arr.length : 0);
 const median = (arr: any[]) => {
@@ -396,6 +397,71 @@ export default function AnalysisContent() {
     </div>
   );
 
+  // 仮想化された行コンポーネント
+  const VirtualizedRow = ({ index, style }: { index: number; style: React.CSSProperties }) => {
+    const horse = tableHorses[index];
+    return (
+      <div style={style} className="flex items-center border-b border-gray-200 hover:bg-blue-50/50 transition-colors">
+        <div className="flex-1 flex items-center px-3 py-2 text-sm">
+          <div className="flex-1">{horse.name ? (
+            <Link href={`/horses/${horse.id}`} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">
+              {horse.name}
+            </Link>
+          ) : '-'}</div>
+          <div className="w-16 text-center">
+            {(() => {
+              const sexInfo = formatSex(horse.sex, horse.is_broodmare);
+              return (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${sexInfo.color}`}>
+                  {sexInfo.text}
+                </span>
+              );
+            })()}
+          </div>
+          <div className="w-12 text-center text-gray-600">{displayAge(horse.age)}</div>
+          <div className="w-24 text-center text-gray-600">{horse.sire || '-'}</div>
+          <div className="w-16 text-right text-gray-600">{horse.weight || '-'}</div>
+          <div className="w-20 text-right text-gray-700 font-medium">
+            {displayPrice(horse.sold_price, horse.is_unsold)}
+          </div>
+          <div className="w-20 text-right text-gray-600">
+            {formatPrize(horse.total_prize_start)}
+          </div>
+          <div className="w-20 text-right text-gray-600">
+            {formatPrize(horse.total_prize_latest)}
+          </div>
+          <div className="w-16 text-left font-semibold text-gray-700">
+            {calcROI(horse.total_prize_latest, horse.total_prize_start, horse.sold_price)}
+          </div>
+          <div className="w-16 text-center">
+            {(() => {
+              const hasDisease = Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0;
+              return hasDisease ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-600 border border-red-100">
+                  あり
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-500 border border-blue-100">
+                  なし
+                </span>
+              );
+            })()}
+          </div>
+          <div className="w-20 text-center">
+            <div className="flex gap-2 justify-center">
+              {horse.jbis_url && (
+                <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-gray-400 hover:text-blue-600 underline">JBIS</a>
+              )}
+              {(horse.detail_url || horse.auction_url) && (
+                <a href={horse.detail_url || horse.auction_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-gray-400 hover:text-blue-600 underline">サラ</a>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // 表示リスト
   let tableHorses: HorseWithAuction[] = [...filteredHorsesList];
 
@@ -516,92 +582,43 @@ export default function AnalysisContent() {
             />
 
 
-            {/* 馬テーブル */}
-            <div className="overflow-x-auto bg-white rounded-lg shadow border">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</th>
-                    <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('weight')}>馬体重{renderSortIcon('weight')}</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</th>
-                    <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">落札時</th>
-                    <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">現在</th>
-                    <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ROI</th>
-                    <th className="px-2 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('disease')}>病歴{renderSortIcon('disease')}</th>
-                    <th className="px-2 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">リンク</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {tableHorses.map((horse) => (
-                    <tr key={horse.id} className="hover:bg-blue-50/50 transition-colors">
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <Link href={`/horses/${horse.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline">
-                          {horse.name}
-                        </Link>
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        {(() => {
-                          const sexInfo = formatSex(horse.sex, horse.is_broodmare);
-                          return (
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${sexInfo.color}`}>
-                              {sexInfo.text}
-                            </span>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">{displayAge(horse.age)}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600">{horse.sire || '-'}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 text-right">{horse.weight || '-'}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
-                        {displayPrice(horse.sold_price, horse.is_unsold)}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 text-right">
-                        {formatPrize(horse.total_prize_start)}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 text-right">
-                        {formatPrize(horse.total_prize_latest)}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-sm font-semibold text-gray-700">
-                        {calcROI(horse.total_prize_latest, horse.total_prize_start, horse.sold_price)}
-                      </td>
-                      <td className="px-2 py-3 whitespace-nowrap text-center">
-                        {(() => {
-                          const hasDisease = Array.isArray(horse.disease_tags) && horse.disease_tags.length > 0;
-                          return hasDisease ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-50 text-red-600 border border-red-100">
-                              あり
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-500 border border-blue-100">
-                              なし
-                            </span>
-                          );
-                        })()}
-                      </td>
-                      <td className="px-2 py-3 whitespace-nowrap text-center">
-                        <div className="flex gap-2 justify-center">
-                          {horse.jbis_url && (
-                            <a href={horse.jbis_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-gray-400 hover:text-blue-600 underline">JBIS</a>
-                          )}
-                          {(horse.detail_url || horse.auction_url) && (
-                            <a href={horse.detail_url || horse.auction_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-gray-400 hover:text-blue-600 underline">サラ</a>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {tableHorses.length === 0 && (
-                    <tr>
-                      <td colSpan={11} className="px-6 py-10 text-center text-gray-500 italic">
-                        該当する馬が見つかりませんでした。フィルター設定を見直してください。
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            {/* 馬テーブル - 仮想化 */}
+            <div className="bg-white rounded-lg shadow border">
+              {/* テーブルヘッダー */}
+              <div className="bg-gray-50 border-b border-gray-200">
+                <div className="flex items-center px-3 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <div className="flex-1 cursor-pointer" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</div>
+                  <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</div>
+                  <div className="w-12 text-center cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</div>
+                  <div className="w-24 text-center cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</div>
+                  <div className="w-16 text-right cursor-pointer" onClick={() => handleSort('weight')}>馬体重{renderSortIcon('weight')}</div>
+                  <div className="w-20 text-left cursor-pointer" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</div>
+                  <div className="w-20 text-right">落札時</div>
+                  <div className="w-20 text-right">現在</div>
+                  <div className="w-16 text-left">ROI</div>
+                  <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('disease')}>病歴{renderSortIcon('disease')}</div>
+                  <div className="w-20 text-center">リンク</div>
+                </div>
+              </div>
+              
+              {/* 仮想化されたテーブル本体 */}
+              {tableHorses.length === 0 ? (
+                <div className="text-center py-10 text-gray-500 italic">
+                  該当する馬が見つかりませんでした。フィルター設定を見直してください。
+                </div>
+              ) : (
+                <div style={{ height: Math.min(tableHorses.length * 50, 600) }}>
+                  <List
+                    width="100%"
+                    height={Math.min(tableHorses.length * 50, 600)}
+                    itemCount={tableHorses.length}
+                    itemSize={50}
+                    itemData={tableHorses}
+                  >
+                    {VirtualizedRow}
+                  </List>
+                </div>
+              )}
             </div>
 
             {/* ページネーション */}
