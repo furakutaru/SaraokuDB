@@ -537,6 +537,13 @@ async def get_horses(
                         normalized_race_record["wins"] = max(normalized_race_record["wins"], db_race_records.get("wins", 0))
                     if normalized_race_record["total_races"] > 0:
                         normalized_race_record["formatted_record"] = f"{normalized_race_record['total_races']}戦{normalized_race_record['wins']}勝"
+                    
+                    # 賞金情報の抽出を追加
+                    if "total_prize_money" in db_race_records and db_race_records["total_prize_money"]:
+                         normalized_race_record["total_prize_money"] = db_race_records["total_prize_money"]
+                    if "last_race_date" in db_race_records:
+                         normalized_race_record["last_race_date"] = db_race_records["last_race_date"]
+                    
                     is_unraced = normalized_race_record["total_races"] == 0
             # race_recordから賞金情報のフォールバックを抽出
             fallback_total_prize_start = None
@@ -1137,6 +1144,15 @@ async def get_horse_by_id(
                     race_record["wins"] = max(race_record["wins"], db_race_records.get("wins", 0))
                 if race_record["total_races"] > 0:
                     race_record["formatted_record"] = f"{race_record['total_races']}戦{race_record['wins']}勝"
+            
+            # 賞金情報の抽出を追加
+            if isinstance(db_race_records, dict):
+                if "total_prize_money" in db_race_records and db_race_records["total_prize_money"]:
+                    race_records["total_prize_money"] = db_race_records["total_prize_money"]
+                if "last_race_date" in db_race_records:
+                    race_records["last_race_date"] = db_race_records["last_race_date"]
+                if "last_prize_update" in db_race_records:
+                    race_records["last_prize_update"] = db_race_records["last_prize_update"]
 
         # フロントエンドが期待する race_records オブジェクトに勝敗情報を集約
         race_records["total_races"] = race_record["total_races"]
