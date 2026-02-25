@@ -506,6 +506,38 @@ async def get_horses(
                 except (json.JSONDecodeError, AttributeError, TypeError) as e:
                     logger.warning(f"Failed to parse race_record for horse {horse.id}: {e}")
                     is_unraced = False
+            
+            # race_records (JSONB) カラムがある場合はそちらを優先または補完
+            db_race_records = getattr(horse, 'race_records', None)
+            if db_race_records and isinstance(db_race_records, (list, dict)):
+                if not normalized_race_record:
+                    normalized_race_record = {
+                        "total_races": 0,
+                        "wins": 0,
+                        "record_format": "simple",
+                        "formatted_record": "未出走"
+                    }
+                
+                if isinstance(db_race_records, list):
+                    total_races = len(db_race_records)
+                    wins = 0
+                    for r in db_race_records:
+                        if isinstance(r, dict) and (r.get('finish_position') == '1' or r.get('order') == 1):
+                            wins += 1
+                    
+                    normalized_race_record["total_races"] = max(normalized_race_record["total_races"], total_races)
+                    normalized_race_record["wins"] = max(normalized_race_record["wins"], wins)
+                    normalized_race_record["formatted_record"] = f"{normalized_race_record['total_races']}戦{normalized_race_record['wins']}勝"
+                    is_unraced = normalized_race_record["total_races"] == 0
+                elif isinstance(db_race_records, dict):
+                    # 既に集約済みのデータが入っている場合
+                    if "total_races" in db_race_records:
+                        normalized_race_record["total_races"] = max(normalized_race_record["total_races"], db_race_records.get("total_races", 0))
+                    if "wins" in db_race_records:
+                        normalized_race_record["wins"] = max(normalized_race_record["wins"], db_race_records.get("wins", 0))
+                    if normalized_race_record["total_races"] > 0:
+                        normalized_race_record["formatted_record"] = f"{normalized_race_record['total_races']}戦{normalized_race_record['wins']}勝"
+                    is_unraced = normalized_race_record["total_races"] == 0
             # race_recordから賞金情報のフォールバックを抽出
             fallback_total_prize_start = None
             fallback_total_prize_latest = None
@@ -562,7 +594,12 @@ async def get_horses(
                 "jbis_url": horse.jbis_url,
                 "is_unsold": horse.is_unsold if hasattr(horse, 'is_unsold') else False,
                 "unsold": horse.is_unsold if hasattr(horse, 'is_unsold') else False,
-                "unified_race_records": is_unraced  # race_record に基づいて設定
+                "unified_race_records": normalized_race_record or {
+                    "total_races": 0,
+                    "wins": 0,
+                    "record_format": "simple",
+                    "formatted_record": "未出走"
+                }
             }
             horses_data.append(horse_data)
         
@@ -1075,12 +1112,49 @@ async def get_horse_by_id(
                     "formatted_record": "未出走"
                 }
         
-        # 未出走かどうかを示すフラグ
-        # total_racesが0の場合はtrue、それ以外はfalse
+        # race_records (JSONB) カラムがある場合はそちらを優先または補完
+        db_race_records = getattr(horse, 'race_records', None)
+        if db_race_records and isinstance(db_race_records, (list, dict)):
+            if isinstance(db_race_records, list):
+                # 配列形式の場合は詳細なレース履歴
+                total_races = len(db_race_records)
+                wins = 0
+                for r in db_race_records:
+                    if isinstance(r, dict):
+                        # '1' (string) または 1 (int) を考慮。キー名もいくつか想定
+                        pos = r.get('finish_position') or r.get('order') or r.get('result')
+                        if str(pos) == '1':
+                            wins += 1
+                
+                race_record["total_races"] = max(race_record["total_races"], total_races)
+                race_record["wins"] = max(race_record["wins"], wins)
+                race_record["formatted_record"] = f"{race_record['total_races']}戦{race_record['wins']}勝"
+            elif isinstance(db_race_records, dict):
+                # 既にサマリーが入っている場合
+                if "total_races" in db_race_records:
+                    race_record["total_races"] = max(race_record["total_races"], db_race_records.get("total_races", 0))
+                if "wins" in db_race_records:
+                    race_record["wins"] = max(race_record["wins"], db_race_records.get("wins", 0))
+                if race_record["total_races"] > 0:
+                    race_record["formatted_record"] = f"{race_record['total_races']}戦{race_record['wins']}勝"
+
+        # フロントエンドが期待する race_records オブジェクトに勝敗情報を集約
+        race_records["total_races"] = race_record["total_races"]
+        race_records["wins"] = race_record["wins"]
+        race_records["formatted_record"] = race_record["formatted_record"]
+        
+        # 未出走フラグを設定
         is_unraced = race_record.get("total_races", 0) == 0
         
-        # 未出走フラグを設定（必ずboolean型で設定）
-        unified_race_records = bool(is_unraced)
+        # 統合されたレコードオブジェクトを作成
+        unified_race_records_obj = {
+            "total_races": race_record["total_races"],
+            "wins": race_record["wins"],
+            "formatted_record": race_record["formatted_record"],
+            "total_prize_money": race_records.get("total_prize_money", 0),
+            "last_race_date": race_records.get("last_race_date"),
+            "last_prize_update": race_records.get("last_prize_update")
+        }
         
         # 馬の基本情報を返す
         # 詳細APIでも start/latest のフォールバックを用意
@@ -1134,7 +1208,7 @@ async def get_horse_by_id(
             "is_unsold": getattr(horse, 'is_unsold', False),
             "race_record": race_record,  # 後方互換性のため残す
             "race_records": race_records,  # 後方互換性のため残す
-            "unified_race_records": unified_race_records,  # 新しい統合形式
+            "unified_race_records": unified_race_records_obj,  # 新しい統合形式
             "auction_histories": auction_histories_list,
             "latest_auction": latest_auction_dict,
         }

@@ -84,6 +84,8 @@ class Horse(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     scraped_at = Column(DateTime, nullable=True)  # スクレイピング日時
     race_record = Column(Text, nullable=True, comment='レース記録（JSON形式）')  # 既存の race_record カラムを使用
+    race_records = Column(JSON, nullable=True, comment='詳細なレース記録（JSONB形式）')
+    unified_race_records = Column(JSON, nullable=True, comment='統合されたレース記録')
     
     # リレーションシップ
     auction_histories = relationship(
