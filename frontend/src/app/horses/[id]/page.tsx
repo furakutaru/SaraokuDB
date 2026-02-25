@@ -534,11 +534,6 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                   <div className="text-2xl font-bold text-red-600">
                     {displayPrice(horse, auctionHistory)}
                   </div>
-                  {auctionHistory?.price && (
-                    <div className="mt-2 text-sm text-gray-600">
-                      {formatPrize(horse.race_records?.total_prize_money || 0, horse.race_records)}
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -675,7 +670,7 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
           </Card>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 
