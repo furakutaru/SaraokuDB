@@ -21,7 +21,7 @@ from scripts.components.seller_info_extractor import SellerInfoExtractor
 
 
 logger = logging.getLogger(__name__)
-BROODMARE_KEYWORDS = ("繁殖牝馬", "※繁殖牝馬", "受胎")
+BROODMARE_KEYWORDS = ("繁殖牝馬", "※繁殖牝馬", "繫殖牝馬", "※繫殖牝馬", "受胎", "繫殖")
 
 
 @dataclass

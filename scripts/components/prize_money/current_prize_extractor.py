@@ -35,7 +35,7 @@ class CurrentPrizeExtractor(BasePrizeExtractor):
                 return result
                 
             # 繁殖牝馬の場合はスキップ
-            if '繁殖牝馬' in prize_section.get_text():
+            if any(k in prize_section.get_text() for k in ['繁殖牝馬', '繫殖牝馬']):
                 result['is_breeding_mare'] = True
                 return result
                 

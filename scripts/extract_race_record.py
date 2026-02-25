@@ -100,7 +100,7 @@ def extract_race_record(html_content: str) -> str:
             logger.debug(f"タイトル: {title}")
             
             # タイトルに「繁殖牝馬」または「※繁殖牝馬」が含まれているかチェック
-            if '繁殖牝馬' in title or '※繁殖牝馬' in title:
+            if any(k in title for k in ['繁殖牝馬', '※繁殖牝馬', '繫殖牝馬', '※繫殖牝馬']):
                 logger.info(f"タイトルに繁殖牝馬のキーワードを検出: {title}")
                 return '繁殖牝馬'
                 
@@ -125,7 +125,7 @@ def extract_race_record(html_content: str) -> str:
             logger.debug(f"馬名: {horse_name}, 詳細: {horse_details}")
             
             # 馬名または詳細に「繁殖牝馬」が含まれているかチェック
-            if '繁殖牝馬' in horse_name or '繁殖牝馬' in horse_details:
+            if any(k in horse_name for k in ['繁殖牝馬', '繫殖牝馬']) or any(k in horse_details for k in ['繁殖牝馬', '繫殖牝馬']):
                 logger.info(f"繁殖牝馬と判定されました（馬名/詳細に含まれる）: {horse_name} - {horse_details}")
                 return '繁殖牝馬'
         
@@ -139,7 +139,7 @@ def extract_race_record(html_content: str) -> str:
                 return '繁殖牝馬'
         
         # 3. 繁殖牝馬のチェック（受胎状況または繁殖牝馬の表記が含まれる場合）
-        broodmare_keywords = ['受胎状況', '繁殖牝馬', '繁殖牝', '※繁殖']
+        broodmare_keywords = ['受胎状況', '繁殖牝馬', '繁殖牝', '※繁殖', '繫殖牝馬', '繫殖牝', '※繫殖']
         
         # デコードされたコンテンツでキーワードを検索
         found_keywords = [k for k in broodmare_keywords if k in decoded_content]

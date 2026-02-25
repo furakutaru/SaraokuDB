@@ -759,7 +759,7 @@ def extract_prize_from_auction(html_content: str, horse_name: str) -> Dict[str, 
                 logger.warning(f"賞金の形式が不正です: {prize_text} (馬名: {horse_name})")
                 
             # 繁殖牝馬フラグをチェック
-            if '繁殖' in str(horse_row):
+            if any(k in str(horse_row) for k in ['繁殖', '繫殖']):
                 result['is_breeding_mare'] = True
                 
         except (ValueError, AttributeError) as e:
@@ -1016,7 +1016,7 @@ class ImprovedRakutenScraper:
     楽天競馬オークションのスクレイピングを行うクラス。
     キャッシュ、リトライ、API連携機能を備える。
     """
-    BROODMARE_KEYWORDS = ("繁殖牝馬", "※繁殖牝馬", "受胎")
+    BROODMARE_KEYWORDS = ("繁殖牝馬", "※繁殖牝馬", "繫殖牝馬", "※繫殖牝馬", "受胎", "繫殖")
     def __init__(
         self,
         config: Optional[ScraperConfig] = None,

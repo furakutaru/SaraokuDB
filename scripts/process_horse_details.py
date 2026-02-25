@@ -369,199 +369,199 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
     # JBIS機能は一時的に無効化されています
     logging.info("JBIS機能は一時的に無効化されています。賞金情報の取得をスキップします。")
     horse_info['total_prize_latest'] = 0.0
+    # 性別を抽出（「牡」「牝」「セ」のいずれか）
+    if 'sex' not in horse_info:
+        # パターン1: 「性別 数字歳」の形式（例: 牡 3歳）
+        sex_match = re.search(r'([牡牝セ])\s*\d+\s*[歳年]', title or '')
         
-        # 性別を抽出（「牡」「牝」「セ」のいずれか）
-        if 'sex' not in horse_info:
-            # パターン1: 「性別 数字歳」の形式（例: 牡 3歳）
-            sex_match = re.search(r'([牡牝セ])\s*\d+\s*[歳年]', title or '')
-            
+        if sex_match:
+            horse_info['sex'] = sex_match.group(1)
+            logging.debug("Extracted sex (pattern 1): %s" % horse_info['sex'])
+        else:
+            # パターン2: 「センナンサイ」の形式（例: セン2歳）
+            sex_match = re.search(r'([セ]ン\s*\d+\s*[歳年])', title or '')
             if sex_match:
-                horse_info['sex'] = sex_match.group(1)
-                logging.debug("Extracted sex (pattern 1): %s" % horse_info['sex'])
+                horse_info['sex'] = 'セ'  # セに正規化
+                logging.debug("Extracted sex (pattern 2): %s" % horse_info['sex'])
             else:
-                # パターン2: 「センナンサイ」の形式（例: セン2歳）
-                sex_match = re.search(r'([セ]ン\s*\d+\s*[歳年])', title or '')
+                # パターン3: 単純に「性別」のみ
+                sex_match = re.search(r'([牡牝セ])', title or '')
                 if sex_match:
-                    horse_info['sex'] = 'セ'  # セに正規化
-                    logging.debug("Extracted sex (pattern 2): %s" % horse_info['sex'])
+                    horse_info['sex'] = sex_match.group(1)
+                    logging.debug("Extracted sex (fallback): %s" % horse_info['sex'])
                 else:
-                    # パターン3: 単純に「性別」のみ
-                    sex_match = re.search(r'([牡牝セ])', title or '')
-                    if sex_match:
-                        horse_info['sex'] = sex_match.group(1)
-                        logging.debug("Extracted sex (fallback): %s" % horse_info['sex'])
-                    else:
-                        logging.warning("Could not extract sex from title: %s" % title)
-        
-        # 年齢を抽出（まだ抽出されていない場合）
-        if 'age' not in horse_info:
-            age_match = re.search(r'(\d+)\s*[歳年]', title or '')
-            if age_match:
-                try:
-                    horse_info['age'] = int(age_match.group(1))
-                    logging.debug("Extracted age: %s" % horse_info['age'])
-                except (ValueError, IndexError) as e:
-                    logging.warning("Failed to parse age: %s" % str(e))
-        
-        # 血統情報を抽出
-        page_text = soup.get_text(' ', strip=True)
-        
-        # 父、母、母の父を抽出
-        sire_match = re.search(r'父[：:]([^\s]+)', page_text)
-        if sire_match:
-            horse_info['sire'] = sire_match.group(1).strip()
-            logging.debug("Extracted sire: %s" % horse_info['sire'])
-        
-        dam_match = re.search(r'母[：:]([^\s]+)', page_text)
-        if dam_match:
-            horse_info['dam'] = dam_match.group(1).strip()
-            logging.debug("Extracted dam: %s" % horse_info['dam'])
-        
-        damsire_match = re.search(r'母の父[：:]([^\s]+)', page_text)
-        if damsire_match:
-            horse_info['damsire'] = damsire_match.group(1).strip()
-            logging.debug("Extracted damsire: %s" % horse_info['damsire'])
-        
-        # 賞金情報はJBISから取得するため、ここでは処理しない
-        
-        # 5. オークション日を抽出してYYYY-MM-DD形式に変換
-        date_match = re.search(r'(\d{4})[年/](\d{1,2})[月/](\d{1,2})日?', html_content)
-        if date_match:
-            year = date_match.group(1)
-            month = date_match.group(2).zfill(2)
-            day = date_match.group(3).zfill(2)
-            horse_info['auction_date'] = f"{year}-{month}-{day}"
-            logging.info(f"オークション日を抽出: {horse_info['auction_date']}")
-        else:
-            logging.warning("オークション日が見つかりませんでした")
-        
-        # 6. 馬体重を抽出（直接HTMLから抽出を試みる）
-        weight = None
-        
-        # パターン1: 馬体重：416kg 形式
-        weight_match = re.search(r'馬体重[：:](\d+)kg', html_content, re.IGNORECASE)
-        
-        # パターン2: 馬体重は416kg 形式
-        if not weight_match:
-            weight_match = re.search(r'馬体重[は:](\d+)', html_content, re.IGNORECASE)
-            
-        # パターン3: 体重：416kg 形式
-        if not weight_match:
-            weight_match = re.search(r'体重[：:](\d+)kg', html_content, re.IGNORECASE)
-            
-        # パターン4: 馬体重 416kg 形式（スペース区切り）
-        if not weight_match:
-            weight_match = re.search(r'馬体重[\s　]+(\d+)\s*(?:kg|キロ|KG)', html_content, re.IGNORECASE)
-            
-        # パターン5: 馬体重が表形式で記載されている場合
-        if not weight_match:
-            # テーブル内の「馬体重」を含む行を検索
-            for tr in soup.find_all('tr'):
-                if '馬体重' in tr.text and 'kg' in tr.text:
-                    weight_match = re.search(r'(\d+)\s*kg', tr.text)
-                    if weight_match:
-                        break
-                        
-        # パターン6: コメント欄に記載されている場合
-        if not weight_match and 'comment' in horse_info:
-            weight_match = re.search(r'(?:馬体重|体重)[：: 　]*(\d+)\s*(?:kg|キロ|KG)', horse_info['comment'], re.IGNORECASE)
-        
-        # パターン7: HTML内のどこかに数値+kgのパターンがある場合
-        if not weight_match:
-            weight_match = re.search(r'(\d+)\s*kg', html_content, re.IGNORECASE)
-        
-        if weight_match:
+                    logging.warning("Could not extract sex from title: %s" % title)
+    
+    # 年齢を抽出（まだ抽出されていない場合）
+    if 'age' not in horse_info:
+        age_match = re.search(r'(\d+)\s*[歳年]', title or '')
+        if age_match:
             try:
-                weight = int(weight_match.group(1))
-                # 馬体重の妥当性チェック（100kg 〜 600kgの範囲）
-                if 100 <= weight <= 600:
-                    horse_info['weight'] = weight
-                    logging.info(f"馬体重を抽出しました: {weight}kg")
-                else:
-                    logging.warning(f"馬体重の値が不自然です: {weight}kg")
+                horse_info['age'] = int(age_match.group(1))
+                logging.debug("Extracted age: %s" % horse_info['age'])
             except (ValueError, IndexError) as e:
-                logging.warning(f"馬体重の数値変換に失敗: {e}")
+                logging.warning("Failed to parse age: %s" % str(e))
+    
+    # 血統情報を抽出
+    page_text = soup.get_text(' ', strip=True)
+    
+    # 父、母、母の父を抽出
+    sire_match = re.search(r'父[：:]([^\s]+)', page_text)
+    if sire_match:
+        horse_info['sire'] = sire_match.group(1).strip()
+        logging.debug("Extracted sire: %s" % horse_info['sire'])
+    
+    dam_match = re.search(r'母[：:]([^\s]+)', page_text)
+    if dam_match:
+        horse_info['dam'] = dam_match.group(1).strip()
+        logging.debug("Extracted dam: %s" % horse_info['dam'])
+    
+    damsire_match = re.search(r'母の父[：:]([^\s]+)', page_text)
+    if damsire_match:
+        horse_info['damsire'] = damsire_match.group(1).strip()
+        logging.debug("Extracted damsire: %s" % horse_info['damsire'])
+    
+    # 賞金情報はJBISから取得するため、ここでは処理しない
+    
+    # 5. オークション日を抽出してYYYY-MM-DD形式に変換
+    date_match = re.search(r'(\d{4})[年/](\d{1,2})[月/](\d{1,2})日?', html_content)
+    if date_match:
+        year = date_match.group(1)
+        month = date_match.group(2).zfill(2)
+        day = date_match.group(3).zfill(2)
+        horse_info['auction_date'] = f"{year}-{month}-{day}"
+        logging.info(f"オークション日を抽出: {horse_info['auction_date']}")
+    else:
+        logging.warning("オークション日が見つかりませんでした")
+    
+    # 6. 馬体重を抽出（直接HTMLから抽出を試みる）
+    weight = None
+    
+    # パターン1: 馬体重：416kg 形式
+    weight_match = re.search(r'馬体重[：:](\d+)kg', html_content, re.IGNORECASE)
+    
+    # パターン2: 馬体重は416kg 形式
+    if not weight_match:
+        weight_match = re.search(r'馬体重[は:](\d+)', html_content, re.IGNORECASE)
         
-        # それでも見つからない場合はhorse_weight_extractorを使用
-        if 'weight' not in horse_info or not horse_info['weight']:
-            try:
-                from horse_weight_extractor import add_horse_weight
-                horse_info = add_horse_weight(horse_info, str(soup))
-                if 'weight' in horse_info and horse_info['weight']:
-                    logging.info(f"horse_weight_extractor から馬体重を抽出: {horse_info['weight']}kg")
-            except Exception as e:
-                logging.warning(f"馬体重抽出中にエラーが発生: {e}")
+    # パターン3: 体重：416kg 形式
+    if not weight_match:
+        weight_match = re.search(r'体重[：:](\d+)kg', html_content, re.IGNORECASE)
         
-        # 7. 戦績情報を抽出（本番環境と同じロジック）
-        # まず繁殖牝馬かどうかをチェック
-        title_match = re.search(r'<title>(.*?)</title>', html_content, re.DOTALL)
-        title = title_match.group(1) if title_match else ''
-        is_broodmare = ('繁殖牝馬' in title or '※繁殖牝馬' in title or '空胎' in title or 
-                      '繁殖牝馬' in html_content or (horse_info.get('sex') == '牝' and '繁殖' in html_content))
+    # パターン4: 馬体重 416kg 形式（スペース区切り）
+    if not weight_match:
+        weight_match = re.search(r'馬体重[\s　]+(\d+)\s*(?:kg|キロ|KG)', html_content, re.IGNORECASE)
         
-        # 最終的に馬体重が見つからなかった場合
-        if 'weight' not in horse_info or not horse_info['weight']:
-            # 繁殖牝馬の場合は'-'を設定
-            if is_broodmare:
-                horse_info['weight'] = '-'
-                logging.info(f"繁殖牝馬のため、馬体重を'-'に設定しました")
+    # パターン5: 馬体重が表形式で記載されている場合
+    if not weight_match:
+        # テーブル内の「馬体重」を含む行を検索
+        for tr in soup.find_all('tr'):
+            if '馬体重' in tr.text and 'kg' in tr.text:
+                weight_match = re.search(r'(\d+)\s*kg', tr.text)
+                if weight_match:
+                    break
+                    
+    # パターン6: コメント欄に記載されている場合
+    if not weight_match and 'comment' in horse_info:
+        weight_match = re.search(r'(?:馬体重|体重)[：: 　]*(\d+)\s*(?:kg|キロ|KG)', horse_info['comment'], re.IGNORECASE)
+    
+    # パターン7: HTML内のどこかに数値+kgのパターンがある場合
+    if not weight_match:
+        weight_match = re.search(r'(\d+)\s*kg', html_content, re.IGNORECASE)
+    
+    if weight_match:
+        try:
+            weight = int(weight_match.group(1))
+            # 馬体重の妥当性チェック（100kg 〜 600kgの範囲）
+            if 100 <= weight <= 600:
+                horse_info['weight'] = weight
+                logging.info(f"馬体重を抽出しました: {weight}kg")
             else:
-                # デバッグ用にHTMLを保存
-                debug_file = f"debug_weight_not_found_{os.path.basename(detail_file)}"
-                with open(debug_file, 'w', encoding='utf-8') as f:
-                    f.write(html_content)
-                logging.warning(f"馬体重が見つかりませんでした。デバッグ用にHTMLを保存: {debug_file}")
-                # デフォルト値は設定しない（Noneのまま）
-        
-        # 繁殖牝馬の場合はrace_recordを設定して続行（早期リターンしない）
+                logging.warning(f"馬体重の値が不自然です: {weight}kg")
+        except (ValueError, IndexError) as e:
+            logging.warning(f"馬体重の数値変換に失敗: {e}")
+    
+    # それでも見つからない場合はhorse_weight_extractorを使用
+    if 'weight' not in horse_info or not horse_info['weight']:
+        try:
+            from horse_weight_extractor import add_horse_weight
+            horse_info = add_horse_weight(horse_info, str(soup))
+            if 'weight' in horse_info and horse_info['weight']:
+                logging.info(f"horse_weight_extractor から馬体重を抽出: {horse_info['weight']}kg")
+        except Exception as e:
+            logging.warning(f"馬体重抽出中にエラーが発生: {e}")
+    
+    # 7. 戦績情報を抽出（本番環境と同じロジック）
+    # まず繁殖牝馬かどうかをチェック
+    title_match = re.search(r'<title>(.*?)</title>', html_content, re.DOTALL)
+    title = title_match.group(1) if title_match else ''
+    is_broodmare = (any(k in title for k in ['繁殖牝馬', '繫殖牝馬', '※繁殖牝馬', '※繫殖牝馬', '空胎']) or 
+                  any(k in html_content for k in ['繁殖牝馬', '繫殖牝馬']) or 
+                  (horse_info.get('sex') == '牝' and any(k in html_content for k in ['繁殖', '繫殖'])))
+    
+    # 最終的に馬体重が見つからなかった場合
+    if 'weight' not in horse_info or not horse_info['weight']:
+        # 繁殖牝馬の場合は'-'を設定
         if is_broodmare:
-            horse_info['race_record'] = '繁殖牝馬'
-            logging.info(f"繁殖牝馬を検出しました: {title}")
-        
-        # 繁殖牝馬でない場合は通常の戦績情報を抽出
-        race_record = None
-        
-        # パターン1: 通算成績：3戦0勝［0-0-0-3］形式
-        record_match = re.search(r'通算成績[：:]*\s*([^\n\[\]\s]+(?:\s*[^\n\[\]]+)*?)(?:\s*\[([^\]]+)\])?', html_content)
-        if record_match:
-            race_record = record_match.group(1).strip()
-            if record_match.group(2):
-                race_record += f" [{record_match.group(2).strip()}]"
-            # 余分な改行や空白を削除
-            race_record = ' '.join(race_record.split())
-            logging.info(f"戦績を抽出しました: {race_record}")
+            horse_info['weight'] = '-'
+            logging.info(f"繁殖牝馬のため、馬体重を'-'に設定しました")
         else:
-            # パターン2: 表形式の場合
-            for tr in soup.find_all('tr'):
-                if '通算成績' in tr.text:
-                    record_text = tr.get_text()
-                    record_match = re.search(r'通算成績[：:]*\s*([^\n\[\]\s]+(?:\s*[^\n\[\]]+)*?)(?:\s*\[([^\]]+)\])?', record_text)
-                    if record_match:
-                        race_record = record_match.group(1).strip()
-                        if record_match.group(2):
-                            race_record += f" [{record_match.group(2).strip()}]"
-                        # 余分な改行や空白を削除
-                        race_record = ' '.join(race_record.split())
-                        logging.info(f"表形式から戦績を抽出: {race_record}")
-                        break
-            
-            # パターン3: コメント欄を確認
-            if not race_record and 'comment' in horse_info:
-                comment = horse_info['comment']
-                record_match = re.search(r'通算成績[：:]*\s*([^\n\[\]\s]+(?:\s*[^\n\[\]]+)*?)(?:\s*\[([^\]]+)\])?', comment)
+            # デバッグ用にHTMLを保存
+            debug_file = f"debug_weight_not_found_{os.path.basename(detail_file)}"
+            with open(debug_file, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            logging.warning(f"馬体重が見つかりませんでした。デバッグ用にHTMLを保存: {debug_file}")
+            # デフォルト値は設定しない（Noneのまま）
+    
+    # 繁殖牝馬の場合はrace_recordを設定して続行（早期リターンしない）
+    if is_broodmare:
+        horse_info['race_record'] = '繁殖牝馬'
+        logging.info(f"繁殖牝馬を検出しました: {title}")
+    
+    # 繁殖牝馬でない場合は通常の戦績情報を抽出
+    race_record = None
+    
+    # パターン1: 通算成績：3戦0勝［0-0-0-3］形式
+    record_match = re.search(r'通算成績[：:]*\s*([^\n\[\]\s]+(?:\s*[^\n\[\]]+)*?)(?:\s*\[([^\]]+)\])?', html_content)
+    if record_match:
+        race_record = record_match.group(1).strip()
+        if record_match.group(2):
+            race_record += f" [{record_match.group(2).strip()}]"
+        # 余分な改行や空白を削除
+        race_record = ' '.join(race_record.split())
+        logging.info(f"戦績を抽出しました: {race_record}")
+    else:
+        # パターン2: 表形式の場合
+        for tr in soup.find_all('tr'):
+            if '通算成績' in tr.text:
+                record_text = tr.get_text()
+                record_match = re.search(r'通算成績[：:]*\s*([^\n\[\]\s]+(?:\s*[^\n\[\]]+)*?)(?:\s*\[([^\]]+)\])?', record_text)
                 if record_match:
                     race_record = record_match.group(1).strip()
                     if record_match.group(2):
                         race_record += f" [{record_match.group(2).strip()}]"
                     # 余分な改行や空白を削除
                     race_record = ' '.join(race_record.split())
-                    logging.info(f"コメント欄から戦績を抽出: {race_record}")
+                    logging.info(f"表形式から戦績を抽出: {race_record}")
+                    break
         
-        # 戦績が見つかった場合にのみ設定
-        if race_record:
-            horse_info['race_record'] = race_record
-        else:
-            logging.warning("戦績情報が見つかりませんでした")
+        # パターン3: コメント欄を確認
+        if not race_record and 'comment' in horse_info:
+            comment = horse_info['comment']
+            record_match = re.search(r'通算成績[：:]*\s*([^\n\[\]\s]+(?:\s*[^\n\[\]]+)*?)(?:\s*\[([^\]]+)\])?', comment)
+            if record_match:
+                race_record = record_match.group(1).strip()
+                if record_match.group(2):
+                    race_record += f" [{record_match.group(2).strip()}]"
+                # 余分な改行や空白を削除
+                race_record = ' '.join(race_record.split())
+                logging.info(f"コメント欄から戦績を抽出: {race_record}")
+    
+    # 戦績が見つかった場合にのみ設定
+    if race_record:
+        horse_info['race_record'] = race_record
+    else:
+        logging.warning("戦績情報が見つかりませんでした")
 
         # 8. 賞金情報を抽出（改良版）
         def extract_prize(text):
