@@ -475,7 +475,7 @@ function AnalysisContent() {
 
   // CSVエクスポートユーティリティ
   const toCsv = (rows: any[]) => {
-    const headers = ['ID', '馬名', '性別', '年齢', '父', '馬体重', '落札価格', '落札時賞金', '現在賞金', 'ROI', 'リンク', '病歴', '繁殖'];
+    const headers = ['ID', '馬名', '性別', '年齢', '父', '馬体重', 'オークション日', '落札価格', '落札時賞金', '現在賞金', 'ROI', 'リンク', '病歴', '繁殖'];
     const escape = (v: any) => {
       if (v === null || v === undefined) return '';
       const s = String(v);
@@ -487,7 +487,7 @@ function AnalysisContent() {
       const disease = Array.isArray(h.disease_tags) ? h.disease_tags.join(' / ') : (h.disease_tags ?? '');
       const soldPrice = Number(h.sold_price || 0);
       const roi = calculateROI(h.total_prize_latest, h.total_prize_start, h.sold_price);
-      const row = [String(h.id), h.name ?? '', h.sex ?? '', h.age ?? '', h.sire ?? '', h.weight ?? '', soldPrice, h.total_prize_start ?? '', h.total_prize_latest ?? '', roi.toFixed(1), h.detail_url || h.auction_url || '', disease, h.is_broodmare ? '○' : ''].map(escape).join(',');
+      const row = [String(h.id), h.name ?? '', h.sex ?? '', h.age ?? '', h.sire ?? '', h.weight ?? '', h.auction_date ?? '', soldPrice, h.total_prize_start ?? '', h.total_prize_latest ?? '', roi.toFixed(1), h.detail_url || h.auction_url || '', disease, h.is_broodmare ? '○' : ''].map(escape).join(',');
       lines.push(row);
     }
     return '\uFEFF' + lines.join('\n');
@@ -527,7 +527,7 @@ function AnalysisContent() {
     const horse = tableHorses[index];
     return (
       <div style={style} className="flex items-center border-b border-gray-200 hover:bg-blue-50/50 transition-colors">
-        <div className="flex items-center px-3 py-2 text-sm" style={{ width: '1100px' }}>
+        <div className="flex items-center px-3 py-2 text-sm" style={{ width: '1120px' }}>
           <div className="w-48 pr-2 text-left">{horse.name ? (
             <Link href={`/horses/${horse.id}`} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">
               {horse.name}
@@ -546,6 +546,7 @@ function AnalysisContent() {
           <div className="w-12 text-center text-gray-600">{displayAge(horse.age)}</div>
           <div className="w-32 text-center text-gray-600 truncate">{horse.sire || '-'}</div>
           <div className="w-20 text-center text-gray-600 pr-2">{horse.weight || '-'}</div>
+          <div className="w-20 text-center text-gray-600 pr-2">{horse.auction_date || '-'}</div>
           <div className="w-24 text-center text-gray-700 font-medium pr-2">
             {displayPrice(horse.sold_price, horse.is_unsold)}
           </div>
@@ -607,7 +608,7 @@ function AnalysisContent() {
   const sortFunctions: Record<string, SortFunction> = {
     name: (a, b) => (a?.name ?? '').localeCompare(b?.name ?? '', 'ja'),
     sex: (a, b) => (a?.sex ?? '').localeCompare(b?.sex ?? '', 'ja'),
-    weight: (a, b) => (a?.weight ?? 0) - (b?.weight ?? 0),
+    auction_date: (a, b) => (a?.auction_date ?? '').localeCompare(b?.auction_date ?? '', 'ja'),
     age: (a, b) => {
       const ageA = typeof a?.age === 'number' ? a.age : (a?.age ? parseFloat(String(a.age)) : 0);
       const ageB = typeof b?.age === 'number' ? b.age : (b?.age ? parseFloat(String(b.age)) : 0);
@@ -700,12 +701,13 @@ function AnalysisContent() {
                 <div className="bg-white rounded-lg shadow border overflow-x-auto">
                   {/* テーブルヘッダー */}
                   <div className="bg-gray-50 border-b border-gray-200 min-w-max">
-                    <div className="flex items-center px-3 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{ width: '1100px' }}>
+                    <div className="flex items-center px-3 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{ width: '1120px' }}>
                       <div className="w-48 cursor-pointer pr-2 text-left" onClick={() => handleSort('name')}>馬名{renderSortIcon('name')}</div>
                       <div className="w-16 text-center cursor-pointer" onClick={() => handleSort('sex')}>性別{renderSortIcon('sex')}</div>
                       <div className="w-12 text-center cursor-pointer" onClick={() => handleSort('age')}>年齢{renderSortIcon('age')}</div>
                       <div className="w-32 text-center cursor-pointer" onClick={() => handleSort('sire')}>父{renderSortIcon('sire')}</div>
                       <div className="w-20 text-center cursor-pointer pr-2" onClick={() => handleSort('weight')}>馬体重{renderSortIcon('weight')}</div>
+                      <div className="w-20 text-center cursor-pointer pr-2" onClick={() => handleSort('auction_date')}>オークション日{renderSortIcon('auction_date')}</div>
                       <div className="w-24 text-center cursor-pointer pr-2" onClick={() => handleSort('sold_price')}>落札価格{renderSortIcon('sold_price')}</div>
                       <div className="w-24 text-center cursor-pointer pr-4" onClick={() => handleSort('total_prize_start')}>落札時{renderSortIcon('total_prize_start')}</div>
                       <div className="w-24 text-center cursor-pointer pr-4" onClick={() => handleSort('total_prize_latest')}>現在{renderSortIcon('total_prize_latest')}</div>
@@ -728,7 +730,7 @@ function AnalysisContent() {
                   ) : (
                     <div style={{ height: Math.min(tableHorses.length * 50, 600), width: '1100px' }}>
                       <List
-                        width="100%"
+                        width="1120px"
                         height={Math.min(tableHorses.length * 50, 600)}
                         itemCount={tableHorses.length}
                         itemSize={50}
