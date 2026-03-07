@@ -381,8 +381,12 @@ def load_historical_data() -> pd.DataFrame:
                 
                 if missing_cols:
                     logger.warning(f"必要なカラムが不足しています: {missing_cols}")
-                    # カラム名のマッピングを試行
-                    df = map_column_names(df)
+                
+                # カラム名のマッピングを試行
+                df = map_column_names(df)
+                
+                # データ型変換とクリーニング
+                df = clean_and_convert_data(df)
                 
                 return df
                 
@@ -414,6 +418,31 @@ def map_column_names(df: pd.DataFrame) -> pd.DataFrame:
             df_mapped[new_name] = df_mapped[old_name]
     
     return df_mapped
+
+def clean_and_convert_data(df: pd.DataFrame) -> pd.DataFrame:
+    """データ型変換とクリーニング"""
+    df_clean = df.copy()
+    
+    # 落札価格を数値に変換
+    if '落札価格' in df_clean.columns:
+        # 文字列の場合（JSON形式など）を処理
+        df_clean['落札価格'] = df_clean['落札価格'].astype(str)
+        df_clean['落札価格'] = df_clean['落札価格'].str.replace(r'[\[\]]', '', regex=True)
+        df_clean['落札価格'] = pd.to_numeric(df_clean['落札価格'], errors='coerce').fillna(0)
+    
+    # 落札時賞金を数値に変換
+    if '落札時賞金' in df_clean.columns:
+        df_clean['落札時賞金'] = pd.to_numeric(df_clean['落札時賞金'], errors='coerce').fillna(0)
+    
+    # 年齢を数値に変換
+    if '年齢' in df_clean.columns:
+        df_clean['年齢'] = pd.to_numeric(df_clean['年齢'], errors='coerce').fillna(0)
+    
+    # 馬体重を数値に変換
+    if '馬体重' in df_clean.columns:
+        df_clean['馬体重'] = pd.to_numeric(df_clean['馬体重'], errors='coerce').fillna(0)
+    
+    return df_clean
 
 def generate_predictions(current_horses: pd.DataFrame, sire_ranks: Dict[str, float]) -> pd.DataFrame:
     """今回の出品馬の予測を生成"""
