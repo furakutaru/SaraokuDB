@@ -1,0 +1,292 @@
+name: Predict Auction Prices
+
+on:
+  schedule:
+    - cron: '3 3 * * 4,0'  # 毎週木曜・日曜 12:00 JST (UTC+9) = UTC 3:00
+  workflow_dispatch:  # 手動実行用
+
+permissions:
+  contents: write  # リポジトリへの書き込み権限
+
+jobs:
+  predict-prices:
+    name: Predict Auction Prices
+    runs-on: ubuntu-latest
+    env:
+      LOG_LEVEL: DEBUG
+      GITHUB_ACTIONS: "true"
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: ${{ github.workspace }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 全履歴を取得
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install system dependencies
+        run: |
+          echo "Installing required packages..."
+          sudo apt-get update
+          sudo apt-get install -y jq curl sqlite3
+          
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r backend/requirements.txt
+          pip install requests beautifulsoup4 lxml tqdm sqlalchemy python-dotenv aiohttp pandas openpyxl
+          
+      - name: Set up authentication and environment
+        id: auth
+        continue-on-error: false
+        env:
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
+          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: |
+          set -x
+          
+          echo "::group::🔍 環境変数の確認"
+          echo "PROD_API_BASE_URL: ${PROD_API_BASE_URL:0:10}..."
+          echo "PROD_API_USERNAME: ${PROD_API_USERNAME:0:3}..."
+          echo "PROD_API_PASSWORD: ${PROD_API_PASSWORD:0:3}..."
+          echo "::endgroup::"
+          
+          echo "::group::🔐 認証処理を開始します"
+          
+          # 一時ファイルを作成
+          TEMP_FILE=$(mktemp)
+          echo "::debug::一時ファイルを作成しました: $TEMP_FILE"
+          
+          # RenderのAPI URLを使用
+          AUTH_URL="$PROD_API_BASE_URL/api/auth/token/"
+          echo "::notice:: 認証を試みます: $AUTH_URL"
+          
+          # 認証リクエストを実行
+          HTTP_RESPONSE=$(curl -v -s -w "\n%{http_code}" \
+            -X POST "$AUTH_URL" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "username=$PROD_API_USERNAME" \
+            -d "password=$PROD_API_PASSWORD" 2> "${TEMP_FILE}_curl.log" || echo "CURL_ERROR")
+          
+          # ステータスコードとレスポンスを抽出
+          HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n1)
+          AUTH_CONTENT=$(echo "$HTTP_RESPONSE" | head -n -1)
+          
+          # デバッグ情報を出力
+          echo "::debug::HTTPステータス: $HTTP_STATUS"
+          echo "::debug::cURLログ: $(cat "${TEMP_FILE}_curl.log")"
+          echo "::debug::レスポンス: $AUTH_CONTENT"
+          
+          # 一時ファイルに出力
+          echo "$AUTH_CONTENT" > "$TEMP_FILE"
+            
+          # ステータスコードが空でないか確認
+          if [ -z "$HTTP_STATUS" ]; then
+            echo "::error::❌ 認証レスポンスが空です"
+            echo "::error::レスポンス全体: $(cat "$TEMP_FILE")"
+            rm -f "$TEMP_FILE"
+            exit 1
+          fi
+          
+          # ステータスコードを確認
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "::error::❌ 認証に失敗しました (ステータスコード: $HTTP_STATUS)"
+            echo "::error::レスポンス: $AUTH_CONTENT"
+            rm -f "$TEMP_FILE"
+            exit 1
+          fi
+          
+          echo "::notice::✅ 認証リクエストは成功しました (ステータスコード: $HTTP_STATUS)"
+          
+          # トークンを抽出
+          TOKEN=$(echo "$AUTH_CONTENT" | jq -r '.access_token' 2>/dev/null || \
+                  echo "$AUTH_CONTENT" | grep -o '"access_token":"[^"]*"' | head -1 | cut -d'"' -f4 || echo "")
+          
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "::error::❌ トークンの抽出に失敗しました"
+            echo "::error::レスポンス: $AUTH_CONTENT"
+            rm -f "$TEMP_FILE"
+            exit 1
+          fi
+          
+          echo "::notice::✅ 認証に成功しました"
+          
+          # 環境変数に設定
+          echo "TOKEN=$TOKEN" | tee -a $GITHUB_ENV
+          echo "AUTH_HEADER=Bearer $TOKEN" | tee -a $GITHUB_ENV
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" | tee -a $GITHUB_ENV
+          echo "LOG_LEVEL=DEBUG" | tee -a $GITHUB_ENV
+          echo "GITHUB_ACTIONS=true" | tee -a $GITHUB_ENV
+          echo "SECRET_KEY=$SECRET_KEY" | tee -a $GITHUB_ENV
+          echo "PROD_API_BASE_URL=$PROD_API_BASE_URL" | tee -a $GITHUB_ENV
+          
+          # 一時ファイルを削除
+          rm -f "$TEMP_FILE"
+          
+          echo "::notice::✅ 環境設定が完了しました"
+          echo "::endgroup::"
+          
+          # 正常終了
+          echo "::notice::✅ 認証処理が正常に完了しました"
+          exit 0
+          
+      - name: Verify environment
+        run: |
+          echo "PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL != '' && '***' || 'Not Set' }}"
+          if [ -n "$TOKEN" ]; then
+            echo "AUTH_TOKEN: ***"
+          else
+            echo "AUTH_TOKEN: Not Set"
+          fi
+          
+      - name: Create output directory
+        run: |
+          mkdir -p prediction_results
+          mkdir -p logs
+          
+      - name: Run price prediction script
+        env:
+          # 認証関連
+          TOKEN: ${{ env.TOKEN }}
+          AUTH_HEADER: ${{ env.AUTH_HEADER }}
+          # 環境変数を設定
+          PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
+          PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}
+          PROD_API_PASSWORD: ${{ secrets.PROD_API_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # アプリケーション設定
+          LOG_LEVEL: DEBUG
+          GITHUB_ACTIONS: "true"
+          PYTHONUNBUFFERED: 1
+          PYTHONPATH: ${{ github.workspace }}
+          TEST_MODE: "false"
+        run: |
+          set -e
+          
+          # タイムスタンプを取得
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          LOG_DIR="logs"
+          LOG_FILE="$LOG_DIR/predict_auction_${TIMESTAMP}.log"
+          
+          # ログディレクトリが存在しない場合は作成
+          mkdir -p "$LOG_DIR"
+          
+          echo "::group::🔮 価格予測を開始します"
+          echo "テストモード: $TEST_MODE"
+          echo "ログファイル: $LOG_FILE"
+          
+          # スクリプトの実行準備
+          cd scripts
+          
+          # 環境変数をエクスポート
+          export AUTH_TOKEN="$TOKEN"
+          export AUTH_HEADER="$AUTH_HEADER"
+          export PROD_API_BASE_URL="$PROD_API_BASE_URL"
+          export DATABASE_URL="$DATABASE_URL"
+          export LOG_LEVEL="$LOG_LEVEL"
+          export GITHUB_ACTIONS="true"
+          export SECRET_KEY="$SECRET_KEY"
+          
+          # 予測スクリプトを実行
+          echo "::notice::価格予測スクリプトを実行します..."
+          python predict_auction_prices.py 2>&1 | tee "../$LOG_FILE"
+          EXIT_CODE=${PIPESTATUS[0]}
+          
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "::notice::✅ 価格予測が完了しました"
+          else
+            echo "::error::❌ 価格予測が失敗しました (終了コード: $EXIT_CODE)"
+            echo "::group::🐛 エラーログ"
+            tail -n 50 "../$LOG_FILE"
+            echo "::endgroup::"
+            exit 1
+          fi
+          
+          echo "::endgroup::"
+          
+      - name: Upload prediction results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prediction-results-${{ github.run_number }}
+          path: |
+            prediction_results/
+            logs/predict_auction_*.log
+          retention-days: 30
+          
+      - name: Display results summary
+        if: success()
+        run: |
+          echo "::group::📊 予測結果サマリー"
+          
+          # 最新の予測結果ファイルを探す
+          LATEST_CSV=$(ls -t prediction_results/predictions_*.csv 2>/dev/null | head -1)
+          LATEST_HOT=$(ls -t prediction_results/hot_horses_*.json 2>/dev/null | head -1)
+          LATEST_TWITTER=$(ls -t prediction_results/twitter_text_*.txt 2>/dev/null | head -1)
+          
+          if [ -n "$LATEST_CSV" ]; then
+            echo "📈 予測結果ファイル: $(basename $LATEST_CSV)"
+            HORSE_COUNT=$(tail -n +2 "$LATEST_CSV" | wc -l)
+            echo "予測対象馬数: $HORSE_COUNT頭"
+            
+            # 上位5頭を表示
+            echo ""
+            echo "🔥 TOP 5 注目馬:"
+            head -6 "$LATEST_CSV" | tail -n +2 | while IFS=',' read -r name sex age sire weight prize disease breeding date min max range points; do
+              if [ -n "$name" ]; then
+                echo "• $name（$sex$age歳）| 父: $sire | 予想: $range"
+              fi
+            done
+          fi
+          
+          if [ -n "$LATEST_TWITTER" ]; then
+            echo ""
+            echo "🐦 X投稿用テキスト:"
+            head -10 "$LATEST_TWITTER"
+            echo "..."
+          fi
+          
+          echo "::endgroup::"
+          
+      - name: Commit prediction results
+        if: success()
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          
+          # 予測結果をステージング
+          git add prediction_results/ || true
+          git add logs/predict_auction_*.log || true
+          
+          # 変更を確認
+          git status
+          
+          # 変更がある場合のみコミット
+          if ! git diff-index --quiet --cached HEAD; then
+            git commit -m "Add auction price predictions [skip ci]"
+            
+            # プッシュ（リトライ付き）
+            for i in 1 2 3; do
+              if git push; then
+                echo "Push successful"
+                exit 0
+              else
+                echo "Push failed, retrying..."
+                git pull --rebase
+                sleep 5
+              fi
+            done
+            
+            echo "Failed to push changes after 3 attempts"
+            exit 1
+          else
+            echo "No changes to commit"
+          fi
