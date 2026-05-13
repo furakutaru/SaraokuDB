@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 from bs4 import BeautifulSoup
+from contextlib import asynccontextmanager
 from typing import Dict, List, Optional, Any, Union, Tuple
 import logging
 from datetime import datetime, timedelta
@@ -56,7 +57,9 @@ class KeibaBookScraper:
         base_delay: float = 2.0,
         max_delay: float = 60.0,
         jitter: bool = True,
-        verify_ssl: bool = False
+        verify_ssl: bool = False,
+        min_request_interval: float = 1.35,
+        request_spacing_jitter_max: float = 0.45,
     ):
         """初期化
         
@@ -67,20 +70,34 @@ class KeibaBookScraper:
             max_delay: リトライ間の最大待機時間（秒）
             jitter: ジッター（ランダムな遅延）を有効にするか
             verify_ssl: SSL証明書の検証を行うか
+            min_request_interval: 連続リクエスト間の最短秒数（サイト負荷緩和）
+            request_spacing_jitter_max: 上記に加えるランダム待ちの上限秒（0で無効）
         """
         self.max_retries = max_retries
         self.base_delay = base_delay
         self.max_delay = max_delay
         self.jitter = jitter
+        self.min_request_interval = max(0.5, float(min_request_interval))
+        self.request_spacing_jitter_max = max(0.0, float(request_spacing_jitter_max))
         self.request_count = 0
         self.last_request_time = None
-        
+        self._http_lock = asyncio.Lock()
+
         # セッションの設定をカスタマイズ
         connector = aiohttp.TCPConnector(ssl=verify_ssl)
         self.session = session or aiohttp.ClientSession(
             connector=connector,
             headers=self.HEADERS
         )
+
+    @asynccontextmanager
+    async def _http_turn(self):
+        """競馬ブックへの HTTP を直列化し、待機＋軽いジッターを入れる"""
+        async with self._http_lock:
+            await self._respect_rate_limit()
+            if self.request_spacing_jitter_max > 0:
+                await asyncio.sleep(random.uniform(0, self.request_spacing_jitter_max))
+            yield
     
     async def __aenter__(self):
         return self
@@ -111,9 +128,8 @@ class KeibaBookScraper:
         """レートリミットを考慮してリクエスト間隔を調整"""
         if self.last_request_time:
             elapsed = (datetime.now() - self.last_request_time).total_seconds()
-            min_interval = 1.0  # 最低1秒間隔を空ける
-            if elapsed < min_interval:
-                await asyncio.sleep(min_interval - elapsed)
+            if elapsed < self.min_request_interval:
+                await asyncio.sleep(self.min_request_interval - elapsed)
 
     async def _request_with_retry(
         self,
@@ -130,39 +146,34 @@ class KeibaBookScraper:
         
         for attempt in range(1, self.max_retries + 1):
             try:
-                # レートリミット対策の遅延
-                await self._respect_rate_limit()
-                
                 logger.debug(f"リクエスト送信: {method} {url}")
-                
-                # リクエスト実行
-                async with self.session.request(
-                    method,
-                    url,
-                    **kwargs
-                ) as response:
-                    self.request_count += 1
-                    self.last_request_time = datetime.now()
-                    
-                    # レスポンスの内容を確認
-                    content = await response.text()
-                    
-                    # エラーページのチェック
-                    if "アクセスが集中しています" in content:
-                        raise RetryableError("アクセスが集中しています")
-                        
-                    # ステータスコードチェック
-                    if response.status == 200:
-                        return response
-                    
-                    # レートリミットやサーバーエラーの場合
-                    if response.status in [429, 500, 502, 503, 504]:
-                        raise RetryableError(f"HTTP {response.status}: {content}")
-                    
-                    # その他のエラー
-                    response.raise_for_status()
+
+                async with self._http_turn():
+                    async with self.session.request(
+                        method,
+                        url,
+                        **kwargs
+                    ) as response:
+                        self.request_count += 1
+                        content = await response.text()
+                        self.last_request_time = datetime.now()
+
+                        # エラーページのチェック
+                        if "アクセスが集中しています" in content:
+                            raise RetryableError("アクセスが集中しています")
+
+                        # ステータスコードチェック
+                        if response.status == 200:
+                            return response
+
+                        # レートリミットやサーバーエラーの場合
+                        if response.status in [429, 500, 502, 503, 504]:
+                            raise RetryableError(f"HTTP {response.status}: {content}")
+
+                        # その他のエラー
+                        response.raise_for_status()
             
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            except (aiohttp.ClientError, asyncio.TimeoutError, RetryableError) as e:
                 last_error = e
                 if attempt == self.max_retries or not self._should_retry(e):
                     logger.error(f"リクエストが失敗しました（最終試行）: {str(e)}")
@@ -179,37 +190,42 @@ class KeibaBookScraper:
         # すべてのリトライが失敗した場合
         raise last_error or Exception("リクエストが失敗しました")
 
+    async def _fetch_search_page_html(self) -> str:
+        """検索フォームページをGET（レート制限・直列ロック適用）"""
+        async with self._http_turn():
+            async with self.session.get(self.BASE_URL, headers=self.HEADERS) as response:
+                response.raise_for_status()
+                html = await response.text()
+            self.request_count += 1
+            self.last_request_time = datetime.now()
+        return html
+
     async def search_horse(self, name: str, father: str, mother: str, age: Optional[int] = None, gender: Optional[str] = None) -> List[Dict[str, Any]]:
         """馬を検索する"""
         try:
             # トークンを取得するためにトップページにアクセス
             token = 'dummy_token'
             logger.info("トークンを取得するためにトップページにアクセスします...")
-            
-            # セッションクッキーを取得するために一度GETリクエストを送信
-            await self.session.get(self.BASE_URL, headers=self.HEADERS)
-            
-            # 検索ページにアクセスしてトークンを取得
-            async with self.session.get(self.BASE_URL, headers=self.HEADERS) as response:
-                if response.status == 200:
-                    html = await response.text()
-                    # デバッグ用にHTMLを保存
-                    with open(f"debug_search_page_{int(time.time())}.html", "w", encoding="utf-8") as f:
-                        f.write(html)
-                    
-                    soup = BeautifulSoup(html, 'html.parser')
-                    token = soup.find('input', {'name': '_token'})
-                    if token and 'value' in token.attrs:
-                        token = token['value']
-                        logger.debug(f"トークンを取得しました: {token}")
-                    else:
-                        logger.warning("トークンが見つかりませんでした")
-                        # フォールバックとして、ページ内の最初のトークンを探す
-                        for meta in soup.find_all('meta', {'name': 'csrf-token'}):
-                            if 'content' in meta.attrs:
-                                token = meta['content']
-                                logger.debug(f"メタタグからトークンを取得: {token}")
-                                break
+
+            html = await self._fetch_search_page_html()
+            # デバッグ用にHTMLを保存
+            with open(f"debug_search_page_{int(time.time())}.html", "w", encoding="utf-8") as f:
+                f.write(html)
+
+            soup = BeautifulSoup(html, 'html.parser')
+            token = soup.find('input', {'name': '_token'})
+            if token and 'value' in token.attrs:
+                token = token['value']
+                logger.debug(f"トークンを取得しました: {token}")
+            else:
+                logger.warning("トークンが見つかりませんでした")
+                # フォールバックとして、ページ内の最初のトークンを探す
+                token = 'dummy_token'
+                for meta in soup.find_all('meta', {'name': 'csrf-token'}):
+                    if 'content' in meta.attrs:
+                        token = meta['content']
+                        logger.debug(f"メタタグからトークンを取得: {token}")
+                        break
         except Exception as e:
             logger.warning(f"トークンの取得に失敗しました: {str(e)}")
             token = 'dummy_token'
@@ -280,7 +296,7 @@ class KeibaBookScraper:
             # テーブル未検出や0件の場合はフォールバック: 少し待ってから再試行 or 前方一致に切替
             if not results:
                 try:
-                    await asyncio.sleep(1.0)
+                    await asyncio.sleep(random.uniform(1.2, 2.8))
                 except Exception:
                     pass
                 # 直近の問題: テーブル未検出や0件 → 前方一致に切り替えて再検索
@@ -451,18 +467,21 @@ class KeibaBookScraper:
 
         # 検索を実行
         results = await self.search_horse(name, father, mother, age, gender)
-        
+
         if not results:
+            await asyncio.sleep(random.uniform(0.35, 1.1))
             logger.info("フォールバック: 父名のみで再検索します")
             results = await self.search_horse(name, father, "", age, gender)
-            
+
         # フォールバック2: 父名なし・母名あり
         if not results and mother:
+            await asyncio.sleep(random.uniform(0.35, 1.1))
             logger.info("フォールバック: 母名のみで再検索します")
             results = await self.search_horse(name, "", mother, age, gender)
-            
+
         # フォールバック3: 馬名のみ
         if not results:
+            await asyncio.sleep(random.uniform(0.35, 1.1))
             logger.info("フォールバック: 馬名のみで再検索します")
             results = await self.search_horse(name, "", "", age, gender)
         

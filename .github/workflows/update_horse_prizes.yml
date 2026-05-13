@@ -3,7 +3,23 @@ name: Update Horse Prizes v3
 on:
   schedule:
     - cron: '0 15 * * *'  # 毎日深夜0時（JST）に実行 = UTC15時
-  workflow_dispatch:  # 手動実行用
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: '1バッチあたりの処理頭数（日次スケジュールの既定は10）'
+        type: number
+        required: false
+        default: 10
+      until_empty:
+        description: '更新対象がなくなるまで繰り返す（一括バックフィル用。日次では false のまま推奨）'
+        type: boolean
+        required: false
+        default: false
+      max_batches:
+        description: 'until_empty 時の最大バッチ数（0＝制限なし）'
+        type: number
+        required: false
+        default: 0
 
 permissions:
   contents: write  # リポジトリへの書き込み権限
@@ -156,12 +172,32 @@ jobs:
           echo "Updating horse prizes..."
           echo "更新間隔: ${UPDATE_HORSE_PRIZES_INTERVAL_DAYS}日"
           
+          # schedule 等では github.event.inputs が無いため、手動実行時のみ入力を参照する
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BS='${{ github.event.inputs.batch_size }}'
+            UE='${{ github.event.inputs.until_empty }}'
+            MB='${{ github.event.inputs.max_batches }}'
+          else
+            BS=10
+            UE=false
+            MB=0
+          fi
+          BS=${BS:-10}
+          echo "batch_size=${BS} until_empty=${UE} max_batches=${MB}"
+          
           # 実行前にファイル内容を確認
           echo "=== 実行前の最終確認 ==="
           grep -A 2 -B 2 "auth_url.*api/auth/token" scripts/update_horse_prizes.py || echo "パターンが見つかりません"
           echo "========================"
           
-          python scripts/update_horse_prizes.py
+          ARGS=(--batch-size "${BS}")
+          if [ "${UE}" = "true" ]; then
+            ARGS+=(--until-empty)
+          fi
+          if [ "${MB:-0}" -gt 0 ] 2>/dev/null; then
+            ARGS+=(--max-batches "${MB}")
+          fi
+          python scripts/update_horse_prizes.py "${ARGS[@]}"
         env:
           PROD_API_BASE_URL: ${{ secrets.PROD_API_BASE_URL }}
           PROD_API_USERNAME: ${{ secrets.PROD_API_USERNAME }}

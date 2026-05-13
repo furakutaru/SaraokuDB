@@ -2,6 +2,9 @@ import os
 import sys
 import logging
 import asyncio
+import random
+from dataclasses import dataclass
+from typing import Optional
 import argparse
 import re
 from pathlib import Path
@@ -67,6 +70,22 @@ if DATABASE_URL.startswith('postgresql://'):
 else:
     engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=3600)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+@dataclass
+class PrizeUpdatePacing:
+    """競馬ブック負荷・BAN回避のための待機・並列度（GitHub Actions の既定もここに合わせる）"""
+    max_concurrent_horses: int = 2
+    inter_horse_delay_min: float = 0.6
+    inter_horse_delay_max: float = 2.8
+    pause_every_n_horses: int = 12
+    pause_extra_min: float = 4.0
+    pause_extra_max: float = 10.0
+    keibabook_min_request_interval: float = 1.35
+    keibabook_request_jitter_max: float = 0.45
+    between_batch_min: float = 0.8
+    between_batch_max: float = 2.5
+
 
 def get_horses_to_update(db, batch_size: int = 10):
     """更新対象の馬を取得"""
@@ -227,54 +246,236 @@ async def process_horse(scraper, db, horse) -> bool:
         logger.error(f"馬ID {horse.id} の処理中にエラーが発生しました: {str(e)}", exc_info=True)
         return False
 
-async def process_horses_async(batch_size=10):
-    """馬の賞金情報を非同期で更新"""
-    db = SessionLocal()
+async def _process_one_batch(db, batch_size: int, pacing: PrizeUpdatePacing) -> tuple[int, int, bool]:
+    """1バッチ分を処理し、(成功件数, 失敗件数, 致命的エラーで中断したか) を返す"""
+    horses = get_horses_to_update(db, batch_size)
+    if not horses:
+        return 0, 0, False
+
+    from scripts.keibabook_scraper import KeibaBookScraper as RealKeibaBookScraper
+    scraper_ctx = RealKeibaBookScraper(
+        verify_ssl=False,
+        min_request_interval=pacing.keibabook_min_request_interval,
+        request_spacing_jitter_max=pacing.keibabook_request_jitter_max,
+    )
+
+    async with scraper_ctx as scraper:
+        concurrent = max(1, int(pacing.max_concurrent_horses))
+        semaphore = asyncio.Semaphore(concurrent)
+        completed_horses = [0]
+        pause_lock = asyncio.Lock()
+        delay_lo = float(pacing.inter_horse_delay_min)
+        delay_hi = max(delay_lo, float(pacing.inter_horse_delay_max))
+        pause_n = int(pacing.pause_every_n_horses)
+        pause_lo = min(float(pacing.pause_extra_min), float(pacing.pause_extra_max))
+        pause_hi = max(float(pacing.pause_extra_min), float(pacing.pause_extra_max))
+
+        async def run_with_sem(h):
+            async with semaphore:
+                await asyncio.sleep(random.uniform(delay_lo, delay_hi))
+                result = await process_horse(scraper, db, h)
+            async with pause_lock:
+                completed_horses[0] += 1
+                if pause_n > 0 and completed_horses[0] % pause_n == 0:
+                    await asyncio.sleep(random.uniform(pause_lo, pause_hi))
+                    logger.info(
+                        "定期小休止: 累計 %s 頭処理後（%s 頭ごと）",
+                        completed_horses[0],
+                        pause_n,
+                    )
+            return result
+
+        tasks = [asyncio.create_task(run_with_sem(h)) for h in horses]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    success_count = sum(1 for r in results if r is True)
+    failure_count = len(results) - success_count
+    had_exception = any(isinstance(r, BaseException) for r in results)
+
+    logger.info(f"バッチ完了 (成功: {success_count}件, 失敗: {failure_count}件)")
+    if had_exception:
+        for r in results:
+            if isinstance(r, BaseException):
+                tb = getattr(r, "__traceback__", None)
+                if tb is not None:
+                    logger.error("バッチ内の例外: %s", r, exc_info=(type(r), r, tb))
+                else:
+                    logger.error("バッチ内の例外: %s", r)
+
+    return success_count, failure_count, had_exception
+
+
+async def process_horses_async(
+    batch_size: int = 10,
+    until_empty: bool = False,
+    max_batches: Optional[int] = None,
+    pacing: Optional[PrizeUpdatePacing] = None,
+):
+    """馬の賞金情報を非同期で更新。
+
+    until_empty が True のときは、更新対象がなくなるまで batch_size 件ずつ繰り返す。
+    max_batches が指定されていれば、その回数で打ち切る（無限ループ防止用）。
+    """
+    pacing = pacing or PrizeUpdatePacing()
+    logger.info("賞金情報の更新を開始します")
+    logger.info(
+        "ペーシング: concurrent=%s, horse_delay=%.2f〜%.2f秒, pause_every=%s頭, kb_interval=%.2fs+j%.2fs",
+        pacing.max_concurrent_horses,
+        pacing.inter_horse_delay_min,
+        pacing.inter_horse_delay_max,
+        pacing.pause_every_n_horses,
+        pacing.keibabook_min_request_interval,
+        pacing.keibabook_request_jitter_max,
+    )
+    if until_empty:
+        logger.info(f"モード: 対象が尽きるまで繰り返し (batch_size={batch_size}, max_batches={max_batches})")
+
+    total_success = 0
+    total_failure = 0
+    batch_index = 0
+    any_batch_ok = False
+
     try:
-        logger.info("賞金情報の更新を開始します")
-        
-        horses = get_horses_to_update(db, batch_size)
-        if not horses:
-            logger.info("更新対象の馬が見つかりませんでした")
-            return True
-            
-        from scripts.keibabook_scraper import KeibaBookScraper as RealKeibaBookScraper
-        scraper_ctx = RealKeibaBookScraper(verify_ssl=False)
-        
-        async with scraper_ctx as scraper:
-            semaphore = asyncio.Semaphore(3)
+        while True:
+            batch_index += 1
+            if until_empty and batch_index > 1:
+                bb_lo = min(pacing.between_batch_min, pacing.between_batch_max)
+                bb_hi = max(pacing.between_batch_min, pacing.between_batch_max)
+                await asyncio.sleep(random.uniform(bb_lo, bb_hi))
+            if max_batches is not None and batch_index > max_batches:
+                logger.warning(f"max_batches={max_batches} に達したため終了します")
+                break
 
-            async def run_with_sem(h):
-                async with semaphore:
-                    await asyncio.sleep(0.5)
-                    return await process_horse(scraper, db, h)
+            db = SessionLocal()
+            try:
+                success_count, failure_count, had_exception = await _process_one_batch(db, batch_size, pacing)
+            except Exception as e:
+                logger.error(f"賞金情報の更新中にエラーが発生しました: {str(e)}", exc_info=True)
+                return False
+            finally:
+                db.close()
 
-            tasks = []
-            for h in horses:
-                tasks.append(asyncio.create_task(run_with_sem(h)))
+            if success_count == 0 and failure_count == 0:
+                if batch_index == 1:
+                    logger.info("更新対象の馬が見つかりませんでした")
+                else:
+                    logger.info("以降、更新対象の馬はありませんでした")
+                break
 
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        success_count = sum(1 for r in results if r is True)
-        failure_count = len(results) - success_count
-        
-        logger.info(f"賞金情報の更新が完了しました (成功: {success_count}件, 失敗: {failure_count}件)")
-        
-        return success_count > 0 and failure_count == 0
-            
+            total_success += success_count
+            total_failure += failure_count
+            if success_count > 0:
+                any_batch_ok = True
+
+            if had_exception:
+                logger.error("バッチ内に未処理例外があったため終了します")
+                return False
+
+            if not until_empty:
+                ok = success_count > 0 and failure_count == 0
+                if not ok:
+                    logger.info("1バッチ内に失敗があったため終了します (--until-empty で再試行可能)")
+                return ok
+
+            if failure_count > 0:
+                logger.info("このバッチに失敗があったため、--until-empty モードを終了します")
+                return False
+
+        logger.info(f"賞金情報の更新が完了しました (合計 成功: {total_success}件, 失敗: {total_failure}件)")
+        return any_batch_ok or (total_success == 0 and total_failure == 0)
+
     except Exception as e:
         logger.error(f"賞金情報の更新中にエラーが発生しました: {str(e)}", exc_info=True)
         return False
-    finally:
-        db.close()
 
 async def main_async():
     try:
         parser = argparse.ArgumentParser(description='馬の賞金情報を更新するスクリプト')
         parser.add_argument('--batch-size', type=int, default=10, help='一度に処理する馬の数')
+        parser.add_argument(
+            '--until-empty',
+            action='store_true',
+            help='next_update_due が来ている馬を、対象がなくなるまで batch_size 件ずつ繰り返し処理する（手動一括用）',
+        )
+        parser.add_argument(
+            '--max-batches',
+            type=int,
+            default=None,
+            metavar='N',
+            help='--until-empty 時に最大 N バッチで打ち切る（未指定なら制限なし）',
+        )
+        parser.add_argument(
+            '--max-concurrent-horses',
+            type=int,
+            default=2,
+            help='同時にスクレイプする馬の頭数の上限（既定2）',
+        )
+        parser.add_argument(
+            '--inter-horse-delay-min',
+            type=float,
+            default=0.6,
+            help='各馬の処理開始前ランダム待ちの下限秒',
+        )
+        parser.add_argument(
+            '--inter-horse-delay-max',
+            type=float,
+            default=2.8,
+            help='各馬の処理開始前ランダム待ちの上限秒',
+        )
+        parser.add_argument(
+            '--pause-every-n-horses',
+            type=int,
+            default=12,
+            metavar='N',
+            help='N 頭ごとに追加の小休止（0で無効）',
+        )
+        parser.add_argument(
+            '--pause-extra-min',
+            type=float,
+            default=4.0,
+            help='小休止のランダム秒・下限',
+        )
+        parser.add_argument(
+            '--pause-extra-max',
+            type=float,
+            default=10.0,
+            help='小休止のランダム秒・上限',
+        )
+        parser.add_argument(
+            '--keibabook-min-interval',
+            type=float,
+            default=1.35,
+            help='競馬ブックへの連続HTTPの最短間隔（秒）',
+        )
+        parser.add_argument(
+            '--keibabook-request-jitter-max',
+            type=float,
+            default=0.45,
+            help='上記に加えるランダム待ちの上限秒（0で無効）',
+        )
         args = parser.parse_args()
-        
-        return await process_horses_async(batch_size=args.batch_size)
+
+        delay_max = max(float(args.inter_horse_delay_min), float(args.inter_horse_delay_max))
+        pe_lo, pe_hi = float(args.pause_extra_min), float(args.pause_extra_max)
+        if pe_lo > pe_hi:
+            pe_lo, pe_hi = pe_hi, pe_lo
+        pacing = PrizeUpdatePacing(
+            max_concurrent_horses=max(1, int(args.max_concurrent_horses)),
+            inter_horse_delay_min=float(args.inter_horse_delay_min),
+            inter_horse_delay_max=delay_max,
+            pause_every_n_horses=max(0, int(args.pause_every_n_horses)),
+            pause_extra_min=pe_lo,
+            pause_extra_max=pe_hi,
+            keibabook_min_request_interval=float(args.keibabook_min_interval),
+            keibabook_request_jitter_max=max(0.0, float(args.keibabook_request_jitter_max)),
+        )
+
+        return await process_horses_async(
+            batch_size=args.batch_size,
+            until_empty=args.until_empty,
+            max_batches=args.max_batches,
+            pacing=pacing,
+        )
         
     except KeyboardInterrupt:
         logger.info("処理を中断します")
