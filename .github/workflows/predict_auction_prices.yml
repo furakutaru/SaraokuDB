@@ -166,7 +166,7 @@ jobs:
           LOG_LEVEL: DEBUG
           GITHUB_ACTIONS: "true"
           PYTHONUNBUFFERED: 1
-          PYTHONPATH: ${{ github.workspace }}
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
           TEST_MODE: "false"
         run: |
           set -e
@@ -185,6 +185,7 @@ jobs:
           
           # スクリプトの実行準備
           cd scripts
+          export PYTHONPATH="${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}/backend"
           
           # 環境変数をエクスポート
           export AUTH_TOKEN="$TOKEN"
@@ -230,7 +231,6 @@ jobs:
           # 最新の予測結果ファイルを探す
           LATEST_CSV=$(ls -t prediction_results/predictions_*.csv 2>/dev/null | head -1)
           LATEST_HOT=$(ls -t prediction_results/hot_horses_*.json 2>/dev/null | head -1)
-          LATEST_TWITTER=$(ls -t prediction_results/twitter_text_*.txt 2>/dev/null | head -1)
           
           if [ -n "$LATEST_CSV" ]; then
             echo "📈 予測結果ファイル: $(basename $LATEST_CSV)"
@@ -247,11 +247,9 @@ jobs:
             done
           fi
           
-          if [ -n "$LATEST_TWITTER" ]; then
+          if [ -n "$LATEST_HOT" ]; then
             echo ""
-            echo "🐦 X投稿用テキスト:"
-            head -10 "$LATEST_TWITTER"
-            echo "..."
+            echo "📋 HOT JSON: $(basename $LATEST_HOT)"
           fi
           
           echo "::endgroup::"

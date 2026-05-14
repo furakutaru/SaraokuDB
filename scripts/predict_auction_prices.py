@@ -8,21 +8,28 @@
 """
 
 import pandas as pd
-import math
 import json
 import logging
 import sys
 import os
-from datetime import datetime, date
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple, Any
 
-# スクリプトのルートディレクトリをパスに追加
+REPO_ROOT = Path(__file__).resolve().parent.parent
+BACKEND_ROOT = REPO_ROOT / "backend"
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(BACKEND_ROOT))
 sys.path.append(str(Path(__file__).parent))
-sys.path.append(str(Path(__file__).parent.parent))
 
 # 既存のスクレイパーをインポート
 from improved_scraper import ImprovedRakutenScraper, ScraperConfig
+
+from services.auction_price_prediction import (
+    analyze_sires,
+    estimate_horse_price,
+    load_training_dataframe_from_db,
+)
 
 # ロギング設定
 logging.basicConfig(
@@ -35,245 +42,53 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ==========================================
-# 定数（CONST）定義 - 予測ロジックのコア部分（変更禁止）
-# ==========================================
-WEIGHT_MODIFIERS = {
-    "超軽量": -0.15, "軽量_牡セ": -0.05, "軽量_牝": 0.0,
-    "普通": 0.0, "大型": 0.05, "超大型": 0.10
-}
 
-DISEASE_CATEGORIES = {
-    "致命的": ["屈腱炎", "繋靭帯炎", "腱損傷", "じん帯損傷", "腰フラ", "蹄葉炎", "神経麻痺", "腸捻転"],
-    "重度_治療可": ["骨折", "ボーンシスト", "ウォブラー症候群", "OCD", "離断性骨軟骨炎"],
-    "中程度": ["骨膜炎", "フレグモーネ", "骨片", "関節炎", "膝関節炎", "球節炎", "飛節炎", "前膝腱炎", "腱鞘炎", "跛行", "跛る", "肉離れ", "横紋筋融解症", "鶏跛", "喉鳴り", "軟口蓋の癒着", "喉頭蓋エントラップメント", "喉頭蓋炎", "鼻出血", "肺出血", "喘鳴症", "DDSP", "軟口蓋背側変位", "疝痛", "鼓腸症", "大腸炎", "裂蹄", "蹄中隔炎", "蹄の亀裂", "蹄内出血", "繋皸", "けいくん", "角膜炎"],
-    "軽微": ["蟻洞", "骨瘤", "骨膜肥厚", "エクイロックス", "脚部不安", "脚元不安", "こり症", "筋肉痛", "筋肉炎", "コズミ", "挫跖", "ざせき", "旋回癖", "旋回症", "さく癖", "ゆう癖", "カケス", "気管支炎", "呼吸器不安", "上気道炎", "胃潰瘍", "下痢", "食欲不振", "風気疝", "ガス腹", "ロタウイルス感染症", "馬インフルエンザ", "皮膚糸状菌症", "感冒", "蹄不安", "蹄傷", "蹄底負傷", "蹄球損傷", "打撲", "擦過傷", "裂傷", "腫脹", "炎症", "創傷", "皮膚炎", "疥癬", "蕁麻疹", "結膜炎"]
-}
+def load_historical_data_with_db_fallback() -> pd.DataFrame:
+    """DB の成約履歴を優先し、空なら CSV にフォールバック。"""
+    if os.environ.get("DATABASE_URL"):
+        try:
+            from database import SessionLocal
 
-DISEASE_PENALTIES = {"致命的": -0.60, "重度_治療可": -0.30, "中程度": -0.20, "軽微": -0.10}
+            db = SessionLocal()
+            try:
+                df = load_training_dataframe_from_db(db)
+                if not df.empty:
+                    logger.info("過去データをDBから読み込みました (%s 件)", len(df))
+                    return df
+            finally:
+                db.close()
+        except Exception as e:
+            logger.warning("DBからの学習データ読み込みに失敗: %s", e)
+    return load_historical_data()
 
-# ==========================================
-# 予測ロジック関数（変更禁止）
-# ==========================================
-
-def analyze_sires(df):
-    """種牡馬の固有プレミアムを計算（過去データから）"""
-    def get_rough_base(row):
-        age = row.get('年齢', 4) if pd.notna(row.get('年齢')) else 4
-        prize = row.get('落札時賞金', 0) if pd.notna(row.get('落札時賞金')) else 0
-        sex = str(row.get('性別', '牡'))
-        if age <= 3:
-            if prize == 0 and sex in ['牝', 'セ']: base = 600000
-            else: base = 800000
-        else:
-            prize_mult = 0.03
-            if age >= 8: prize_mult = 0.015
-            elif age >= 6: prize_mult = 0.02
-            base = 500000 + (prize * prize_mult)
-        if age >= 5:
-            base *= (1.0 - min(0.50, (age - 4) * 0.10))
-        return base
-        
-    df_calc = df[df['落札価格'] > 0].copy()
-    df_calc['base_est'] = df_calc.apply(get_rough_base, axis=1)
-    df_calc['prem_rate'] = (df_calc['落札価格'] / df_calc['base_est']) - 1.0
-    stats = df_calc.groupby('父')['prem_rate'].agg(['median', 'count'])
-    
-    sire_multiplier = {}
-    for sire, row in stats.iterrows():
-        if row['count'] >= 3:
-            sire_multiplier[sire] = max(-0.40, min(0.60, row['median']))
-        else:
-            sire_multiplier[sire] = 0.0
-    return sire_multiplier
-
-def extract_disease_severity(text):
-    """病歴テキストから疾患の重症度を抽出（変更禁止）"""
-    if not isinstance(text, str) or not text.strip(): return [], []
-    found_severities = set()
-    found_diseases = []
-    for severity, keywords in DISEASE_CATEGORIES.items():
-        for kw in keywords:
-            if kw in text:
-                found_severities.add(severity)
-                found_diseases.append(kw)
-    return list(found_severities), found_diseases
-
-def estimate_horse_price(row, sire_ranks):
-    """馬の価格を予測（変更禁止）"""
-    points = []
-    age = row.get('年齢', 4) if not pd.isna(row.get('年齢')) else 4
-    sex = str(row.get('性別', '牡'))
-    sire = str(row.get('父', ''))
-    weight = row.get('馬体重', 450) if not pd.isna(row.get('馬体重')) else 450
-    prize_money = row.get('落札時賞金', 0) if not pd.isna(row.get('落札時賞金')) else 0
-    disease_text = str(row.get('病歴', '')) if not pd.isna(row.get('病歴')) else ''
-    is_broodmare = (row.get('繁殖') == '○')
-
-    auction_month = None
-    if 'オークション日' in row and pd.notna(row['オークション日']):
-        try: auction_month = pd.to_datetime(row['オークション日']).month
-        except: pass
-
-    severities, found_diseases = extract_disease_severity(disease_text)
-    if found_diseases:
-        points.append(f"検出疾病: {', '.join(found_diseases)}")
-
-    # 【大改善】賞金評価の過剰ペナルティ（二重苦）を排除
-    if age <= 3:
-        if prize_money == 0 and sex in ['牝', 'セ']:
-            base_price = 600000
-            points.append(f"{int(age)}歳未勝利・牝/セ基準(60万)")
-        else:
-            base_price = 800000
-            points.append(f"{int(age)}歳基準(80万)")
-    else:
-        prize_mult = 0.03
-        if age >= 8:
-            prize_mult = 0.015
-            points.append("超高齢(8歳〜)賞金加算半減")
-        elif age >= 6:
-            prize_mult = 0.02
-            points.append("高齢(6歳〜)賞金加算微減")
-        else:
-            points.append("実績馬(基本50万＋賞金加算)")
-        base_price = 500000 + (prize_money * prize_mult)
-
-    positive_mod = 0.0
-    if weight <= 404:
-        positive_mod += WEIGHT_MODIFIERS["超軽量"]
-        points.append("超軽量(-15%)")
-    elif 405 <= weight <= 449:
-        if sex != "牝":
-            positive_mod += WEIGHT_MODIFIERS["軽量_牡セ"]
-            points.append("軽量牡/セ(-5%)")
-    elif 494 <= weight <= 538:
-        positive_mod += WEIGHT_MODIFIERS["大型"]
-        points.append("大型馬(+5%)")
-    elif weight >= 539:
-        positive_mod += WEIGHT_MODIFIERS["超大型"]
-        points.append("超大型馬(+10%)")
-
-    sire_prem = sire_ranks.get(sire, 0.0)
-    if sire_prem > 0:
-        positive_mod += sire_prem
-        points.append(f"種牡馬({sire})適正プレミアム(+{int(sire_prem*100)}%)")
-    elif sire_prem < 0:
-        positive_mod += sire_prem
-        points.append(f"種牡馬({sire})ディスカウント({int(sire_prem*100)}%)")
-
-    # 【大改善】高齢による実績プレミアム剥奪を撤廃。実績は永遠の箔。
-    if prize_money >= 20000000:
-        positive_mod += 0.30
-        points.append("中央実績馬プレミアム(+30%)")
-    elif prize_money >= 10000000:
-        positive_mod += 0.20
-        points.append("オープン馬/準実績馬評価(+20%)")
-    elif prize_money >= 3000000:
-        positive_mod += 0.10
-        points.append("地方即戦力評価(+10%)")
-
-    if auction_month:
-        if age == 3 and auction_month in [8, 9]:
-            positive_mod += 0.25
-            points.append("秋季3歳中央未勝利落ちプレミアム(+25%)")
-        elif age == 2 and auction_month in [11, 12]:
-            positive_mod -= 0.20
-            points.append("年末2歳見切り馬ディスカウント(-20%)")
-
-    if sex == 'セ' and age >= 6 and prize_money < 30000000:
-        positive_mod -= 0.10
-        points.append("セン馬・高齢による繁殖無価値化(-10%)")
-
-    disease_mod = 0.0
-    if "致命的" in severities: disease_mod = DISEASE_PENALTIES["致命的"]
-    elif "重度_治療可" in severities: disease_mod = DISEASE_PENALTIES["重度_治療可"]
-    elif "中程度" in severities: disease_mod = DISEASE_PENALTIES["中程度"]
-    elif "軽微" in severities: disease_mod = DISEASE_PENALTIES["軽微"]
-
-    if disease_mod < 0:
-        if age <= 3:
-            disease_mod *= 0.50
-            points.append("若駒将来性による疾病リスク半減")
-        if positive_mod >= 0.40:
-            disease_mod *= 0.50
-            points.append("高期待値・名馬プレミアムによる疾病リスク半減")
-
-    modifier_sum = positive_mod + disease_mod
-    est_base = base_price * (1.0 + modifier_sum)
-
-    min_factor = 0.55
-    max_factor = 1.60
-    
-    if prize_money >= 50000000:
-        min_factor = 0.30
-        max_factor = 2.50
-        points.append("超名馬ボラティリティ拡張(底値〜青天井許容)")
-    elif prize_money >= 30000000:
-        min_factor = 0.40
-        max_factor = 2.00
-        points.append("名馬ボラティリティ拡張(レンジ幅拡大)")
-
-    if prize_money < 1000000:
-        min_factor = min(min_factor, 0.40)
-        points.append("未勝利・低賞金馬の下振れリスク許容")
-
-    est_min = max(0, est_base * min_factor)
-    est_max = max(0, est_base * max_factor)
-
-    # 全体に対する年齢ペナルティは維持（ここで引くのでベースは引かなくて良い）
-    if age >= 5:
-        age_penalty = min(0.80, (age - 4) * 0.10)
-        est_min *= (1.0 - age_penalty)
-        est_max *= (1.0 - age_penalty)
-        points.append(f"年齢減価(-{int(age_penalty*100)}%)")
-
-    if sex == "牝" and is_broodmare:
-        est_min = max(est_min, 200000)
-        est_max = max(est_max, 500000)
-        if "繁殖牝馬最低保障" not in points: points.append("繁殖牝馬最低保障")
-    elif sex in ["牡", "セ"]:
-        est_min = max(est_min, 100000)
-        est_max = max(est_max, 100000)
-        
-    est_min_man = math.floor(est_min / 10000)
-    est_max_man = math.floor(est_max / 10000)
-    price_range_str = f"{est_min_man}万円" if est_min_man == est_max_man else f"{est_min_man}万円 〜 {est_max_man}万円"
-
-    return est_min, est_max, price_range_str, " / ".join(points)
-
-# ==========================================
-# スクレイピングとデータ処理機能
-# ==========================================
 
 def scrape_current_auction_horses() -> pd.DataFrame:
     """今回のオークション出走馬をスクレイピング"""
     logger.info("今回のオークション出走馬をスクレイピング開始...")
-    
+
     try:
-        # スクレイパーの初期化
         config = ScraperConfig()
         scraper = ImprovedRakutenScraper(config)
-        
-        # 馬一覧をスクレイピング
+
         horse_list = scraper.scrape_horse_list(use_cache=True)
         logger.info(f"取得した馬リスト: {len(horse_list)}頭")
-        
+
         if not horse_list:
             logger.warning("馬リストが空です")
             return pd.DataFrame()
-        
-        # スクレイピングデータを予測用DataFrameに変換
+
         df_current = convert_scraped_data_to_dataframe(horse_list)
         logger.info(f"変換したDataFrame: {len(df_current)}頭")
-        
+
         return df_current
-        
+
     except Exception as e:
         logger.error(f"スクレイピング中にエラーが発生しました: {str(e)}")
         import traceback
+
         logger.error(traceback.format_exc())
         return pd.DataFrame()
+
 
 def convert_scraped_data_to_dataframe(horse_list: List[Dict[str, Any]]) -> pd.DataFrame:
     """スクレイピングデータを予測用DataFrameに変換"""
@@ -497,27 +312,6 @@ def generate_hot_horses_list(predictions_df: pd.DataFrame, top_n: int = 10) -> L
     
     return hot_list
 
-def format_hot_horses_for_twitter(hot_list: List[Dict[str, Any]]) -> str:
-    """X（Twitter）投稿用のテキストを生成"""
-    if not hot_list:
-        return "今回のオークション出品馬はありません。"
-    
-    today = datetime.now().strftime('%Y/%m/%d')
-    text = f"🌟楽天サラブレッドオークション注目馬リスト（{today}）\n\n"
-    
-    for i, horse in enumerate(hot_list, 1):
-        text += f"{i}. {horse['馬名']}（{horse['性別']}{horse['年齢']}歳）\n"
-        text += f"   父: {horse['父']} | 予想: {horse['予想価格レンジ']}\n"
-        
-        # 査定ポイントから主要な要因を抽出
-        points = horse['査定ポイント'].split(' / ')[:3]  # 上位3つまで
-        if points:
-            text += f"   要因: {' / '.join(points)}\n"
-        text += "\n"
-    
-    text += f"#楽天サラブレッドオークション #競馬 #競走馬"
-    
-    return text
 
 def save_results(predictions_df: pd.DataFrame, hot_list: List[Dict[str, Any]], output_dir: str = None):
     """結果を保存"""
@@ -544,19 +338,11 @@ def save_results(predictions_df: pd.DataFrame, hot_list: List[Dict[str, Any]], o
     with open(hot_file, 'w', encoding='utf-8') as f:
         json.dump(hot_list, f, ensure_ascii=False, indent=2)
     logger.info(f"HOT注目馬リストを保存: {hot_file}")
-    
-    # X投稿用テキストを保存
-    twitter_file = output_path / f'twitter_text_{timestamp}.txt'
-    twitter_text = format_hot_horses_for_twitter(hot_list)
-    with open(twitter_file, 'w', encoding='utf-8') as f:
-        f.write(twitter_text)
-    logger.info(f"X投稿用テキストを保存: {twitter_file}")
-    
+
     return {
         'csv_file': str(csv_file),
         'json_file': str(json_file),
         'hot_file': str(hot_file),
-        'twitter_file': str(twitter_file)
     }
 
 # ==========================================
@@ -569,7 +355,7 @@ def main():
     
     try:
         # 1. 過去データを読み込み
-        historical_df = load_historical_data()
+        historical_df = load_historical_data_with_db_fallback()
         if historical_df.empty:
             logger.error("過去データが読み込めませんでした。処理を中断します。")
             return

@@ -20,6 +20,9 @@ export function Header({ pageTitle }: HeaderProps) {
             <Link href="/horses">
               <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">直近の追加</Button>
             </Link>
+            <Link href="/auction-day">
+              <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">当日モード</Button>
+            </Link>
           </div>
         </div>
       </div>

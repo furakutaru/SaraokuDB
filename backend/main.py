@@ -123,10 +123,12 @@ app.add_middleware(
 # ルーターをインポート
 from routers.horses import router as horses_router
 from routers.auction_histories import router as auction_histories_router
+from routers.auction_day import router as auction_day_router
 
 # 各ルーターをマウント
 app.include_router(horses_router, prefix="/api/horses")
 app.include_router(auction_histories_router, prefix="/api/auction_histories")
+app.include_router(auction_day_router, prefix="/api")
 
 # ヘルスチェックエンドポイント
 app.include_router(health_router)

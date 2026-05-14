@@ -27,6 +27,8 @@ from database.schemas import HorseResponse, HorseCreate
 
 # サービスをインポート
 from services.horses_list_mapper import map_horses_list
+from services.auction_session import extract_latest_history_value as _extract_latest_history_value
+from services.auction_session import parse_latest_auction_date as _parse_latest_auction_date
 
 # ルーターの設定
 router = APIRouter(tags=["horses"])
@@ -41,59 +43,6 @@ logger.info("DiseaseInfoExtractor is temporarily disabled")
 
 MIN_PRIZE_UPDATE_AGE_DAYS = 90
 PRIZE_UPDATE_FETCH_MULTIPLIER = 5
-
-
-def _extract_latest_history_value(raw_value):
-    """履歴カラム（JSON文字列/配列）から最新値を取得"""
-    if raw_value is None:
-        return None
-
-    if isinstance(raw_value, list):
-        return raw_value[-1] if raw_value else None
-
-    if isinstance(raw_value, dict):
-        return raw_value.get('auction_date') or raw_value.get('date') or raw_value.get('value')
-
-    if isinstance(raw_value, str):
-        stripped = raw_value.strip()
-        if not stripped:
-            return None
-        if stripped.startswith('[') or stripped.startswith('{'):
-            try:
-                parsed = json.loads(stripped)
-                if isinstance(parsed, list) and parsed:
-                    return parsed[-1]
-                if isinstance(parsed, dict):
-                    return parsed.get('auction_date') or parsed.get('date') or parsed.get('value')
-            except json.JSONDecodeError:
-                return stripped
-        return stripped
-
-    return raw_value
-
-
-def _parse_latest_auction_date(raw_value):
-    """auction_date の履歴から最新日付を datetime.date で返す"""
-    latest_value = _extract_latest_history_value(raw_value)
-    if not latest_value:
-        return None
-
-    if isinstance(latest_value, dict):
-        latest_value = latest_value.get('auction_date') or latest_value.get('date')
-
-    if latest_value is None:
-        return None
-
-    latest_str = str(latest_value).strip()
-    if not latest_str:
-        return None
-
-    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y%m%d"):
-        try:
-            return datetime.strptime(latest_str[:10], fmt).date()
-        except ValueError:
-            continue
-    return None
 
 
 def _is_next_update_due(horse, now_utc: datetime) -> bool:
