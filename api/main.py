@@ -66,6 +66,7 @@ from api.protected import router as protected_router
 try:
     from backend.routers.horses import router as horses_router
     from backend.routers.auction_histories import router as auction_histories_router
+    from backend.routers.auction_day import router as auction_day_router
     _include_backend_routers = True
 except Exception as e:
     logger.warning("Failed to import backend routers: " + str(e))
@@ -80,6 +81,8 @@ if _include_backend_routers:
     # Keep the same prefixes expected by the scraper: /api/horses and /api/auction_histories
     app.include_router(horses_router, prefix="/api/horses", tags=["horses"])
     app.include_router(auction_histories_router, prefix="/api/auction_histories", tags=["auction_histories"])
+    # 当日モード: /api/auction-day/sessions etc.
+    app.include_router(auction_day_router, prefix="/api", tags=["auction-day"])
 
 # ルートエンドポイント
 @app.get("/")
