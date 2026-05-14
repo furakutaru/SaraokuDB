@@ -73,6 +73,8 @@ function AuctionDayContent() {
     load();
   }, [apiBase]);
 
+  const [showValuation, setShowValuation] = useState(false);
+
   const fetchHorses = useCallback(
     async (date: string) => {
       if (!date) return;
@@ -80,7 +82,7 @@ function AuctionDayContent() {
       setError(null);
       try {
         const res = await fetch(
-          `${apiBase}/api/auction-day/sessions/${encodeURIComponent(date)}/horses?skip=0&limit=200`
+          `${apiBase}/api/auction-day/sessions/${encodeURIComponent(date)}/horses?skip=0&limit=200&include_valuation=true`
         );
         if (!res.ok) throw new Error('馬一覧の取得に失敗しました');
         const data = await res.json();
@@ -116,6 +118,25 @@ function AuctionDayContent() {
     });
     return Array.from(map.entries());
   }, [sessions, suggestions]);
+
+  // HOT馬リストの算出（予想価格最大値の降順、上位5頭）
+  const hotHorses = useMemo(() => {
+    return [...horses]
+      .sort((a, b) => b.predicted_price_max - a.predicted_price_max)
+      .slice(0, 5);
+  }, [horses]);
+
+  // 種牡馬分布の算出
+  const sireDistribution = useMemo(() => {
+    const counts: Record<string, number> = {};
+    horses.forEach(h => {
+      const sire = h.sire || '不明';
+      counts[sire] = (counts[sire] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+  }, [horses]);
 
   return (
     <>
@@ -155,15 +176,75 @@ function AuctionDayContent() {
           <div className="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-2 text-sm">{error}</div>
         )}
 
+        {/* 注目馬・種牡馬ダッシュボード */}
+        {!loadingHorses && horses.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <span className="text-orange-500">🔥</span> TOP 5 注目馬
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {hotHorses.map((h, i) => (
+                    <div key={h.id} className="flex justify-between items-center text-sm border-b pb-2 last:border-0 last:pb-0">
+                      <div>
+                        <span className="font-bold text-gray-500 mr-2">{i + 1}.</span>
+                        <Link href={`/horses/${h.id}`} className="font-semibold text-blue-700 hover:underline">
+                          {h.name}
+                        </Link>
+                        <span className="text-xs text-gray-500 ml-2">({h.sex}{h.age}歳 / 父: {h.sire || '不明'})</span>
+                      </div>
+                      <div className="text-right font-medium">
+                        {h.predicted_price_range_label || '—'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <span className="text-blue-500">🧬</span> 出品馬 種牡馬分布 (上位10頭)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {sireDistribution.map(([sire, count]) => (
+                    <div key={sire} className="bg-gray-100 border rounded-full px-3 py-1 text-sm flex items-center gap-2">
+                      <span className="font-medium">{sire}</span>
+                      <span className="bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full">{count}頭</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         <Card>
           <CardHeader>
-            <CardTitle className="flex flex-wrap justify-between gap-2">
+            <CardTitle className="flex flex-wrap justify-between gap-2 items-center">
               <span>出品馬と予想レンジ</span>
-              {meta && (
-                <span className="text-sm font-normal text-gray-500">
-                  {meta.total}頭 / 鮮度: {meta.data_as_of || '—'}
-                </span>
-              )}
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm font-normal text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showValuation}
+                    onChange={(e) => setShowValuation(e.target.checked)}
+                    className="rounded text-blue-600"
+                  />
+                  査定ポイントを表示
+                </label>
+                {meta && (
+                  <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                    全 {meta.total} 頭 / 情報鮮度: {meta.data_as_of ? new Date(meta.data_as_of).toLocaleString('ja-JP') : '—'}
+                  </span>
+                )}
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -183,6 +264,7 @@ function AuctionDayContent() {
                       <th className="py-2 pr-3">出品時賞金(万)</th>
                       <th className="py-2 pr-3">予想レンジ</th>
                       <th className="py-2 pr-3">予想（円）</th>
+                      {showValuation && <th className="py-2 pr-3">査定ポイント</th>}
                       <th className="py-2 pr-3">落札</th>
                       <th className="py-2 pr-3">リンク</th>
                     </tr>
@@ -212,6 +294,11 @@ function AuctionDayContent() {
                         <td className="py-2 pr-3 text-xs whitespace-nowrap">
                           {formatYen(h.predicted_price_min)} 〜 {formatYen(h.predicted_price_max)}
                         </td>
+                        {showValuation && (
+                          <td className="py-2 pr-3 text-xs text-gray-600 max-w-xs break-words">
+                            {h.valuation || '—'}
+                          </td>
+                        )}
                         <td className="py-2 pr-3 text-xs whitespace-nowrap">
                           {h.sold_price_latest != null ? formatYen(Math.round(h.sold_price_latest)) : '—'}
                         </td>

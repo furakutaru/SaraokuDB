@@ -254,37 +254,3 @@ jobs:
           
           echo "::endgroup::"
           
-      - name: Commit prediction results
-        if: success()
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          
-          # 予測結果をステージング
-          git add prediction_results/ || true
-          git add logs/predict_auction_*.log || true
-          
-          # 変更を確認
-          git status
-          
-          # 変更がある場合のみコミット
-          if ! git diff-index --quiet --cached HEAD; then
-            git commit -m "Add auction price predictions [skip ci]"
-            
-            # プッシュ（リトライ付き）
-            for i in 1 2 3; do
-              if git push; then
-                echo "Push successful"
-                exit 0
-              else
-                echo "Push failed, retrying..."
-                git pull --rebase
-                sleep 5
-              fi
-            done
-            
-            echo "Failed to push changes after 3 attempts"
-            exit 1
-          else
-            echo "No changes to commit"
-          fi
