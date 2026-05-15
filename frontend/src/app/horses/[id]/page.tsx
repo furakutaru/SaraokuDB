@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UnifiedHorse, AuctionHistory } from '@/types/unifiedHorse';
 import { Header } from '@/components/Header';
+import { MarketComparison } from '@/components/MarketComparison';
 
 // コンポーネント用の型
 type Horse = Omit<UnifiedHorse, 'basic_info' | 'auction_history'> & {
@@ -519,6 +520,16 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                 </CardContent>
               </Card>
             )}
+
+            {/* 市場比較（ベンチマーク） */}
+            <MarketComparison
+              horseId={horse.id}
+              price={horse.sold_price || latestAuction?.price || null}
+              prize={horse.total_prize_latest || horse.total_prize_start || null}
+              weight={horse.weight || latestAuction?.weight || null}
+              age={horse.age}
+              sex={horse.sex}
+            />
           </div>
 
 

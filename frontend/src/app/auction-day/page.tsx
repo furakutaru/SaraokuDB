@@ -28,6 +28,7 @@ type HorseRow = {
   detail_url?: string | null;
   jbis_url?: string | null;
   data_as_of?: string | null;
+  valuation?: string;
 };
 
 function formatYen(n: number): string {
