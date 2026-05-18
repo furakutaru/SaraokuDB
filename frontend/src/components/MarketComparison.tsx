@@ -51,11 +51,19 @@ export function MarketComparison({ horseId, price, prize, weight, age, sex }: Ma
         const processed = horses.map((h: any) => {
           const hAuctions = groupedAuctions[h.id] || [];
           const latest = hAuctions.sort((a: any, b: any) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0];
+
+          const parseNum = (val: any) => {
+            if (val === null || val === undefined) return 0;
+            if (typeof val === 'number') return isNaN(val) ? 0 : val;
+            const parsed = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
+            return isNaN(parsed) ? 0 : parsed;
+          };
+
           return {
             ...h,
-            sold_price: latest?.price || h.sold_price || 0,
-            weight: latest?.weight || h.weight || 0,
-            total_prize_latest: latest?.total_prize_latest || h.total_prize_latest || 0,
+            sold_price: parseNum(latest?.price ?? h.sold_price),
+            weight: parseNum(latest?.weight ?? h.weight),
+            total_prize_latest: parseNum(latest?.total_prize_latest ?? h.total_prize_latest),
           };
         }).filter((h: any) => !h.is_unsold && h.sold_price > 0);
         
@@ -72,13 +80,15 @@ export function MarketComparison({ horseId, price, prize, weight, age, sex }: Ma
   const stats = useMemo(() => {
     if (data.length === 0) return null;
 
-    const allPrices = data.map(h => h.sold_price);
-    const allPrizes = data.map(h => h.total_prize_latest);
-    const allWeights = data.map(h => h.weight).filter(w => w > 0);
+    const safeRound = (n: number) => (isFinite(n) ? Math.round(n) : 0);
+
+    const allPrices = data.map(h => h.sold_price).filter(v => isFinite(v) && v > 0);
+    const allPrizes = data.map(h => h.total_prize_latest).filter(v => isFinite(v));
+    const allWeights = data.map(h => h.weight).filter(w => w > 0 && isFinite(w));
 
     const cohortData = data.filter(h => h.age == age && h.sex == sex);
-    const cohortPrices = cohortData.map(h => h.sold_price);
-    const cohortPrizes = cohortData.map(h => h.total_prize_latest);
+    const cohortPrices = cohortData.map(h => h.sold_price).filter(v => isFinite(v) && v > 0);
+    const cohortPrizes = cohortData.map(h => h.total_prize_latest).filter(v => isFinite(v));
 
     const valPrice = price || 0;
     const valPrize = prize || 0;
@@ -91,14 +101,14 @@ export function MarketComparison({ horseId, price, prize, weight, age, sex }: Ma
         { subject: '馬体重', A: calculatePercentile(valWeight, allWeights), fullMark: 100 },
       ],
       barDataPrice: [
-        { name: 'この馬', value: Math.round(valPrice / 10000), fill: '#f59e0b' },
-        { name: '同年齢・同性別(平均)', value: Math.round(average(cohortPrices) / 10000), fill: '#3b82f6' },
-        { name: '全馬(平均)', value: Math.round(average(allPrices) / 10000), fill: '#9ca3af' },
+        { name: 'この馬', value: safeRound(valPrice / 10000), fill: '#f59e0b' },
+        { name: '同年齢・同性別(平均)', value: safeRound(average(cohortPrices) / 10000), fill: '#3b82f6' },
+        { name: '全馬(平均)', value: safeRound(average(allPrices) / 10000), fill: '#9ca3af' },
       ],
       barDataPrize: [
-        { name: 'この馬', value: Math.round(valPrize / 10000), fill: '#f59e0b' },
-        { name: '同年齢・同性別(中央値)', value: Math.round(median(cohortPrizes) / 10000), fill: '#10b981' },
-        { name: '全馬(中央値)', value: Math.round(median(allPrizes) / 10000), fill: '#9ca3af' },
+        { name: 'この馬', value: safeRound(valPrize / 10000), fill: '#f59e0b' },
+        { name: '同年齢・同性別(中央値)', value: safeRound(median(cohortPrizes) / 10000), fill: '#10b981' },
+        { name: '全馬(中央値)', value: safeRound(median(allPrizes) / 10000), fill: '#9ca3af' },
       ]
     };
   }, [data, price, prize, weight, age, sex]);

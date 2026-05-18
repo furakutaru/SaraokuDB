@@ -355,7 +355,23 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
   const healthIssues: string[] = [];
 
   // コメントを取得（トップレベルのcommentを使用）
-  const comment = horse.comment || latestAuction?.comment;
+  // DBにJSON配列文字列 ["テキスト"] 形式で格納されている場合をパース
+  const parseComment = (raw: string | null | undefined): string => {
+    if (!raw) return '';
+    const trimmed = raw.trim();
+    // JSON配列形式 ["..."] の場合は展開して結合
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map(v => String(v)).join('\n');
+        }
+      } catch (_) {}
+    }
+    return trimmed;
+  };
+
+  const comment = parseComment(horse.comment || latestAuction?.comment);
 
   return (
     <div>
@@ -639,7 +655,7 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                     <TabsContent key={index} value={String(index)}>
                       <div className="space-y-4">
                         {auction.comment ? (
-                          <CollapsibleComment content={auction.comment} />
+                          <CollapsibleComment content={parseComment(auction.comment)} />
                         ) : (
                           <p className="text-gray-500">コメントはありません</p>
                         )}
