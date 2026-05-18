@@ -89,13 +89,20 @@ function DashboardContent() {
           const hAuctions = groupedAuctions[h.id] || [];
           const latest = hAuctions.sort((a: any, b: any) => new Date(b.auction_date).getTime() - new Date(a.auction_date).getTime())[0];
           
+          const parseNum = (val: any) => {
+            if (val === null || val === undefined) return 0;
+            if (typeof val === 'number') return isNaN(val) ? 0 : val;
+            const parsed = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
+            return isNaN(parsed) ? 0 : parsed;
+          };
+
           return {
             ...h,
-            sold_price: latest?.price || h.sold_price || 0,
+            sold_price: parseNum(latest?.price ?? h.sold_price),
             is_unsold: latest?.is_unsold || h.is_unsold || false,
-            weight: latest?.weight || h.weight || 0,
-            total_prize_start: latest?.total_prize_start || h.total_prize_start || 0,
-            total_prize_latest: latest?.total_prize_latest || h.total_prize_latest || 0,
+            weight: parseNum(latest?.weight ?? h.weight),
+            total_prize_start: parseNum(latest?.total_prize_start ?? h.total_prize_start),
+            total_prize_latest: parseNum(latest?.total_prize_latest ?? h.total_prize_latest),
           };
         }).filter((h: Horse) => !h.is_unsold && h.sold_price && h.sold_price > 0); // 取引成立馬のみ
         
@@ -112,7 +119,7 @@ function DashboardContent() {
   // --- データ集計 ---
 
   // 1. Scatter Plot (Price vs ROI)
-  // ROIが高すぎる外れ値（1000%超えなど）は丸めるか除外
+  // ROIが高すぎる・低すぎる外れ値（極端なマイナスなど）は丸めてグラフ崩れを防止
   const scatterData = useMemo(() => {
     return data
       .map(h => {
@@ -120,33 +127,41 @@ function DashboardContent() {
         return {
           name: h.name,
           price: (h.sold_price || 0) / 10000,
-          roi: Math.min(roi, 500), // 上限500%で丸める（グラフ崩れ防止）
+          roi: Math.max(-100, Math.min(roi, 500)), // 上下限で丸める（グラフ崩れ防止）
           realRoi: roi,
           prizeDiff: ((h.total_prize_latest || 0) - (h.total_prize_start || 0)) / 10000
         };
       })
-      .filter(d => d.price > 0);
+      .filter(d => d.price > 0 && !isNaN(d.roi) && isFinite(d.roi));
   }, [data]);
 
   // 2. Sire Performance
   const sireData = useMemo(() => {
     const sires: Record<string, { count: number, totalPrice: number, totalPrizeDiff: number }> = {};
     data.forEach(h => {
+      const price = h.sold_price || 0;
+      const prizeDiff = (h.total_prize_latest || 0) - (h.total_prize_start || 0);
+      if (!isFinite(price) || !isFinite(prizeDiff)) return; // 異常値を除外
       const sire = h.sire || '不明';
       if (!sires[sire]) sires[sire] = { count: 0, totalPrice: 0, totalPrizeDiff: 0 };
       sires[sire].count += 1;
-      sires[sire].totalPrice += (h.sold_price || 0);
-      sires[sire].totalPrizeDiff += ((h.total_prize_latest || 0) - (h.total_prize_start || 0));
+      sires[sire].totalPrice += price;
+      sires[sire].totalPrizeDiff += prizeDiff;
     });
     
     return Object.entries(sires)
       .filter(([_, stats]) => stats.count >= 5) // サンプル数5頭以上
-      .map(([sire, stats]) => ({
-        sire,
-        avgPrice: Math.round(stats.totalPrice / stats.count / 10000), // 万円
-        avgPrizeDiff: Math.round(stats.totalPrizeDiff / stats.count / 10000), // 万円
-        count: stats.count
-      }))
+      .map(([sire, stats]) => {
+        const avgPrice = stats.count > 0 ? Math.round(stats.totalPrice / stats.count / 10000) : 0;
+        const avgPrizeDiff = stats.count > 0 ? Math.round(stats.totalPrizeDiff / stats.count / 10000) : 0;
+        return {
+          sire,
+          avgPrice: isFinite(avgPrice) ? avgPrice : 0,
+          avgPrizeDiff: isFinite(avgPrizeDiff) ? avgPrizeDiff : 0,
+          count: stats.count
+        };
+      })
+      .filter(d => d.avgPrice > 0)
       .sort((a, b) => b.avgPrice - a.avgPrice)
       .slice(0, 15); // 上位15頭
   }, [data]);
@@ -157,16 +172,25 @@ function DashboardContent() {
     data.forEach(h => {
       const age = h.age || 0;
       const sex = h.sex || '不明';
+      const price = h.sold_price || 0;
       if (age < 2 || age > 10 || !['牡', '牝', 'セ'].includes(sex)) return;
+      if (!isFinite(price) || price <= 0) return; // 異常値を除外
       if (!groups[age]) groups[age] = { 牡: [], 牝: [], セ: [] };
-      groups[age][sex as '牡' | '牝' | 'セ'].push(h.sold_price || 0);
+      groups[age][sex as '牡' | '牝' | 'セ'].push(price);
     });
+
+    const safeAvg = (arr: number[]) => {
+      if (arr.length === 0) return null;
+      const sum = arr.reduce((a, b) => a + b, 0);
+      const avg = Math.round(sum / arr.length / 10000);
+      return isFinite(avg) ? avg : null;
+    };
 
     return Object.entries(groups).map(([age, prices]) => ({
       age: `${age}歳`,
-      牡: prices['牡'].length > 0 ? Math.round(prices['牡'].reduce((a, b) => a + b, 0) / prices['牡'].length / 10000) : null,
-      牝: prices['牝'].length > 0 ? Math.round(prices['牝'].reduce((a, b) => a + b, 0) / prices['牝'].length / 10000) : null,
-      セ: prices['セ'].length > 0 ? Math.round(prices['セ'].reduce((a, b) => a + b, 0) / prices['セ'].length / 10000) : null,
+      牡: safeAvg(prices['牡']),
+      牝: safeAvg(prices['牝']),
+      セ: safeAvg(prices['セ']),
       count: prices['牡'].length + prices['牝'].length + prices['セ'].length
     })).filter(d => d.count >= 3).sort((a, b) => parseInt(a.age) - parseInt(b.age));
   }, [data]);
@@ -185,21 +209,29 @@ function DashboardContent() {
       const price = (h.sold_price || 0) / 10000;
       const roi = calculateROI(h.total_prize_latest, h.total_prize_start, h.sold_price);
       
+      if (!isFinite(price) || price <= 0) return; // 異常価格を除外
+
       let key: keyof typeof groups = '疾患記載なし';
       if (isSevere) key = '重度疾患あり';
       else if (isAny) key = 'その他疾患あり';
 
       groups[key].count++;
       groups[key].prices.push(price);
-      // 外れ値を除外してROI平均を計算（-100%〜500%の範囲）
-      if (roi >= -100 && roi <= 500) groups[key].rois.push(roi);
+      // NaN/Infinity・外れ値を除外してROI平均を計算（-100%〜500%の範囲）
+      if (isFinite(roi) && roi >= -100 && roi <= 500) groups[key].rois.push(roi);
     });
+
+    const safeAvg = (arr: number[]) => {
+      if (arr.length === 0) return 0;
+      const v = arr.reduce((a, b) => a + b, 0) / arr.length;
+      return isFinite(v) ? Math.round(v) : 0;
+    };
 
     return Object.entries(groups).map(([name, stats]) => ({
       name,
       count: stats.count,
-      avgPrice: stats.prices.length > 0 ? Math.round(stats.prices.reduce((a, b) => a + b, 0) / stats.prices.length) : 0,
-      avgRoi: stats.rois.length > 0 ? Math.round(stats.rois.reduce((a, b) => a + b, 0) / stats.rois.length) : 0
+      avgPrice: safeAvg(stats.prices),
+      avgRoi: safeAvg(stats.rois),
     }));
   }, [data]);
 
@@ -246,7 +278,7 @@ function DashboardContent() {
                 <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" dataKey="price" name="落札価格" unit="万" />
-                  <YAxis type="number" dataKey="roi" name="ROI" unit="%" />
+                  <YAxis type="number" dataKey="roi" name="ROI" unit="%" domain={[-100, 500]} allowDataOverflow={true} />
                   <ZAxis range={[30, 30]} />
                   <Tooltip content={<CustomTooltipScatter />} cursor={{ strokeDasharray: '3 3' }} />
                   <Scatter name="Horses" data={scatterData} fill="#3b82f6" fillOpacity={0.5} />
