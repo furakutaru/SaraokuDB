@@ -26,6 +26,9 @@ export function Header({ pageTitle }: HeaderProps) {
             <Link href="/auction-day">
               <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">当日モード</Button>
             </Link>
+            <Link href="/sires">
+              <Button variant="outline" className="rounded-md bg-white border border-black text-black hover:bg-gray-100">種牡馬</Button>
+            </Link>
           </div>
         </div>
       </div>
