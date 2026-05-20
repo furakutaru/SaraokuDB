@@ -544,7 +544,7 @@ function AnalysisContent() {
             })()}
           </div>
           <div className="w-12 text-center text-gray-600">{displayAge(horse.age)}</div>
-          <div className="w-32 text-center text-gray-600 truncate">{horse.sire || '-'}</div>
+          <div className="w-32 text-center text-gray-600 truncate">{horse.sire ? <Link href={`/sires/${encodeURIComponent(horse.sire)}`} onClick={(e) => e.stopPropagation()} className="text-blue-500 hover:underline">{horse.sire}</Link> : '-'}</div>
           <div className="w-20 text-center text-gray-600 pr-2">{horse.weight || '-'}</div>
           <div className="w-24 text-center text-gray-700 font-medium pr-2">
             {displayPrice(horse.sold_price, horse.is_unsold)}

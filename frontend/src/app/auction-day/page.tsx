@@ -195,7 +195,7 @@ function AuctionDayContent() {
                         <Link href={`/horses/${h.id}`} className="font-semibold text-blue-700 hover:underline">
                           {h.name}
                         </Link>
-                        <span className="text-xs text-gray-500 ml-2">({h.sex}{h.age}歳 / 父: {h.sire || '不明'})</span>
+                        <span className="text-xs text-gray-500 ml-2">({h.sex}{h.age}歳 / 父: {h.sire ? <Link href={`/sires/${encodeURIComponent(h.sire)}`} className="text-blue-500 hover:underline">{h.sire}</Link> : '不明'})</span>
                       </div>
                       <div className="text-right font-medium">
                         {h.predicted_price_range_label || '—'}
@@ -216,7 +216,7 @@ function AuctionDayContent() {
                 <div className="flex flex-wrap gap-2">
                   {sireDistribution.map(([sire, count]) => (
                     <div key={sire} className="bg-gray-100 border rounded-full px-3 py-1 text-sm flex items-center gap-2">
-                      <span className="font-medium">{sire}</span>
+                      <Link href={`/sires/${encodeURIComponent(sire)}`} className="font-medium hover:text-blue-600 hover:underline">{sire}</Link>
                       <span className="bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full">{count}頭</span>
                     </div>
                   ))}
@@ -283,7 +283,7 @@ function AuctionDayContent() {
                           {h.age != null && h.age !== '' ? `${h.age}歳` : ''}
                         </td>
                         <td className="py-2 pr-3 max-w-[140px] truncate" title={h.sire || ''}>
-                          {h.sire || '—'}
+                          {h.sire ? <Link href={`/sires/${encodeURIComponent(h.sire)}`} className="text-blue-600 hover:underline">{h.sire}</Link> : '—'}
                         </td>
                         <td className="py-2 pr-3">{h.weight ?? '—'}</td>
                         <td className="py-2 pr-3">

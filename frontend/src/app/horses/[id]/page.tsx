@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UnifiedHorse, AuctionHistory } from '@/types/unifiedHorse';
 import { Header } from '@/components/Header';
 import { MarketComparison } from '@/components/MarketComparison';
+import Link from 'next/link';
 
 // コンポーネント用の型
 type Horse = Omit<UnifiedHorse, 'basic_info' | 'auction_history'> & {
@@ -488,7 +489,7 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
                     <div>
                       <div className="text-sm text-gray-600 mb-2">血統情報</div>
                       <div className="space-y-1 text-sm">
-                        <div>父: {sire || '不明'}</div>
+                        <div>父: {sire ? <Link href={`/sires/${encodeURIComponent(sire)}`} className="text-blue-600 hover:underline">{sire}</Link> : '不明'}</div>
                         <div>母: {dam || '不明'}</div>
                         <div>母父: {damsire || '不明'}</div>
                       </div>

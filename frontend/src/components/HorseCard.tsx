@@ -1,6 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Horse, AuctionHistory } from '@/types/horse';
+import Link from 'next/link';
 
 // 血統情報から指定された種類の馬名を抽出する関数
 const extractPedigree = (text: string | undefined, type: 'sire' | 'dam' | 'damsire'): string => {
@@ -158,7 +159,7 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
         <div className="grid grid-cols-2 gap-4">
           {/* 左カラム: 血統情報 */}
           <div className="text-sm text-gray-600 space-y-1 overflow-hidden">
-            <p className="whitespace-nowrap overflow-hidden text-ellipsis">父：{horse.sire || '不明'}</p>
+            <p className="whitespace-nowrap overflow-hidden text-ellipsis">父：{horse.sire ? <Link href={`/sires/${encodeURIComponent(horse.sire)}`} onClick={(e) => e.stopPropagation()} className="text-blue-500 hover:underline">{horse.sire}</Link> : '不明'}</p>
             <p className="whitespace-nowrap overflow-hidden text-ellipsis">母：{horse.dam || '不明'}</p>
             {(horse.damsire && horse.damsire !== '不明') && (
               <p className="whitespace-nowrap overflow-hidden text-ellipsis">母父：{horse.damsire}</p>
