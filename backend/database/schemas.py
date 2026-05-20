@@ -45,6 +45,7 @@ class HorseBase(BaseModel):
     image_url: Optional[str] = None
     jbis_url: Optional[str] = None
     detail_url: Optional[str] = None
+    keibabook_url: Optional[str] = None
     rakuten_url: Optional[str] = None
     auction_url: Optional[str] = None
     color: Optional[str] = None  # 毛色（オプション）

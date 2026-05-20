@@ -281,7 +281,7 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
         logging.debug("Name before processing: %s" % name)
         
         # 馬名から性別、年齢、コメントなどを削除
-        name = re.sub(r'\s*[牡牝セ]\s*\d+\s*[歳年].*$', '', name).strip()
+        name = re.sub(r'\s*(?:[牡牝セ]|セン)\s*\d+\s*[歳年].*$', '', name).strip()
         # 「セン２歳 ※地方競馬 在籍」のようなテキストを削除
         name = re.sub(r'\s*セ[ンン]\s*\d+\s*[歳年].*$', '', name).strip()
         # 余分なスペースを削除
@@ -297,7 +297,7 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
     horse_info['name'] = name
     
     # 性別と年齢を抽出
-    sex_match = re.search(r'([牡牝セ])\s*\d+\s*[歳年]', title or '')
+    sex_match = re.search(r'([牡牝セ]|セン)\s*\d+\s*[歳年]', title or '')
     if sex_match:
         horse_info['sex'] = sex_match.group(1)
     
@@ -372,7 +372,7 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
     # 性別を抽出（「牡」「牝」「セ」のいずれか）
     if 'sex' not in horse_info:
         # パターン1: 「性別 数字歳」の形式（例: 牡 3歳）
-        sex_match = re.search(r'([牡牝セ])\s*\d+\s*[歳年]', title or '')
+        sex_match = re.search(r'([牡牝セ]|セン)\s*\d+\s*[歳年]', title or '')
         
         if sex_match:
             horse_info['sex'] = sex_match.group(1)
@@ -385,7 +385,7 @@ def _process_horse_info(soup, horse_info, health_issues, race_record, detail_fil
                 logging.debug("Extracted sex (pattern 2): %s" % horse_info['sex'])
             else:
                 # パターン3: 単純に「性別」のみ
-                sex_match = re.search(r'([牡牝セ])', title or '')
+                sex_match = re.search(r'([牡牝セ]|セン)', title or '')
                 if sex_match:
                     horse_info['sex'] = sex_match.group(1)
                     logging.debug("Extracted sex (fallback): %s" % horse_info['sex'])

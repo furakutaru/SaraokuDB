@@ -222,13 +222,32 @@ async def process_horse(scraper, db, horse) -> bool:
         if horse.latest_auction:
             auction_date = horse.latest_auction.auction_date
         
-        horse_info = await scraper.get_horse_info(
-            name=search_name,
-            father='',
-            mother='',
-            auction_date=auction_date,  # オークション日を設定
-            gender=None
-        )
+        # 既に競馬ブックのURLが登録されている場合は、検索をスキップして直接アクセス
+        if hasattr(horse, 'keibabook_url') and horse.keibabook_url:
+            logger.info(f"馬ID {horse_id} は登録済みのURLに直接アクセスします: {horse.keibabook_url}")
+            prize = await scraper.get_horse_prize(horse.keibabook_url)
+            horse_info = {'prize': prize, 'detail_url': horse.keibabook_url}
+            
+            # URLが正しくない場合などのためのフォールバック
+            if prize is None:
+                logger.warning(f"登録済みのURLからの賞金取得に失敗しました。再検索を実行します。")
+                horse_info = None
+        else:
+            horse_info = None
+
+        if not horse_info:
+            horse_info = await scraper.get_horse_info(
+                name=search_name,
+                father='',
+                mother='',
+                auction_date=auction_date,  # オークション日を設定
+                gender=None
+            )
+            
+            # 検索に成功してURLが取得できた場合は保存
+            if horse_info and horse_info.get('detail_url'):
+                horse.keibabook_url = horse_info['detail_url']
+                logger.info(f"馬ID {horse_id} の競馬ブックURLを保存しました: {horse.keibabook_url}")
 
         if not horse_info or horse_info.get('prize') is None:
             logger.warning(f"馬ID {horse_id} の賞金情報を取得できませんでした（name={horse_name}）")

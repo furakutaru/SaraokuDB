@@ -573,7 +573,7 @@ class HorseInfoExtractor:
                 self.logger.debug(f"タイトルテキスト: {title_text}")
                 
                 # パターン1: 「馬名　　牝４歳　　※...」のような形式
-                match = re.search(r'([牡牝セ])([０-９0-9]+)歳', title_text)
+                match = re.search(r'([牡牝セ]|セン)([０-９0-9]+)歳', title_text)
                 if match:
                     result['sex'] = match.group(1)
                     result['age'] = int(unicodedata.normalize('NFKC', match.group(2)))
@@ -581,7 +581,7 @@ class HorseInfoExtractor:
                     return result
                 
                 # パターン2: スペース区切り
-                match = re.search(r'([牡牝セ])\s*([０-９0-9]+)', title_text)
+                match = re.search(r'([牡牝セ]|セン)\s*([０-９0-9]+)', title_text)
                 if match:
                     result['sex'] = match.group(1)
                     result['age'] = int(unicodedata.normalize('NFKC', match.group(2)))
@@ -598,7 +598,7 @@ class HorseInfoExtractor:
                 self.logger.debug(f"  - 要素 {i}: {text}")
                 
                 # 性別と年齢が近くにあるパターン
-                match = re.search(r'([牡牝セ])\s*([０-９0-9]+)[歳才]', text)
+                match = re.search(r'([牡牝セ]|セン)\s*([０-９0-9]+)[歳才]', text)
                 if match:
                     result['sex'] = match.group(1)
                     result['age'] = int(unicodedata.normalize('NFKC', match.group(2)))

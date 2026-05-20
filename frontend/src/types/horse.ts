@@ -64,6 +64,7 @@ export interface BaseHorse {
   image_url: ImageUrl | string;
   jbis_url?: string;
   detail_url?: string;
+  keibabook_url?: string;
   created_at?: string;
   updated_at?: string;
 }

@@ -1809,7 +1809,7 @@ class ImprovedRakutenScraper:
             r'新馬.*$',  # 新馬以降の文字列
             r'未出走.*$',  # 未出走以降の文字列
             r'[0-9]+歳',  # 年齢（例：3歳）
-            r'[牡牝セ]',  # 性別（牡、牝、セ）
+            r'(?:[牡牝セ]|セン)',  # 性別（牡、牝、セ、セン）
             r'\(.*\)',  # 括弧内の文字列
             r'\[.*\]'  # 角括弧内の文字列
         ]
@@ -1842,7 +1842,7 @@ class ImprovedRakutenScraper:
         name = raw_name.strip().replace('\n', ' ')
         patterns = [
             r'※.*$', r'登録抹消.*$', r'新馬.*$', r'未出走.*$',
-            r'[0-9]+歳', r'[牡牝セ]', r'\(.*\)', r'\[.*\]'
+            r'[0-9]+歳', r'(?:[牡牝セ]|セン)', r'\(.*\)', r'\[.*\]'
         ]
         for pattern in patterns:
             name = re.sub(pattern, '', name)

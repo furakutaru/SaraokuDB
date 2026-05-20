@@ -26,8 +26,8 @@ class NameExtractor:
         # 馬名抽出用の正規表現パターン
         self.patterns = {
             'list_page': r'^(.+?)(?:\s*※|$)',  # リストページ用（※以降を除去）
-            'detail_title': r'^(.+?)(?:\s*[牡牝セ]\s*\d+歳|※|$)',  # 詳細ページタイトル用
-            'item_title': r'^(.+?)(?:\s*[牡牝セ]\s*\d+歳|※|$)'  # itemTitle要素用（詳細ページ内）
+            'detail_title': r'^(.+?)(?:\s*(?:[牡牝セ]|セン)\s*\d+歳|※|$)',  # 詳細ページタイトル用
+            'item_title': r'^(.+?)(?:\s*(?:[牡牝セ]|セン)\s*\d+歳|※|$)'  # itemTitle要素用（詳細ページ内）
         }
     
     def from_list_page(self, element: Union[BeautifulSoup, Tag, str]) -> Optional[str]:

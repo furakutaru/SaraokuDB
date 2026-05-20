@@ -116,6 +116,7 @@ async def patch_horse(
             "is_broodmare",
             "next_update_due_date",
             "total_prize_latest",
+            "keibabook_url",
         }
 
         updated = False
@@ -142,6 +143,7 @@ async def patch_horse(
             "is_retired": getattr(horse, "is_retired", None),
             "is_broodmare": getattr(horse, "is_broodmare", None),
             "next_update_due_date": getattr(horse, "next_update_due_date", None),
+            "keibabook_url": getattr(horse, "keibabook_url", None),
         }
     except HTTPException:
         raise
@@ -548,6 +550,7 @@ async def get_horses(
                 "primary_image": getattr(horse, 'primary_image', None) or horse.image_url,
                 "detail_url": horse.detail_url,
                 "jbis_url": horse.jbis_url,
+                "keibabook_url": getattr(horse, "keibabook_url", None),
                 "is_unsold": horse.is_unsold if hasattr(horse, 'is_unsold') else False,
                 "unsold": horse.is_unsold if hasattr(horse, 'is_unsold') else False,
                 "unified_race_records": normalized_race_record or {
