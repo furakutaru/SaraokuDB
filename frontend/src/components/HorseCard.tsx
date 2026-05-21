@@ -133,6 +133,9 @@ export default function HorseCard({ horse, auctionHistory = [], onClick }: Horse
         <div className="flex items-center justify-between">
           <h3 className="text-sm text-gray-700">
             <span className="font-semibold">{horse.name}</span>
+            {(horse as any).former_name && (
+              <span className="ml-1 text-gray-400 text-[11px]">（{(horse as any).former_name}）</span>
+            )}
             <span className="ml-2 text-gray-500 text-xs">{horse.age}歳</span>
             <span className="ml-2">
               {(() => {

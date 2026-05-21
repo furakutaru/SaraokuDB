@@ -79,6 +79,7 @@ class Horse(Base):
     jbis_url = Column(String(500))  # JBISの馬情報ページURL
     detail_url = Column(String(500))  # 楽天競馬オークションの詳細ページURL
     keibabook_url = Column(String(500), nullable=True, comment='競馬ブックの詳細ページURL')
+    former_name = Column(String(100), nullable=True, comment='旧馬名')
     unsold_count = Column(Integer, default=0)  # 主取り回数
     bid_count = Column(Integer, nullable=True, comment='入札数')  # 入札数
     created_at = Column(DateTime, default=datetime.utcnow)

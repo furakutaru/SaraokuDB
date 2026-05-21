@@ -16,6 +16,7 @@ class RaceRecordSummary(BaseModel):
 
 class HorseBase(BaseModel):
     name: str
+    former_name: Optional[str] = None
     auction_id: Optional[str] = None
     raw_name: Optional[str] = None
     sex: Optional[str] = None

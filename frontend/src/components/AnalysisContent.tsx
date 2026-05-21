@@ -529,9 +529,14 @@ function AnalysisContent() {
       <div style={style} className="flex items-center border-b border-gray-200 hover:bg-blue-50/50 transition-colors">
         <div className="flex items-center px-3 py-2 text-sm" style={{ width: '1100px' }}>
           <div className="w-48 pr-2 text-left">{horse.name ? (
-            <Link href={`/horses/${horse.id}`} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">
-              {horse.name}
-            </Link>
+            <>
+              <Link href={`/horses/${horse.id}`} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">
+                {horse.name}
+              </Link>
+              {(horse as any).former_name && (
+                <span className="block text-[10px] text-gray-400">（{(horse as any).former_name}）</span>
+              )}
+            </>
           ) : '-'}</div>
           <div className="w-16 text-center">
             {(() => {

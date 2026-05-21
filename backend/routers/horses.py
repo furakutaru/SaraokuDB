@@ -117,6 +117,8 @@ async def patch_horse(
             "next_update_due_date",
             "total_prize_latest",
             "keibabook_url",
+            "name",
+            "former_name",
         }
 
         updated = False
@@ -144,6 +146,8 @@ async def patch_horse(
             "is_broodmare": getattr(horse, "is_broodmare", None),
             "next_update_due_date": getattr(horse, "next_update_due_date", None),
             "keibabook_url": getattr(horse, "keibabook_url", None),
+            "name": getattr(horse, "name", None),
+            "former_name": getattr(horse, "former_name", None),
         }
     except HTTPException:
         raise
@@ -524,6 +528,7 @@ async def get_horses(
                 "id": horse.id,
                 "raw_name": getattr(horse, "raw_name", None),
                 "name": horse.name,
+                "former_name": getattr(horse, "former_name", None),
                 "sex": _extract_latest_history_value(horse.sex),
                 "age": _extract_latest_history_value(horse.age),
                 "sire": horse.sire,

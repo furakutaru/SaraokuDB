@@ -65,6 +65,7 @@ export interface BaseHorse {
   jbis_url?: string;
   detail_url?: string;
   keibabook_url?: string;
+  former_name?: string;
   created_at?: string;
   updated_at?: string;
 }

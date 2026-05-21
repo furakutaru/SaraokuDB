@@ -387,7 +387,12 @@ const HorseDetailContent = ({ horse, auctionHistory }: HorseDetailContentProps) 
             <Card>
               <CardHeader>
                 <div className="flex items-center space-x-4">
-                  <h1 className="text-2xl font-bold">{horse.name}</h1>
+                  <div>
+                    <h1 className="text-2xl font-bold">{horse.name}</h1>
+                    {(horse as any).former_name && (
+                      <p className="text-sm text-gray-400 mt-0.5">旧名: {(horse as any).former_name}</p>
+                    )}
+                  </div>
                   <div className="flex items-center space-x-2">
                     {horse.sex && (
                       (() => {
