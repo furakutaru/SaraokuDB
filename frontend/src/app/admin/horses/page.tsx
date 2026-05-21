@@ -107,9 +107,8 @@ export default function AdminHorsesPage() {
       
       const isRoiNegative = soldPrice > 0 && roi <= 0 && prizeLatest === 0;
       const isNameSuspicious = h.name ? /の\d{2}$/.test(h.name) || h.name.length <= 2 : true;
-      const noUrl = !h.keibabook_url;
       
-      return isRoiNegative || isNameSuspicious || noUrl;
+      return isRoiNegative || isNameSuspicious;
     }).sort((a, b) => {
       // 未設定のものを上に
       if (!a.keibabook_url && b.keibabook_url) return -1;
@@ -133,7 +132,7 @@ export default function AdminHorsesPage() {
           <CardHeader>
             <CardTitle>要チェック馬リスト ({needsCheckHorses.length}件)</CardTitle>
             <p className="text-sm text-gray-500">
-              ROIがマイナスの馬、名前が未決定の馬（〜の23等）、または競馬ブックURLが未登録の馬が表示されています。<br/>
+              ROIが0以下の馬、または名前が未決定・短すぎる馬（〜の23等）が表示されています。<br/>
               正しい競馬ブックの詳細ページURL（例: https://p.keibabook.co.jp/db/uma/123456）を入力して保存してください。
             </p>
           </CardHeader>
@@ -162,8 +161,27 @@ export default function AdminHorsesPage() {
                       
                       return (
                         <tr key={horse.id} className={!horse.keibabook_url ? 'bg-yellow-50' : ''}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 flex items-center gap-2">
                             {horse.name || '不明'}
+                            {horse.name && (
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(horse.name || '');
+                                  // 簡易フィードバック
+                                  const btn = document.getElementById(`copy-btn-${horse.id}`);
+                                  if (btn) {
+                                    const orig = btn.innerText;
+                                    btn.innerText = 'コピー済';
+                                    setTimeout(() => btn.innerText = orig, 2000);
+                                  }
+                                }}
+                                id={`copy-btn-${horse.id}`}
+                                className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded border"
+                                title="馬名をコピー"
+                              >
+                                コピー
+                              </button>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {horse.sire || '-'}
