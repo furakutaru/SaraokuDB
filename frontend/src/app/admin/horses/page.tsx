@@ -99,19 +99,42 @@ export default function AdminHorsesPage() {
   };
 
   const needsCheckHorses = useMemo(() => {
-    return horses.filter(h => {
-      const soldPrice = Number(h.sold_price || 0);
-      const prizeLatest = Number(h.total_prize_latest || 0);
-      const prizeStart = Number(h.total_prize_start || 0);
-      const roi = soldPrice > 0 ? ((prizeLatest - prizeStart) / soldPrice) * 100 : 0;
-      const isRoiNegative = soldPrice > 0 && roi <= 0 && prizeLatest === 0;
-      const isNameSuspicious = h.name ? /の\d{2}$/.test(h.name) || h.name.length <= 2 : true;
-      return isRoiNegative || isNameSuspicious;
-    }).sort((a, b) => {
-      if (!a.keibabook_url && b.keibabook_url) return -1;
-      if (a.keibabook_url && !b.keibabook_url) return 1;
-      return 0;
-    });
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+    return horses
+      .map(h => {
+        const soldPrice = Number(h.sold_price || 0);
+        const prizeLatest = Number(h.total_prize_latest || 0);
+
+        const auctionDate = h.auction_date ? new Date(h.auction_date) : null;
+        // オークション日が3ヶ月以上前 -> 賞金更新対象期間に入っている
+        const isOldEnoughForUpdate = auctionDate ? auctionDate <= threeMonthsAgo : true;
+
+        // 名前未決定: 「の数字2桁以上」で終わる仮称馬（例: ベラジオの23）
+        const isNamePending = h.name ? /の\d{2,}$/.test(h.name) : false;
+
+        // 捕捉不全: 3ヶ月以上前のオークション馬で、落札価格があるのに賞金0かつURL未設定
+        // ※ URL設定済みでprize=0は更新スクリプトの問題であり管理画面では対処不可のため除外
+        // ※ 直近3ヶ月以内の馬は除外（まだ更新タイミングでないため）
+        const isUpdateMissed =
+          soldPrice > 0 &&
+          prizeLatest === 0 &&
+          !h.keibabook_url &&
+          isOldEnoughForUpdate;
+
+        return { horse: h, isNamePending, isUpdateMissed };
+      })
+      .filter(({ isNamePending, isUpdateMissed }) => isNamePending || isUpdateMissed)
+      .sort((a, b) => {
+        // 名前未決定を優先表示
+        if (a.isNamePending && !b.isNamePending) return -1;
+        if (!a.isNamePending && b.isNamePending) return 1;
+        // URL未設定を次に
+        if (!a.horse.keibabook_url && b.horse.keibabook_url) return -1;
+        if (a.horse.keibabook_url && !b.horse.keibabook_url) return 1;
+        return 0;
+      });
   }, [horses]);
 
   return (
@@ -129,8 +152,9 @@ export default function AdminHorsesPage() {
           <CardHeader>
             <CardTitle>要チェック馬リスト（{needsCheckHorses.length}件）</CardTitle>
             <p className="text-sm text-gray-500">
-              ROIが0以下の馬、または名前が未決定・短すぎる馬（〜の23等）が対象です。<br />
-              正式名称が決まった場合は「新しい馬名」と「旧馬名」を設定してください。一覧では <strong>新名前（旧名前）</strong> の形式で表示されます。
+              <span className="inline-block bg-orange-100 text-orange-700 text-xs px-1.5 py-0.5 rounded mr-1">名前未決定</span> 仮称（〜の23等）のまま登録されている馬<br />
+              <span className="inline-block bg-red-100 text-red-700 text-xs px-1.5 py-0.5 rounded mr-1">捕捉不全</span> 3ヶ月以上前のオークションで落札後も賞金が0のまま（要URL設定）<br />
+              正式名称が決まった場合は「新しい馬名」と「旧馬名」を設定してください。
             </p>
           </CardHeader>
           <CardContent>
@@ -140,20 +164,19 @@ export default function AdminHorsesPage() {
               <div className="py-8 text-center text-gray-400">要チェックの馬はありません。すべて正常です！</div>
             ) : (
               <div className="space-y-3">
-                {needsCheckHorses.map((horse) => {
+                {needsCheckHorses.map(({ horse, isNamePending, isUpdateMissed }) => {
                   const idStr = String(horse.id);
                   const edit = getEdit(horse);
                   const isSaving = saving[idStr];
                   const isCopied = copied === idStr;
-                  const hasNoUrl = !horse.keibabook_url;
 
                   return (
                     <div
                       key={horse.id}
-                      className={`rounded-lg border p-4 ${hasNoUrl ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200 bg-white'}`}
+                      className="rounded-lg border border-gray-200 bg-white p-4"
                     >
-                      {/* 行1: 馬名情報 + 父・母 */}
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3">
+                      {/* 行1: 馬名情報 + バッジ */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-gray-900">{horse.name || '不明'}</span>
                           {horse.name && (
@@ -165,9 +188,25 @@ export default function AdminHorsesPage() {
                             </button>
                           )}
                         </div>
+                        {/* フラグバッジ */}
+                        {isNamePending && (
+                          <span className="bg-orange-100 text-orange-700 text-xs font-medium px-2 py-0.5 rounded">
+                            名前未決定
+                          </span>
+                        )}
+                        {isUpdateMissed && (
+                          <span className="bg-red-100 text-red-700 text-xs font-medium px-2 py-0.5 rounded">
+                            捕捉不全
+                          </span>
+                        )}
                         <span className="text-sm text-gray-400">|</span>
                         <span className="text-sm text-gray-500">父: {horse.sire || '-'}</span>
                         <span className="text-sm text-gray-500">母: {horse.dam || '-'}</span>
+                        {horse.auction_date && (
+                          <span className="text-xs text-gray-400">
+                            オークション: {horse.auction_date}
+                          </span>
+                        )}
                       </div>
 
                       {/* 行2: 新しい馬名 + 旧馬名 */}

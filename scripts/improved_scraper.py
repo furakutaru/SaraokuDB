@@ -1808,8 +1808,7 @@ class ImprovedRakutenScraper:
             r'登録抹消.*$',  # 登録抹消以降の文字列
             r'新馬.*$',  # 新馬以降の文字列
             r'未出走.*$',  # 未出走以降の文字列
-            r'[0-9]+歳',  # 年齢（例：3歳）
-            r'(?:[牡牝セ]|セン)',  # 性別（牡、牝、セ、セン）
+            r'\s+(?:セン|[牡牝セ])\s*(?:\d+|当)?\s*(?:歳|年)?',  # 性別と年齢を一括で安全に削除（当歳も考慮）
             r'\(.*\)',  # 括弧内の文字列
             r'\[.*\]'  # 角括弧内の文字列
         ]
@@ -1842,7 +1841,8 @@ class ImprovedRakutenScraper:
         name = raw_name.strip().replace('\n', ' ')
         patterns = [
             r'※.*$', r'登録抹消.*$', r'新馬.*$', r'未出走.*$',
-            r'[0-9]+歳', r'(?:[牡牝セ]|セン)', r'\(.*\)', r'\[.*\]'
+            r'\s+(?:セン|[牡牝セ])\s*(?:\d+|当)?\s*(?:歳|年)?',
+            r'\(.*\)', r'\[.*\]'
         ]
         for pattern in patterns:
             name = re.sub(pattern, '', name)
@@ -1850,8 +1850,6 @@ class ImprovedRakutenScraper:
         name = re.sub(r'\s+', ' ', name).strip()
 
         if name.endswith(' セン'):
-            name = name[:-2].strip()
-        elif name.endswith('セン'):
             name = name[:-2].strip()
 
         return name or raw_name.strip()
