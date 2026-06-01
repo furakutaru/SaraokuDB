@@ -52,8 +52,10 @@ export default function AdminHorsesPage() {
     const idStr = String(horse.id);
     return {
       keibabook_url: edits[idStr]?.keibabook_url ?? horse.keibabook_url ?? '',
-      name: edits[idStr]?.name ?? horse.name ?? '',
-      former_name: edits[idStr]?.former_name ?? horse.former_name ?? '',
+      // 新馬名: 編集前は空欄（プレースホルダーで現在の馬名を表示）
+      name: edits[idStr]?.name ?? '',
+      // 旧馬名: former_name未設定なら現在の馬名を自動入力
+      former_name: edits[idStr]?.former_name ?? horse.former_name ?? horse.name ?? '',
     };
   };
 
@@ -65,6 +67,8 @@ export default function AdminHorsesPage() {
   const handleSave = async (horse: AdminHorse) => {
     const idStr = String(horse.id);
     const edit = getEdit(horse);
+    // 新馬名が空欄のまま保存 → 現在の馬名を維持
+    const nameToSave = edit.name.trim() || horse.name || '';
     try {
       setSaving(prev => ({ ...prev, [idStr]: true }));
       const API_BASE = getApiBase();
@@ -73,15 +77,15 @@ export default function AdminHorsesPage() {
         headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify({
           keibabook_url: edit.keibabook_url,
-          name: edit.name,
+          name: nameToSave,
           former_name: edit.former_name,
         })
       });
       if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-      setMessage({ text: `${edit.name || horse.name || '不明'}の情報を保存しました。`, type: 'success' });
+      setMessage({ text: `${nameToSave || '不明'}の情報を保存しました。`, type: 'success' });
       setHorses(prev => prev.map(h =>
         String(h.id) === idStr
-          ? { ...h, keibabook_url: edit.keibabook_url, name: edit.name, former_name: edit.former_name }
+          ? { ...h, keibabook_url: edit.keibabook_url, name: nameToSave, former_name: edit.former_name }
           : h
       ));
     } catch (e: any) {
@@ -212,12 +216,15 @@ export default function AdminHorsesPage() {
                       {/* 行2: 新しい馬名 + 旧馬名 */}
                       <div className="grid grid-cols-2 gap-3 mb-3">
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">新しい馬名</label>
+                          <label className="block text-xs text-gray-500 mb-1">
+                            新しい馬名
+                            <span className="text-gray-400 font-normal ml-1">（変更ない場合は空欄のまま）</span>
+                          </label>
                           <input
                             type="text"
                             value={edit.name}
                             onChange={(e) => setEditField(horse.id, 'name', e.target.value)}
-                            placeholder="例: ベラジオプライド"
+                            placeholder={horse.name || '例: ベラジオプライド'}
                             className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
                         </div>
@@ -227,7 +234,7 @@ export default function AdminHorsesPage() {
                             type="text"
                             value={edit.former_name}
                             onChange={(e) => setEditField(horse.id, 'former_name', e.target.value)}
-                            placeholder="例: ベラジオの23"
+                            placeholder="旧馬名を入力"
                             className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
                         </div>
