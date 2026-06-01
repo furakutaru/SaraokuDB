@@ -157,7 +157,7 @@ export default function AdminHorsesPage() {
 
         return { horse: h, isNamePending, isUpdateMissed };
       })
-      .filter(({ isNamePending, isUpdateMissed }) => isNamePending || isUpdateMissed)
+      .filter(({ horse, isNamePending, isUpdateMissed }) => !horse.is_broodmare && (isNamePending || isUpdateMissed))
       .sort((a, b) => {
         // 名前未決定を優先表示
         if (a.isNamePending && !b.isNamePending) return -1;
