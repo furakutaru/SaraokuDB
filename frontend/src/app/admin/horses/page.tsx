@@ -28,6 +28,7 @@ export default function AdminHorsesPage() {
   const [edits, setEdits] = useState<Record<string, Partial<EditState>>>({});
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [togglingBroodmare, setTogglingBroodmare] = useState<Record<string, boolean>>({});
 
   const fetchData = useCallback(async () => {
     try {
@@ -93,6 +94,33 @@ export default function AdminHorsesPage() {
     } finally {
       setSaving(prev => ({ ...prev, [idStr]: false }));
       setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  // 繁殖牝馬フラグをトグルして即時保存
+  const handleBroodmareToggle = async (horse: AdminHorse, newValue: boolean) => {
+    const idStr = String(horse.id);
+    try {
+      setTogglingBroodmare(prev => ({ ...prev, [idStr]: true }));
+      const API_BASE = getApiBase();
+      const response = await fetch(`${API_BASE}/api/horses/${horse.id}`, {
+        method: 'PATCH',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_broodmare: newValue })
+      });
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      setHorses(prev => prev.map(h =>
+        String(h.id) === idStr ? { ...h, is_broodmare: newValue } : h
+      ));
+      setMessage({
+        text: `${horse.name || '不明'}: 繁殖牝馬フラグを${newValue ? 'ON' : 'OFF'}にしました。`,
+        type: 'success'
+      });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (e: any) {
+      setMessage({ text: `繁殖牝馬フラグ更新エラー: ${e.message}`, type: 'error' });
+    } finally {
+      setTogglingBroodmare(prev => ({ ...prev, [idStr]: false }));
     }
   };
 
@@ -267,6 +295,28 @@ export default function AdminHorsesPage() {
                             {isSaving ? '保存中...' : '保存'}
                           </Button>
                         </div>
+                      </div>
+
+                      {/* 行4: 繁殖牝馬フラグ */}
+                      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-3">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={!!horse.is_broodmare}
+                            disabled={togglingBroodmare[idStr]}
+                            onChange={(e) => handleBroodmareToggle(horse, e.target.checked)}
+                            className="w-4 h-4 rounded border-gray-300 text-pink-600 focus:ring-pink-500 cursor-pointer"
+                          />
+                          <span className="text-sm text-gray-700">
+                            繁殖牝馬
+                            {horse.is_broodmare && (
+                              <span className="ml-1.5 bg-pink-100 text-pink-700 text-xs px-1.5 py-0.5 rounded font-medium">ON</span>
+                            )}
+                          </span>
+                        </label>
+                        {togglingBroodmare[idStr] && (
+                          <span className="text-xs text-gray-400">更新中...</span>
+                        )}
                       </div>
                     </div>
                   );
